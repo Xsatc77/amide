@@ -1,7 +1,9 @@
 # amide
 Amide is a self-hosted Peptide Tracking System that brings together tracking, scheduling, and research in one place.
 
-Amide is the name of the chemical bond that holds a peptide together, which is much like the goal of this project. A self-hosted method of tracking:
+Amide is the name of the chemical bond that holds a peptide together, which is much like the goal of this project. Every peptide is a chain of amino acids, and each link in that chain is an amide bond. That "bond" idea maps onto what this app does: it links vials, doses, schedules, and logs into one chain of records, allowing you to see where you started, where you are now, as well as finding what works and what did not. At the same time, keeping YOUR health data in YOUR hands, without being held hostage by yet another subscriptuin service
+
+Amide's goal is a self-hosted method of tracking:
 
 - Quick View Dashboard
 - Inventory
@@ -22,3 +24,5 @@ Amide is the name of the chemical bond that holds a peptide together, which is m
 - Health Tracker Integrations (Hume, Apple, etc)
 
 While all of these features may not be active yet, this is the goal.  The system that bonds you & your peptide use together, for long term success.
+
+Amide: every dose, linked.
