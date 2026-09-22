@@ -32,7 +32,7 @@ Amide: every dose, linked.
 LEGAL NOTICE
 
 No information herein constitutes a medical prescription, personal use recommendation, or substitution for professional health guidance.
-The doses, cycles, and protocols described reflect ranges used primarily in the U.S. in research andintegrative medicine contexts. 
+The doses, cycles, and protocols described reflect ranges used primarily in the U.S. in research and integrative medicine contexts. 
 
 Regulatory status varies by country.
 
