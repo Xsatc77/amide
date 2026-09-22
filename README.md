@@ -53,18 +53,31 @@ All of your data (the SQLite database and uploaded COAs) lives in one folder, `d
 docker compose up -d --build
 ```
 
-Then open http://localhost:8000.
+Then open http://localhost:1707 (or `http://<server-ip>:1707` from another device).
+
+To use a different port, copy `.env.example` to `.env` and change `AMIDE_PORT`, then run `docker compose up -d` again.
 
 ### Without Docker (for development)
 
-Requires Python 3.12+.
+Requires Python 3.12+. Run each line one at a time.
+
+**Windows (PowerShell):**
+
+```powershell
+py -m venv .venv
+.venv\Scripts\pip install -r requirements-dev.txt
+.venv\Scripts\python -m app --reload
+```
+
+**macOS / Linux:**
 
 ```bash
-python -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt        # Windows: .venv\Scripts\pip
-.venv/bin/uvicorn app.main:app --reload              # Windows: .venv\Scripts\uvicorn
-.venv/bin/pytest                                     # run the tests
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m app --reload
 ```
+
+Then open http://localhost:1707. Press Ctrl+C to stop. Run the tests with `.venv\Scripts\pytest` (Windows) or `.venv/bin/pytest`.
 
 Database migrations are applied automatically on startup.
 
@@ -72,6 +85,8 @@ Database migrations are applied automatically on startup.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `AMIDE_PORT` | `1707` | Port Amide is reachable on |
+| `AMIDE_HOST` | `127.0.0.1` | Address to listen on when run without Docker (`0.0.0.0` = reachable from other devices) |
 | `AMIDE_DATA_DIR` | `./data` (`/data` in Docker) | Where the database and uploads are stored |
 | `AMIDE_DATABASE_URL` | `sqlite:///<data dir>/amide.db` | Override to use another database |
 | `AMIDE_MAX_UPLOAD_MB` | `15` | Max COA upload size |
@@ -86,6 +101,7 @@ Python · [FastAPI](https://fastapi.tiangolo.com/) · [SQLAlchemy](https://www.s
 
 ```
 app/
+  __main__.py        `python -m app` launcher
   main.py            app entry point
   models.py          database tables
   routers/           pages + JSON API, one file per feature

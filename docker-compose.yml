@@ -3,7 +3,9 @@ services:
     build: .
     container_name: amide
     ports:
-      - "8000:8000"
+      # Port on your machine : port inside the container (leave the 8000).
+      # Change the host port with AMIDE_PORT in a .env file next to this one.
+      - "${AMIDE_PORT:-1707}:8000"
     volumes:
       # The database and all uploaded files live here. Back this folder up.
       - ./data:/data
