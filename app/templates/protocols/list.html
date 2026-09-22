@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% set active_nav = "protocols" %}
+{% block title %}Protocols{% endblock %}
+
+{% macro share_button() %}
+<button type="button" class="btn btn-ghost" disabled title="Email sharing coming soon">Share</button>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Protocols</h1>
+    <p class="muted">{{ active_views | length }} active · {{ saved_views | length }} saved</p>
+  </div>
+</div>
+
+{# ---------- Active protocols ---------- #}
+<section aria-labelledby="active-heading">
+  <h2 id="active-heading" class="section-title">Active protocols</h2>
+  {% if active_views %}
+  <div class="card-grid">
+    {% for v in active_views %}
+    {% set p = v.p %}
+    <article class="protocol-card">
+      <div class="ribbon" aria-hidden="true"><span>Active</span></div>
+      <header class="protocol-card-head">
+        <h3>{{ p.name }}</h3>
+        <div class="tags">{% for g in p.goal_slugs %}<span class="tag">{{ g | goal_label }}</span>{% endfor %}</div>
+      </header>
+      <ul class="dose-list">
+        {% for it in v["items"] %}
+        <li>
+          <strong>{{ it.name }}</strong> — <span class="{{ '' if it.dose_set else 'muted' }}">{{ it.desc }}</span>
+          {% if it.step %}<div class="small step">{{ it.step }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="small muted protocol-dates">
+        Day {{ v.day }} · started {{ p.start_date | shortdate }}<br>
+        {% if p.end_date %}Ends {{ p.end_date | shortdate }}{% else %}Ongoing{% endif %}
+      </p>
+      <footer class="protocol-card-actions">
+        <a class="btn btn-ghost" href="/protocols/{{ p.id }}/edit">Edit</a>
+        <form method="post" action="/protocols/{{ p.id }}/pause" class="inline"><button class="btn btn-ghost">Pause</button></form>
+        <form method="post" action="/protocols/{{ p.id }}/end" class="inline" data-confirm="End “{{ p.name }}” today? It stays in Saved protocols and can be repeated.">
+          <button class="btn btn-ghost">End</button>
+        </form>
+        {{ share_button() }}
+      </footer>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <p><strong>No active protocols.</strong></p>
+    <p class="muted">Pick a goal below to build one.</p>
+  </div>
+  {% endif %}
+</section>
+
+{# ---------- Goal cards ---------- #}
+<section id="goal-cards" aria-labelledby="goals-heading">
+  <div class="section-head">
+    <div>
+      <h2 id="goals-heading" class="section-title">Start a new protocol</h2>
+      <p class="muted small">Choose one or more goals.</p>
+    </div>
+    <a id="build-link" class="btn btn-primary" href="/protocols/new" aria-disabled="true">Build protocol</a>
+  </div>
+  <div class="goal-grid">
+    {% for g in goals %}
+    <button type="button" class="goal-card" data-goal="{{ g.slug }}" aria-pressed="false">
+      <span class="goal-check" aria-hidden="true">✓</span>
+      <strong>{{ g.label }}</strong>
+      <span class="small muted">{{ g.description }}</span>
+    </button>
+    {% endfor %}
+  </div>
+</section>
+
+{# ---------- Saved protocols ---------- #}
+<section id="saved-protocols" aria-labelledby="saved-heading">
+  <div class="section-head">
+    <h2 id="saved-heading" class="section-title">Saved protocols</h2>
+    <div class="chips" role="group" aria-label="Filter saved protocols">
+      <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+      {% for s in statuses if s.value != 'active' %}
+      <button type="button" class="chip" data-filter="{{ s.value }}" aria-pressed="false">{{ s.label }}</button>
+      {% endfor %}
+    </div>
+  </div>
+  {% if saved_views %}
+  <div class="table-wrap">
+    <table class="inv-table saved-table">
+      <thead>
+        <tr><th>Protocol</th><th>Status</th><th>Goals</th><th>Dates</th><th><span class="sr-only">Actions</span></th></tr>
+      </thead>
+      <tbody>
+        {% for v in saved_views %}
+        {% set p = v.p %}
+        <tr data-status="{{ v.status.value }}">
+          <td data-label="Protocol" class="item-name">{{ p.name }}
+            <div class="muted small">{{ v["items"] | map(attribute='name') | join(', ') }}</div>
+          </td>
+          <td data-label="Status"><span class="status status-{{ v.status.value }}">{{ v.status.label }}</span></td>
+          <td data-label="Goals">{{ p.goal_slugs | map('goal_label') | join(', ') }}</td>
+          <td data-label="Dates" class="small">
+            {{ p.start_date | shortdate }} – {{ (p.ended_on or p.end_date) | shortdate or 'ongoing' }}
+          </td>
+          <td class="actions">
+            {% if v.status.value == 'paused' %}
+            <form method="post" action="/protocols/{{ p.id }}/resume" class="inline"><button class="btn btn-ghost">Resume</button></form>
+            {% endif %}
+            <a class="btn btn-ghost" href="/protocols/{{ p.id }}/edit">Edit</a>
+            <a class="btn btn-ghost" href="/protocols/{{ p.id }}/repeat">Repeat</a>
+            {{ share_button() }}
+            <form method="post" action="/protocols/{{ p.id }}/delete" class="inline" data-confirm="Delete “{{ p.name }}” permanently? This can't be undone.">
+              <button class="btn btn-ghost btn-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small empty-filter" hidden>No protocols with this status.</p>
+  {% else %}
+  <p class="muted">Protocols you pause, schedule for later, or end are kept here until you delete them.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/protocols.js') }}" defer></script>
+{% endblock %}

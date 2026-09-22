@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.migrate import upgrade_db
-from app.routers import inventory
+from app.routers import inventory, protocols
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Amide", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(inventory.router)
+app.include_router(protocols.router)
 
 
 @app.get("/", include_in_schema=False)

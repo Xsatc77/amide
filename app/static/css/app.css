@@ -10,6 +10,12 @@
   --accent-text: #ffffff;
   --danger: #b42318;
   --danger-soft: #fee4e2;
+  --ribbon: #facc15;
+  --ribbon-text: #3b2f00;
+  --ribbon-soft: #fef3c7;
+  --ribbon-strong: #92400e;
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px rgb(16 24 40 / 8%);
   color-scheme: light;
@@ -28,6 +34,12 @@
     --accent-text: #04201d;
     --danger: #f97066;
     --danger-soft: #3b1512;
+    --ribbon: #facc15;
+    --ribbon-text: #2a2100;
+    --ribbon-soft: #3a2f0a;
+    --ribbon-strong: #fcd34d;
+    --info: #93c5fd;
+    --info-soft: #172554;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
     color-scheme: dark;
   }
@@ -159,6 +171,63 @@ form.inline { display: inline; }
 .coa-existing[hidden] { display: none; }
 .coa-preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); align-self: flex-start; }
 
+/* ---------- protocols ---------- */
+section + section { margin-top: 36px; }
+.section-title { font-size: 1.1rem; margin: 0 0 12px; }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-head .section-title { margin-bottom: 2px; }
+.section-head p { margin: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.protocol-card {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 18px 10px 18px; box-shadow: var(--shadow);
+}
+.protocol-card-head { padding-left: 34px; }
+.protocol-card-head h3 { margin: 0 0 6px; font-size: 1.1rem; }
+/* Yellow "ACTIVE" band across the top-left corner. */
+.ribbon { position: absolute; top: 0; left: 0; width: 96px; height: 96px; overflow: hidden; pointer-events: none; }
+.ribbon span {
+  position: absolute; top: 18px; left: -30px; width: 130px; transform: rotate(-45deg);
+  background: var(--ribbon); color: var(--ribbon-text); text-align: center;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 0;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+}
+.dose-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dose-list .step { color: var(--accent); font-weight: 600; margin-top: 1px; }
+.protocol-dates { margin: 0; }
+.protocol-card-actions { display: flex; flex-wrap: wrap; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: auto; }
+
+.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.goal-card {
+  position: relative; text-align: left; font: inherit; color: var(--text); cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+}
+.goal-card:hover { border-color: var(--accent); }
+.goal-card[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.goal-check {
+  position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.75rem; font-weight: 700;
+  background: var(--accent); color: var(--accent-text); opacity: 0; transition: opacity 0.1s;
+}
+.goal-card[aria-pressed="true"] .goal-check { opacity: 1; }
+a.btn { display: inline-block; text-decoration: none; }
+.btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 0.85rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+.status-scheduled { background: var(--info-soft); color: var(--info); }
+.status-paused { background: var(--ribbon-soft); color: var(--ribbon-strong); }
+.status-ended { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.status-active { background: var(--ribbon); color: var(--ribbon-text); }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }
@@ -176,4 +245,5 @@ form.inline { display: inline; }
   .item-form .grid, .dates { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
   .footer { padding-bottom: 80px; }
+  .card-grid, .goal-grid { grid-template-columns: 1fr; }
 }

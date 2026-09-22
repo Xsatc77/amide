@@ -3,6 +3,8 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
+from app.goals import GOALS_BY_SLUG
+
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
@@ -21,3 +23,4 @@ def shortdate(value: date | None) -> str:
 templates.env.filters["money"] = money
 templates.env.filters["mg"] = mg
 templates.env.filters["shortdate"] = shortdate
+templates.env.filters["goal_label"] = lambda slug: GOALS_BY_SLUG[slug].label if slug in GOALS_BY_SLUG else slug

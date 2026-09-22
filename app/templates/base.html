@@ -16,7 +16,7 @@
     <nav class="nav">
       {% set active = active_nav | default('') %}
       <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">Inventory</a>
-      <span class="soon" title="Coming soon">Protocols</span>
+      <a href="/protocols" class="{{ 'active' if active == 'protocols' }}">Protocols</a>
       <span class="soon" title="Coming soon">Dosing</span>
       <span class="soon" title="Coming soon">Calculator</span>
     </nav>
