@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Amide{% endblock %} · Amide</title>
+  <link rel="icon" href="{{ url_for('static', path='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <img src="{{ url_for('static', path='favicon.svg') }}" alt="" width="28" height="28">
+      <span>Amide</span>
+    </a>
+    <nav class="nav">
+      {% set active = active_nav | default('') %}
+      <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">Inventory</a>
+      <span class="soon" title="Coming soon">Protocols</span>
+      <span class="soon" title="Coming soon">Dosing</span>
+      <span class="soon" title="Coming soon">Calculator</span>
+    </nav>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">Amide — every dose, linked. For personal record-keeping only; not medical advice.</footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

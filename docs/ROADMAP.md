@@ -1,0 +1,138 @@
+# Amide Roadmap
+
+Where Amide is today, and the path from here to the full feature list in the README.
+
+Each phase is a usable release on its own. Phases are ordered by **data dependency**: later features read records created by earlier ones, so we build the chain from the bottom up — *stock → vials → protocols → doses → everything that analyzes doses*.
+
+---
+
+## Where we are: v0.1 — Inventory ✅
+
+- Inventory table: name, count, vial size (mg), medium, lot/batch #, cost, vendor, order / shipped / arrival dates, COA upload (photo/PDF) with lab-measured vial size and purity, notes
+- Flags items whose lab-measured amount is more than 10% below the labeled vial size
+- **+ Add item** form, edit, delete, COA viewer
+- Read-only JSON API (`/api/inventory`) for upcoming features to build on
+- SQLite database with migrations, Docker deployment, automated tests
+
+---
+
+## The target data model
+
+This is where the chain is headed. Only `InventoryItem` exists today.
+
+```mermaid
+erDiagram
+    Vendor ||--o{ Order : "sells via"
+    Order ||--o{ InventoryItem : "received as"
+    Vendor ||--o{ InventoryItem : supplies
+    Peptide ||--o{ InventoryItem : "is a"
+    InventoryItem ||--o{ ActiveVial : "reconstituted/opened into"
+    Peptide ||--o{ Protocol : "used in"
+    Protocol ||--o{ TitrationStep : "ramps through"
+    Protocol ||--o{ DoseLog : schedules
+    ActiveVial ||--o{ DoseLog : "drawn from"
+    DoseLog }o--o| JournalEntry : "noted in"
+```
+
+Key idea: **InventoryItem** is *sealed stock on the shelf* (count = 5 vials). When you reconstitute or open one, it becomes an **ActiveVial** with its own concentration, open date, and remaining amount. Doses are drawn from active vials, which is how Amide will know how much is left and when to reorder.
+
+---
+
+## Phase 1 — v0.2: Inventory foundations
+
+Firm up the base before anything depends on it.
+
+- **Medium-aware form.** Fields adapt to the medium chosen:
+  - Lyophilized / Liquid → vial size (mg), and for liquid: concentration (mg/mL) and volume
+  - Autoinjector / Pen → mg per pen, doses or clicks per pen
+  - Pill → mg per pill, pills per bottle
+  - Inhaler / Drops / Salve → amount + unit
+- **Units.** Support mg, mcg, and IU, not just mg.
+- **Required fields** per medium (e.g. vial size required for Lyophilized).
+- **More stock details:** expiration date, storage (fridge / freezer / room temp).
+- **Vendors as their own table** (pick from a list, not free text). This becomes *Personal Distributor Contacts* in Phase 5.
+- **Search, sort, filter** on the inventory list.
+- **Login (single user)** and **backup/export** (JSON + CSV download, restore). Needed before anyone reaches Amide from outside their home network.
+
+## Phase 2 — v0.3: Reconstitution Calculator + Active Vials
+
+- **Calculator:** vial mg + bacteriostatic water mL + desired dose → concentration, **units to draw on a U-100 syringe**, and doses per vial. Syringe size picker (0.3 / 0.5 / 1 mL) with a visual fill line.
+- Works standalone, *or* pre-filled by picking an inventory item.
+- **"Reconstitute" action:** takes 1 from inventory count → creates an Active Vial with concentration, date mixed, and a discard-by date (configurable, e.g. 28 days).
+- Active vial list: remaining mg / doses, days until discard.
+
+## Phase 3 — v0.4: Protocols, Titration & Daily Dosing *(the core loop)*
+
+- **Protocols:** peptide, dose, route (SubQ / IM / oral / nasal / topical), frequency (daily, every X days, specific weekdays, weekly, cycles like 5 on / 2 off), time of day, start/end date.
+- **Titration schedules:** protocol steps, e.g. weeks 1–4 at 2.5 mg, weeks 5–8 at 5 mg. Amide knows the current step automatically.
+- **Today view:** doses due today. Tap to log → picks the active vial, deducts the amount, records time and **injection site** (with site rotation suggestions).
+- Skip / missed / late dose handling; adherence history.
+- **Peptide pen tracking:** pens are active vials measured in clicks or doses.
+
+## Phase 4 — v0.5: Quick View Dashboard
+
+- Today's doses and what's already done
+- Low stock and "runs out on…" predictions (from protocol usage × inventory)
+- Vials nearing their discard date
+- Adherence streak, current titration step per protocol
+- **Reminders:** browser push notifications and/or [ntfy](https://ntfy.sh) / email
+- **Installable phone app (PWA)** so Amide opens from your home screen like a native app
+
+## Phase 5 — v0.6: Orders & Distributor Contacts
+
+- **Vendor contacts:** name, website, contact methods, payment notes, rating, private notes
+- **Order tracking:** order date, vendor, line items, shipping/tracking #, status (ordered → shipped → received)
+- **Receiving an order creates inventory automatically**, with COA attached
+- **Cost analytics:** cost per mg, cost per dose, monthly spend per peptide
+
+## Phase 6 — v0.7: Body & Health Tracking
+
+- **Weight & measurements** (waist, hips, body fat %, etc.) with trend charts
+- **Macros:** water, protein, and fiber daily targets and logging
+- **Journal:** daily entries: mood, energy, sleep, side effects, free text. Linked to that day's doses, so you can see *what works and what didn't*.
+- **Labs & medical results:** upload PDFs, enter values with reference ranges, chart markers over time and overlay against protocols
+
+## Phase 7 — v0.8: Exercise
+
+- Build plans (days → exercises → sets/reps/weight)
+- Log workouts, track progression and personal records
+- Show workouts alongside dosing and body metrics
+
+## Phase 8 — v0.9: Peptide Library & Learning
+
+- **Library:** a reference entry per peptide (aliases, common vial sizes, storage, typical reconstitution, half-life, notes, sources). Starts from a small seed file you can extend; inventory and protocols link to it.
+- **Learning:** personal notes, saved articles and studies, tagged by peptide.
+- Needs care on **sourcing and legal wording**. Everything framed as reference, never as dosing advice (consistent with the README's legal notice).
+
+## Phase 9 — v1.0: Integrations & Polish
+
+- **Health trackers.** How realistic each one is:
+  - *Apple Health* has no web API. Realistic options: import Apple Health's `export.zip`, or an **iOS Shortcut** that posts data to Amide's API.
+  - *Google Health Connect* is on-device only (same approach: companion Shortcut/app or file import).
+  - *Withings, Fitbit, Oura, Hume*: check each for an available cloud API; OAuth connectors where possible.
+  - Requires **personal API tokens** in Amide.
+- Charts correlating any metric against doses/protocols
+- Multi-user / household support (if wanted)
+- Themes, accessibility pass, full documentation
+
+---
+
+## Cross-cutting work (ongoing, alongside the phases)
+
+| Area | Plan |
+| --- | --- |
+| **CI** | GitHub Actions: run tests on every push; build and publish Docker image to GitHub Container Registry on tags |
+| **Releases** | Semantic versions (`v0.2.0`…), changelog, migrations always forward-compatible |
+| **Backups** | Scheduled automatic backup of `data/` (Phase 1), restore tested in CI |
+| **Security** | Login (Phase 1), CSRF protection on forms, upload validation (done), guidance for reverse proxy + HTTPS |
+| **Data ownership** | Full export at any time in open formats (JSON/CSV); no telemetry, no external calls unless you enable an integration |
+
+---
+
+## Open questions (decisions for the owner)
+
+1. **Cost:** is it *total paid for the line* or *price per unit*? (Today it's a single "Cost" field. Per-unit vs. total matters for cost-per-dose math.)
+2. **Count on reconstitution:** should reconstituting a vial automatically reduce the inventory count? (Proposed: yes.)
+3. **Remote access:** will Amide be reachable only at home, via VPN (e.g. Tailscale), or publicly? This decides how much auth to build in Phase 1.
+4. **Users:** just you, or a household/partner with separate logs?
+5. **Units:** do any of your items use IU (e.g. HCG, HGH) so Phase 1 must handle IU from day one?

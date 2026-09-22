@@ -1,0 +1,10 @@
+services:
+  amide:
+    build: .
+    container_name: amide
+    ports:
+      - "8000:8000"
+    volumes:
+      # The database and all uploaded files live here. Back this folder up.
+      - ./data:/data
+    restart: unless-stopped
