@@ -19,5 +19,6 @@ Amide is the name of the chemical bond that holds a peptide together, which is m
 - Journal
 - Peptide Library
 - Peptide Learning
+- Health Tracker Integrations (Hume, Apple, etc)
 
 While all of these features may not be active yet, this is the goal.  The system that bonds you & your peptide use together, for long term success.
