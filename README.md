@@ -26,3 +26,14 @@ Amide's goal is a self-hosted method of tracking:
 While all of these features may not be active yet, this is the goal.  The system that bonds you & your peptide use together, for long term success.
 
 Amide: every dose, linked.
+
+
+
+LEGAL NOTICE
+
+No information herein constitutes a medical prescription, personal use recommendation, or substitution for professional health guidance.
+The doses, cycles, and protocols described reflect ranges used primarily in the U.S. in research andintegrative medicine contexts. 
+
+Regulatory status varies by country.
+
+Always remember: Consult a doctor before using any substance. Responsible use begins with information and adequate professional guidance.
