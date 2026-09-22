@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import InventoryItem  # noqa: E402
+from app.models import InventoryItem, Peptide, PeptideSource, Protocol  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -27,6 +27,8 @@ def client():
 def clean(client):
     yield
     with SessionLocal() as s:
+        s.query(Protocol).delete()
+        s.query(Peptide).filter(Peptide.source == PeptideSource.CUSTOM).delete()
         s.query(InventoryItem).delete()
         s.commit()
     for f in config.COA_DIR.glob("*"):
