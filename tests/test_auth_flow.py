@@ -293,3 +293,12 @@ def test_a_code_cannot_be_used_twice(fresh):
     fresh.post("/login", data={"username": "replay", "password": PW})
     r = fresh.post("/login/2fa", data={"code": pyotp.TOTP(secret).now()})
     assert r.status_code == 422 and "already used" in text(r)
+
+
+def test_static_links_change_when_files_change(fresh):
+    """CSS/JS links carry the file's modification time, so browsers fetch updates without a hard refresh."""
+    t = fresh.get("/notice").text
+    css = re.search(r'href="(/static/css/app\.css\?v=\d+)"', t)
+    js = re.search(r'src="(/static/js/auth\.js\?v=\d+)"', t)
+    assert css and js
+    assert fresh.get(css.group(1)).status_code == 200
