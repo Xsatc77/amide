@@ -507,6 +507,28 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-due-list li { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); }
 .cal-due-dose { font-weight: 600; }
 
+/* ---------- reconstitution calculator ---------- */
+.calc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.calc-form .form-section { padding-bottom: 16px; }
+.calc-result { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.calc-units { text-align: center; font-size: 3rem; font-weight: 800; color: var(--accent); line-height: 1; }
+.calc-units-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+.calc-syringe-visual { display: flex; flex-direction: column; gap: 4px; }
+.calc-syringe-barrel { position: relative; height: 34px; border: 2px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; }
+.calc-syringe-fill { position: absolute; inset: 0; width: 0; background: var(--accent-soft); border-right: 2px solid var(--accent); transition: width 0.15s ease; }
+.calc-syringe-fill.over { background: var(--danger-soft); border-color: var(--danger); }
+.calc-syringe-ticks { position: absolute; inset: 0; }
+.calc-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); }
+.calc-syringe-scale { position: relative; height: 16px; font-size: 0.7rem; color: var(--muted); }
+.calc-syringe-scale span { position: absolute; transform: translateX(-50%); }
+.calc-kv { font-size: 0.95rem; }
+.calc-kv dt { font-size: 0.8rem; }
+.calc-target, .calc-reference { border-top: 1px solid var(--border); padding-top: 14px; }
+.calc-target summary, .calc-reference summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+.calc-target .grid, .calc-reference table { margin-top: 10px; }
+.ref-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.ref-table th, .ref-table td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }
@@ -525,6 +547,8 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .span-2 { grid-column: auto; }
   .footer { padding-bottom: 80px; }
   .card-grid, .goal-grid { grid-template-columns: 1fr; }
+  .calc-layout { grid-template-columns: 1fr; }
+  .calc-result { position: static; }
   .cal-month-head, .cal-month-row { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
   .cal-month-row { grid-template-rows: 26px repeat(4, 16px) 18px; }
   .cal-month-head span { padding: 6px 2px; text-align: center; font-size: 0.65rem; }

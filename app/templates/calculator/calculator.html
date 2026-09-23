@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% set active_nav = "calculator" %}
+{% block title %}Calculator{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Reconstitution calculator</h1>
+    <p class="muted">Vial + BAC water + dose → concentration, draw volume and U-100 syringe units.</p>
+  </div>
+</div>
+
+<div class="calc-layout">
+  <form id="calc-form" class="builder-step calc-form" novalidate>
+    <fieldset class="form-section">
+      <legend>Vial</legend>
+      <div class="grid">
+        {% if data.inventory %}
+        <label class="field span-2">
+          <span>From inventory <span class="muted small">(lyophilized items only)</span></span>
+          <select id="calc-inventory">
+            <option value="">— Choose an item —</option>
+            {% for i in data.inventory %}<option value="{{ i.vial_mg }}">{{ i.name }} ({{ '%g' % i.vial_mg }} mg)</option>{% endfor %}
+          </select>
+        </label>
+        {% endif %}
+        <label class="field">
+          <span>Vial amount (mg)</span>
+          <input id="calc-vial" type="number" min="0" step="any" inputmode="decimal" value="{{ state.vial_mg }}">
+        </label>
+        <div class="field">
+          <span class="small muted">Presets</span>
+          <div class="chips">{% for mg in (5, 10, 15, 20, 30) %}<button type="button" class="chip" data-fill="calc-vial" data-value="{{ mg }}">{{ mg }} mg</button>{% endfor %}</div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>BAC water</legend>
+      <div class="grid">
+        <label class="field">
+          <span>Water added (mL)</span>
+          <input id="calc-water" type="number" min="0" step="any" inputmode="decimal" value="{{ state.water_ml }}">
+        </label>
+        <div class="field">
+          <span class="small muted">Presets</span>
+          <div class="chips">{% for ml in (1, 2, 3) %}<button type="button" class="chip" data-fill="calc-water" data-value="{{ ml }}">{{ ml }} mL</button>{% endfor %}</div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Dose</legend>
+      <div class="grid">
+        {% if data.protocol_doses %}
+        <label class="field span-2">
+          <span>From a protocol</span>
+          <select id="calc-protocol-dose">
+            <option value="">— Choose a dose —</option>
+            {% for p in data.protocol_doses %}<option value="{{ p.dose }}|{{ p.unit }}">{{ p.protocol }} — {{ p.peptide }} ({{ '%g' % p.dose }} {{ p.unit }})</option>{% endfor %}
+          </select>
+        </label>
+        {% endif %}
+        <label class="field">
+          <span>Dose amount</span>
+          <input id="calc-dose" type="number" min="0" step="any" inputmode="decimal" value="{{ state.dose_value }}">
+        </label>
+        <label class="field">
+          <span>Unit</span>
+          <select id="calc-dose-unit">
+            <option value="mg" {{ 'selected' if state.dose_unit == 'mg' }}>mg</option>
+            <option value="mcg" {{ 'selected' if state.dose_unit == 'mcg' }}>mcg</option>
+          </select>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Syringe</legend>
+      <div class="chips" id="calc-syringe">
+        {% for ml, units in capacities.items() %}
+        <button type="button" class="chip" data-syringe="{{ ml }}" aria-pressed="{{ 'true' if state.syringe_ml | float == ml else 'false' }}">{{ ml }} mL <span class="small">({{ units }}u)</span></button>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </form>
+
+  <div class="calc-result builder-step">
+    <div id="calc-warning" class="alert" role="alert" hidden></div>
+    <div class="calc-units" id="calc-units-value">
+      {{ '%g' % result.units if result.units is not none else '—' }}<span class="calc-units-label">units</span>
+    </div>
+    <div class="calc-syringe-visual" aria-hidden="true">
+      <div class="calc-syringe-barrel">
+        <div class="calc-syringe-fill" id="calc-fill" style="width: 0%"></div>
+        <div class="calc-syringe-ticks" id="calc-ticks"></div>
+      </div>
+      <div class="calc-syringe-scale" id="calc-scale"></div>
+    </div>
+    <dl class="kv calc-kv">
+      <dt>Concentration</dt><dd id="calc-concentration">{% if result.concentration_mg_ml is not none %}{{ '%g' % result.concentration_mg_ml }} mg/mL <span class="muted">({{ '%g' % result.concentration_mcg_ml }} mcg/mL)</span>{% else %}—{% endif %}</dd>
+      <dt>Draw volume</dt><dd id="calc-draw">{{ '%g' % result.draw_ml ~ ' mL' if result.draw_ml is not none else '—' }}</dd>
+      <dt>Doses per vial</dt><dd id="calc-doses">{{ result.doses_per_vial if result.doses_per_vial is not none else '—' }}</dd>
+    </dl>
+
+    <details class="calc-target">
+      <summary>Solve water for a target unit mark</summary>
+      <p class="muted small">Want the draw to land on a round number? Enter the units you'd like, and this works out how much BAC water to add for the vial and dose above.</p>
+      <div class="grid">
+        <label class="field"><span>Target units</span><input id="calc-target-units" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 20"></label>
+        <div class="field"><span class="small muted">Recommended water</span><strong id="calc-target-result">—</strong></div>
+      </div>
+    </details>
+
+    <details class="calc-reference">
+      <summary>Reference: U-100 units ↔ mL</summary>
+      <table class="ref-table">
+        <thead><tr><th>Units</th><th>mL</th></tr></thead>
+        <tbody>{% for u in (1, 2.5, 5, 10, 20, 30, 50, 100) %}<tr><td>{{ u }}</td><td>{{ '%g' % (u / 100) }}</td></tr>{% endfor %}</tbody>
+      </table>
+      <p class="muted small">1 mg = 1,000 mcg. Syringe units measure liquid volume, not peptide weight — the amount per unit depends on concentration.</p>
+    </details>
+  </div>
+</div>
+
+<script type="application/json" id="calc-data">{{ data | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/calculator.js') }}" defer></script>
+{% endblock %}

@@ -20,7 +20,7 @@
       <a href="/calendar" class="{{ 'active' if active == 'calendar' }}">Calendar</a>
       <a href="/library" class="{{ 'active' if active == 'library' }}">Library</a>
       <span class="soon" title="Coming soon">Dosing</span>
-      <span class="soon" title="Coming soon">Calculator</span>
+      <a href="/calculator" class="{{ 'active' if active == 'calculator' }}">Calculator</a>
     </nav>
     {% set me = request.state.user %}
     {% if me %}
