@@ -201,7 +201,9 @@ section + section { margin-top: 36px; }
 .protocol-dates { margin: 0; }
 .protocol-card-actions { display: flex; flex-wrap: wrap; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: auto; }
 
-.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+/* 8 goals: two rows of four on wide screens, two columns on tablets, one on phones. */
+.goal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 960px) { .goal-grid { grid-template-columns: repeat(2, 1fr); } }
 .goal-card {
   position: relative; text-align: left; font: inherit; color: var(--text); cursor: pointer;
   display: flex; flex-direction: column; gap: 4px;
