@@ -17,13 +17,23 @@ def provisioning_uri(secret: str, username: str) -> str:
     return pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name=ISSUER)
 
 
-def verify(secret: str, code: str, now: datetime | None = None) -> bool:
-    """Accepts the current code and one step either side (phone clocks drift a little)."""
+def matching_step(secret: str, code: str, now: datetime | None = None) -> int | None:
+    """The 30-second step the code belongs to, if it's the current one or one step either side
+    (phone clocks drift a little); None if it doesn't match."""
     code = (code or "").replace(" ", "")
-    if not (code.isdigit() and len(code) == 6):
-        return False
+    if not secret or not (code.isdigit() and len(code) == 6):
+        return None
+    t = pyotp.TOTP(secret)
     when = (now or datetime.now(timezone.utc).replace(tzinfo=None)).replace(tzinfo=timezone.utc)
-    return pyotp.TOTP(secret).verify(code, for_time=when, valid_window=1)
+    for offset in (0, -1, 1):
+        step = t.timecode(when) + offset
+        if pyotp.utils.strings_equal(code, t.generate_otp(step)):
+            return step
+    return None
+
+
+def verify(secret: str, code: str, now: datetime | None = None) -> bool:
+    return matching_step(secret, code, now) is not None
 
 
 def qr_svg(uri: str) -> str:

@@ -25,6 +25,7 @@ def upgrade() -> None:
         sa.Column('is_admin', sa.Boolean(), nullable=False),
         sa.Column('totp_secret', sa.String(length=64), nullable=True),
         sa.Column('totp_enabled', sa.Boolean(), nullable=False),
+        sa.Column('totp_last_step', sa.Integer(), nullable=True),
         sa.Column('failed_attempts', sa.Integer(), nullable=False),
         sa.Column('locked_until', sa.DateTime(), nullable=True),
         sa.Column('notice_accepted_at', sa.DateTime(), nullable=True),

@@ -13,14 +13,30 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import InventoryItem, Peptide, PeptideSource, Protocol  # noqa: E402
+from app.models import InventoryItem, Peptide, PeptideSource, Protocol, User  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+
+TEST_USER = "Tester"
+TEST_PASSWORD = "Test1!"
 
 
 @pytest.fixture(scope="session")
 def client():
+    """A browser that accepted the legal notice and registered the first account (the admin)."""
     with TestClient(app) as c:  # runs startup: creates dirs + migrates
+        assert c.post("/notice", data={"understand": "1"}).status_code == 200
+        r = c.post("/register", data={"username": TEST_USER, "password": TEST_PASSWORD, "confirm": TEST_PASSWORD})
+        assert r.status_code == 200 and r.url.path == "/protocols", r.text
         yield c
     shutil.rmtree(_TMP, ignore_errors=True)
+
+
+@pytest.fixture
+def me(client):
+    """The signed-in test user's id."""
+    with SessionLocal() as s:
+        return s.scalar(select(User.id).where(User.username_key == TEST_USER.lower()))
 
 
 @pytest.fixture(autouse=True)

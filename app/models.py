@@ -252,6 +252,8 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     totp_secret: Mapped[str | None] = mapped_column(String(64))
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Last 30-second step a code was accepted for: a code can't be used twice.
+    totp_last_step: Mapped[int | None] = mapped_column(Integer)
     failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime)
     notice_accepted_at: Mapped[datetime | None] = mapped_column(DateTime)

@@ -6,8 +6,9 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import config
+from app.auth import gate
 from app.migrate import upgrade_db
-from app.routers import inventory, library, protocols
+from app.routers import auth, inventory, library, protocols
 
 
 @asynccontextmanager
@@ -19,6 +20,8 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Amide", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+gate.install(app)
+app.include_router(auth.router)
 app.include_router(inventory.router)
 app.include_router(protocols.router)
 app.include_router(library.router)
@@ -26,7 +29,7 @@ app.include_router(library.router)
 
 @app.get("/", include_in_schema=False)
 def index():
-    return RedirectResponse("/inventory")
+    return RedirectResponse(auth.HOME)
 
 
 @app.get("/healthz", include_in_schema=False)

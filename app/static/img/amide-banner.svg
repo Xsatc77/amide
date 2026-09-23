@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" role="img" aria-labelledby="t d">
+  <title id="t">Amide</title>
+  <desc id="d">Amide — every dose, linked. A chain of linked beads, like amino acids joined by amide bonds.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#134e4a"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="200" rx="28" fill="url(#bg)"/>
+  <!-- peptide chain: beads joined by bonds -->
+  <g stroke="#99f6e4" stroke-width="6" stroke-linecap="round" opacity="0.9">
+    <line x1="70" y1="120" x2="120" y2="80"/>
+    <line x1="120" y1="80" x2="170" y2="120"/>
+    <line x1="170" y1="120" x2="220" y2="80"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="70" cy="120" r="17"/>
+    <circle cx="120" cy="80" r="17"/>
+    <circle cx="170" cy="120" r="17"/>
+    <circle cx="220" cy="80" r="17"/>
+  </g>
+  <text x="268" y="116" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="72"
+        font-weight="800" fill="#ffffff" letter-spacing="1">Amide</text>
+  <text x="272" y="150" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20"
+        font-weight="500" fill="#ccfbf1" letter-spacing="2">EVERY DOSE, LINKED</text>
+</svg>

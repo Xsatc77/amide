@@ -1,0 +1,12 @@
+{% extends "auth/layout.html" %}
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="auth-card welcome-card">
+  <p class="muted">Your peptides, protocols and doses — self-hosted and private.</p>
+  <div class="welcome-actions">
+    <a class="btn btn-primary btn-big" href="/register">New User</a>
+    <a class="btn btn-big" href="/login">Login</a>
+  </div>
+</div>
+{% endblock %}

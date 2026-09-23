@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Two-factor authentication{% endblock %}
+
+{% block content %}
+<div class="page-head"><div><h1>Two-factor authentication</h1>
+  <p class="muted">A 6-digit code from an app on your phone, asked for after your password.</p></div></div>
+
+<div class="builder-step twofa">
+  {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+  {% if enabled %}
+  <p><span class="status status-active">On</span> Two-factor authentication is protecting your account.</p>
+  <form method="post" action="/account/2fa" class="twofa-confirm" novalidate>
+    <input type="hidden" name="action" value="disable">
+    <label class="field"><span>To turn it off, enter a current code</span>
+      <input name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label>
+    <button type="submit" class="btn btn-danger">Turn off</button>
+  </form>
+  {% else %}
+  <ol class="twofa-steps">
+    <li><strong>Install an authenticator app</strong> on your phone if you don't have one — e.g. Google Authenticator,
+      Microsoft Authenticator, Authy, 1Password or Bitwarden.</li>
+    <li><strong>Scan this code</strong> in the app (add account → scan QR code):
+      <div class="qr" data-secret="{{ secret }}">{{ qr | safe }}</div>
+      <span class="muted small">Can't scan? Choose "enter a setup key" and type:</span>
+      <code class="secret">{{ secret_groups }}</code>
+    </li>
+    <li><strong>Enter the 6-digit code</strong> the app now shows for Amide:
+      <form method="post" action="/account/2fa" class="twofa-confirm" novalidate>
+        <input type="hidden" name="action" value="enable">
+        <input name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="7"
+               aria-label="6-digit code" required autofocus>
+        <button type="submit" class="btn btn-primary">Turn on</button>
+      </form>
+    </li>
+  </ol>
+  <p class="muted small">Keep your phone safe: there are no backup codes. If you lose it, the server admin can reset
+    two-factor for your account (<code>python -m app.users reset-2fa &lt;username&gt;</code>).</p>
+  <p><a href="/protocols">Set up later</a></p>
+  {% endif %}
+</div>
+{% endblock %}

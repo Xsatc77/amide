@@ -1,0 +1,22 @@
+{% extends "auth/layout.html" %}
+{% from "auth/_password.html" import password_input %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<form method="post" action="/login" class="auth-card" novalidate>
+  <h1>Login</h1>
+  {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+
+  <label class="field" for="username">
+    <span>Username</span>
+    <input name="username" id="username" value="{{ f.username or '' }}" autocomplete="username" autocapitalize="none"
+           spellcheck="false" maxlength="32" required autofocus>
+  </label>
+  {{ password_input("password", "password", "Password", "current-password") }}
+
+  <div class="auth-actions">
+    <a class="btn" href="/register">Add New User</a>
+    <button type="submit" class="btn btn-primary">Okay</button>
+  </div>
+</form>
+{% endblock %}

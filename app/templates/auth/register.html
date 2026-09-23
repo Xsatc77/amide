@@ -1,0 +1,36 @@
+{% extends "auth/layout.html" %}
+{% from "auth/_password.html" import password_input %}
+{% block title %}New user{% endblock %}
+
+{% block content %}
+<form method="post" action="/register" class="auth-card" novalidate>
+  <h1>New user</h1>
+  {% if errors %}
+  <div class="alert" role="alert"><ul class="plain-list">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+  {% endif %}
+
+  <label class="field" for="username">
+    <span>Username <span class="muted small">(not case sensitive)</span></span>
+    <input name="username" id="username" value="{{ f.username or '' }}" autocomplete="username" autocapitalize="none"
+           spellcheck="false" maxlength="32" required>
+  </label>
+
+  {{ password_input("password", "password", "Password (case sensitive)", "new-password") }}
+  {{ password_input("confirm", "confirm", "Re-enter password", "new-password") }}
+
+  <ul class="rules" id="pw-rules" data-min="{{ min_length }}" aria-live="polite">
+    {% for r in rules %}<li data-rule="{{ r.key }}"><span class="tick" aria-hidden="true">✓</span>{{ r.label }}</li>{% endfor %}
+    <li data-rule="match"><span class="tick" aria-hidden="true">✓</span>Passwords match</li>
+  </ul>
+
+  <label class="check">
+    <input type="checkbox" name="twofa" value="1" {{ 'checked' if f.twofa }}>
+    <span>2-Factor Authentication? <span class="muted small">You'll set it up with an authenticator app next.</span></span>
+  </label>
+
+  <div class="auth-actions">
+    <a class="btn" href="/welcome">Back</a>
+    <button type="submit" class="btn btn-primary" id="register-ok">Okay</button>
+  </div>
+</form>
+{% endblock %}

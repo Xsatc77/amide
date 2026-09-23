@@ -1,0 +1,21 @@
+{% extends "auth/layout.html" %}
+{% block title %}Legal notice{% endblock %}
+
+{% block content %}
+<form method="post" action="/notice" class="auth-card notice-card" novalidate>
+  <div class="legal-notice" role="note" aria-labelledby="legal-title">
+    <h1 id="legal-title">LEGAL NOTICE</h1>
+    <p>No information herein constitutes a medical prescription, personal use recommendation, or substitution for professional health guidance. The doses, cycles, and protocols described reflect ranges used primarily in the U.S. in research and integrative medicine contexts.</p>
+    <p>Regulatory status varies by country.</p>
+    <p>Always remember: Consult a doctor before using any substance. Responsible use begins with information and adequate professional guidance.</p>
+  </div>
+
+  <label class="check understand">
+    <input type="checkbox" name="understand" value="1" id="notice-check">
+    <span>I Understand The Safety Statement Above</span>
+  </label>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+  <button type="submit" class="btn btn-primary btn-wide" id="notice-ok" disabled>Okay</button>
+</form>
+{% endblock %}

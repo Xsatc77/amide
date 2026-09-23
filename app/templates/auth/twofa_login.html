@@ -1,0 +1,20 @@
+{% extends "auth/layout.html" %}
+{% block title %}Two-factor code{% endblock %}
+
+{% block content %}
+<form method="post" action="/login/2fa" class="auth-card" novalidate>
+  <h1>Two-factor code</h1>
+  <p class="muted">Open your authenticator app and enter the 6-digit code for Amide.</p>
+  {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+  <label class="field" for="code">
+    <span>Code</span>
+    <input name="code" id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*"
+           maxlength="7" required autofocus>
+  </label>
+  <div class="auth-actions auth-actions-end">
+    <button type="submit" class="btn btn-primary">Okay</button>
+  </div>
+</form>
+{# Cancel is its own form so pressing Enter in the code box always means Okay. #}
+<form method="post" action="/logout" class="cancel-form"><button type="submit" class="btn btn-ghost">Cancel — back to welcome</button></form>
+{% endblock %}

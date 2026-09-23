@@ -21,11 +21,32 @@
       <span class="soon" title="Coming soon">Dosing</span>
       <span class="soon" title="Coming soon">Calculator</span>
     </nav>
+    {% set me = request.state.user %}
+    {% if me %}
+    <details class="user-menu">
+      <summary aria-label="Account menu for {{ me.username }}">
+        <span class="avatar" aria-hidden="true">{{ me.initial }}</span>
+        <span class="user-name">{{ me.username }}</span>
+      </summary>
+      <div class="user-menu-panel">
+        <a href="/account/2fa">Two-factor authentication: {{ 'On' if me.totp_enabled else 'Off' }}</a>
+        <form method="post" action="/logout"><button type="submit">Log out</button></form>
+      </div>
+    </details>
+    {% endif %}
   </header>
   <main class="page">
     {% block content %}{% endblock %}
   </main>
   <footer class="footer">Amide — every dose, linked. For personal record-keeping only; not medical advice.</footer>
   {% block scripts %}{% endblock %}
+  <script>
+    // Keep the session alive while this tab is open; when the session has ended, start over at the notice.
+    setInterval(() => {
+      fetch("/session/ping", { method: "POST" })
+        .then((r) => { if (r.status === 401) location.href = "/notice"; })
+        .catch(() => {});
+    }, 60000);
+  </script>
 </body>
 </html>
