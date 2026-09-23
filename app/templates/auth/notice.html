@@ -1,6 +1,8 @@
 {% extends "auth/layout.html" %}
 {% block title %}Legal notice{% endblock %}
 
+{% block page_class %}big-banner{% endblock %}
+
 {% block content %}
 <form method="post" action="/notice" class="auth-card notice-card" novalidate>
   <div class="legal-notice" role="note" aria-labelledby="legal-title">

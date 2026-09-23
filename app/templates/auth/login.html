@@ -2,6 +2,8 @@
 {% from "auth/_password.html" import password_input %}
 {% block title %}Login{% endblock %}
 
+{% block page_class %}big-banner{% endblock %}
+
 {% block content %}
 <form method="post" action="/login" class="auth-card" novalidate>
   <h1>Login</h1>
