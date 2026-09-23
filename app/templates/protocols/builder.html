@@ -45,8 +45,11 @@
     <p class="muted small">Suggested for your goals. Untick what you don't want, or add any peptide.</p>
     <div id="b-suggest" class="suggest-grid"></div>
     <div class="add-peptide">
-      <input id="b-add-input" list="b-peptide-list" placeholder="Add a peptide — search the library or type a new name" autocomplete="off">
-      <datalist id="b-peptide-list"></datalist>
+      <div class="typeahead">
+        <input id="b-add-input" role="combobox" aria-expanded="false" aria-controls="b-add-list" aria-autocomplete="list"
+               placeholder="Add a peptide — start typing to search the library" autocomplete="off">
+        <ul id="b-add-list" class="typeahead-list" role="listbox" hidden></ul>
+      </div>
       <button type="button" class="btn" id="b-add-btn">Add</button>
     </div>
     <small class="error" id="b-add-msg" hidden></small>

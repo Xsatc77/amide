@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% set active_nav = "library" %}
+{% block title %}{{ p.name }}{% endblock %}
+
+{% macro bullets(items) %}{% if items %}<ul class="bullets">{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="page-head lib-head">
+  <div>
+    <p class="small"><a href="/library">← Library</a></p>
+    <h1>{{ p.name }} {% if p.card_number %}<span class="lib-num">Card {{ p.card_number }}</span>{% endif %}</h1>
+    {% if card.subtitle %}<p class="muted">{{ card.subtitle }}</p>{% endif %}
+    <div class="tags lib-tags">
+      {% if p.card_class %}<span class="tag">{{ p.card_class }}</span>{% endif %}
+      {% if p.category %}<span class="tag">{{ p.category }}</span>{% endif %}
+      {% if p.evidence_level %}<span class="ev-tag {{ p.evidence_level | evidence_class }}">Evidence: {{ p.evidence_level }}</span>{% endif %}
+      {% if p.status %}<span class="tag tag-plain">{{ p.status }}</span>{% endif %}
+    </div>
+    {% if goals %}<p class="small muted">In goal stacks: {{ goals | map('goal_label') | join(', ') }}</p>{% endif %}
+  </div>
+</div>
+
+<div class="lib-layout">
+  <div class="lib-main">
+    {% if not card %}
+    <div class="empty"><p><strong>No card imported for this peptide.</strong></p>
+      <p class="muted">Peptides added by you or from the starter list have no card. Your own info is on the right.</p></div>
+    {% else %}
+    {% if card.applications %}
+    <section class="lib-section">
+      <h2 class="section-title">Key applications</h2>
+      <div class="app-grid">
+        {% for a in card.applications %}<div class="app-tile"><strong>{{ a.title }}</strong><span class="small muted">{{ a.detail }}</span></div>{% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="lib-section">
+      <h2 class="section-title">How it works</h2>
+      {% if card.mechanism_flow %}
+      <ol class="flow">{% for step in card.mechanism_flow %}<li>{{ step }}</li>{% endfor %}</ol>
+      {% endif %}
+      {{ bullets(card.mechanism) }}
+      {% if card.clinical_use_note %}<p class="note">{{ card.clinical_use_note }}</p>{% endif %}
+    </section>
+
+    <section class="lib-section two-col">
+      <div>
+        <h2 class="section-title">Evidence {% if card.evidence and card.evidence.level %}<span class="ev-tag {{ p.evidence_level | evidence_class }}">{{ card.evidence.level | title }}</span>{% endif %}</h2>
+        {{ bullets(card.evidence.points if card.evidence else []) }}
+      </div>
+      <div>
+        <h2 class="section-title">Clinical caution</h2>
+        {{ bullets(card.cautions) }}
+      </div>
+    </section>
+
+    {% if card.quick_info %}
+    <section class="lib-section">
+      <h2 class="section-title">Quick practical info</h2>
+      <dl class="kv">{% for k, v in card.quick_info.items() %}<dt>{{ k }}</dt><dd>{{ v or '—' }}</dd>{% endfor %}</dl>
+    </section>
+    {% endif %}
+
+    {% if card.regulatory %}
+    <section class="lib-section">
+      <h2 class="section-title">Regulatory status</h2>
+      <dl class="kv">{% for k, v in card.regulatory.items() %}<dt>{{ k }}</dt><dd>{{ v or '—' }}</dd>{% endfor %}</dl>
+    </section>
+    {% endif %}
+
+    {% if card.quick_read %}
+    <section class="lib-section">
+      <h2 class="section-title">Clinical read in 10 seconds</h2>
+      {{ bullets(card.quick_read) }}
+    </section>
+    {% endif %}
+
+    {% if card.references %}
+    <section class="lib-section">
+      <h2 class="section-title">Key references</h2>
+      {{ bullets(card.references) }}
+    </section>
+    {% endif %}
+    <p class="small muted">From your peptide card. Informational only — not a recommendation.</p>
+    {% endif %}
+  </div>
+
+  <aside class="lib-side">
+    {% if p.card_image %}
+    <a class="card-thumb" href="/library/{{ p.id }}/card" target="_blank" rel="noopener" title="Open the full card">
+      <img src="/library/{{ p.id }}/card" alt="{{ p.name }} card" loading="lazy">
+      <span class="small">Open full card ↗</span>
+    </a>
+    {% endif %}
+
+    <div class="side-box">
+      <div class="side-head"><h2 class="section-title">Your info</h2><a class="btn btn-ghost" href="/library/{{ p.id }}/edit">Edit</a></div>
+      <dl class="kv kv-tight">
+        <dt>Dose range</dt>
+        <dd>{% if p.dose_low is not none or p.dose_mid is not none or p.dose_high is not none %}
+          {{ [p.dose_low, p.dose_mid, p.dose_high] | reject('none') | map('dose_num') | join(' – ') }} {{ p.dose_unit.value if p.dose_unit else '' }}
+          {% else %}<span class="muted">Not set</span>{% endif %}</dd>
+        <dt>Frequency</dt><dd>{{ p.typical_frequency or '—' }}</dd>
+        <dt>Aliases</dt><dd>{{ p.aliases or '—' }}</dd>
+        <dt>Notes</dt><dd class="pre">{{ p.notes or '—' }}</dd>
+      </dl>
+    </div>
+
+    <div class="side-box">
+      <h2 class="section-title">Used in protocols</h2>
+      {% if used_in %}
+      <ul class="plain-list">{% for proto in used_in %}<li><a href="/protocols/{{ proto.id }}/edit">{{ proto.name }}</a> <span class="small muted">{{ proto.start_date | shortdate }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="muted small">Not in any protocol yet.</p>{% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

@@ -290,3 +290,19 @@ def test_repeat_prefills_and_does_not_save(client, db):
     assert state["items"][0]["peptide_id"] == str(peptide_id(db, "BPC-157"))
     assert form_action(r.text) == "/protocols"
     assert db.scalar(select(func.count()).select_from(Protocol)) == 1
+
+
+def test_builder_autocomplete_uses_whole_library(client, db):
+    """The add-peptide search draws from the library (names, aliases, class), not from inventory."""
+    bpc = db.scalar(select(Peptide).where(Peptide.name == "BPC-157"))
+    bpc.aliases = "Body Protection Compound"
+    db.commit()
+    data = builder_data(client.get("/protocols/new").text)
+    assert data["inventory"] == []  # nothing in inventory...
+    row = next(p for p in data["peptides"] if p["name"] == "BPC-157")
+    assert row["aliases"] == "Body Protection Compound" and "card_class" in row  # ...yet all peptides searchable
+    assert len(data["peptides"]) >= 105
+    page_html = client.get("/protocols/new").text
+    assert 'id="b-add-list"' in page_html and 'role="combobox"' in page_html
+    bpc.aliases = None
+    db.commit()

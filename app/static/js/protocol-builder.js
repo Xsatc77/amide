@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const els = {
     goals: $("b-goals"), suggest: $("b-suggest"), items: $("b-items"), itemsEmpty: $("b-items-empty"),
-    addInput: $("b-add-input"), addBtn: $("b-add-btn"), addMsg: $("b-add-msg"), datalist: $("b-peptide-list"),
+    addInput: $("b-add-input"), addBtn: $("b-add-btn"), addMsg: $("b-add-msg"), addList: $("b-add-list"),
     name: $("b-name"), start: $("b-start"), end: $("b-end"), weeks: $("b-weeks"), titration: $("b-titration"),
   };
 
@@ -116,7 +116,58 @@
     );
   }
 
-  // ------------------------------------------------------------ add a peptide
+  // ------------------------------------------------------------ add a peptide (typeahead over the library)
+  let matches = [];     // [{peptide} | {newName}] currently listed
+  let activeIndex = -1;
+
+  function searchLibrary(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const scored = [];
+    for (const p of data.peptides) {
+      if (hasPeptide(p.id)) continue;
+      const name = p.name.toLowerCase();
+      const aliases = (p.aliases || "").toLowerCase();
+      // Names starting with the text first, then names containing it, then alias matches.
+      const rank = name.startsWith(q) ? 0 : name.includes(q) ? 1 : aliases.includes(q) ? 2 : -1;
+      if (rank >= 0) scored.push([rank, p]);
+    }
+    scored.sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name));
+    const out = scored.slice(0, 8).map(([, p]) => ({ peptide: p }));
+    const exact = peptideByName.has(q) || items.some((it) => it.new_name.toLowerCase() === q);
+    if (!exact) out.push({ newName: query.trim() });
+    return out;
+  }
+
+  function closeList() {
+    els.addList.hidden = true;
+    els.addInput.setAttribute("aria-expanded", "false");
+    els.addInput.removeAttribute("aria-activedescendant");
+    activeIndex = -1;
+  }
+
+  function renderList() {
+    matches = searchLibrary(els.addInput.value);
+    if (!matches.length) return closeList();
+    els.addList.replaceChildren(...matches.map((m, i) => h("li", {
+      id: `b-add-opt-${i}`, role: "option", class: "typeahead-item", "aria-selected": i === activeIndex ? "true" : "false",
+      // mousedown (not click) so the input keeps focus and the list doesn't close first
+      onmousedown: (e) => { e.preventDefault(); choose(m); },
+    }, m.peptide
+      ? [h("strong", { text: m.peptide.name }),
+         h("span", { class: "small muted", text: [m.peptide.card_class, m.peptide.aliases].filter(Boolean).join(" · ") })]
+      : [h("span", { text: `Add "${m.newName}" as a new peptide` })])));
+    els.addList.hidden = false;
+    els.addInput.setAttribute("aria-expanded", "true");
+    if (activeIndex >= 0) els.addInput.setAttribute("aria-activedescendant", `b-add-opt-${activeIndex}`);
+  }
+
+  function choose(m) {
+    els.addInput.value = m.peptide ? m.peptide.name : m.newName;
+    closeList();
+    addPeptide();
+  }
+
   function addPeptide() {
     const name = els.addInput.value.trim();
     els.addMsg.hidden = true;
@@ -183,7 +234,9 @@
 
     const card = h("div", { class: "item-card" },
       h("div", { class: "item-card-head" },
-        h("h3", {}, itemName(it), it.new_name ? h("span", { class: "tag new-tag", text: "New to library" }) : null),
+        h("h3", {}, itemName(it), it.new_name ? h("span", { class: "tag new-tag", text: "New to library" }) : null,
+          it.peptide_id ? h("a", { class: "small view-card", href: `/library/${it.peptide_id}`, target: "_blank",
+            rel: "noopener", text: "View card" }) : null),
         h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": `Remove ${itemName(it)}`,
           onclick: () => { items = items.filter((x) => x !== it); changed(); } }, "×")),
       it.peptide_id
@@ -256,11 +309,28 @@
   const syncTitration = () => form.classList.toggle("titration-on", els.titration.checked);
   els.titration.addEventListener("change", syncTitration);
 
-  els.addBtn.addEventListener("click", addPeptide);
+  els.addBtn.addEventListener("click", () => { closeList(); addPeptide(); });
+  els.addInput.addEventListener("input", () => { activeIndex = -1; els.addMsg.hidden = true; renderList(); });
+  els.addInput.addEventListener("focus", renderList);
+  els.addInput.addEventListener("blur", closeList);
   els.addInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); addPeptide(); }
+    const open = !els.addList.hidden;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) renderList();
+      if (!matches.length) return;
+      activeIndex = (activeIndex + (e.key === "ArrowDown" ? 1 : -1) + matches.length) % matches.length;
+      renderList();
+      $(`b-add-opt-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();  // never submit the whole form from here
+      if (open && activeIndex >= 0) choose(matches[activeIndex]);
+      else if (open && matches[0]?.peptide && matches[0].peptide.name.toLowerCase().startsWith(els.addInput.value.trim().toLowerCase())) choose(matches[0]);
+      else { closeList(); addPeptide(); }
+    } else if (e.key === "Escape") {
+      closeList();
+    }
   });
-  els.datalist.replaceChildren(...data.peptides.map((p) => h("option", { value: p.name })));
 
   document.querySelectorAll("form[data-confirm]").forEach((f) =>
     f.addEventListener("submit", (e) => { if (!confirm(f.dataset.confirm)) e.preventDefault(); })

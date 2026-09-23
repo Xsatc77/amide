@@ -186,7 +186,9 @@ section + section { margin-top: 36px; }
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 18px 18px 10px 18px; box-shadow: var(--shadow);
 }
-.protocol-card-head { padding-left: 34px; }
+/* Name and goal tags sit right-aligned so the corner ribbon never covers them. */
+.protocol-card-head { padding-left: 64px; text-align: right; }
+.protocol-card-head .tags { justify-content: flex-end; }
 .protocol-card-head h3 { margin: 0 0 6px; font-size: 1.1rem; }
 /* Yellow "ACTIVE" band across the top-left corner. */
 .ribbon { position: absolute; top: 0; left: 0; width: 96px; height: 96px; overflow: hidden; pointer-events: none; }
@@ -289,6 +291,66 @@ a.btn { display: inline-block; text-decoration: none; }
 .titration-toggle input { accent-color: var(--accent); width: 18px; height: 18px; }
 .builder-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
+/* ---------- typeahead (add a peptide) ---------- */
+.typeahead { position: relative; flex: 1; }
+.typeahead input { width: 100%; font: inherit; color: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.typeahead-list {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+  max-height: 320px; overflow-y: auto;
+}
+.typeahead-item { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+.typeahead-item:hover, .typeahead-item[aria-selected="true"] { background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); }
+.typeahead-item:last-child:not(:has(strong)) { color: var(--accent); font-weight: 600; }
+.view-card { font-weight: 500; margin-left: 4px; }
+
+/* ---------- library ---------- */
+.lib-toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.lib-toolbar input { font: inherit; color: inherit; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); max-width: 420px; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.lib-tile {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; text-decoration: none; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.lib-tile:hover { border-color: var(--accent); }
+.lib-tile[hidden] { display: none; }
+.lib-num { font-size: 0.75rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; }
+h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
+.ev-tag { align-self: flex-start; display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+.ev-high { background: var(--accent-soft); color: var(--text); }
+.ev-moderate { background: var(--info-soft); color: var(--info); }
+.ev-low { background: var(--ribbon-soft); color: var(--ribbon-strong); }
+.ev-none { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.lib-head p { margin: 2px 0 6px; }
+.lib-tags { margin-bottom: 6px; }
+.tag-plain { background: var(--bg); border: 1px solid var(--border); }
+.lib-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.lib-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+.lib-section .section-title { display: flex; align-items: center; gap: 8px; }
+.lib-section.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.app-tile { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); }
+.flow { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0; margin: 0 0 12px; }
+.flow li { padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent-soft) 50%, var(--surface)); font-size: 0.9rem; font-weight: 500; }
+.flow li + li::before { content: "→"; margin: 0 8px 0 -2px; color: var(--muted); }
+.bullets { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.note { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--bg); border-left: 3px solid var(--accent); font-size: 0.9rem; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.kv dt { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.kv dd { margin: 0; }
+.kv-tight { gap: 4px 12px; }
+.pre { white-space: pre-wrap; }
+.lib-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 72px; }
+.card-thumb { display: flex; flex-direction: column; gap: 6px; text-decoration: none; }
+.card-thumb img { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.side-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.side-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.side-head .section-title { margin: 0; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dose-range { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.goal-checks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; }
+.lib-edit { max-width: 760px; }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }
@@ -308,6 +370,9 @@ a.btn { display: inline-block; text-decoration: none; }
   .footer { padding-bottom: 80px; }
   .card-grid, .goal-grid { grid-template-columns: 1fr; }
   .settings-grid, .suggest-grid { grid-template-columns: 1fr; }
+  .lib-layout, .lib-section.two-col { grid-template-columns: 1fr; }
+  .lib-side { position: static; }
+  .dose-range, .goal-checks { grid-template-columns: 1fr 1fr; }
   .builder-step { padding: 14px; }
   .step-row { grid-template-columns: 1fr 1fr auto; }
   .step-row > .small { grid-column: 1 / -1; padding: 0; }

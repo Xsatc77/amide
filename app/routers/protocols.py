@@ -117,7 +117,8 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool) 
         "is_new": is_new,
         "goals": [{"slug": g.slug, "label": g.label, "description": g.description} for g in GOALS],
         "stacks": stacks,
-        "peptides": [{"id": pp.id, "name": pp.name, "card_number": pp.card_number} for pp in peptides],
+        "peptides": [{"id": pp.id, "name": pp.name, "aliases": pp.aliases, "card_class": pp.card_class,
+                      "card_number": pp.card_number} for pp in peptides],
         "inventory": [
             {"id": i.id, "name": i.name, "vial_size_mg": i.vial_size_mg, "medium": i.medium.value if i.medium else None}
             for i in inventory
@@ -349,6 +350,8 @@ def api_list_peptides(session: Session = Depends(get_session)):
             "dose_low": pp.dose_low, "dose_mid": pp.dose_mid, "dose_high": pp.dose_high,
             "dose_unit": pp.dose_unit.value if pp.dose_unit else None,
             "typical_frequency": pp.typical_frequency, "source": pp.source.value,
+            "card_class": pp.card_class, "category": pp.category, "evidence_level": pp.evidence_level,
+            "status": pp.status, "has_card": pp.card_details is not None,
         }
         for pp in peptides
     ]

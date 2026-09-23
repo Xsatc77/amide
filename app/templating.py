@@ -23,4 +23,5 @@ def shortdate(value: date | None) -> str:
 templates.env.filters["money"] = money
 templates.env.filters["mg"] = mg
 templates.env.filters["shortdate"] = shortdate
+templates.env.filters["dose_num"] = lambda v: f"{v:g}"
 templates.env.filters["goal_label"] = lambda slug: GOALS_BY_SLUG[slug].label if slug in GOALS_BY_SLUG else slug

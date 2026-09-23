@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set active_nav = "library" %}
+{% block title %}Edit {{ p.name }}{% endblock %}
+
+{% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="small"><a href="/library/{{ p.id }}">← {{ p.name }}</a></p>
+    <h1>Edit {{ p.name }}</h1>
+    <p class="muted small">Your own reference info. Card details come from your imported cards and aren't edited here.</p>
+  </div>
+</div>
+
+<form method="post" action="/library/{{ p.id }}" class="builder-step lib-edit" novalidate>
+  {% if errors %}<div class="alert builder-alert" role="alert">Please fix the highlighted fields.</div>{% endif %}
+  <div class="grid settings-grid">
+    <div class="field span-2">
+      <span>Dose range <span class="muted">(optional)</span></span>
+      <div class="dose-range">
+        {% for key, label in [('dose_low', 'Low'), ('dose_mid', 'Mid'), ('dose_high', 'High')] %}
+        <label class="field {{ 'has-error' if errors[key] }}">
+          <span class="small">{{ label }}</span>
+          <input name="{{ key }}" type="number" min="0" step="any" inputmode="decimal" value="{{ f[key] }}">
+          {{ err(key) }}
+        </label>
+        {% endfor %}
+        <label class="field {{ 'has-error' if errors.dose_unit }}">
+          <span class="small">Unit</span>
+          <select name="dose_unit">
+            <option value="">—</option>
+            {% for u in units %}<option value="{{ u.value }}" {{ 'selected' if f.dose_unit == u.value }}>{{ u.label }}</option>{% endfor %}
+          </select>
+          {{ err('dose_unit') }}
+        </label>
+      </div>
+    </div>
+    <label class="field {{ 'has-error' if errors.typical_frequency }}">
+      <span>Typical frequency</span>
+      <input name="typical_frequency" maxlength="100" value="{{ f.typical_frequency }}" placeholder="e.g. Daily, 5 days on / 2 off">
+      {{ err('typical_frequency') }}
+    </label>
+    <label class="field {{ 'has-error' if errors.aliases }}">
+      <span>Aliases</span>
+      <input name="aliases" maxlength="300" value="{{ f.aliases }}" placeholder="Other names, comma-separated">
+      {{ err('aliases') }}
+    </label>
+    <label class="field span-2">
+      <span>Notes</span>
+      <textarea name="notes" rows="4">{{ f.notes }}</textarea>
+    </label>
+    <div class="field span-2 {{ 'has-error' if errors.goal }}">
+      <span>Goal stacks <span class="muted">— suggested in the protocol builder for these goals</span></span>
+      <div class="goal-checks">
+        {% for g in goals %}
+        <label class="check"><input type="checkbox" name="goal" value="{{ g.slug }}" {{ 'checked' if g.slug in f.goals }}> {{ g.label }}</label>
+        {% endfor %}
+      </div>
+      {{ err('goal') }}
+    </div>
+  </div>
+  <div class="builder-foot">
+    <a class="btn" href="/library/{{ p.id }}">Cancel</a>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </div>
+</form>
+{% endblock %}

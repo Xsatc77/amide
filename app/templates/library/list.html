@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% set active_nav = "library" %}
+{% block title %}Library{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Library</h1>
+    <p class="muted"><span id="lib-count">{{ peptides | length }}</span> peptides</p>
+  </div>
+</div>
+
+<div class="lib-toolbar">
+  <input id="lib-search" type="search" placeholder="Search name, alias, class or category" autocomplete="off" aria-label="Search the library">
+  <div class="chips" role="group" aria-label="Filter">
+    <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+    {% for g in goals %}
+    <button type="button" class="chip" data-filter="{{ g.slug }}" aria-pressed="false">{{ g.label }}</button>
+    {% endfor %}
+    <button type="button" class="chip" data-filter="added" aria-pressed="false">Added by me</button>
+  </div>
+</div>
+
+<div class="lib-grid" id="lib-grid">
+  {% for p in peptides %}
+  {% set search = [p.name, p.aliases or '', p.card_class or '', p.category or ''] | join(' ') | lower %}
+  <a class="lib-tile" href="/library/{{ p.id }}"
+     data-search="{{ search }}"
+     data-goals="{{ goal_map.get(p.id, []) | join(' ') }}"
+     data-added="{{ '1' if p.source in added_sources else '0' }}">
+    <span class="lib-num">{{ '#%d' % p.card_number if p.card_number else '—' }}</span>
+    <strong>{{ p.name }}</strong>
+    {% if p.card_class %}<span class="small muted">{{ p.card_class }}</span>{% else %}<span class="small muted">No card</span>{% endif %}
+    {% if p.evidence_level %}<span class="ev-tag {{ p.evidence_level | evidence_class }}">{{ p.evidence_level }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+<p class="muted" id="lib-empty" hidden>No peptides match.</p>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/library.js') }}" defer></script>
+{% endblock %}

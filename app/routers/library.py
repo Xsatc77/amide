@@ -1,0 +1,121 @@
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app import config
+from app.db import get_session
+from app.goals import GOALS
+from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
+from app.models import DoseUnit, GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolItem
+from app.templating import templates
+
+router = APIRouter()
+
+# Card images are written by tools/import_cards.py as NNN.jpg; nothing else is ever served.
+_CARD_IMAGE = re.compile(r"^\d{3}\.jpg$")
+
+
+def _get_peptide(session: Session, peptide_id: int) -> Peptide:
+    p = session.get(Peptide, peptide_id)
+    if p is None:
+        raise HTTPException(404, "Peptide not found")
+    return p
+
+
+def _goal_map(session: Session) -> dict[int, list[str]]:
+    """peptide id -> goal slugs (in the order goals are listed)."""
+    order = {g.slug: i for i, g in enumerate(GOALS)}
+    out: dict[int, list[str]] = {}
+    for gp in session.scalars(select(GoalPeptide)):
+        out.setdefault(gp.peptide_id, []).append(gp.goal)
+    return {pid: sorted(goals, key=lambda g: order.get(g, 99)) for pid, goals in out.items()}
+
+
+def evidence_class(level: str | None) -> str:
+    """CSS modifier for an evidence level tag."""
+    text = (level or "").lower()
+    if text.startswith("high"):
+        return "ev-high"
+    if text.startswith("moderate") or text.startswith("low to moderate"):
+        return "ev-moderate"
+    if text.startswith("low") or text.startswith("very low"):
+        return "ev-low"
+    return "ev-none"
+
+
+templates.env.filters["evidence_class"] = evidence_class
+
+
+# ---------------------------------------------------------------- pages
+
+@router.get("/library")
+def library_list(request: Request, session: Session = Depends(get_session)):
+    peptides = session.scalars(
+        select(Peptide).order_by(Peptide.card_number.is_(None), Peptide.card_number, Peptide.name)).all()
+    return templates.TemplateResponse(request, "library/list.html", {
+        "peptides": peptides, "goals": GOALS, "goal_map": _goal_map(session),
+        "added_sources": {PeptideSource.STARTER, PeptideSource.CUSTOM},
+    })
+
+
+@router.get("/library/{peptide_id}")
+def library_detail(peptide_id: int, request: Request, session: Session = Depends(get_session)):
+    p = _get_peptide(session, peptide_id)
+    used_in = session.scalars(
+        select(Protocol).join(ProtocolItem).where(ProtocolItem.peptide_id == p.id)
+        .order_by(Protocol.start_date.desc()).distinct()).all()
+    return templates.TemplateResponse(request, "library/detail.html", {
+        "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,
+    })
+
+
+def _render_edit(request: Request, p: Peptide, state: dict, errors: dict | None = None, status_code: int = 200):
+    return templates.TemplateResponse(request, "library/edit.html", {
+        "p": p, "f": state, "errors": errors or {}, "goals": GOALS, "units": list(DoseUnit),
+    }, status_code=status_code)
+
+
+@router.get("/library/{peptide_id}/edit")
+def library_edit(peptide_id: int, request: Request, session: Session = Depends(get_session)):
+    p = _get_peptide(session, peptide_id)
+    return _render_edit(request, p, state_from_peptide(p, _goal_map(session).get(p.id, [])))
+
+
+@router.post("/library/{peptide_id}")
+async def library_update(peptide_id: int, request: Request, session: Session = Depends(get_session)):
+    p = _get_peptide(session, peptide_id)
+    form = await request.form()
+    state = state_from_form({k: [str(v) for v in form.getlist(k)] for k in form.keys()})
+    values, errors = parse_peptide_form(state)
+    if errors:
+        return _render_edit(request, p, state, errors, status_code=422)
+
+    goals = values.pop("goals")
+    for key, value in values.items():
+        setattr(p, key, value)
+
+    # Goal stacks: remove unticked goals; append newly ticked ones at the end of that goal's stack.
+    current = {gp.goal: gp for gp in session.scalars(select(GoalPeptide).where(GoalPeptide.peptide_id == p.id))}
+    for goal, gp in current.items():
+        if goal not in goals:
+            session.delete(gp)
+    for goal in goals:
+        if goal not in current:
+            last = session.scalar(select(func.max(GoalPeptide.position)).where(GoalPeptide.goal == goal))
+            session.add(GoalPeptide(goal=goal, peptide_id=p.id, position=(last if last is not None else -1) + 1))
+    session.commit()
+    return RedirectResponse(f"/library/{p.id}", status_code=303)
+
+
+@router.get("/library/{peptide_id}/card")
+def library_card_image(peptide_id: int, session: Session = Depends(get_session)):
+    p = _get_peptide(session, peptide_id)
+    if not p.card_image or not _CARD_IMAGE.match(p.card_image):
+        raise HTTPException(404, "No card image")
+    path = config.CARDS_DIR / p.card_image
+    if not path.is_file():
+        raise HTTPException(404, "Card image missing from disk")
+    return FileResponse(path, media_type="image/jpeg", headers={"X-Content-Type-Options": "nosniff"})
