@@ -87,6 +87,8 @@ Firm up the base before anything depends on it.
 
 ## Phase 4 — v0.5: Quick View Dashboard
 
+- ✅ *Calendar (month / week / day views of scheduled doses) shipped.* Next: tick doses off from the calendar once Daily Dosing exists.
+
 - Today's doses and what's already done
 - Low stock and "runs out on…" predictions (from protocol usage × inventory)
 - Vials nearing their discard date

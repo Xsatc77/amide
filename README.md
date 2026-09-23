@@ -43,6 +43,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.5 — Calendar.** Month, week and day views of every dose your active and scheduled protocols call for (titration steps included). Click any line, block or card to see exactly what's due.
+
 **v0.4 — Accounts & legal notice.** Every visit after 10 minutes away starts with the legal notice, then New User / Login. Each user's inventory and protocols are private (the library is shared). Optional two-factor authentication with an authenticator app. See *Accounts* below.
 
 **v0.3 — Peptide Library.** A searchable Library of your peptide cards (details as text plus the original card image), with your own dose range, frequency, aliases, notes and goal stacks per peptide. The protocol builder searches the whole library as you type. See *Importing your peptide cards* below.
