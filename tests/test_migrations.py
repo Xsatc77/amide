@@ -43,3 +43,20 @@ def test_downgrade_to_0002(tmp_path):
     with sqlite3.connect(db) as c:
         tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
     assert "protocols" not in tables and "peptides" not in tables and "inventory_items" in tables
+
+
+def test_0004_adds_card_columns_and_keeps_data(tmp_path):
+    db = tmp_path / "c.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0003")
+    with sqlite3.connect(db) as c:
+        c.execute("update peptides set notes='keep me' where name='BPC-157'")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert {"card_class", "category", "evidence_level", "status", "card_details", "card_image"} <= cols
+        assert c.execute("select notes from peptides where name='BPC-157'").fetchone()[0] == "keep me"
+    command.downgrade(cfg, "0003")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+    assert "card_details" not in cols

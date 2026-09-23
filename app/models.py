@@ -2,7 +2,7 @@ import enum
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
+    JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -139,6 +139,15 @@ class Peptide(Base):
     typical_frequency: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)
     source: Mapped[PeptideSource] = mapped_column(_enum_column(PeptideSource), default=PeptideSource.CUSTOM)
+
+    # From the owner's peptide cards (read-only in the app; set by app.library.loader).
+    card_class: Mapped[str | None] = mapped_column(String(200))
+    category: Mapped[str | None] = mapped_column(String(200))
+    evidence_level: Mapped[str | None] = mapped_column(String(100))
+    status: Mapped[str | None] = mapped_column(String(200))
+    card_details: Mapped[dict | None] = mapped_column(JSON)
+    # Filename inside config.CARDS_DIR.
+    card_image: Mapped[str | None] = mapped_column(String(100))
 
 
 class GoalPeptide(Base):
