@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% set active_nav = "protocols" %}
+{% block title %}{{ protocol.name if protocol else 'New protocol' }}{% endblock %}
+
+{% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="page-head builder-head">
+  <div>
+    <p class="small"><a href="/protocols">← Protocols</a></p>
+    <h1>
+      {% if protocol %}Edit protocol{% elif repeat_of %}Repeat “{{ repeat_of.name }}”{% else %}Build a protocol{% endif %}
+      {% if status %}<span class="status status-{{ status.value }}">{{ status.label }}</span>{% endif %}
+    </h1>
+    {% if repeat_of %}<p class="muted small">Pre-filled from a saved protocol. Nothing is saved until you press Save.</p>{% endif %}
+  </div>
+  {% if protocol %}
+  <div class="head-actions">
+    {% if status.value == 'paused' %}
+    <form method="post" action="/protocols/{{ protocol.id }}/resume" class="inline"><input type="hidden" name="next" value="edit"><button class="btn">Resume</button></form>
+    {% elif status.value != 'ended' %}
+    <form method="post" action="/protocols/{{ protocol.id }}/pause" class="inline"><input type="hidden" name="next" value="edit"><button class="btn">Pause</button></form>
+    {% endif %}
+    {% if status.value != 'ended' %}
+    <form method="post" action="/protocols/{{ protocol.id }}/end" class="inline" data-confirm="End “{{ protocol.name }}” today?"><input type="hidden" name="next" value="edit"><button class="btn">End</button></form>
+    {% endif %}
+    <a class="btn" href="/protocols/{{ protocol.id }}/repeat">Repeat</a>
+    <button type="button" class="btn" disabled title="Email sharing coming soon">Share</button>
+    <form method="post" action="/protocols/{{ protocol.id }}/delete" class="inline" data-confirm="Delete “{{ protocol.name }}” permanently? This can't be undone."><button class="btn btn-danger">Delete</button></form>
+  </div>
+  {% endif %}
+</div>
+
+<form id="builder-form" method="post" action="{{ action }}" novalidate>
+  {% if errors %}<div class="alert builder-alert" role="alert">Please fix the highlighted fields.</div>{% endif %}
+
+  <section class="builder-step">
+    <h2 class="section-title"><span class="step-num">1</span> Goals</h2>
+    <div id="b-goals" class="chips goal-chips"></div>
+    <div data-err="goal"></div>
+  </section>
+
+  <section class="builder-step">
+    <h2 class="section-title"><span class="step-num">2</span> Peptides</h2>
+    <p class="muted small">Suggested for your goals. Untick what you don't want, or add any peptide.</p>
+    <div id="b-suggest" class="suggest-grid"></div>
+    <div class="add-peptide">
+      <input id="b-add-input" list="b-peptide-list" placeholder="Add a peptide — search the library or type a new name" autocomplete="off">
+      <datalist id="b-peptide-list"></datalist>
+      <button type="button" class="btn" id="b-add-btn">Add</button>
+    </div>
+    <small class="error" id="b-add-msg" hidden></small>
+    <div data-err="items"></div>
+  </section>
+
+  <section class="builder-step">
+    <h2 class="section-title"><span class="step-num">3</span> Doses &amp; schedule</h2>
+    <div id="b-items" class="item-list"></div>
+    <p class="muted" id="b-items-empty">Pick at least one peptide above.</p>
+  </section>
+
+  <section class="builder-step">
+    <h2 class="section-title"><span class="step-num">4</span> Protocol</h2>
+    <div class="grid settings-grid">
+      <label class="field span-2 {{ 'has-error' if errors.name }}">
+        <span>Name <em>*</em></span>
+        <input name="name" id="b-name" maxlength="200" value="{{ state.name }}" autocomplete="off">
+        {{ err('name') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.start_date }}">
+        <span>Start date <em>*</em></span>
+        <input name="start_date" id="b-start" type="date" value="{{ state.start_date }}">
+        {{ err('start_date') }}
+      </label>
+      <div class="field {{ 'has-error' if errors.end_date or errors.weeks }}">
+        <span>End date <span class="muted">(blank = ongoing)</span></span>
+        <div class="end-row">
+          <input name="end_date" id="b-end" type="date" value="{{ state.end_date }}" aria-label="End date">
+          <span class="muted small">or</span>
+          <input name="weeks" id="b-weeks" type="number" min="1" step="1" inputmode="numeric" value="{{ state.weeks }}" placeholder="weeks" aria-label="Length in weeks">
+        </div>
+        {{ err('end_date') }}{{ err('weeks') }}
+      </div>
+      <label class="field span-2">
+        <span>Notes</span>
+        <textarea name="notes" rows="2">{{ state.notes }}</textarea>
+      </label>
+      <label class="check span-2 titration-toggle">
+        <input type="checkbox" name="titration" value="1" id="b-titration" {{ 'checked' if state.titration }}>
+        <span><strong>Titration</strong> — ramp doses up (or down) in weekly steps for each peptide</span>
+      </label>
+    </div>
+  </section>
+
+  <div class="builder-foot">
+    <a class="btn" href="/protocols">Cancel</a>
+    <button type="submit" class="btn btn-primary">Save protocol</button>
+  </div>
+</form>
+
+<script type="application/json" id="builder-data">{{ builder_data | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/protocol-builder.js') }}" defer></script>
+{% endblock %}

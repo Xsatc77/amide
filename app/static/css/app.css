@@ -163,7 +163,7 @@ form.inline { display: inline; }
 }
 .field input[type="file"] { padding: 6px; }
 .field textarea { resize: vertical; }
-.has-error input, .has-error select, .has-error textarea { border-color: var(--danger); }
+.field.has-error input:not([type="checkbox"]), .field.has-error select, .field.has-error textarea { border-color: var(--danger); }
 .error { color: var(--danger); }
 .alert { margin: 16px 20px 0; padding: 10px 12px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-weight: 500; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
@@ -228,6 +228,65 @@ a.btn { display: inline-block; text-decoration: none; }
 .status-ended { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .status-active { background: var(--ribbon); color: var(--ribbon-text); }
 
+/* ---------- protocol builder ---------- */
+.builder-head { align-items: flex-start; flex-wrap: wrap; }
+.builder-head h1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.builder-head p { margin: 0 0 4px; }
+.head-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.builder-alert { margin: 0 0 16px; }
+.builder-step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.builder-step + .builder-step { margin-top: 16px; }
+.builder-step > p { margin: -6px 0 12px; }
+.step-num {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-text); font-size: 0.8rem; vertical-align: 1px;
+}
+.goal-chips .chip { padding: 6px 14px; }
+.suggest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.suggest-item {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.suggest-item:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface)); }
+.suggest-item input { margin-top: 3px; accent-color: var(--accent); }
+.suggest-item span { display: flex; flex-direction: column; }
+.add-peptide { display: flex; gap: 8px; }
+.add-peptide input { flex: 1; font: inherit; color: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+
+.item-list { display: flex; flex-direction: column; gap: 12px; }
+.item-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; background: var(--bg); }
+.item-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.item-card-head h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.new-tag { background: var(--info-soft); color: var(--info); }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 14px; }
+.item-grid .span-2 { grid-column: 1 / -1; }
+.item-card .field input:not([type="checkbox"]), .item-card .field select { background: var(--surface); }
+.inline-inputs { display: flex; gap: 6px; align-items: center; }
+.inline-inputs input { min-width: 0; }
+.inline-inputs select { width: auto; flex: none; }
+.weekday-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.day-pick { display: flex; }
+.day-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.day-pick span { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; cursor: pointer; background: var(--surface); }
+.day-pick input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.day-pick input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.freq-extra[hidden] { display: none; }
+
+/* Titration steps stay in the form (and are submitted) but only show when Titration is ticked. */
+.steps { display: none; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.titration-on .steps { display: block; }
+.step-row { display: grid; grid-template-columns: 56px minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 10px; align-items: start; margin: 8px 0; }
+/* Line the label and remove button up with the inputs, which sit under a small heading. */
+.step-row > .small { padding-top: 34px; }
+.step-row > .btn-icon { margin-top: 26px; }
+
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.end-row { display: flex; align-items: center; gap: 8px; }
+.end-row input[type="number"] { max-width: 96px; }
+.titration-toggle { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.titration-toggle input { accent-color: var(--accent); width: 18px; height: 18px; }
+.builder-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }
@@ -246,4 +305,9 @@ a.btn { display: inline-block; text-decoration: none; }
   .span-2 { grid-column: auto; }
   .footer { padding-bottom: 80px; }
   .card-grid, .goal-grid { grid-template-columns: 1fr; }
+  .settings-grid, .suggest-grid { grid-template-columns: 1fr; }
+  .builder-step { padding: 14px; }
+  .step-row { grid-template-columns: 1fr 1fr auto; }
+  .step-row > .small { grid-column: 1 / -1; padding: 0; }
+  .step-row > .btn-icon { margin-top: 26px; }
 }

@@ -164,3 +164,129 @@ def test_api_shapes(client, db):
     peptides = client.get("/api/peptides").json()
     assert len(peptides) >= 105
     assert {"id", "name", "card_number", "source"} <= set(peptides[0])
+
+
+# ---------------------------------------------------------------- builder
+
+import json  # noqa: E402
+import re  # noqa: E402
+
+from app.protocols.forms import state_from_form  # noqa: E402
+
+
+def builder_data(text: str) -> dict:
+    m = re.search(r'<script type="application/json" id="builder-data">(.*?)</script>', text, re.S)
+    assert m, "builder-data script missing"
+    return json.loads(m.group(1))
+
+
+def form_action(text: str) -> str:
+    return re.search(r'<form id="builder-form"[^>]*action="([^"]+)"', text).group(1)
+
+
+def as_form(pairs: dict) -> dict[str, list[str]]:
+    return {k: (v if isinstance(v, list) else [v]) for k, v in pairs.items()}
+
+
+def valid_form(db, **overrides) -> dict:
+    fields = {
+        "name": "Recomp", "start_date": "2026-09-20", "weeks": "8", "titration": "1",
+        "goal": ["fat-loss", "muscle-recovery"],
+        "items-0-peptide_id": str(peptide_id(db, "Retatrutide")), "items-0-dose": "2", "items-0-dose_unit": "mg",
+        "items-0-frequency": "weekly", "items-0-route": "subq",
+        "items-0-steps-0-start_week": "1", "items-0-steps-0-end_week": "4", "items-0-steps-0-dose": "2",
+        "items-0-steps-1-start_week": "5", "items-0-steps-1-dose": "4",
+        "items-1-peptide_id": str(peptide_id(db, "BPC-157")), "items-1-dose": "250", "items-1-dose_unit": "mcg",
+        "items-1-frequency": "weekdays", "items-1-weekdays": ["M", "W", "F"], "items-1-time_of_day": "am",
+    }
+    return {**fields, **overrides}
+
+
+def test_new_builder_embeds_merged_suggestions(client, db):
+    r = client.get("/protocols/new?goal=fat-loss&goal=glp1-weight&goal=bogus")
+    assert r.status_code == 200
+    data = builder_data(r.text)
+    assert data["state"]["goals"] == ["fat-loss", "glp1-weight"]
+    assert data["state"]["items"] == [] and data["is_new"] is True
+    assert data["stacks"]["fat-loss"][0] == peptide_id(db, "Retatrutide")
+    assert set(data["stacks"]) == {g for g in data["stacks"]} and len(data["stacks"]) == 8
+    assert len(data["peptides"]) >= 105 and len(data["goals"]) == 8
+    assert form_action(r.text) == "/protocols"
+
+
+def test_create_protocol(client, db):
+    r = client.post("/protocols", data=valid_form(db), follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/protocols"
+
+    p = db.scalar(select(Protocol).where(Protocol.name == "Recomp"))
+    assert p.goal_slugs == ["fat-loss", "muscle-recovery"]
+    assert p.end_date == date(2026, 11, 14) and p.titration_enabled
+    assert [it.peptide.name for it in p.items] == ["Retatrutide", "BPC-157"]
+    assert [(s.start_week, s.end_week, s.dose) for s in p.items[0].steps] == [(1, 4, 2.0), (5, None, 4.0)]
+    assert p.items[1].weekdays == "MWF" and p.items[1].dose_unit is DoseUnit.MCG
+
+    active, _ = sections(page(client))
+    assert "Recomp" in active and "Week 1 · step 1: 2 mg" in active
+
+
+def test_invalid_submit_preserves_state(client, db):
+    posted = valid_form(db, name="", **{"items-0-steps-1-dose": "abc"})
+    r = client.post("/protocols", data=posted)
+    assert r.status_code == 422
+    data = builder_data(r.text)
+    assert data["state"] == state_from_form(as_form(posted))
+    assert "name" in data["errors"] and "items-0-steps-1-dose" in data["errors"]
+    assert db.scalar(select(func.count()).select_from(Protocol)) == 0
+
+
+def test_custom_peptide_reuses_existing_case_insensitive(client, db):
+    before = db.scalar(select(func.count()).select_from(Peptide))
+    form = valid_form(db, **{"items-1-peptide_id": "", "items-1-new_name": "  bpc-157 "})
+    assert client.post("/protocols", data=form, follow_redirects=False).status_code == 303
+    p = db.scalar(select(Protocol).where(Protocol.name == "Recomp"))
+    assert p.items[1].peptide_id == peptide_id(db, "BPC-157")
+    assert db.scalar(select(func.count()).select_from(Peptide)) == before
+
+    form = valid_form(db, name="Second", **{"items-1-peptide_id": "", "items-1-new_name": "Brand New"})
+    client.post("/protocols", data=form)
+    db.expire_all()
+    new = db.scalar(select(Peptide).where(Peptide.name == "Brand New"))
+    assert new is not None and new.source.value == "custom"
+    assert db.scalar(select(func.count()).select_from(Peptide)) == before + 1
+
+
+def test_edit_protocol(client, db):
+    p = make_protocol(db)
+    r = client.get(f"/protocols/{p.id}/edit")
+    data = builder_data(r.text)
+    assert data["is_new"] is False and data["state"]["name"] == "Heal"
+    assert data["state"]["items"][0]["dose"] == "250" and data["state"]["items"][0]["dose_unit"] == "mcg"
+    assert form_action(r.text) == f"/protocols/{p.id}"
+    assert 'disabled title="Email sharing coming soon"' in r.text
+
+    r = client.post(f"/protocols/{p.id}", data=valid_form(db, name="Heal v2"), follow_redirects=False)
+    assert r.status_code == 303
+    db.expire_all()
+    p = db.get(Protocol, p.id)
+    assert p.name == "Heal v2"
+    # Items were replaced by the submitted ones (SQLite may reuse ids, so compare content).
+    assert [(it.peptide.name, it.dose) for it in p.items] == [("Retatrutide", 2.0), ("BPC-157", 250.0)]
+    assert db.scalar(select(func.count()).select_from(ProtocolItem)) == 2
+
+
+def test_edit_missing_protocol_404(client):
+    assert client.get("/protocols/9999/edit").status_code == 404
+    assert client.get("/protocols/9999/repeat").status_code == 404
+
+
+def test_repeat_prefills_and_does_not_save(client, db):
+    p = make_protocol(db, name="Cycle", start=date(2026, 6, 1), end_date=date(2026, 7, 26),
+                      ended_on=date(2026, 7, 26))
+    r = client.get(f"/protocols/{p.id}/repeat")
+    assert r.status_code == 200
+    state = builder_data(r.text)["state"]
+    assert state["name"] == "Cycle (repeat)"
+    assert state["start_date"] == "2026-09-22" and state["end_date"] == "2026-11-16"
+    assert state["items"][0]["peptide_id"] == str(peptide_id(db, "BPC-157"))
+    assert form_action(r.text) == "/protocols"
+    assert db.scalar(select(func.count()).select_from(Protocol)) == 1

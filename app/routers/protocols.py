@@ -6,9 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_session
-from app.goals import GOALS
+from app.goals import GOALS, GOALS_BY_SLUG
 from app.models import (
-    WEEKDAY_NAMES, Frequency, Peptide, Protocol, ProtocolItem, TimeOfDay, TitrationStep,
+    WEEKDAY_LETTERS, WEEKDAY_NAMES, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
+    Protocol, ProtocolGoal, ProtocolItem, Route, TimeOfDay, TitrationStep,
+)
+from app.protocols.forms import (
+    ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
 from app.templating import templates
@@ -93,6 +97,157 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
     saved = [v for v in views if v["status"] is not Status.ACTIVE]
     return templates.TemplateResponse(request, "protocols/list.html",
                                       {"active_views": active, "saved_views": saved, "goals": GOALS, "statuses": list(Status)})
+
+
+# ---------------------------------------------------------------- builder
+
+def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool) -> dict:
+    stacks: dict[str, list[int]] = {g.slug: [] for g in GOALS}
+    for gp in session.scalars(select(GoalPeptide).order_by(GoalPeptide.goal, GoalPeptide.position)):
+        stacks.setdefault(gp.goal, []).append(gp.peptide_id)
+    peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()
+    inventory = session.scalars(select(InventoryItem).order_by(InventoryItem.name)).all()
+
+    def choices(enum_cls):
+        return [[m.value, m.label] for m in enum_cls]
+
+    return {
+        "state": state,
+        "errors": errors,
+        "is_new": is_new,
+        "goals": [{"slug": g.slug, "label": g.label, "description": g.description} for g in GOALS],
+        "stacks": stacks,
+        "peptides": [{"id": pp.id, "name": pp.name, "card_number": pp.card_number} for pp in peptides],
+        "inventory": [
+            {"id": i.id, "name": i.name, "vial_size_mg": i.vial_size_mg, "medium": i.medium.value if i.medium else None}
+            for i in inventory
+        ],
+        "options": {
+            "dose_unit": choices(DoseUnit),
+            "frequency": choices(Frequency),
+            "time_of_day": choices(TimeOfDay),
+            "route": choices(Route),
+            "weekdays": [[d, WEEKDAY_NAMES[d]] for d in WEEKDAY_LETTERS],
+        },
+    }
+
+
+def _render_builder(request: Request, session: Session, state: dict, *, errors: dict | None = None,
+                    protocol: Protocol | None = None, repeat_of: Protocol | None = None,
+                    today: date, status_code: int = 200):
+    is_new = protocol is None
+    return templates.TemplateResponse(
+        request,
+        "protocols/builder.html",
+        {
+            "state": state,
+            "errors": errors or {},
+            "protocol": protocol,
+            "repeat_of": repeat_of,
+            "status": protocol_status(protocol, today) if protocol else None,
+            "action": "/protocols" if is_new else f"/protocols/{protocol.id}",
+            "builder_data": _builder_data(session, state, errors or {}, is_new=is_new),
+        },
+        status_code=status_code,
+    )
+
+
+async def _read_form(request: Request) -> dict[str, list[str]]:
+    form = await request.form()
+    return {key: [str(v) for v in form.getlist(key)] for key in form.keys()}
+
+
+def _find_or_create_peptide(session: Session, name: str) -> Peptide:
+    # The name column uses NOCASE collation, so this match ignores case.
+    existing = session.scalar(select(Peptide).where(Peptide.name == name))
+    if existing:
+        return existing
+    peptide = Peptide(name=name, source=PeptideSource.CUSTOM)
+    session.add(peptide)
+    session.flush()
+    return peptide
+
+
+def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Protocol:
+    """Write validated builder values onto `p`, replacing its goals, peptides and titration steps."""
+    p.name = parsed.name
+    p.start_date = parsed.start_date
+    p.end_date = parsed.end_date
+    p.notes = parsed.notes
+    p.titration_enabled = parsed.titration_enabled
+    if p.id is None:
+        session.add(p)
+    else:
+        # Remove the old rows first so re-adding the same goal doesn't collide on its primary key.
+        p.goals.clear()
+        p.items.clear()
+        session.flush()
+
+    p.goals = [ProtocolGoal(goal=g) for g in parsed.goals]
+    for position, it in enumerate(parsed.items):
+        peptide_id = it.peptide_id if it.peptide_id is not None else _find_or_create_peptide(session, it.new_name).id
+        p.items.append(ProtocolItem(
+            peptide_id=peptide_id, position=position, dose=it.dose, dose_unit=it.dose_unit,
+            frequency=it.frequency, every_n_days=it.every_n_days, weekdays=it.weekdays,
+            time_of_day=it.time_of_day, route=it.route, inventory_item_id=it.inventory_item_id, notes=it.notes,
+            steps=[TitrationStep(start_week=s.start_week, end_week=s.end_week, dose=s.dose) for s in it.steps],
+        ))
+    session.commit()
+    return p
+
+
+def _parse(session: Session, form: dict[str, list[str]]):
+    return parse_protocol_form(
+        form,
+        peptide_ids=set(session.scalars(select(Peptide.id))),
+        inventory_ids=set(session.scalars(select(InventoryItem.id))),
+    )
+
+
+@router.get("/protocols/new")
+def new_protocol(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today)):
+    goals = [g for g in dict.fromkeys(request.query_params.getlist("goal")) if g in GOALS_BY_SLUG]
+    return _render_builder(request, session, blank_state(goals, today), today=today)
+
+
+@router.post("/protocols")
+async def create_protocol(request: Request, session: Session = Depends(get_session),
+                          today: date = Depends(get_today)):
+    form = await _read_form(request)
+    parsed, errors = _parse(session, form)
+    if errors:
+        return _render_builder(request, session, state_from_form(form), errors=errors, today=today, status_code=422)
+    save_protocol(session, Protocol(), parsed)
+    return RedirectResponse("/protocols", status_code=303)
+
+
+@router.get("/protocols/{protocol_id}/edit")
+def edit_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session),
+                  today: date = Depends(get_today)):
+    p = _get_protocol(session, protocol_id)
+    return _render_builder(request, session, state_from_protocol(p), protocol=p, today=today)
+
+
+@router.post("/protocols/{protocol_id}")
+async def update_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session),
+                          today: date = Depends(get_today)):
+    p = _get_protocol(session, protocol_id)
+    form = await _read_form(request)
+    parsed, errors = _parse(session, form)
+    if errors:
+        return _render_builder(request, session, state_from_form(form), errors=errors, protocol=p, today=today,
+                               status_code=422)
+    save_protocol(session, p, parsed)
+    return RedirectResponse("/protocols", status_code=303)
+
+
+@router.get("/protocols/{protocol_id}/repeat")
+def repeat_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session),
+                    today: date = Depends(get_today)):
+    """Builder pre-filled from an existing protocol as a new, unsaved one."""
+    p = _get_protocol(session, protocol_id)
+    return _render_builder(request, session, state_from_protocol(p, repeat=True, today=today),
+                           repeat_of=p, today=today)
 
 
 # ---------------------------------------------------------------- actions
