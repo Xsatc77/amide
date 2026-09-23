@@ -69,7 +69,7 @@ Firm up the base before anything depends on it.
 - **More stock details:** expiration date, storage (fridge / freezer / room temp).
 - **Vendors as their own table** (pick from a list, not free text). This becomes *Personal Distributor Contacts* in Phase 5.
 - **Search, sort, filter** on the inventory list.
-- **Login (single user)** and **backup/export** (JSON + CSV download, restore). Needed before anyone reaches Amide from outside their home network.
+- ✅ *Accounts, legal notice, private data per user and 2FA shipped in v0.4.* Still to add: **backup/export** (JSON + CSV download, restore); a **Settings** page with sharing (share inventory, or share private data with others on the same network).
 
 ## Phase 2 — v0.3: Reconstitution Calculator + Active Vials
 
@@ -142,7 +142,7 @@ Firm up the base before anything depends on it.
 | **CI** | GitHub Actions: run tests on every push; build and publish Docker image to GitHub Container Registry on tags |
 | **Releases** | Semantic versions (`v0.2.0`…), changelog, migrations always forward-compatible |
 | **Backups** | Scheduled automatic backup of `data/` (Phase 1), restore tested in CI |
-| **Security** | Login (Phase 1), CSRF protection on forms, upload validation (done), guidance for reverse proxy + HTTPS |
+| **Security** | Accounts + 2FA + lockout + cross-site form protection (done, v0.4), upload validation (done); raise the minimum password length; guidance for reverse proxy + HTTPS |
 | **Data ownership** | Full export at any time in open formats (JSON/CSV); no telemetry, no external calls unless you enable an integration |
 
 ---

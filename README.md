@@ -41,6 +41,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.4 — Accounts & legal notice.** Every visit after 10 minutes away starts with the legal notice, then New User / Login. Each user's inventory and protocols are private (the library is shared). Optional two-factor authentication with an authenticator app. See *Accounts* below.
+
 **v0.3 — Peptide Library.** A searchable Library of your peptide cards (details as text plus the original card image), with your own dose range, frequency, aliases, notes and goal stacks per peptide. The protocol builder searches the whole library as you type. See *Importing your peptide cards* below.
 
 **v0.2 — Protocols.** Build protocols from goals (suggested peptide stacks), set your own dose and schedule per peptide, optional titration steps, and see active protocols as cards; saved protocols can be paused, ended, repeated, or deleted.
@@ -105,8 +107,28 @@ Card text and images are saved in `data/library/` (private, never committed). To
 | `AMIDE_DATA_DIR` | `./data` (`/data` in Docker) | Where the database and uploads are stored |
 | `AMIDE_DATABASE_URL` | `sqlite:///<data dir>/amide.db` | Override to use another database |
 | `AMIDE_MAX_UPLOAD_MB` | `15` | Max COA upload size |
+| `AMIDE_PASSWORD_MIN_LENGTH` | `4` | Minimum password length (raise this for stronger passwords) |
 
-> Amide has no login yet. Run it on your home network or behind a VPN/reverse proxy with authentication — don't expose it directly to the internet.
+### Accounts
+
+- **First run:** accept the legal notice, choose **New User**. The first account is the admin and takes over any data created before accounts existed.
+- **Privacy:** each account sees only its own inventory and protocols. The peptide library is shared.
+- **Passwords:** case sensitive, at least `AMIDE_PASSWORD_MIN_LENGTH` characters with an uppercase, lowercase, number and special character. Usernames are not case sensitive.
+- **Two-factor (optional):** any authenticator app (Google/Microsoft Authenticator, Authy, 1Password, Bitwarden…). Turn it on at sign-up or from the menu under your initial (top right).
+- **Timeout:** with no Amide tab open for 10 minutes you're signed out; the next visit shows the legal notice again.
+- **Lockout:** 5 wrong passwords or codes lock that account for 15 minutes.
+- **Recovery** (there's no email), run on the server:
+
+  ```bash
+  python -m app.users list
+  python -m app.users reset-password <username>
+  python -m app.users reset-2fa <username>
+  ```
+
+  (In Docker: `docker compose exec amide python -m app.users list`.)
+- **Banner:** put your own image at `data/branding/banner.svg` (or `.png`, `.jpg`, `.webp`) and it replaces the built-in one on the sign-in screens.
+
+> Logins over plain `http://` are fine on your home network. To reach Amide over the internet, put it behind HTTPS (a reverse proxy) or a VPN.
 
 ## Tech stack
 
