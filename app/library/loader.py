@@ -36,6 +36,12 @@ def load_cards(session: Session, cards: list[dict]) -> LoadReport:
         number, name = card["card_number"], card["name"].strip()
         peptide = session.scalar(select(Peptide).where(Peptide.card_number == number))
         if peptide is None:
+            # Not numbered yet but already in the library under this name (e.g. added by the owner): adopt it.
+            peptide = session.scalar(select(Peptide).where(Peptide.name == name, Peptide.card_number.is_(None)))
+            if peptide is not None:
+                peptide.card_number = number
+                peptide.source = PeptideSource.CARD
+        if peptide is None:
             peptide = Peptide(name=name, card_number=number, source=PeptideSource.CARD)
             session.add(peptide)
             report.created.append(name)

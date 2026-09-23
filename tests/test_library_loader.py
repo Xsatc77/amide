@@ -81,3 +81,14 @@ def test_load_is_idempotent(s):
     report = load_cards(s, [card(2, "BPC-157")])
     assert report.updated == ["BPC-157"] and report.created == []
     assert s.scalar(select(Peptide).where(Peptide.card_number == 2)).name == "BPC-157"
+
+
+def test_load_adopts_same_named_peptide_without_number(s):
+    p = pep(s, "BPC-157")
+    p.card_number = None
+    s.commit()
+    report = load_cards(s, [card(2, "BPC-157")])
+    s.expire_all()
+    p = pep(s, "BPC-157")
+    assert report.updated == ["BPC-157"] and report.created == []
+    assert p.card_number == 2 and p.card_class == "Cytoprotective peptide"

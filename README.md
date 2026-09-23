@@ -41,6 +41,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.3 — Peptide Library.** A searchable Library of your peptide cards (details as text plus the original card image), with your own dose range, frequency, aliases, notes and goal stacks per peptide. The protocol builder searches the whole library as you type. See *Importing your peptide cards* below.
+
 **v0.2 — Protocols.** Build protocols from goals (suggested peptide stacks), set your own dose and schedule per peptide, optional titration steps, and see active protocols as cards; saved protocols can be paused, ended, repeated, or deleted.
 
 **v0.1 — Inventory.** Add, edit, and delete inventory items (name, count, vial size, medium, lot/batch #, cost, vendor, order/shipped/arrival dates, COA photo/PDF with lab-measured vial size and purity, notes). See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
@@ -83,6 +85,17 @@ Then open http://localhost:1707. Press Ctrl+C to stop. Run the tests with `.venv
 
 Database migrations are applied automatically on startup.
 
+### Importing your peptide cards
+
+Your card PDF is imported once with a helper script (it needs one extra library, PyMuPDF, which the app itself doesn't use):
+
+```bash
+pip install -r tools/requirements.txt
+python tools/import_cards.py "path/to/Peptide Cards.pdf"
+```
+
+Card text and images are saved in `data/library/` (private, never committed). To load them into another database later, no PDF needed: `python -m app.library_load`. Details: [tools/README.md](tools/README.md).
+
 ### Settings (environment variables)
 
 | Variable | Default | Purpose |
@@ -107,10 +120,13 @@ app/
   main.py            app entry point
   models.py          database tables
   routers/           pages + JSON API, one file per feature
+  library/           card loader + library form rules
+  protocols/         protocol status + builder form rules
   templates/         HTML
   static/            CSS / JS
 migrations/          Alembic database migrations
 tests/               pytest suite
+tools/               one-off helpers (card PDF import)
 docs/ROADMAP.md      where this is going
 ```
 

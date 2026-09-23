@@ -6,7 +6,14 @@ Each phase is a usable release on its own. Phases are ordered by **data dependen
 
 ---
 
-## Where we are: v0.2 — Inventory + Protocols ✅
+## Where we are: v0.3 — Inventory + Protocols + Library ✅
+
+**Library (v0.3)**
+- All 100 peptide cards imported (text + card image) into a searchable Library with goal / "added by me" filters
+- Per peptide: your Low/Mid/High dose, frequency, aliases, notes, and goal-stack membership (editable)
+- Protocol builder: type-ahead search over the whole library; "View card" per peptide
+- `tools/import_cards.py` to re-import an updated PDF; `python -m app.library_load` to reload without it
+
 
 **Protocols (v0.2)**
 - Protocols page: **Active** protocol cards (yellow ribbon), 8 selectable **goal cards**, and **Saved protocols** (scheduled / paused / ended — kept until deleted, with Repeat)
@@ -109,7 +116,7 @@ Firm up the base before anything depends on it.
 
 ## Phase 8 — v0.9: Peptide Library & Learning
 
-- **Next up for the library:** import the full details of the owner's 100 peptide cards (class, evidence level, half-life, routes, cautions, card image) into the private `data/` folder, plus Library screens to edit peptides, Low/Mid/High doses and goal stacks.
+- ✅ *Card import, Library screens and owner-editable doses/goal stacks shipped in v0.3.* Still to add: Peptide Learning (saved articles/notes per peptide), reordering peptides within a goal stack.
 
 - **Library:** a reference entry per peptide (aliases, common vial sizes, storage, typical reconstitution, half-life, notes, sources). Starts from a small seed file you can extend; inventory and protocols link to it.
 - **Learning:** personal notes, saved articles and studies, tagged by peptide.
