@@ -6,7 +6,17 @@ Each phase is a usable release on its own. Phases are ordered by **data dependen
 
 ---
 
-## Where we are: v0.1 — Inventory ✅
+## Where we are: v0.2 — Inventory + Protocols ✅
+
+**Protocols (v0.2)**
+- Protocols page: **Active** protocol cards (yellow ribbon), 8 selectable **goal cards**, and **Saved protocols** (scheduled / paused / ended — kept until deleted, with Repeat)
+- Goal-driven **builder**: goals → suggested peptide stack (merged across goals) → your dose, unit (mg / mcg / IU), frequency, time of day, route and optional inventory link per peptide
+- **Titration** checkbox with weekly steps per peptide; cards show the current step
+- Pause / Resume / End / Repeat / Delete; Share button in place (email sharing later)
+- Peptide library seeded with the 100 peptide-card names + 5 starters; goal stacks seeded (doses blank for now)
+- Read-only JSON API: `/api/protocols`, `/api/peptides`
+
+**Inventory (v0.1)**
 
 - Inventory table: name, count, vial size (mg), medium, lot/batch #, cost, vendor, order / shipped / arrival dates, COA upload (photo/PDF) with lab-measured vial size and purity, notes
 - Flags items whose lab-measured amount is more than 10% below the labeled vial size
@@ -18,7 +28,7 @@ Each phase is a usable release on its own. Phases are ordered by **data dependen
 
 ## The target data model
 
-This is where the chain is headed. Only `InventoryItem` exists today.
+This is where the chain is headed. `InventoryItem`, `Peptide`, `Protocol` (with items) and `TitrationStep` exist today.
 
 ```mermaid
 erDiagram
@@ -61,10 +71,9 @@ Firm up the base before anything depends on it.
 - **"Reconstitute" action:** takes 1 from inventory count → creates an Active Vial with concentration, date mixed, and a discard-by date (configurable, e.g. 28 days).
 - Active vial list: remaining mg / doses, days until discard.
 
-## Phase 3 — v0.4: Protocols, Titration & Daily Dosing *(the core loop)*
+## Phase 3 — v0.4: Daily Dosing *(the core loop)*
 
-- **Protocols:** peptide, dose, route (SubQ / IM / oral / nasal / topical), frequency (daily, every X days, specific weekdays, weekly, cycles like 5 on / 2 off), time of day, start/end date.
-- **Titration schedules:** protocol steps, e.g. weeks 1–4 at 2.5 mg, weeks 5–8 at 5 mg. Amide knows the current step automatically.
+- ✅ *Protocols and titration steps shipped in v0.2.* Still to add: cycles like 5 on / 2 off, and **titration templates** (common schedules pre-filled when Titration is ticked).
 - **Today view:** doses due today. Tap to log → picks the active vial, deducts the amount, records time and **injection site** (with site rotation suggestions).
 - Skip / missed / late dose handling; adherence history.
 - **Peptide pen tracking:** pens are active vials measured in clicks or doses.
@@ -99,6 +108,8 @@ Firm up the base before anything depends on it.
 - Show workouts alongside dosing and body metrics
 
 ## Phase 8 — v0.9: Peptide Library & Learning
+
+- **Next up for the library:** import the full details of the owner's 100 peptide cards (class, evidence level, half-life, routes, cautions, card image) into the private `data/` folder, plus Library screens to edit peptides, Low/Mid/High doses and goal stacks.
 
 - **Library:** a reference entry per peptide (aliases, common vial sizes, storage, typical reconstitution, half-life, notes, sources). Starts from a small seed file you can extend; inventory and protocols link to it.
 - **Learning:** personal notes, saved articles and studies, tagged by peptide.

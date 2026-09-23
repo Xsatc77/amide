@@ -41,6 +41,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.2 — Protocols.** Build protocols from goals (suggested peptide stacks), set your own dose and schedule per peptide, optional titration steps, and see active protocols as cards; saved protocols can be paused, ended, repeated, or deleted.
+
 **v0.1 — Inventory.** Add, edit, and delete inventory items (name, count, vial size, medium, lot/batch #, cost, vendor, order/shipped/arrival dates, COA photo/PDF with lab-measured vial size and purity, notes). See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 
 ## Running Amide
