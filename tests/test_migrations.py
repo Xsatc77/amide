@@ -99,3 +99,23 @@ def test_0005_is_a_no_op_on_complete_database(tmp_path):
     with sqlite3.connect(db) as c:
         assert c.execute("select count(*) from peptides").fetchone()[0] == before
         assert c.execute("select count(*) from goal_peptides where goal='wellness'").fetchone()[0] == 0
+
+
+def test_0006_adds_users_sessions_and_owners(tmp_path):
+    db = tmp_path / "f.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0005")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into inventory_items(name,count,created_at,updated_at) values('Keep',1,'2026-09-23','2026-09-23')")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
+        assert {"users", "sessions"} <= tables
+        assert "owner_id" in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+        assert "owner_id" in {r[1] for r in c.execute("pragma table_info(protocols)")}
+        assert c.execute("select name, owner_id from inventory_items").fetchall() == [("Keep", None)]
+    command.downgrade(cfg, "0005")
+    with sqlite3.connect(db) as c:
+        tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
+        assert "users" not in tables
+        assert "owner_id" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}

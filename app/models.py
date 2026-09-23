@@ -56,6 +56,7 @@ class InventoryItem(Base):
     coa_vial_size_mg: Mapped[float | None] = mapped_column(Float)
     coa_purity_pct: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -174,6 +175,7 @@ class Protocol(Base):
     paused: Mapped[bool] = mapped_column(Boolean, default=False)
     titration_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -236,3 +238,42 @@ class TitrationStep(Base):
     start_week: Mapped[int] = mapped_column(Integer)
     end_week: Mapped[int | None] = mapped_column(Integer)
     dose: Mapped[float] = mapped_column(Float)
+
+
+# ---------------------------------------------------------------- accounts
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(32))  # as typed, for display
+    username_key: Mapped[str] = mapped_column(String(32), unique=True)  # lower-case, for matching
+    password_hash: Mapped[str] = mapped_column(String(200))
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime)
+    notice_accepted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: utcnow().replace(tzinfo=None))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    @property
+    def initial(self) -> str:
+        return self.username[:1].upper()
+
+
+class LoginSession(Base):
+    """A browser's session: legal notice acceptance, then (optionally) a signed-in user.
+    Timestamps are naive UTC."""
+
+    __tablename__ = "sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # random token, also the cookie value
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    notice_accepted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    twofa_pending: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    last_seen: Mapped[datetime] = mapped_column(DateTime)
+
+    user: Mapped[User | None] = relationship()
