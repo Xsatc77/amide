@@ -96,9 +96,9 @@ def test_detail_without_card(client, db):
     assert "No card imported" in t and "/card" not in t.split("No card imported")[0][-200:]
 
 
-def test_detail_lists_protocols_using_peptide(client, db):
+def test_detail_lists_protocols_using_peptide(client, db, me):
     p = bpc(db)
-    proto = Protocol(name="Heal fast", start_date=date(2026, 9, 1))
+    proto = Protocol(name="Heal fast", start_date=date(2026, 9, 1), owner_id=me)
     proto.goals = [ProtocolGoal(goal="muscle-recovery")]
     proto.items = [ProtocolItem(peptide_id=p.id, position=0)]
     db.add(proto)

@@ -65,7 +65,8 @@ def library_list(request: Request, session: Session = Depends(get_session)):
 def library_detail(peptide_id: int, request: Request, session: Session = Depends(get_session)):
     p = _get_peptide(session, peptide_id)
     used_in = session.scalars(
-        select(Protocol).join(ProtocolItem).where(ProtocolItem.peptide_id == p.id)
+        select(Protocol).join(ProtocolItem)
+        .where(ProtocolItem.peptide_id == p.id, Protocol.owner_id == request.state.user.id)
         .order_by(Protocol.start_date.desc()).distinct()).all()
     return templates.TemplateResponse(request, "library/detail.html", {
         "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,

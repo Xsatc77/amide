@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth.deps import current_user_id
 from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.models import (
@@ -25,16 +26,17 @@ def get_today() -> date:
     return date.today()
 
 
-def _protocol_query():
-    return select(Protocol).options(
+def _protocol_query(uid: int):
+    """This user's protocols (others' are never visible)."""
+    return select(Protocol).where(Protocol.owner_id == uid).options(
         selectinload(Protocol.goals),
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
         selectinload(Protocol.items).selectinload(ProtocolItem.steps),
     )
 
 
-def _get_protocol(session: Session, protocol_id: int) -> Protocol:
-    p = session.scalar(_protocol_query().where(Protocol.id == protocol_id))
+def _get_protocol(session: Session, protocol_id: int, uid: int) -> Protocol:
+    p = session.scalar(_protocol_query(uid).where(Protocol.id == protocol_id))
     if p is None:
         raise HTTPException(404, "Protocol not found")
     return p
@@ -90,8 +92,9 @@ def _view(p: Protocol, today: date) -> dict:
 # ---------------------------------------------------------------- pages
 
 @router.get("/protocols")
-def list_protocols(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today)):
-    protocols = session.scalars(_protocol_query().order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
+def list_protocols(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
+    protocols = session.scalars(_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
     views = [_view(p, today) for p in protocols]
     active = sorted((v for v in views if v["status"] is Status.ACTIVE), key=lambda v: v["p"].start_date)
     saved = [v for v in views if v["status"] is not Status.ACTIVE]
@@ -101,12 +104,13 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
 
 # ---------------------------------------------------------------- builder
 
-def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool) -> dict:
+def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, uid: int) -> dict:
     stacks: dict[str, list[int]] = {g.slug: [] for g in GOALS}
     for gp in session.scalars(select(GoalPeptide).order_by(GoalPeptide.goal, GoalPeptide.position)):
         stacks.setdefault(gp.goal, []).append(gp.peptide_id)
     peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()
-    inventory = session.scalars(select(InventoryItem).order_by(InventoryItem.name)).all()
+    inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
+                                .order_by(InventoryItem.name)).all()
 
     def choices(enum_cls):
         return [[m.value, m.label] for m in enum_cls]
@@ -147,7 +151,7 @@ def _render_builder(request: Request, session: Session, state: dict, *, errors: 
             "repeat_of": repeat_of,
             "status": protocol_status(protocol, today) if protocol else None,
             "action": "/protocols" if is_new else f"/protocols/{protocol.id}",
-            "builder_data": _builder_data(session, state, errors or {}, is_new=is_new),
+            "builder_data": _builder_data(session, state, errors or {}, is_new=is_new, uid=request.state.user.id),
         },
         status_code=status_code,
     )
@@ -197,44 +201,48 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
     return p
 
 
-def _parse(session: Session, form: dict[str, list[str]]):
+def _parse(session: Session, form: dict[str, list[str]], uid: int):
     return parse_protocol_form(
         form,
         peptide_ids=set(session.scalars(select(Peptide.id))),
-        inventory_ids=set(session.scalars(select(InventoryItem.id))),
+        inventory_ids=set(session.scalars(select(InventoryItem.id).where(InventoryItem.owner_id == uid))),
     )
 
 
 @router.get("/protocols/new")
-def new_protocol(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today)):
+def new_protocol(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
     goals = [g for g in dict.fromkeys(request.query_params.getlist("goal")) if g in GOALS_BY_SLUG]
     return _render_builder(request, session, blank_state(goals, today), today=today)
 
 
 @router.post("/protocols")
 async def create_protocol(request: Request, session: Session = Depends(get_session),
-                          today: date = Depends(get_today)):
+                          today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
     form = await _read_form(request)
-    parsed, errors = _parse(session, form)
+    parsed, errors = _parse(session, form, uid)
     if errors:
         return _render_builder(request, session, state_from_form(form), errors=errors, today=today, status_code=422)
-    save_protocol(session, Protocol(), parsed)
+    save_protocol(session, Protocol(owner_id=uid), parsed)
     return RedirectResponse("/protocols", status_code=303)
 
 
 @router.get("/protocols/{protocol_id}/edit")
 def edit_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session),
-                  today: date = Depends(get_today)):
-    p = _get_protocol(session, protocol_id)
+                  today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
+    p = _get_protocol(session, protocol_id, uid)
     return _render_builder(request, session, state_from_protocol(p), protocol=p, today=today)
 
 
 @router.post("/protocols/{protocol_id}")
 async def update_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session),
-                          today: date = Depends(get_today)):
-    p = _get_protocol(session, protocol_id)
+                          today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
+    p = _get_protocol(session, protocol_id, uid)
     form = await _read_form(request)
-    parsed, errors = _parse(session, form)
+    parsed, errors = _parse(session, form, uid)
     if errors:
         return _render_builder(request, session, state_from_form(form), errors=errors, protocol=p, today=today,
                                status_code=422)
@@ -244,9 +252,10 @@ async def update_protocol(protocol_id: int, request: Request, session: Session =
 
 @router.get("/protocols/{protocol_id}/repeat")
 def repeat_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session),
-                    today: date = Depends(get_today)):
+                    today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
     """Builder pre-filled from an existing protocol as a new, unsaved one."""
-    p = _get_protocol(session, protocol_id)
+    p = _get_protocol(session, protocol_id, uid)
     return _render_builder(request, session, state_from_protocol(p, repeat=True, today=today),
                            repeat_of=p, today=today)
 
@@ -259,30 +268,34 @@ def _back(protocol_id: int, next_page: str) -> RedirectResponse:
 
 
 @router.post("/protocols/{protocol_id}/pause")
-def pause_protocol(protocol_id: int, next: str = Form(""), session: Session = Depends(get_session)):
-    _get_protocol(session, protocol_id).paused = True
+def pause_protocol(protocol_id: int, next: str = Form(""), session: Session = Depends(get_session),
+        uid: int = Depends(current_user_id)):
+    _get_protocol(session, protocol_id, uid).paused = True
     session.commit()
     return _back(protocol_id, next)
 
 
 @router.post("/protocols/{protocol_id}/resume")
-def resume_protocol(protocol_id: int, next: str = Form(""), session: Session = Depends(get_session)):
-    _get_protocol(session, protocol_id).paused = False
+def resume_protocol(protocol_id: int, next: str = Form(""), session: Session = Depends(get_session),
+        uid: int = Depends(current_user_id)):
+    _get_protocol(session, protocol_id, uid).paused = False
     session.commit()
     return _back(protocol_id, next)
 
 
 @router.post("/protocols/{protocol_id}/end")
 def end_protocol(protocol_id: int, next: str = Form(""), session: Session = Depends(get_session),
-                 today: date = Depends(get_today)):
-    _get_protocol(session, protocol_id).ended_on = today
+                 today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
+    _get_protocol(session, protocol_id, uid).ended_on = today
     session.commit()
     return _back(protocol_id, next)
 
 
 @router.post("/protocols/{protocol_id}/delete")
-def delete_protocol(protocol_id: int, session: Session = Depends(get_session)):
-    session.delete(_get_protocol(session, protocol_id))
+def delete_protocol(protocol_id: int, session: Session = Depends(get_session),
+        uid: int = Depends(current_user_id)):
+    session.delete(_get_protocol(session, protocol_id, uid))
     session.commit()
     return RedirectResponse("/protocols", status_code=303)
 
@@ -331,14 +344,16 @@ def _protocol_json(p: Protocol, today: date) -> dict:
 
 
 @router.get("/api/protocols")
-def api_list_protocols(session: Session = Depends(get_session), today: date = Depends(get_today)):
-    protocols = session.scalars(_protocol_query().order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
+def api_list_protocols(session: Session = Depends(get_session), today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
+    protocols = session.scalars(_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
     return [_protocol_json(p, today) for p in protocols]
 
 
 @router.get("/api/protocols/{protocol_id}")
-def api_get_protocol(protocol_id: int, session: Session = Depends(get_session), today: date = Depends(get_today)):
-    return _protocol_json(_get_protocol(session, protocol_id), today)
+def api_get_protocol(protocol_id: int, session: Session = Depends(get_session), today: date = Depends(get_today),
+        uid: int = Depends(current_user_id)):
+    return _protocol_json(_get_protocol(session, protocol_id, uid), today)
 
 
 @router.get("/api/peptides")

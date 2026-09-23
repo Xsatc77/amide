@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from app.main import app
 from app.models import (
     DoseUnit, Frequency, InventoryItem, Peptide, Protocol, ProtocolGoal, ProtocolItem, Route, TimeOfDay,
-    TitrationStep,
+    TitrationStep, User,
 )
 from app.routers.protocols import get_today
 
@@ -25,8 +25,13 @@ def peptide_id(db, name: str) -> int:
     return db.scalar(select(Peptide.id).where(Peptide.name == name))
 
 
+def tester_id(db) -> int:
+    return db.scalar(select(User.id).where(User.username_key == "tester"))
+
+
 def make_protocol(db, name="Heal", start=date(2026, 9, 1), goals=("muscle-recovery",), **kw) -> Protocol:
-    p = Protocol(name=name, start_date=start, **kw)
+    """A protocol owned by the signed-in test user."""
+    p = Protocol(name=name, start_date=start, owner_id=tester_id(db), **kw)
     p.goals = [ProtocolGoal(goal=g) for g in goals]
     p.items = [ProtocolItem(peptide_id=peptide_id(db, "BPC-157"), position=0, dose=250, dose_unit=DoseUnit.MCG,
                             frequency=Frequency.DAILY, time_of_day=TimeOfDay.AM, route=Route.SUBQ)]
@@ -129,7 +134,7 @@ def test_actions_404_for_missing_protocol(client):
 
 
 def test_inventory_delete_unlinks_protocol_item(client, db):
-    inv = InventoryItem(name="BPC vial", count=2)
+    inv = InventoryItem(name="BPC vial", count=2, owner_id=tester_id(db))
     db.add(inv)
     db.commit()
     p = make_protocol(db)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
 from app import uploads
+from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import InventoryItem, Medium
 from app.templating import templates
@@ -144,9 +145,20 @@ async def _read_form(request: Request) -> tuple[dict[str, str], UploadFile | Non
     return raw, (coa if has_file else None), bool(form.get("remove_coa"))
 
 
+def _own_item(session: Session, item_id: int, uid: int) -> InventoryItem | None:
+    """The item if it belongs to this user; someone else's item is treated as not existing."""
+    item = session.get(InventoryItem, item_id)
+    return item if item is not None and item.owner_id == uid else None
+
+
+def _own_items(session: Session, uid: int):
+    return session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
+                           .order_by(InventoryItem.name.collate("NOCASE"))).all()
+
+
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200):
-    items = session.scalars(select(InventoryItem).order_by(InventoryItem.name.collate("NOCASE"))).all()
+    items = _own_items(session, request.state.user.id)
     return templates.TemplateResponse(
         request,
         "inventory/list.html",
@@ -170,7 +182,8 @@ def list_inventory(request: Request, session: Session = Depends(get_session)):
 
 
 @router.post("/inventory")
-async def create_item(request: Request, session: Session = Depends(get_session)):
+async def create_item(request: Request, session: Session = Depends(get_session),
+                      uid: int = Depends(current_user_id)):
     raw, coa, _ = await _read_form(request)
     values, errors = _parse_form(raw)
 
@@ -184,14 +197,15 @@ async def create_item(request: Request, session: Session = Depends(get_session))
     if errors:
         return _render_list(request, session, form=raw, errors=errors, status_code=422)
 
-    session.add(InventoryItem(**values, coa_filename=coa_filename))
+    session.add(InventoryItem(**values, coa_filename=coa_filename, owner_id=uid))
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
 
 
 @router.post("/inventory/{item_id}")
-async def update_item(item_id: int, request: Request, session: Session = Depends(get_session)):
-    item = session.get(InventoryItem, item_id)
+async def update_item(item_id: int, request: Request, session: Session = Depends(get_session),
+                      uid: int = Depends(current_user_id)):
+    item = _own_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
 
@@ -218,8 +232,8 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
 
 
 @router.post("/inventory/{item_id}/delete")
-def delete_item(item_id: int, session: Session = Depends(get_session)):
-    item = session.get(InventoryItem, item_id)
+def delete_item(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    item = _own_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
     uploads.delete_coa(item.coa_filename)
@@ -229,8 +243,8 @@ def delete_item(item_id: int, session: Session = Depends(get_session)):
 
 
 @router.get("/inventory/{item_id}/coa")
-def get_coa(item_id: int, session: Session = Depends(get_session)):
-    item = session.get(InventoryItem, item_id)
+def get_coa(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    item = _own_item(session, item_id, uid)
     if item is None or not item.coa_filename:
         raise HTTPException(404, "No COA on file")
     path = uploads.coa_path(item.coa_filename)
@@ -271,14 +285,14 @@ def _to_json(item: InventoryItem) -> dict:
 
 
 @router.get("/api/inventory")
-def api_list_inventory(session: Session = Depends(get_session)):
-    items = session.scalars(select(InventoryItem).order_by(InventoryItem.name.collate("NOCASE"))).all()
+def api_list_inventory(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    items = _own_items(session, uid)
     return [_to_json(i) for i in items]
 
 
 @router.get("/api/inventory/{item_id}")
-def api_get_inventory(item_id: int, session: Session = Depends(get_session)):
-    item = session.get(InventoryItem, item_id)
+def api_get_inventory(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    item = _own_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
     return _to_json(item)
