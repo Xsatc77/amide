@@ -1,0 +1,34 @@
+{# Day: a card per protocol in each time-of-day section. #}
+<div class="cal-day">
+  {% if nothing %}
+  <div class="empty"><p><strong>Nothing due.</strong></p><p class="muted">No active or scheduled protocol has a dose on this day.</p></div>
+  {% endif %}
+  {% for slot, key, entries in sections if entries %}
+  <section class="cal-day-section" data-slot="{{ key }}">
+    <h2 class="section-title">{{ slot.label }}</h2>
+    <div class="cal-card-grid">
+      {% for occ, items in entries %}
+      <button type="button" class="cal-card c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}">
+        <strong class="cal-card-title">{{ occ.protocol_name }}</strong>
+        <ul class="dose-list">
+          {% for i in items %}<li><strong>{{ i.peptide }}</strong> — {{ dose_text(i) }}{% if i.step %} · step {{ i.step }}{% endif %} · {{ i.route }}{% if i.inventory %} · <span class="muted">{{ i.inventory }}</span>{% endif %}</li>{% endfor %}
+        </ul>
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% if as_needed %}
+  <section class="cal-day-section" data-slot="as-needed">
+    <h2 class="section-title">As needed</h2>
+    <div class="cal-card-grid">
+      {% for p, items in as_needed %}
+      <div class="cal-card cal-card-static c{{ colors.get(p.id, 0) }}">
+        <strong class="cal-card-title">{{ p.name }}</strong>
+        <ul class="dose-list">{% for i in items %}<li><strong>{{ i.peptide }}</strong> — {{ dose_text(i) }} · {{ i.route }}</li>{% endfor %}</ul>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>

@@ -1,0 +1,21 @@
+{# Week: 7 day columns x AM / PM / Bedtime / Any time rows; one block per protocol per slot. #}
+<div class="cal-week" role="grid" aria-label="{{ title }}">
+  <div class="cal-week-head" role="row">
+    <span></span>
+    {% for d in days %}
+    <a class="cal-week-day {{ 'cal-today' if d == today }}" href="{{ url('day', d) }}">
+      <span class="small muted">{{ d.strftime('%a') }}</span> <strong>{{ d.strftime('%b') }} {{ d.day }}</strong>
+    </a>
+    {% endfor %}
+  </div>
+  {% for slot, key in slots %}
+  <div class="cal-week-row" data-slot="{{ key }}" role="row">
+    <div class="cal-slot-label">{{ slot.label }}</div>
+    {% for entries in cells[key] %}
+    <div class="cal-week-cell {{ 'cal-today' if days[loop.index0] == today }}">
+      {% for occ, items in entries %}<button type="button" class="cal-block c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"><strong>{{ occ.protocol_name }}</strong><span>{{ items | length }} dose{{ '' if items | length == 1 else 's' }}</span></button>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>

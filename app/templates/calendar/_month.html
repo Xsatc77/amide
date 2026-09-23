@@ -1,0 +1,28 @@
+{# Month grid: week-number column + 7 days. Each protocol is a coloured line (lane); consecutive days join. #}
+<div class="cal-month" role="grid" aria-label="{{ title }}">
+  <div class="cal-month-head" role="row">
+    <span class="cal-wk-head" title="Week of the year">Wk</span>
+    {% for name in ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat') %}<span role="columnheader">{{ name }}</span>{% endfor %}
+  </div>
+  {% for row in rows %}
+  <div class="cal-month-row" role="row">
+    <a class="cal-wk" href="{{ url('week', row.week_start) }}" title="Week {{ row.week_no }}">{{ row.week_no }}</a>
+    {% for d in row.days %}
+    <div class="cal-day-bg {{ 'cal-today' if d == today }} {{ 'cal-out' if d.month != anchor.month }}" data-date="{{ d.isoformat() }}"
+         style="grid-column: {{ loop.index + 1 }}"></div>
+    <a class="cal-daynum" href="{{ url('day', d) }}" style="grid-column: {{ loop.index + 1 }}"
+       aria-label="{{ d.strftime('%A, %B') }} {{ d.day }}">{{ d.day }}</a>
+    {% endfor %}
+    {% for b in row.bars %}
+    <div class="cal-bar c{{ b.color }}" style="grid-column: {{ b.col_start + 2 }} / {{ b.col_end + 3 }}; grid-row: {{ b.lane + 2 }}; --days: {{ b.dates | length }}">
+      <span class="cal-bar-title">{{ b.name }}</span>
+      {% for d in b.dates %}<button type="button" class="cal-bar-day" data-key="{{ b.protocol_id }}|{{ d.isoformat() }}"
+        aria-label="{{ b.name }}, {{ d.strftime('%B') }} {{ d.day }}"></button>{% endfor %}
+    </div>
+    {% endfor %}
+    {% for col, n in row.more.items() %}
+    <a class="cal-more" href="{{ url('day', row.days[col]) }}" style="grid-column: {{ col + 2 }}">+{{ n }} more</a>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>

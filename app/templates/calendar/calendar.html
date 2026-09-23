@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% set active_nav = "calendar" %}
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+<div class="page-head cal-head">
+  <div>
+    <h1>Calendar</h1>
+    <p class="muted">{{ title }}</p>
+  </div>
+  <form class="cal-controls" method="get" action="/calendar">
+    <input type="hidden" name="date" value="{{ anchor.isoformat() }}">
+    <label class="sr-only" for="cal-view">View</label>
+    <select name="view" id="cal-view">
+      {% for v in ('month', 'week', 'day') %}<option value="{{ v }}" {{ 'selected' if v == view }}>{{ v | capitalize }}</option>{% endfor %}
+    </select>
+    <noscript><button class="btn">Show</button></noscript>
+    <a class="btn" href="{{ prev_url }}" aria-label="Previous {{ view }}">‹</a>
+    <a class="btn" href="{{ today_url }}">Today</a>
+    <a class="btn" href="{{ next_url }}" aria-label="Next {{ view }}">›</a>
+  </form>
+</div>
+
+{% if view == 'month' %}{% include "calendar/_month.html" %}
+{% elif view == 'week' %}{% include "calendar/_week.html" %}
+{% else %}{% include "calendar/_day.html" %}{% endif %}
+
+<dialog id="cal-dialog" class="dialog cal-dialog" aria-labelledby="cal-dialog-title">
+  <header class="dialog-head">
+    <div><h2 id="cal-dialog-title"></h2><p class="muted small" id="cal-dialog-date"></p></div>
+    <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Close">×</button>
+  </header>
+  <ul class="cal-due-list" id="cal-dialog-items"></ul>
+  <footer class="dialog-foot"><a class="btn" id="cal-dialog-edit" href="#">Edit protocol</a>
+    <button type="button" class="btn btn-primary" data-close>Close</button></footer>
+</dialog>
+
+<script type="application/json" id="cal-data">{{ data | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/calendar.js') }}" defer></script>
+{% endblock %}
