@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/amide-banner.jpg" alt="Amide — Peptide Tracking: all-in-one, self-hosted solution for peptide management" width="100%"></p>
+
 # amide
 Amide is a self-hosted Peptide Tracking System that brings together tracking, scheduling, and research in one place.
 
