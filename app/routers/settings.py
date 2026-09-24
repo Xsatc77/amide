@@ -5,11 +5,14 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import zoneinfo
+from datetime import timezone
+
 from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import Colorway, InventoryItem, Protocol, User
+from app.models import Colorway, InventoryItem, Protocol, User, Vendor
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
 from app.users import user_rows
@@ -21,13 +24,26 @@ def _me(session: Session, uid: int) -> User:
     return session.get(User, uid)
 
 
+def _format_last_login(last_login, tz_name: str | None) -> str:
+    if last_login is None:
+        return "Never"
+    if tz_name:
+        aware = last_login.replace(tzinfo=timezone.utc)
+        local = aware.astimezone(zoneinfo.ZoneInfo(tz_name))
+        return f"{local.strftime('%Y-%m-%d %H:%M')} {tz_name}"
+    return last_login.strftime("%Y-%m-%d %H:%M UTC")
+
+
 def _render(request: Request, session: Session, *, errors: dict | None = None, status_code: int = 200):
     me = _me(session, request.state.user.id)
     context = {
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
     }
     if me.is_admin:
-        context["users"] = user_rows(session)
+        users = user_rows(session)
+        for row in users:
+            row["last_login_display"] = _format_last_login(row["last_login"], me.timezone)
+        context["users"] = users
     return templates.TemplateResponse(request, "settings/settings.html", context, status_code=status_code)
 
 
@@ -39,10 +55,12 @@ def _require_admin(request: Request, session: Session) -> User:
 
 
 def _target_user(request: Request, session: Session, user_id: int) -> User:
-    _require_admin(request, session)
+    me = _require_admin(request, session)
     target = session.get(User, user_id)
     if target is None:
         raise HTTPException(status_code=404)
+    if target.id == me.id:
+        raise HTTPException(status_code=422, detail="You can't do that to your own account.")
     return target
 
 
@@ -61,7 +79,7 @@ async def change_username(request: Request, session: Session = Depends(get_sessi
     errors: dict[str, str] = {}
 
     if not passwords.verify_password(me.password_hash, current_password):
-        errors["current_password"] = "Current password is incorrect."
+        errors["username_current_password"] = "Current password is incorrect."
     if err := passwords.username_error(new_name):
         errors["username"] = err
     elif not errors:
@@ -89,7 +107,7 @@ async def change_password(request: Request, session: Session = Depends(get_sessi
 
     errors: dict[str, str] = {}
     if not passwords.verify_password(me.password_hash, current_password):
-        errors["current_password"] = "Current password is incorrect."
+        errors["password_current_password"] = "Current password is incorrect."
     if problems := passwords.password_errors(new_password, confirm):
         errors["new_password"] = " ".join(problems)
     if errors:
@@ -215,11 +233,21 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
         return _render(request, session, errors={"delete_user": "Type the username exactly to confirm."},
                       status_code=422)
 
+    coa_filenames = []
     for item in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == target.id)):
-        uploads.delete_coa(item.coa_filename)
+        if item.coa_filename:
+            coa_filenames.append(item.coa_filename)
         session.delete(item)
     for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
         session.delete(protocol)
+    for vendor in session.scalars(select(Vendor).where(Vendor.owner_id == target.id)):
+        session.delete(vendor)
+    # Flush the owned rows' deletes first: nothing links User to these tables via an ORM relationship,
+    # so SQLAlchemy's flush ordering doesn't know they must precede the user row, and SQLite's
+    # per-statement FK check rejects deleting the user while a stale owner_id reference still exists.
+    session.flush()
     session.delete(target)
     session.commit()
+    for filename in coa_filenames:
+        uploads.delete_coa(filename)
     return RedirectResponse("/settings#admin", status_code=303)

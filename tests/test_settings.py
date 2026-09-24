@@ -1,11 +1,14 @@
 import html
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app import config
 from app.auth import passwords
 from app.db import SessionLocal
-from app.models import LoginSession, User
+from app.main import app
+from app.models import InventoryItem, LoginSession, Protocol, User, Vendor
 
 PW = "Test1!"
 
@@ -94,6 +97,16 @@ def test_change_password_wrong_current_rejected(client, db):
     assert r.status_code == 422 and "incorrect" in text(r).lower()
 
 
+def test_change_password_error_does_not_show_on_username_form(client, db):
+    t = text(client.post("/settings/password", data={"current_password": "wrong", "new_password": "Whatever1!",
+                                                       "confirm": "Whatever1!"}))
+    # The username form's own current-password field must stay clean -- the two forms share a field
+    # name but must not share an error key, or a password-form error bleeds onto the username form.
+    import re
+    username_form = re.search(r'action="/settings/username".*?</form>', t, re.S).group(0)
+    assert "incorrect" not in username_form.lower()
+
+
 def test_timezone_saves_and_blank_clears_it(client, db, me):
     client.post("/settings/timezone", data={"mode": "manual", "timezone": "America/Chicago"})
     assert _current(me).timezone == "America/Chicago"
@@ -141,14 +154,6 @@ def test_colorway_rejects_unknown_value(client, db, me):
     assert _current(me).colorway is None
 
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app import config
-from app.main import app
-from app.models import InventoryItem, Protocol
-
-
 # `client` (conftest's "Tester") is the first account ever created in the test database, so it IS the
 # admin -- see conftest.py's client fixture docstring. Admin-positive tests below use `client` directly.
 # Negative-path tests need a definitely non-admin account instead:
@@ -170,6 +175,17 @@ def test_admin_section_hidden_from_non_admin(nonadmin):
 def test_admin_section_shown_to_admin(client):
     t = text(client.get("/settings"))
     assert 'id="admin"' in t and "Tester" in t
+
+
+def test_admin_table_shows_last_login_in_admins_own_timezone(client, db, me):
+    client.post("/settings/timezone", data={"mode": "manual", "timezone": "America/Chicago"})
+    with SessionLocal() as s:
+        s.get(User, me).last_login_at = __import__("datetime").datetime(2026, 6, 1, 12, 0, tzinfo=__import__("datetime").timezone.utc)
+        s.commit()
+    t = text(client.get("/settings"))
+    # 12:00 UTC on 2026-06-01 is 07:00 in America/Chicago (CDT, UTC-5) -- the UTC time must not appear as-is.
+    assert "2026-06-01 07:00" in t
+    assert "2026-06-01 12:00 UTC" not in t
 
 
 def test_admin_routes_404_for_non_admin(nonadmin, db):
@@ -207,6 +223,21 @@ def test_admin_can_add_reset_and_remove_2fa(client, db):
         assert not s.get(User, made_id).totp_enabled
 
 
+def test_admin_cannot_reset_own_password_or_remove_own_2fa_via_admin_routes(client, db):
+    with SessionLocal() as s:
+        me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+        original_hash = s.get(User, me_id).password_hash
+
+    r = client.post(f"/settings/admin/users/{me_id}/reset-password",
+                    data={"password": "Sneaky1!aaa", "confirm": "Sneaky1!aaa"})
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(User, me_id).password_hash == original_hash
+
+    r = client.post(f"/settings/admin/users/{me_id}/remove-2fa")
+    assert r.status_code == 422
+
+
 def test_admin_cannot_delete_self(client, db):
     with SessionLocal() as s:
         my_id = s.scalar(select(User.id).where(User.username_key == "tester"))
@@ -234,26 +265,35 @@ def test_delete_user_requires_exact_username_match_server_side(client, db):
         assert s.get(User, target_id) is None
 
 
-def test_delete_user_cascades_inventory_coa_and_protocols(client, db):
+def test_delete_user_cascades_inventory_coa_protocols_and_vendors(client, db):
+    from datetime import date
+
     owner = TestClient(app, follow_redirects=False)
     owner.post("/notice", data={"understand": "1"})
     owner.post("/register", data={"username": "OwnsStuff", "password": "Owns1!aaa", "confirm": "Owns1!aaa"})
-    owner.post("/inventory", data={"name": "Their vial", "medium": "Lyophilized", "vial_size_mg": "10"},
+    owner.post("/inventory", data={"name": "Their vial", "medium": "Lyophilized", "vial_size_mg": "10",
+                                    "vendor": "Their Vendor"},
               files={"coa": ("c.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")})
-    owner.post("/protocols", data={"name": "Their protocol", "start_date": "2026-09-01",
-                                   "goal": ["muscle-recovery"]})
 
     with SessionLocal() as s:
         owner_id = s.scalar(select(User.id).where(User.username_key == "ownsstuff"))
+        s.add(Protocol(name="Their protocol", start_date=date(2026, 9, 1), owner_id=owner_id))
+        s.commit()
+
         inv = s.scalar(select(InventoryItem).where(InventoryItem.owner_id == owner_id))
         coa_filename = inv.coa_filename
         assert coa_filename is not None
         assert (config.COA_DIR / coa_filename).exists()
+        assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 1
+        assert s.query(Vendor).filter_by(owner_id=owner_id).count() == 1
 
-    client.post(f"/settings/admin/users/{owner_id}/delete", data={"username": "OwnsStuff"})
+    r = client.post(f"/settings/admin/users/{owner_id}/delete", data={"username": "OwnsStuff"},
+                    follow_redirects=False)
+    assert r.status_code == 303
 
     with SessionLocal() as s:
         assert s.get(User, owner_id) is None
         assert s.query(InventoryItem).filter_by(owner_id=owner_id).count() == 0
         assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 0
+        assert s.query(Vendor).filter_by(owner_id=owner_id).count() == 0
     assert not (config.COA_DIR / coa_filename).exists()
