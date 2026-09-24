@@ -65,7 +65,8 @@ Firm up the base before anything depends on it.
 - ✅ *Search, sort, filter on the inventory list shipped in v0.7.*
 - ✅ *Accounts, legal notice, private data per user and 2FA shipped in v0.4.*
 - ✅ *Backup/export (JSON + CSV, additive-only import) shipped in v0.7.*
-- **Still open:** a **Settings** page — sharing (inventory or full data with others on the same network), and a home for Backup & restore once it exists (it currently lives on the account menu).
+- ✅ *Settings page shipped in v0.8*: username/password/2FA, email, timezone, colorway, and an admin Manage Users panel, reached from the account menu; Backup & restore now lives there too.
+- **Still open:** Sharing (inventory or full personal data with others on the same network).
 
 ## Phase 2 — v0.3: Reconstitution Calculator + Active Vials
 

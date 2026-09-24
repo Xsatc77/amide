@@ -43,6 +43,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.8 — Settings.** A Settings page (from the username menu) for changing your username/password, turning two-factor authentication on or off, setting an email (for future sharing features) and timezone, and picking a colorway — Light, Dark, or one of seven named palettes, including a pure-black-and-white High Contrast option. Admins get a Manage Users panel: add accounts, reset passwords, remove someone's two-factor authentication, or delete an account (which also removes everything they own, after two confirmations).
+
 **v0.7 — Inventory Foundations.** The inventory form adapts to the medium: amount + unit (mg/mcg/IU), volume for Liquid, units-per-package for Autoinjector/Pill, plus expiration date and storage location, each required only where it makes sense. Vendors are now their own table (type a name to reuse or create it, like the peptide picker). The inventory list has search, medium filters, and sortable columns. Backup & restore (JSON + CSV export, additive-only import) is on the account menu.
 
 **v0.6 — Reconstitution Calculator.** Live vial + BAC water + dose → concentration, draw volume and U-100 syringe units, with a syringe-fill visual, presets, and a reverse solver (pick the units you want, it works out the water). Pre-fills from Inventory (lyophilized items) or a Protocol's dose. *Not yet built:* turning a mixed vial into a tracked "Active Vial" that depletes inventory and has a discard-by date — that's still open, see the roadmap.
