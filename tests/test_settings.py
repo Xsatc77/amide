@@ -139,3 +139,121 @@ def test_colorway_rejects_unknown_value(client, db, me):
     r = client.post("/settings/display", data={"colorway": "not-a-real-one"})
     assert r.status_code == 422
     assert _current(me).colorway is None
+
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app import config
+from app.main import app
+from app.models import InventoryItem, Protocol
+
+
+# `client` (conftest's "Tester") is the first account ever created in the test database, so it IS the
+# admin -- see conftest.py's client fixture docstring. Admin-positive tests below use `client` directly.
+# Negative-path tests need a definitely non-admin account instead:
+
+
+@pytest.fixture(scope="module")
+def nonadmin():
+    c = TestClient(app, follow_redirects=False)
+    c.post("/notice", data={"understand": "1"})
+    c.post("/register", data={"username": "NotAdmin", "password": "NotAdm1n!", "confirm": "NotAdm1n!"})
+    return c
+
+
+def test_admin_section_hidden_from_non_admin(nonadmin):
+    t = text(nonadmin.get("/settings"))
+    assert 'id="admin"' not in t
+
+
+def test_admin_section_shown_to_admin(client):
+    t = text(client.get("/settings"))
+    assert 'id="admin"' in t and "Tester" in t
+
+
+def test_admin_routes_404_for_non_admin(nonadmin, db):
+    with SessionLocal() as s:
+        target_id = s.scalar(select(User.id).where(User.username_key == "notadmin"))
+    for path, data in [
+        ("/settings/admin/users/new", {"username": "X", "password": "X1!aaaaa", "confirm": "X1!aaaaa"}),
+        (f"/settings/admin/users/{target_id}/reset-password", {"password": "X1!aaaaa", "confirm": "X1!aaaaa"}),
+        (f"/settings/admin/users/{target_id}/remove-2fa", {}),
+        (f"/settings/admin/users/{target_id}/delete", {"username": "whatever"}),
+    ]:
+        assert nonadmin.post(path, data=data).status_code == 404, path
+
+
+def test_admin_can_add_reset_and_remove_2fa(client, db):
+    r = client.post("/settings/admin/users/new",
+                    data={"username": "AdminMade", "password": "Made1!aaa", "confirm": "Made1!aaa"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        made = s.scalar(select(User).where(User.username_key == "adminmade"))
+        assert made is not None and not made.is_admin
+        made.totp_enabled, made.totp_secret = True, "JBSWY3DPEHPK3PXP"
+        s.commit()
+        made_id = made.id
+
+    client.post(f"/settings/admin/users/{made_id}/reset-password",
+               data={"password": "Reset1!aaa", "confirm": "Reset1!aaa"})
+    with SessionLocal() as s:
+        made = s.get(User, made_id)
+        assert passwords.verify_password(made.password_hash, "Reset1!aaa")
+
+    client.post(f"/settings/admin/users/{made_id}/remove-2fa")
+    with SessionLocal() as s:
+        assert not s.get(User, made_id).totp_enabled
+
+
+def test_admin_cannot_delete_self(client, db):
+    with SessionLocal() as s:
+        my_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+    r = client.post(f"/settings/admin/users/{my_id}/delete", data={"username": "Tester"})
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(User, my_id) is not None
+
+
+def test_delete_user_requires_exact_username_match_server_side(client, db):
+    with SessionLocal() as s:
+        s.add(User(username="ToDelete", username_key="todelete", password_hash=passwords.hash_password("x")))
+        s.commit()
+        target_id = s.scalar(select(User.id).where(User.username_key == "todelete"))
+
+    r = client.post(f"/settings/admin/users/{target_id}/delete", data={"username": "WrongName"})
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(User, target_id) is not None
+
+    r = client.post(f"/settings/admin/users/{target_id}/delete", data={"username": "ToDelete"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(User, target_id) is None
+
+
+def test_delete_user_cascades_inventory_coa_and_protocols(client, db):
+    owner = TestClient(app, follow_redirects=False)
+    owner.post("/notice", data={"understand": "1"})
+    owner.post("/register", data={"username": "OwnsStuff", "password": "Owns1!aaa", "confirm": "Owns1!aaa"})
+    owner.post("/inventory", data={"name": "Their vial", "medium": "Lyophilized", "vial_size_mg": "10"},
+              files={"coa": ("c.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")})
+    owner.post("/protocols", data={"name": "Their protocol", "start_date": "2026-09-01",
+                                   "goal": ["muscle-recovery"]})
+
+    with SessionLocal() as s:
+        owner_id = s.scalar(select(User.id).where(User.username_key == "ownsstuff"))
+        inv = s.scalar(select(InventoryItem).where(InventoryItem.owner_id == owner_id))
+        coa_filename = inv.coa_filename
+        assert coa_filename is not None
+        assert (config.COA_DIR / coa_filename).exists()
+
+    client.post(f"/settings/admin/users/{owner_id}/delete", data={"username": "OwnsStuff"})
+
+    with SessionLocal() as s:
+        assert s.get(User, owner_id) is None
+        assert s.query(InventoryItem).filter_by(owner_id=owner_id).count() == 0
+        assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 0
+    assert not (config.COA_DIR / coa_filename).exists()

@@ -676,6 +676,18 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .swatch-greensleeves { background: linear-gradient(135deg, #083E67, #15D67B, #88FBC3); }
 .swatch-high_contrast { background: linear-gradient(135deg, #000000 50%, #ffffff 50%); }
 
+.inline-form { display: flex; align-items: center; gap: 8px; }
+.admin-row-menu { position: relative; }
+.admin-row-menu summary { list-style: none; cursor: pointer; }
+.admin-row-menu summary::-webkit-details-marker { display: none; }
+.admin-row-panel {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 4; display: flex; flex-direction: column;
+  gap: 10px; padding: 12px; min-width: 260px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.admin-row-panel .inline-form { flex-wrap: wrap; }
+.admin-row-panel input { min-width: 0; flex: 1; }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }

@@ -131,11 +131,107 @@
     {% if me.is_admin %}
     <section id="admin" class="builder-step">
       <h2 class="section-title">Admin</h2>
-      {% block admin_section %}{% endblock %}
+
+      <form method="post" action="/settings/admin/users/new" class="settings-form inline-form" novalidate>
+        <h3 class="small muted">Add a new user</h3>
+        <div class="grid">
+          <label class="field {{ 'has-error' if errors.new_username }}">
+            <span>Username</span>
+            <input name="username" maxlength="32" autocomplete="off">
+            {{ err('new_username') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.new_user_password }}">
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="new-password">
+          </label>
+          <label class="field">
+            <span>Re-enter password</span>
+            <input name="confirm" type="password" autocomplete="new-password">
+          </label>
+        </div>
+        {{ err('new_user_password') }}
+        <button type="submit" class="btn btn-primary">Add user</button>
+      </form>
+
+      {{ err('reset_password') }}
+      {{ err('delete_user') }}
+
+      <div class="table-wrap">
+        <table class="inv-table">
+          <thead>
+            <tr><th>Username</th><th>Role</th><th>2FA</th><th>Locked</th><th>Last login</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td class="item-name">{{ u.username }}</td>
+              <td>{{ 'Admin' if u.is_admin else 'User' }}</td>
+              <td>{{ 'On' if u.totp_enabled else 'Off' }}</td>
+              <td>{{ 'Yes' if u.locked else 'No' }}</td>
+              <td>{{ u.last_login.strftime('%Y-%m-%d %H:%M UTC') if u.last_login else 'Never' }}</td>
+              <td class="actions">
+                {% if u.id != me.id %}
+                <details class="admin-row-menu">
+                  <summary class="btn btn-ghost">Manage</summary>
+                  <div class="admin-row-panel">
+                    <form method="post" action="/settings/admin/users/{{ u.id }}/reset-password" class="inline-form">
+                      <input name="password" type="password" placeholder="New password" autocomplete="new-password">
+                      <input name="confirm" type="password" placeholder="Re-enter" autocomplete="new-password">
+                      <button type="submit" class="btn">Reset password</button>
+                    </form>
+                    {% if u.totp_enabled %}
+                    <form method="post" action="/settings/admin/users/{{ u.id }}/remove-2fa" class="inline-form">
+                      <button type="submit" class="btn">Remove 2FA</button>
+                    </form>
+                    {% endif %}
+                    <button type="button" class="btn btn-danger" data-action="delete-user"
+                            data-username="{{ u.username }}" data-user-id="{{ u.id }}">Delete user</button>
+                  </div>
+                </details>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% endif %}
   </div>
 </div>
+
+{% if me.is_admin %}
+<dialog id="delete-user-step1" class="dialog">
+  <form method="dialog">
+    <div class="dialog-head"><h3>Delete <span data-fill="username"></span>?</h3></div>
+    <div class="form-section">
+      <p class="warn">Back up your data first. This can't be undone.</p>
+      <p><a href="/backup">Go to Backup &amp; restore</a></p>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" data-action="delete-step2">I've backed up, continue</button>
+      <button type="button" class="btn btn-primary" data-action="cancel-delete">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="delete-user-step2" class="dialog">
+  <form method="post" data-delete-form>
+    <div class="dialog-head"><h3>Really delete <span data-fill="username"></span>?</h3></div>
+    <div class="form-section">
+      <p class="small muted">Type the username exactly to confirm. This permanently deletes their inventory, COAs, and protocols.</p>
+      <label class="field">
+        <span>Username</span>
+        <input name="username" data-confirm-input autocomplete="off">
+      </label>
+    </div>
+    <div class="dialog-foot">
+      <button type="submit" class="btn btn-danger" data-action="continue-delete" disabled>Delete user</button>
+      <button type="button" class="btn btn-primary" data-action="cancel-delete">Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

@@ -21,6 +21,21 @@ def _find(db, name: str) -> User | None:
     return db.scalar(select(User).where(User.username_key == passwords.username_key(name)))
 
 
+def user_rows(db) -> list[dict]:
+    """All accounts as plain dicts, for the CLI `list` command and the Settings admin table."""
+    rows = []
+    for u in db.scalars(select(User).order_by(User.id)):
+        rows.append({
+            "id": u.id,
+            "username": u.username,
+            "is_admin": u.is_admin,
+            "totp_enabled": u.totp_enabled,
+            "locked": sessions.is_locked(u, sessions.now_utc()),
+            "last_login": u.last_login_at,
+        })
+    return rows
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.users", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -36,11 +51,11 @@ def main(argv: list[str] | None = None) -> int:
     upgrade_db()
     with SessionLocal() as db:
         if args.command == "list":
-            for u in db.scalars(select(User).order_by(User.id)):
-                flags = ["admin" if u.is_admin else "", "2FA on" if u.totp_enabled else "2FA off",
-                         "locked" if sessions.is_locked(u, sessions.now_utc()) else ""]
-                last = u.last_login_at.strftime("%Y-%m-%d %H:%M UTC") if u.last_login_at else "never"
-                print(f"{u.username:<32} {', '.join(f for f in flags if f):<24} last login: {last}")
+            for row in user_rows(db):
+                flags = ["admin" if row["is_admin"] else "", "2FA on" if row["totp_enabled"] else "2FA off",
+                         "locked" if row["locked"] else ""]
+                last = row["last_login"].strftime("%Y-%m-%d %H:%M UTC") if row["last_login"] else "never"
+                print(f"{row['username']:<32} {', '.join(f for f in flags if f):<24} last login: {last}")
             return 0
 
         user = _find(db, args.username)

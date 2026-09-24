@@ -1,16 +1,18 @@
 """The /settings hub: User, Display, Integrations, Admin-if-admin sections."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import Colorway, User
+from app.models import Colorway, InventoryItem, Protocol, User
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
+from app.users import user_rows
 
 router = APIRouter()
 
@@ -21,9 +23,27 @@ def _me(session: Session, uid: int) -> User:
 
 def _render(request: Request, session: Session, *, errors: dict | None = None, status_code: int = 200):
     me = _me(session, request.state.user.id)
-    return templates.TemplateResponse(request, "settings/settings.html", {
+    context = {
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
-    }, status_code=status_code)
+    }
+    if me.is_admin:
+        context["users"] = user_rows(session)
+    return templates.TemplateResponse(request, "settings/settings.html", context, status_code=status_code)
+
+
+def _require_admin(request: Request, session: Session) -> User:
+    me = _me(session, request.state.user.id)
+    if not me.is_admin:
+        raise HTTPException(status_code=404)
+    return me
+
+
+def _target_user(request: Request, session: Session, user_id: int) -> User:
+    _require_admin(request, session)
+    target = session.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404)
+    return target
 
 
 @router.get("/settings")
@@ -127,3 +147,79 @@ async def change_display(request: Request, session: Session = Depends(get_sessio
     _me(session, uid).colorway = colorway
     session.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/admin/users/new")
+async def admin_add_user(request: Request, session: Session = Depends(get_session)):
+    _require_admin(request, session)
+    form = await request.form()
+    username = str(form.get("username", "")).strip()
+    password = str(form.get("password", ""))
+    confirm = str(form.get("confirm", ""))
+
+    errors: dict[str, str] = {}
+    if err := passwords.username_error(username):
+        errors["new_username"] = err
+    elif session.scalar(select(User).where(User.username_key == passwords.username_key(username))):
+        errors["new_username"] = "That username is already taken."
+    if problems := passwords.password_errors(password, confirm):
+        errors["new_user_password"] = " ".join(problems)
+
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+
+    session.add(User(username=username, username_key=passwords.username_key(username),
+                     password_hash=passwords.hash_password(password)))
+    session.commit()
+    return RedirectResponse("/settings#admin", status_code=303)
+
+
+@router.post("/settings/admin/users/{user_id}/reset-password")
+async def admin_reset_password(user_id: int, request: Request, session: Session = Depends(get_session)):
+    target = _target_user(request, session, user_id)
+    form = await request.form()
+    password = str(form.get("password", ""))
+    confirm = str(form.get("confirm", ""))
+
+    if problems := passwords.password_errors(password, confirm):
+        return _render(request, session, errors={"reset_password": " ".join(problems)}, status_code=422)
+
+    target.password_hash = passwords.hash_password(password)
+    sessions.clear_failures(target)
+    session.commit()
+    sessions.end_all_sessions(session, target.id)
+    return RedirectResponse("/settings#admin", status_code=303)
+
+
+@router.post("/settings/admin/users/{user_id}/remove-2fa")
+async def admin_remove_2fa(user_id: int, request: Request, session: Session = Depends(get_session)):
+    target = _target_user(request, session, user_id)
+    target.totp_enabled, target.totp_secret, target.totp_last_step = False, None, None
+    session.commit()
+    return RedirectResponse("/settings#admin", status_code=303)
+
+
+@router.post("/settings/admin/users/{user_id}/delete")
+async def admin_delete_user(user_id: int, request: Request, session: Session = Depends(get_session)):
+    me = _require_admin(request, session)
+    target = session.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404)
+    form = await request.form()
+    confirm_name = str(form.get("username", ""))
+
+    if target.id == me.id:
+        return _render(request, session, errors={"delete_user": "You can't delete your own account."},
+                      status_code=422)
+    if confirm_name != target.username:
+        return _render(request, session, errors={"delete_user": "Type the username exactly to confirm."},
+                      status_code=422)
+
+    for item in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == target.id)):
+        uploads.delete_coa(item.coa_filename)
+        session.delete(item)
+    for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
+        session.delete(protocol)
+    session.delete(target)
+    session.commit()
+    return RedirectResponse("/settings#admin", status_code=303)
