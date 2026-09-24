@@ -31,6 +31,7 @@
       </summary>
       <div class="user-menu-panel">
         <a href="/account/2fa">Two-factor authentication: {{ 'On' if me.totp_enabled else 'Off' }}</a>
+        <a href="/backup">Backup &amp; restore</a>
         <form method="post" action="/logout"><button type="submit">Log out</button></form>
       </div>
     </details>

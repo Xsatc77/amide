@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Backup & restore{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Backup & restore</h1>
+    <p class="muted">Your inventory and protocols. Uploaded COA photos/PDFs are not included — they're already saved as files.</p>
+  </div>
+</div>
+
+{% if request.query_params.get('imported') %}
+<div class="alert" style="background: var(--accent-soft); color: var(--text);" role="status">Backup imported.</div>
+{% endif %}
+
+<div class="builder-step">
+  <h2 class="section-title">Export</h2>
+  <p class="muted small">Download a copy of your data.</p>
+  <div class="auth-actions" style="justify-content: flex-start;">
+    <a class="btn btn-primary" href="/backup/export.json">Download full backup (.json)</a>
+    <a class="btn" href="/backup/export/inventory.csv">Download inventory (.csv)</a>
+  </div>
+</div>
+
+<div class="builder-step" style="margin-top: 16px;">
+  <h2 class="section-title">Import</h2>
+  <p class="muted small">Upload a previously exported <code>.json</code> backup. This <strong>adds</strong> the inventory items and protocols from that file to your account — it never changes or deletes anything you already have.</p>
+  {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/backup/import" enctype="multipart/form-data" class="auth-actions" style="justify-content: flex-start;">
+    <input type="file" name="file" accept="application/json" required>
+    <button type="submit" class="btn btn-primary">Import</button>
+  </form>
+</div>
+{% endblock %}
