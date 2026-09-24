@@ -10,14 +10,17 @@ from starlette.datastructures import UploadFile
 from app import uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import InventoryItem, Medium
+from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
+from app.inventory.vendors import resolve_vendor
+from app.models import DoseUnit, InventoryItem, Medium, StorageLocation
 from app.templating import templates
 
 router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 FORM_FIELDS = (
-    "name", "count", "vial_size_mg", "medium", "cost", "vendor",
+    "name", "count", "vial_size_mg", "vial_size_unit", "medium", "volume_ml", "units_per_package",
+    "expiration_date", "storage", "cost", "vendor",
     "lot_number", "order_date", "shipped_date", "arrival_date",
     "coa_vial_size_mg", "coa_purity_pct", "notes",
 )
@@ -48,7 +51,17 @@ def _parse_date(raw: str, field: str, errors: dict) -> date | None:
         return None
 
 
-def _parse_form(raw: dict[str, str]) -> tuple[dict, dict[str, str]]:
+def _parse_choice(enum_cls, raw: str, default, field: str, errors: dict):
+    if not raw:
+        return default
+    try:
+        return enum_cls(raw)
+    except ValueError:
+        errors[field] = "Pick an option from the list."
+        return default
+
+
+def _parse_form(raw: dict[str, str], session: Session, uid: int) -> tuple[dict, dict[str, str]]:
     """Returns (column values, field name -> error message)."""
     errors: dict[str, str] = {}
     values: dict = {}
@@ -64,7 +77,17 @@ def _parse_form(raw: dict[str, str]) -> tuple[dict, dict[str, str]]:
     except ValueError:
         errors["count"] = "Count must be a whole number."
 
-    values["vial_size_mg"] = _parse_positive_float(raw["vial_size_mg"], "vial_size_mg", "Vial size", errors)
+    values["vial_size_mg"] = _parse_positive_float(raw["vial_size_mg"], "vial_size_mg", "Amount", errors)
+    values["vial_size_unit"] = _parse_choice(DoseUnit, raw["vial_size_unit"], DoseUnit.MG, "vial_size_unit", errors)
+    values["volume_ml"] = _parse_positive_float(raw["volume_ml"], "volume_ml", "Volume", errors)
+    values["units_per_package"] = None
+    if raw["units_per_package"]:
+        try:
+            values["units_per_package"] = int(raw["units_per_package"])
+            if values["units_per_package"] <= 0:
+                errors["units_per_package"] = "Units per package must be greater than 0."
+        except ValueError:
+            errors["units_per_package"] = "Units per package must be a whole number."
 
     values["medium"] = None
     if raw["medium"]:
@@ -72,6 +95,13 @@ def _parse_form(raw: dict[str, str]) -> tuple[dict, dict[str, str]]:
             values["medium"] = Medium(raw["medium"])
         except ValueError:
             errors["medium"] = "Pick a medium from the list."
+
+    for field in required_fields_for(values["medium"]):
+        if values.get(field) is None and field not in errors:
+            errors[field] = f"{field_label(field, values['medium'])} is required for {values['medium'].value}."
+
+    values["expiration_date"] = _parse_date(raw["expiration_date"], "expiration_date", errors)
+    values["storage"] = _parse_choice(StorageLocation, raw["storage"], None, "storage", errors)
 
     cost = raw["cost"].lstrip("$").replace(",", "")
     values["cost_cents"] = None
@@ -84,7 +114,9 @@ def _parse_form(raw: dict[str, str]) -> tuple[dict, dict[str, str]]:
         except InvalidOperation:
             errors["cost"] = "Cost must be a number, e.g. 45.99."
 
-    values["vendor"] = raw["vendor"] or None
+    vendor = resolve_vendor(session, uid, raw["vendor"])
+    values["vendor_id"] = vendor.id if vendor else None
+    values["vendor"] = vendor.name if vendor else None
     values["lot_number"] = raw["lot_number"] or None
 
     for field in ("order_date", "shipped_date", "arrival_date"):
@@ -122,7 +154,12 @@ def _form_values(item: InventoryItem) -> dict:
         "name": item.name,
         "count": str(item.count),
         "vial_size_mg": num(item.vial_size_mg),
+        "vial_size_unit": item.vial_size_unit.value,
         "medium": item.medium.value if item.medium else "",
+        "volume_ml": num(item.volume_ml),
+        "units_per_package": "" if item.units_per_package is None else str(item.units_per_package),
+        "expiration_date": item.expiration_date.isoformat() if item.expiration_date else "",
+        "storage": item.storage.value if item.storage else "",
         "cost": "" if item.cost is None else f"{item.cost:.2f}",
         "vendor": item.vendor or "",
         "lot_number": item.lot_number or "",
@@ -166,6 +203,15 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "items": items,
             "edit_data": {i.id: _form_values(i) for i in items},
             "mediums": list(Medium),
+            "dose_units": list(DoseUnit),
+            "storage_locations": list(StorageLocation),
+            "medium_rules": {
+                m.value: {
+                    "required": sorted(required_fields_for(m)),
+                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
+                }
+                for m in Medium
+            },
             "form": form,
             "errors": errors or {},
             "editing": editing,
@@ -185,7 +231,7 @@ def list_inventory(request: Request, session: Session = Depends(get_session)):
 async def create_item(request: Request, session: Session = Depends(get_session),
                       uid: int = Depends(current_user_id)):
     raw, coa, _ = await _read_form(request)
-    values, errors = _parse_form(raw)
+    values, errors = _parse_form(raw, session, uid)
 
     coa_filename = None
     if not errors and coa:
@@ -210,7 +256,7 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         raise HTTPException(404, "Inventory item not found")
 
     raw, coa, remove_coa = await _read_form(request)
-    values, errors = _parse_form(raw)
+    values, errors = _parse_form(raw, session, uid)
 
     new_coa = None
     if not errors and coa:
@@ -268,9 +314,15 @@ def _to_json(item: InventoryItem) -> dict:
         "name": item.name,
         "count": item.count,
         "vial_size_mg": item.vial_size_mg,
+        "vial_size_unit": item.vial_size_unit.value,
         "medium": item.medium.value if item.medium else None,
+        "volume_ml": item.volume_ml,
+        "units_per_package": item.units_per_package,
+        "expiration_date": _iso(item.expiration_date),
+        "storage": item.storage.value if item.storage else None,
         "cost": item.cost,
         "vendor": item.vendor,
+        "vendor_id": item.vendor_id,
         "lot_number": item.lot_number,
         "order_date": _iso(item.order_date),
         "shipped_date": _iso(item.shipped_date),

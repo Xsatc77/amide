@@ -20,7 +20,7 @@
       <tr>
         <th>Item</th>
         <th class="num">Count</th>
-        <th class="num">Vial size</th>
+        <th class="num">Amount</th>
         <th>Medium</th>
         <th class="num">Cost</th>
         <th>Vendor</th>
@@ -35,10 +35,11 @@
         <td data-label="Item" class="item-name">
           {{ item.name }}
           {% if item.lot_number %}<div class="muted small">Lot {{ item.lot_number }}</div>{% endif %}
+          {% if item.expiration_date %}<div class="muted small">Exp {{ item.expiration_date | shortdate }}</div>{% endif %}
           {% if item.notes %}<div class="muted small">{{ item.notes }}</div>{% endif %}
         </td>
         <td data-label="Count" class="num">{{ item.count }}</td>
-        <td data-label="Vial size" class="num">{{ item.vial_size_mg | mg or '—' }}</td>
+        <td data-label="Amount" class="num">{% if item.vial_size_mg %}{{ '%g' % item.vial_size_mg }} {{ item.vial_size_unit.value }}{% else %}—{% endif %}</td>
         <td data-label="Medium">{% if item.medium %}<span class="tag">{{ item.medium.value }}</span>{% else %}—{% endif %}</td>
         <td data-label="Cost" class="num">{{ item.cost | money or '—' }}</td>
         <td data-label="Vendor">{{ item.vendor or '—' }}</td>
@@ -108,15 +109,9 @@
           {{ err('count') }}
         </label>
 
-        <label {{ cls('vial_size_mg') }}>
-          <span>Vial size (mg)</span>
-          <input name="vial_size_mg" type="number" min="0" step="any" inputmode="decimal" value="{{ f.vial_size_mg }}" placeholder="e.g. 10">
-          {{ err('vial_size_mg') }}
-        </label>
-
         <label {{ cls('medium') }}>
           <span>Medium</span>
-          <select name="medium">
+          <select name="medium" id="inv-medium">
             <option value="">— Select —</option>
             {% for m in mediums %}
             <option value="{{ m.value }}" {{ 'selected' if f.medium == m.value }}>{{ m.value }}</option>
@@ -125,10 +120,48 @@
           {{ err('medium') }}
         </label>
 
+        <div {{ cls('vial_size_mg') }} data-field="vial_size_mg">
+          <span data-label-for="vial_size_mg">Amount</span>
+          <div class="inline-inputs">
+            <input name="vial_size_mg" type="number" min="0" step="any" inputmode="decimal" value="{{ f.vial_size_mg }}" placeholder="e.g. 10">
+            <select name="vial_size_unit">
+              {% for u in dose_units %}<option value="{{ u.value }}" {{ 'selected' if f.vial_size_unit == u.value }}>{{ u.label }}</option>{% endfor %}
+            </select>
+          </div>
+          {{ err('vial_size_mg') }}
+        </div>
+
+        <label {{ cls('volume_ml') }} data-field="volume_ml" hidden>
+          <span>Volume (mL)</span>
+          <input name="volume_ml" type="number" min="0" step="any" inputmode="decimal" value="{{ f.volume_ml }}" placeholder="e.g. 2">
+          {{ err('volume_ml') }}
+        </label>
+
+        <label {{ cls('units_per_package') }} data-field="units_per_package" hidden>
+          <span data-label-for="units_per_package">Units per package</span>
+          <input name="units_per_package" type="number" min="1" step="1" inputmode="numeric" value="{{ f.units_per_package }}">
+          {{ err('units_per_package') }}
+        </label>
+
         <label {{ cls('lot_number') }}>
           <span>Lot / Batch #</span>
           <input name="lot_number" maxlength="100" autocomplete="off" value="{{ f.lot_number }}">
           {{ err('lot_number') }}
+        </label>
+
+        <label {{ cls('expiration_date') }}>
+          <span>Expiration date</span>
+          <input name="expiration_date" type="date" value="{{ f.expiration_date }}">
+          {{ err('expiration_date') }}
+        </label>
+
+        <label {{ cls('storage') }}>
+          <span>Storage</span>
+          <select name="storage">
+            <option value="">— Select —</option>
+            {% for s in storage_locations %}<option value="{{ s.value }}" {{ 'selected' if f.storage == s.value }}>{{ s.label }}</option>{% endfor %}
+          </select>
+          {{ err('storage') }}
         </label>
       </div>
     </fieldset>
@@ -211,6 +244,8 @@
     </footer>
   </form>
 </dialog>
+
+<script type="application/json" id="inv-rules">{{ medium_rules | tojson }}</script>
 {% endblock %}
 
 {% block scripts %}

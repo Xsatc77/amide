@@ -3,7 +3,9 @@ import html
 from sqlalchemy import select
 
 from app import config
-from app.models import InventoryItem, Medium
+from datetime import date
+
+from app.models import InventoryItem, Medium, Vendor
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 PDF = b"%PDF-1.7\n" + b"\x00" * 32
@@ -61,7 +63,7 @@ def test_validation_errors_rerender_form(client, db):
     r = client.post("/inventory", data={"name": " ", "count": "-2", "vial_size_mg": "abc",
                                         "medium": "Smoke", "cost": "lots"})
     assert r.status_code == 422
-    for msg in ("Item name is required", "Count can't be negative", "Vial size must be a number",
+    for msg in ("Item name is required", "Count can't be negative", "Amount must be a number",
                 "Pick a medium", "Cost must be a number"):
         assert msg in html.unescape(r.text)
     assert "data-open-on-load" in html.unescape(r.text)
@@ -167,3 +169,74 @@ def test_json_api(client):
     assert row["has_coa"] is False
     assert client.get(f"/api/inventory/{row['id']}").json()["id"] == row["id"]
     assert client.get("/api/inventory/9999").status_code == 404
+
+
+# ---------------------------------------------------------------- Phase 1: units, required fields, vendors
+
+def test_medium_required_fields_enforced_server_side(client, db):
+    cases = [
+        ({"name": "X", "medium": "Lyophilized"}, "Amount is required for Lyophilized."),
+        ({"name": "X", "medium": "Liquid", "vial_size_mg": "10"}, "Volume (mL) is required for Liquid."),
+        ({"name": "X", "medium": "Autoinjector"}, "Doses per pen is required for Autoinjector."),
+        ({"name": "X", "medium": "Pill"}, "Amount per pill is required for Pill."),
+        ({"name": "X", "medium": "Inhaler"}, "Amount is required for Inhaler."),
+    ]
+    for data, message in cases:
+        r = client.post("/inventory", data=data)
+        assert r.status_code == 422, data
+        assert message in html.unescape(r.text), (data, message)
+    assert _items(db) == []
+
+
+def test_each_medium_can_be_completed(client, db):
+    completions = [
+        {"name": "Powder", "medium": "Lyophilized", "vial_size_mg": "10"},
+        {"name": "Solution", "medium": "Liquid", "vial_size_mg": "10", "volume_ml": "2"},
+        {"name": "Pen", "medium": "Autoinjector", "units_per_package": "4"},
+        {"name": "Tablets", "medium": "Pill", "vial_size_mg": "5", "units_per_package": "30"},
+        {"name": "Spray", "medium": "Inhaler", "vial_size_mg": "50"},
+    ]
+    for data in completions:
+        r = client.post("/inventory", data=data, follow_redirects=False)
+        assert r.status_code == 303, data
+    names = {i.name for i in _items(db)}
+    assert names == {"Powder", "Solution", "Pen", "Tablets", "Spray"}
+
+
+def test_vial_size_unit_saves(client, db):
+    client.post("/inventory", data={"name": "X", "vial_size_mg": "250", "vial_size_unit": "mcg"})
+    [item] = _items(db)
+    assert item.vial_size_mg == 250 and item.vial_size_unit.value == "mcg"
+    row = client.get(f"/api/inventory/{item.id}").json()
+    assert row["vial_size_unit"] == "mcg"
+
+
+def test_vendor_creates_and_reuses_case_insensitively(client, db):
+    client.post("/inventory", data={"name": "A", "vendor": "Acme Peptides"})
+    client.post("/inventory", data={"name": "B", "vendor": "acme peptides"})
+    items = {i.name: i for i in _items(db)}
+    assert items["A"].vendor_id == items["B"].vendor_id
+    assert items["A"].vendor == "Acme Peptides" and items["B"].vendor == "Acme Peptides"
+    assert db.query(Vendor).count() == 1
+
+
+def test_vendor_cleared_on_edit(client, db):
+    client.post("/inventory", data={"name": "A", "vendor": "Acme"})
+    [item] = _items(db)
+    client.post(f"/inventory/{item.id}", data={"name": "A", "vendor": ""})
+    [item] = _items(db)
+    assert item.vendor is None and item.vendor_id is None
+
+
+def test_expiration_and_storage_round_trip(client, db):
+    client.post("/inventory", data={"name": "X", "expiration_date": "2027-06-01", "storage": "fridge"})
+    [item] = _items(db)
+    assert item.expiration_date == date(2027, 6, 1) and item.storage.value == "fridge"
+    page = client.get(f"/inventory")
+    assert item.id in [i.id for i in _items(db)]
+
+
+def test_expiration_date_must_be_valid(client, db):
+    r = client.post("/inventory", data={"name": "X", "expiration_date": "not-a-date"})
+    assert r.status_code == 422
+    assert _items(db) == []

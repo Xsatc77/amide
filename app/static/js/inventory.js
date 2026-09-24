@@ -7,10 +7,33 @@
   const coaInput = dialog.querySelector('input[name="coa"]');
   const preview = dialog.querySelector("[data-coa-preview]");
   const fields = [
-    "name", "count", "vial_size_mg", "medium", "cost", "vendor",
+    "name", "count", "vial_size_mg", "vial_size_unit", "medium", "volume_ml", "units_per_package",
+    "expiration_date", "storage", "cost", "vendor",
     "lot_number", "order_date", "shipped_date", "arrival_date",
     "coa_vial_size_mg", "coa_purity_pct", "notes",
   ];
+  const rules = JSON.parse(document.getElementById("inv-rules").textContent);
+  const mediumSelect = form.elements.medium;
+  const fieldWrappers = {
+    vial_size_mg: form.querySelector('[data-field="vial_size_mg"]'),
+    volume_ml: form.querySelector('[data-field="volume_ml"]'),
+    units_per_package: form.querySelector('[data-field="units_per_package"]'),
+  };
+
+  function syncMediumFields() {
+    const medium = mediumSelect.value;
+    const rule = rules[medium] || { required: [], labels: {} };
+    // Volume and units-per-package only matter once a medium says so; Amount is always shown.
+    fieldWrappers.volume_ml.hidden = !rule.required.includes("volume_ml");
+    fieldWrappers.units_per_package.hidden = !rule.required.includes("units_per_package");
+    for (const [field, wrapper] of Object.entries(fieldWrappers)) {
+      const input = wrapper.querySelector("input");
+      input.required = rule.required.includes(field);
+      const labelEl = wrapper.querySelector(`[data-label-for="${field}"]`);
+      if (labelEl && rule.labels[field]) labelEl.textContent = rule.labels[field];
+    }
+  }
+  mediumSelect.addEventListener("change", syncMediumFields);
 
   function clearErrors() {
     dialog.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
@@ -30,9 +53,10 @@
     form.action = item ? `/inventory/${item.id}` : "/inventory";
     title.textContent = item ? "Edit item" : "New inventory item";
     for (const f of fields) {
-      form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : "";
+      form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : f === "vial_size_unit" ? "mg" : "";
     }
     coaExisting.hidden = !(item && item.has_coa);
+    syncMediumFields();
     dialog.showModal();
     form.elements.name.focus();
   }

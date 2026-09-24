@@ -46,6 +46,10 @@
 }
 
 * { box-sizing: border-box; }
+/* The browser's own [hidden] rule and an author rule like `.field { display: flex }` have equal
+   specificity, and the author rule wins the tie -- silently un-hiding anything toggled via `hidden`
+   that also happens to carry a `display` from another selector. Force it, once, globally. */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
