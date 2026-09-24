@@ -43,6 +43,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.7 — Inventory Foundations.** The inventory form adapts to the medium: amount + unit (mg/mcg/IU), volume for Liquid, units-per-package for Autoinjector/Pill, plus expiration date and storage location, each required only where it makes sense. Vendors are now their own table (type a name to reuse or create it, like the peptide picker). The inventory list has search, medium filters, and sortable columns. Backup & restore (JSON + CSV export, additive-only import) is on the account menu.
+
 **v0.6 — Reconstitution Calculator.** Live vial + BAC water + dose → concentration, draw volume and U-100 syringe units, with a syringe-fill visual, presets, and a reverse solver (pick the units you want, it works out the water). Pre-fills from Inventory (lyophilized items) or a Protocol's dose. *Not yet built:* turning a mixed vial into a tracked "Active Vial" that depletes inventory and has a discard-by date — that's still open, see the roadmap.
 
 **v0.5 — Calendar.** Month, week and day views of every dose your active and scheduled protocols call for (titration steps included). Click any line, block or card to see exactly what's due.

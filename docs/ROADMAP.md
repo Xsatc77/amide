@@ -59,17 +59,13 @@ Key idea: **InventoryItem** is *sealed stock on the shelf* (count = 5 vials). Wh
 
 Firm up the base before anything depends on it.
 
-- **Medium-aware form.** Fields adapt to the medium chosen:
-  - Lyophilized / Liquid → vial size (mg), and for liquid: concentration (mg/mL) and volume
-  - Autoinjector / Pen → mg per pen, doses or clicks per pen
-  - Pill → mg per pill, pills per bottle
-  - Inhaler / Drops / Salve → amount + unit
-- **Units.** Support mg, mcg, and IU, not just mg.
-- **Required fields** per medium (e.g. vial size required for Lyophilized).
-- **More stock details:** expiration date, storage (fridge / freezer / room temp).
-- **Vendors as their own table** (pick from a list, not free text). This becomes *Personal Distributor Contacts* in Phase 5.
-- **Search, sort, filter** on the inventory list.
-- ✅ *Accounts, legal notice, private data per user and 2FA shipped in v0.4.* Still to add: **backup/export** (JSON + CSV download, restore); a **Settings** page with sharing (share inventory, or share private data with others on the same network).
+- ✅ *Medium-aware form shipped in v0.7*: amount + unit (mg/mcg/IU), volume for Liquid, units-per-package for Autoinjector/Pill, required fields enforced per medium.
+- ✅ *More stock details shipped in v0.7*: expiration date, storage (fridge / freezer / room temp).
+- ✅ *Vendors as their own table shipped in v0.7*, as a pick-or-create field on the inventory form (like the peptide picker). A full standalone Vendors management page — edit a vendor's website/contact info, see everything ordered from them — is still Phase 5's *Personal Distributor Contacts*.
+- ✅ *Search, sort, filter on the inventory list shipped in v0.7.*
+- ✅ *Accounts, legal notice, private data per user and 2FA shipped in v0.4.*
+- ✅ *Backup/export (JSON + CSV, additive-only import) shipped in v0.7.*
+- **Still open:** a **Settings** page — sharing (inventory or full data with others on the same network), and a home for Backup & restore once it exists (it currently lives on the account menu).
 
 ## Phase 2 — v0.3: Reconstitution Calculator + Active Vials
 
