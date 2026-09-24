@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +14,26 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class LabeledEnum(str, enum.Enum):
+    """A str enum whose members carry a display label: MEMBER = (value, label)."""
+
+    def __new__(cls, value: str, label: str):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj.label = label
+        return obj
+
+
+def _enum_column(cls):
+    return Enum(cls, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
+
+
+class DoseUnit(LabeledEnum):
+    MG = ("mg", "mg")
+    MCG = ("mcg", "mcg")
+    IU = ("IU", "IU")
+
+
 class Medium(str, enum.Enum):
     LYOPHILIZED = "Lyophilized"
     LIQUID = "Liquid"
@@ -21,6 +42,27 @@ class Medium(str, enum.Enum):
     PILL = "Pill"
     DROPS = "Drops"
     SALVE = "Salve"
+
+
+class StorageLocation(LabeledEnum):
+    FRIDGE = ("fridge", "Fridge")
+    FREEZER = ("freezer", "Freezer")
+    ROOM_TEMP = ("room_temp", "Room temperature")
+
+
+class Vendor(Base):
+    """A supplier the owner buys from. Private per owner (not shared, unlike the peptide library)."""
+
+    __tablename__ = "vendors"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_vendor_owner_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200, collation="NOCASE"))
+    website: Mapped[str | None] = mapped_column(String(300))
+    contact_info: Mapped[str | None] = mapped_column(String(300))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class InventoryItem(Base):
@@ -34,18 +76,32 @@ class InventoryItem(Base):
         CheckConstraint("coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0", name="ck_inventory_coa_vial_size_pos"),
         CheckConstraint("coa_purity_pct IS NULL OR (coa_purity_pct >= 0 AND coa_purity_pct <= 100)",
                         name="ck_inventory_coa_purity_range"),
+        CheckConstraint("volume_ml IS NULL OR volume_ml > 0", name="ck_inventory_volume_pos"),
+        CheckConstraint("units_per_package IS NULL OR units_per_package > 0", name="ck_inventory_units_pkg_pos"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     count: Mapped[int] = mapped_column(Integer, default=1)
+    # The amount value; what it's measured in is vial_size_unit (mg/mcg/IU). Column name kept for
+    # backward compatibility even though it's no longer always mg.
     vial_size_mg: Mapped[float | None] = mapped_column(Float)
+    vial_size_unit: Mapped[DoseUnit] = mapped_column(_enum_column(DoseUnit), default=DoseUnit.MG)
     medium: Mapped[Medium | None] = mapped_column(
         Enum(Medium, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
     )
+    # Liquid: how much liquid is in the container (concentration = vial_size_mg / volume_ml when the unit is mg).
+    volume_ml: Mapped[float | None] = mapped_column(Float)
+    # Autoinjector: doses/clicks per pen. Pill: pills per bottle.
+    units_per_package: Mapped[int | None] = mapped_column(Integer)
+    expiration_date: Mapped[date | None] = mapped_column(Date)
+    storage: Mapped[StorageLocation | None] = mapped_column(_enum_column(StorageLocation))
     # Money is stored as integer cents to avoid floating-point rounding.
     cost_cents: Mapped[int | None] = mapped_column(Integer)
+    # Free-text vendor name, kept in sync with vendor_id's Vendor.name so existing display code needs
+    # no changes; vendor_id is the source of truth once set.
     vendor: Mapped[str | None] = mapped_column(String(200))
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
     lot_number: Mapped[str | None] = mapped_column(String(100))
     order_date: Mapped[date | None] = mapped_column(Date)
     shipped_date: Mapped[date | None] = mapped_column(Date)
@@ -67,26 +123,7 @@ class InventoryItem(Base):
 
 
 # ---------------------------------------------------------------- protocols
-
-class LabeledEnum(str, enum.Enum):
-    """A str enum whose members carry a display label: MEMBER = (value, label)."""
-
-    def __new__(cls, value: str, label: str):
-        obj = str.__new__(cls, value)
-        obj._value_ = value
-        obj.label = label
-        return obj
-
-
-def _enum_column(cls):
-    return Enum(cls, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
-
-
-class DoseUnit(LabeledEnum):
-    MG = ("mg", "mg")
-    MCG = ("mcg", "mcg")
-    IU = ("IU", "IU")
-
+# (LabeledEnum, _enum_column and DoseUnit are defined above, near Medium, since InventoryItem needs them too.)
 
 class Frequency(LabeledEnum):
     DAILY = ("daily", "Daily")

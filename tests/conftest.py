@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import InventoryItem, Peptide, PeptideSource, Protocol, User  # noqa: E402
+from app.models import InventoryItem, Peptide, PeptideSource, Protocol, User, Vendor  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 
@@ -43,6 +43,7 @@ def me(client):
 def clean(client):
     yield
     with SessionLocal() as s:
+        s.query(Vendor).delete()
         s.query(Protocol).delete()
         s.query(Peptide).filter(Peptide.source == PeptideSource.CUSTOM).delete()
         s.query(InventoryItem).delete()

@@ -119,3 +119,29 @@ def test_0006_adds_users_sessions_and_owners(tmp_path):
         tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
         assert "users" not in tables
         assert "owner_id" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+
+
+def test_0007_backfills_existing_rows_and_adds_new_columns(tmp_path):
+    db = tmp_path / "g.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0006")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,failed_attempts,"
+                  "created_at) values ('A','a','x',0,0,0,'2026-09-23')")
+        c.execute("insert into inventory_items(name,count,vial_size_mg,owner_id,created_at,updated_at) "
+                  "values ('Old',2,10,1,'2026-09-23','2026-09-23')")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
+        assert "vendors" in tables
+        cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+        assert {"vial_size_unit", "volume_ml", "units_per_package", "expiration_date", "storage",
+                "vendor_id"} <= cols
+        row = c.execute("select name, vial_size_unit, volume_ml, storage, vendor_id from inventory_items "
+                        "where name='Old'").fetchone()
+        assert row == ("Old", "mg", None, None, None)
+    command.downgrade(cfg, "0006")
+    with sqlite3.connect(db) as c:
+        tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
+        assert "vendors" not in tables
+        assert "vial_size_unit" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
