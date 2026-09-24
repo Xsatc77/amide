@@ -114,3 +114,28 @@ def test_email_saves_and_validates(client, db, me):
     assert _current(me).email == "me@example.com"
     client.post("/settings/email", data={"email": ""})
     assert _current(me).email is None
+
+
+def test_colorway_swatches_render(client):
+    t = text(client.get("/settings"))
+    for label in ("Light", "Dark", "Tequila Sunrise", "Fireworks", "Solarin", "The Bricks", "Retro",
+                 "Greensleeves", "High Contrast"):
+        assert label in t
+
+
+def test_colorway_saves_and_sets_data_theme(client, db, me):
+    client.post("/settings/display", data={"colorway": "tequila_sunrise"})
+    assert _current(me).colorway.value == "tequila_sunrise"
+    t = client.get("/protocols").text
+    assert 'data-theme="tequila_sunrise"' in t
+
+    client.post("/settings/display", data={"colorway": ""})
+    assert _current(me).colorway is None
+    t = client.get("/protocols").text
+    assert "data-theme=" not in t  # Auto: no attribute, prefers-color-scheme rules as before
+
+
+def test_colorway_rejects_unknown_value(client, db, me):
+    r = client.post("/settings/display", data={"colorway": "not-a-real-one"})
+    assert r.status_code == 422
+    assert _current(me).colorway is None

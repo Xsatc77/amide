@@ -108,3 +108,22 @@ async def change_email(request: Request, session: Session = Depends(get_session)
     _me(session, uid).email = value or None
     session.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/display")
+async def change_display(request: Request, session: Session = Depends(get_session),
+                         uid: int = Depends(current_user_id)):
+    form = await request.form()
+    value = str(form.get("colorway", "")).strip()
+
+    colorway = None
+    if value:
+        try:
+            colorway = Colorway(value)
+        except ValueError:
+            return _render(request, session, errors={"colorway": "Pick a colorway from the list."},
+                          status_code=422)
+
+    _me(session, uid).colorway = colorway
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)

@@ -98,7 +98,20 @@
 
     <section id="display" class="builder-step">
       <h2 class="section-title">Display</h2>
-      {% block display_section %}{% endblock %}
+      <form method="post" action="/settings/display" class="settings-form" novalidate>
+        <p class="small muted">Pick a colorway. "Auto" follows your system's light/dark setting.</p>
+        <div class="colorway-grid">
+          <button type="submit" name="colorway" value="" class="colorway-swatch {{ 'active' if not me.colorway }}">
+            <span class="swatch-preview swatch-auto"></span>Auto
+          </button>
+          {% for c in colorways %}
+          <button type="submit" name="colorway" value="{{ c.value }}" class="colorway-swatch {{ 'active' if me.colorway == c }}">
+            <span class="swatch-preview swatch-{{ c.value }}"></span>{{ c.label }}
+          </button>
+          {% endfor %}
+        </div>
+        {{ err('colorway') }}
+      </form>
     </section>
 
     <section id="integrations" class="builder-step">

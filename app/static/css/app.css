@@ -45,6 +45,108 @@
   }
 }
 
+/* Explicit colorways override the system-preference default above regardless of source order,
+   since an attribute selector on :root is more specific than a bare :root (with or without a
+   media query wrapper). */
+:root[data-theme="light"] {
+  --bg: #f6f7f8; --surface: #ffffff; --text: #16181d; --muted: #5f6673; --border: #e2e5ea;
+  --accent: #0f766e; --accent-hover: #0d645d; --accent-soft: #ccfbf1; --accent-text: #ffffff;
+  --danger: #b42318; --danger-soft: #fee4e2;
+  --ribbon: #facc15; --ribbon-text: #3b2f00; --ribbon-soft: #fef3c7; --ribbon-strong: #92400e;
+  --info: #1d4ed8; --info-soft: #dbeafe;
+  --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px rgb(16 24 40 / 8%);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #171a21; --text: #e8eaed; --muted: #9aa3b2; --border: #2a2f3a;
+  --accent: #2dd4bf; --accent-hover: #5eead4; --accent-soft: #134e4a; --accent-text: #04201d;
+  --danger: #f97066; --danger-soft: #3b1512;
+  --ribbon: #facc15; --ribbon-text: #2a2100; --ribbon-soft: #3a2f0a; --ribbon-strong: #fcd34d;
+  --info: #93c5fd; --info-soft: #172554;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
+  color-scheme: dark;
+}
+:root[data-theme="tequila_sunrise"] {
+  --bg: #FFF3B0; --surface: color-mix(in srgb, #FFF3B0 25%, white); --text: #1B3B6F;
+  --muted: color-mix(in srgb, #1B3B6F 55%, white); --border: color-mix(in srgb, #FF9F1C 35%, white);
+  --accent: #FF6B35; --accent-hover: color-mix(in srgb, #FF6B35 85%, black);
+  --accent-soft: color-mix(in srgb, #FFDD00 35%, white); --accent-text: #1B3B6F;
+  --danger: #b42318; --danger-soft: #fee4e2;
+  --ribbon: #FFDD00; --ribbon-text: #1B3B6F; --ribbon-soft: color-mix(in srgb, #FFF3B0 60%, white);
+  --ribbon-strong: color-mix(in srgb, #FF9F1C 80%, black);
+  --info: #1B3B6F; --info-soft: color-mix(in srgb, #1B3B6F 15%, white);
+  --shadow: 0 1px 2px rgb(27 59 111 / 10%), 0 8px 24px rgb(27 59 111 / 12%);
+  color-scheme: light;
+}
+:root[data-theme="fireworks"] {
+  --bg: #272727; --surface: color-mix(in srgb, #272727 80%, white); --text: color-mix(in srgb, white 90%, #272727);
+  --muted: #747474; --border: color-mix(in srgb, #747474 40%, #272727);
+  --accent: #14A76C; --accent-hover: color-mix(in srgb, #14A76C 85%, black);
+  --accent-soft: color-mix(in srgb, #14A76C 25%, #272727); --accent-text: #ffffff;
+  --danger: #FF652F; --danger-soft: color-mix(in srgb, #FF652F 20%, #272727);
+  --ribbon: #FFE400; --ribbon-text: #272727; --ribbon-soft: color-mix(in srgb, #FFE400 25%, #272727);
+  --ribbon-strong: color-mix(in srgb, #FFE400 70%, black);
+  --info: #93c5fd; --info-soft: #172554;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
+  color-scheme: dark;
+}
+:root[data-theme="solarin"] {
+  --bg: #2C3531; --surface: color-mix(in srgb, #2C3531 75%, white); --text: #D1E8E2;
+  --muted: color-mix(in srgb, #D1E8E2 55%, #2C3531); --border: color-mix(in srgb, #116466 45%, #2C3531);
+  --accent: #116466; --accent-hover: color-mix(in srgb, #116466 80%, white);
+  --accent-soft: color-mix(in srgb, #116466 30%, #2C3531); --accent-text: #ffffff;
+  --danger: #f97066; --danger-soft: #3b1512;
+  --ribbon: #FFCB9A; --ribbon-text: #2C3531; --ribbon-soft: color-mix(in srgb, #FFCB9A 25%, #2C3531);
+  --ribbon-strong: color-mix(in srgb, #D9B08C 75%, black);
+  --info: #93c5fd; --info-soft: #172554;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
+  color-scheme: dark;
+}
+:root[data-theme="bricks"] {
+  --bg: #1F1515; --surface: color-mix(in srgb, #1F1515 70%, #5B595B); --text: color-mix(in srgb, white 88%, #1F1515);
+  --muted: #A9A6A6; --border: color-mix(in srgb, #5B595B 60%, #1F1515);
+  --accent: #9A0101; --accent-hover: color-mix(in srgb, #9A0101 80%, black);
+  --accent-soft: color-mix(in srgb, #9A0101 25%, #1F1515); --accent-text: #ffffff;
+  --danger: #650A0B; --danger-soft: color-mix(in srgb, #650A0B 30%, #1F1515);
+  --ribbon: #facc15; --ribbon-text: #2a2100; --ribbon-soft: color-mix(in srgb, #facc15 20%, #1F1515);
+  --ribbon-strong: #fcd34d;
+  --info: #93c5fd; --info-soft: #172554;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
+  color-scheme: dark;
+}
+:root[data-theme="retro"] {
+  --bg: color-mix(in srgb, #FACA78 20%, white); --surface: color-mix(in srgb, white 92%, #FACA78); --text: #794A3A;
+  --muted: color-mix(in srgb, #794A3A 55%, white); --border: color-mix(in srgb, #68C7C1 40%, white);
+  --accent: #68C7C1; --accent-hover: color-mix(in srgb, #68C7C1 80%, black);
+  --accent-soft: color-mix(in srgb, #68C7C1 25%, white); --accent-text: #ffffff;
+  --danger: #DD5341; --danger-soft: color-mix(in srgb, #DD5341 20%, white);
+  --ribbon: #FACA78; --ribbon-text: #794A3A; --ribbon-soft: color-mix(in srgb, #FACA78 35%, white);
+  --ribbon-strong: color-mix(in srgb, #F57F5B 70%, black);
+  --info: #1d4ed8; --info-soft: #dbeafe;
+  --shadow: 0 1px 2px rgb(121 74 58 / 10%), 0 8px 24px rgb(121 74 58 / 12%);
+  color-scheme: light;
+}
+:root[data-theme="greensleeves"] {
+  --bg: color-mix(in srgb, #ABD6AC 45%, white); --surface: color-mix(in srgb, white 85%, #88FBC3); --text: #083E67;
+  --muted: color-mix(in srgb, #083E67 45%, white); --border: color-mix(in srgb, #9C7554 35%, white);
+  --accent: #15D67B; --accent-hover: color-mix(in srgb, #15D67B 80%, black);
+  --accent-soft: #88FBC3; --accent-text: #083E67;
+  --danger: #b42318; --danger-soft: #fee4e2;
+  --ribbon: #facc15; --ribbon-text: #3b2f00; --ribbon-soft: #fef3c7; --ribbon-strong: #92400e;
+  --info: #083E67; --info-soft: color-mix(in srgb, #083E67 12%, white);
+  --shadow: 0 1px 2px rgb(8 62 103 / 8%), 0 8px 24px rgb(8 62 103 / 10%);
+  color-scheme: light;
+}
+:root[data-theme="high_contrast"] {
+  --bg: #ffffff; --surface: #ffffff; --text: #000000; --muted: #000000; --border: #000000;
+  --accent: #000000; --accent-hover: #000000; --accent-soft: #ffffff; --accent-text: #ffffff;
+  --danger: #000000; --danger-soft: #ffffff;
+  --ribbon: #000000; --ribbon-text: #ffffff; --ribbon-soft: #ffffff; --ribbon-strong: #000000;
+  --info: #000000; --info-soft: #ffffff;
+  --shadow: 0 0 0 2px #000000;
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; }
 /* The browser's own [hidden] rule and an author rule like `.field { display: flex }` have equal
    specificity, and the author rule wins the tie -- silently un-hiding anything toggled via `hidden`
@@ -554,6 +656,25 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .settings-form .grid { width: 100%; }
 .integration-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .integration-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); opacity: 0.75; }
+
+.colorway-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.colorway-swatch {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px;
+  border: 2px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text);
+  font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.colorway-swatch.active { border-color: var(--accent); }
+.swatch-preview { width: 100%; height: 36px; border-radius: 6px; border: 1px solid rgb(0 0 0 / 10%); }
+.swatch-auto { background: linear-gradient(135deg, #f6f7f8 50%, #0f1115 50%); }
+.swatch-light { background: #f6f7f8; }
+.swatch-dark { background: #0f1115; }
+.swatch-tequila_sunrise { background: linear-gradient(135deg, #1B3B6F, #FF6B35, #FFDD00); }
+.swatch-fireworks { background: linear-gradient(135deg, #272727, #FF652F, #14A76C); }
+.swatch-solarin { background: linear-gradient(135deg, #2C3531, #116466, #D1E8E2); }
+.swatch-bricks { background: linear-gradient(135deg, #1F1515, #9A0101, #A9A6A6); }
+.swatch-retro { background: linear-gradient(135deg, #794A3A, #F57F5B, #68C7C1); }
+.swatch-greensleeves { background: linear-gradient(135deg, #083E67, #15D67B, #88FBC3); }
+.swatch-high_contrast { background: linear-gradient(135deg, #000000 50%, #ffffff 50%); }
 
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
