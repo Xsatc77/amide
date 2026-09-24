@@ -55,3 +55,15 @@ def record_failure(user: User, now: datetime) -> None:
 def clear_failures(user: User) -> None:
     user.failed_attempts = 0
     user.locked_until = None
+
+
+def end_other_sessions(db: Session, user_id: int, keep_id: str) -> None:
+    """Sign this user out everywhere except the session at `keep_id` (e.g. after a password change)."""
+    db.query(LoginSession).filter(LoginSession.user_id == user_id, LoginSession.id != keep_id).delete()
+    db.commit()
+
+
+def end_all_sessions(db: Session, user_id: int) -> None:
+    """Sign this user out everywhere (e.g. an admin reset their password)."""
+    db.query(LoginSession).filter(LoginSession.user_id == user_id).delete()
+    db.commit()

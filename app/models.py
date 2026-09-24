@@ -50,6 +50,18 @@ class StorageLocation(LabeledEnum):
     ROOM_TEMP = ("room_temp", "Room temperature")
 
 
+class Colorway(LabeledEnum):
+    LIGHT = ("light", "Light")
+    DARK = ("dark", "Dark")
+    TEQUILA_SUNRISE = ("tequila_sunrise", "Tequila Sunrise")
+    FIREWORKS = ("fireworks", "Fireworks")
+    SOLARIN = ("solarin", "Solarin")
+    BRICKS = ("bricks", "The Bricks")
+    RETRO = ("retro", "Retro")
+    GREENSLEEVES = ("greensleeves", "Greensleeves")
+    HIGH_CONTRAST = ("high_contrast", "High Contrast")
+
+
 class Vendor(Base):
     """A supplier the owner buys from. Private per owner (not shared, unlike the peptide library)."""
 
@@ -296,6 +308,9 @@ class User(Base):
     notice_accepted_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: utcnow().replace(tzinfo=None))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    email: Mapped[str | None] = mapped_column(String(320))
+    timezone: Mapped[str | None] = mapped_column(String(64))
+    colorway: Mapped[Colorway | None] = mapped_column(_enum_column(Colorway))
 
     @property
     def initial(self) -> str:

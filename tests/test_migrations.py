@@ -145,3 +145,21 @@ def test_0007_backfills_existing_rows_and_adds_new_columns(tmp_path):
         tables = {t for (t,) in c.execute("select name from sqlite_master where type='table'")}
         assert "vendors" not in tables
         assert "vial_size_unit" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+
+
+def test_0008_adds_settings_columns(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0007")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-24')")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(users)")}
+        assert {"email", "timezone", "colorway"} <= cols
+        row = c.execute("select email, timezone, colorway from users where username='A'").fetchone()
+        assert row == (None, None, None)
+    command.downgrade(cfg, "0007")
+    with sqlite3.connect(db) as c:
+        assert "colorway" not in {r[1] for r in c.execute("pragma table_info(users)")}
