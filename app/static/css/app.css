@@ -533,6 +533,16 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .ref-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .ref-table th, .ref-table td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--border); }
 
+/* ---------- inventory sort headers ---------- */
+.sort-btn {
+  font: inherit; font-weight: inherit; color: inherit; background: none; border: 0; padding: 0;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+}
+.sort-btn:hover { color: var(--accent); }
+.sort-btn::after { content: ""; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0.35; }
+.sort-btn.sort-asc::after { border-bottom: 5px solid currentColor; opacity: 1; }
+.sort-btn.sort-desc::after { border-top: 5px solid currentColor; opacity: 1; }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }

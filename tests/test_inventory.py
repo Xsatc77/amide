@@ -1,5 +1,9 @@
 import html
 
+from fastapi.testclient import TestClient
+
+from app.main import app
+
 from sqlalchemy import select
 
 from app import config
@@ -240,3 +244,30 @@ def test_expiration_date_must_be_valid(client, db):
     r = client.post("/inventory", data={"name": "X", "expiration_date": "not-a-date"})
     assert r.status_code == 422
     assert _items(db) == []
+
+
+# ---------------------------------------------------------------- Phase 1: search / sort / filter markup
+
+def test_list_has_search_and_filter_and_sort_markup(client, db):
+    client.post("/inventory", data={"name": "BPC-157", "medium": "Lyophilized", "vial_size_mg": "10",
+                                    "vendor": "Acme"})
+    client.post("/inventory", data={"name": "Retatrutide", "medium": "Liquid", "vial_size_mg": "5",
+                                    "volume_ml": "2"})
+    t = html.unescape(client.get("/inventory").text)
+    assert 'id="inv-search"' in t
+    for m in Medium:
+        assert f'data-filter="{m.value}"' in t
+    assert 'data-filter="all"' in t
+    assert 'data-sort="name"' in t and 'data-sort="count"' in t
+    # rows carry the data the JS needs to search/filter/sort without another request
+    assert 'data-search="bpc-157' in t.lower()
+    assert 'data-medium="Lyophilized"' in t and 'data-medium="Liquid"' in t
+
+
+def test_search_filter_scoped_to_owner_only(client, db):
+    client.post("/inventory", data={"name": "Mine Only", "medium": "Lyophilized", "vial_size_mg": "10"})
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "InvOther", "password": "Inv0ther!", "confirm": "Inv0ther!"})
+    t = other.get("/inventory").text
+    assert "Mine Only" not in t

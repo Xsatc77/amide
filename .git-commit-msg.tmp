@@ -1,0 +1,8 @@
+feat: search, sort and filter on the inventory list
+
+- Search box (name/vendor/notes, client-side live) and medium filter chips, same pattern as
+  the Library page
+- Clickable sortable column headers (Name, Count, Amount, Cost, Vendor, Arrived), toggling
+  ascending/descending, reordering rows client-side
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

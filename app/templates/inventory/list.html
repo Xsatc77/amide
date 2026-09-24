@@ -14,24 +14,36 @@
 </div>
 
 {% if items %}
+<div class="lib-toolbar">
+  <input id="inv-search" type="search" placeholder="Search name, vendor or notes" autocomplete="off" aria-label="Search inventory">
+  <div class="chips" role="group" aria-label="Filter by medium">
+    <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+    {% for m in mediums %}<button type="button" class="chip" data-filter="{{ m.value }}" aria-pressed="false">{{ m.value }}</button>{% endfor %}
+  </div>
+</div>
 <div class="table-wrap">
-  <table class="inv-table">
+  <table class="inv-table" id="inv-table">
     <thead>
       <tr>
-        <th>Item</th>
-        <th class="num">Count</th>
-        <th class="num">Amount</th>
+        <th><button type="button" class="sort-btn" data-sort="name">Item</button></th>
+        <th class="num"><button type="button" class="sort-btn" data-sort="count">Count</button></th>
+        <th class="num"><button type="button" class="sort-btn" data-sort="amount">Amount</button></th>
         <th>Medium</th>
-        <th class="num">Cost</th>
-        <th>Vendor</th>
-        <th>Arrived</th>
+        <th class="num"><button type="button" class="sort-btn" data-sort="cost">Cost</button></th>
+        <th><button type="button" class="sort-btn" data-sort="vendor">Vendor</button></th>
+        <th><button type="button" class="sort-btn" data-sort="arrived">Arrived</button></th>
         <th>COA</th>
         <th><span class="sr-only">Actions</span></th>
       </tr>
     </thead>
     <tbody>
       {% for item in items %}
-      <tr>
+      <tr data-medium="{{ item.medium.value if item.medium else '' }}"
+          data-search="{{ ([item.name, item.vendor or '', item.notes or ''] | join(' ')) | lower }}"
+          data-sort-name="{{ item.name | lower }}" data-sort-count="{{ item.count }}"
+          data-sort-amount="{{ item.vial_size_mg or 0 }}" data-sort-cost="{{ item.cost_cents or 0 }}"
+          data-sort-vendor="{{ (item.vendor or '') | lower }}"
+          data-sort-arrived="{{ item.arrival_date.isoformat() if item.arrival_date else '' }}">
         <td data-label="Item" class="item-name">
           {{ item.name }}
           {% if item.lot_number %}<div class="muted small">Lot {{ item.lot_number }}</div>{% endif %}
@@ -69,6 +81,7 @@
     </tbody>
   </table>
 </div>
+<p class="muted small" id="inv-empty-filter" hidden>No items match.</p>
 {% else %}
 <div class="empty">
   <p><strong>No inventory yet.</strong></p>
