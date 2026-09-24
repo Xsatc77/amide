@@ -129,11 +129,19 @@ def test_email_saves_and_validates(client, db, me):
     assert _current(me).email is None
 
 
-def test_colorway_swatches_render(client):
+def test_colorway_is_a_dropdown_with_all_options(client):
     t = text(client.get("/settings"))
-    for label in ("Light", "Dark", "Tequila Sunrise", "Fireworks", "Solarin", "The Bricks", "Retro",
-                 "Greensleeves", "High Contrast"):
+    assert '<select name="colorway"' in t
+    for label in ("Auto", "Light", "Dark", "Tequila Sunrise", "Fireworks", "Solarin", "The Bricks",
+                 "Retro", "Greensleeves", "High Contrast"):
         assert label in t
+
+
+def test_colorway_dropdown_preselects_the_current_value(client, db, me):
+    client.post("/settings/display", data={"colorway": "solarin"})
+    t = text(client.get("/settings"))
+    assert '<option value="solarin" selected>' in t
+    client.post("/settings/display", data={"colorway": ""})  # reset for later tests
 
 
 def test_colorway_saves_and_sets_data_theme(client, db, me):
@@ -146,6 +154,13 @@ def test_colorway_saves_and_sets_data_theme(client, db, me):
     assert _current(me).colorway is None
     t = client.get("/protocols").text
     assert "data-theme=" not in t  # Auto: no attribute, prefers-color-scheme rules as before
+
+
+def test_colorway_save_returns_to_the_display_section(client, db):
+    r = client.post("/settings/display", data={"colorway": "retro"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/settings#display"
+    client.post("/settings/display", data={"colorway": ""})  # reset for later tests
 
 
 def test_colorway_rejects_unknown_value(client, db, me):

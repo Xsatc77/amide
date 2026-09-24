@@ -164,7 +164,7 @@ async def change_display(request: Request, session: Session = Depends(get_sessio
 
     _me(session, uid).colorway = colorway
     session.commit()
-    return RedirectResponse("/settings", status_code=303)
+    return RedirectResponse("/settings#display", status_code=303)
 
 
 @router.post("/settings/admin/users/new")

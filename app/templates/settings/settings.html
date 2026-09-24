@@ -101,17 +101,17 @@
       <h2 class="section-title">Display</h2>
       <form method="post" action="/settings/display" class="settings-form" novalidate>
         <p class="small muted">Pick a colorway. "Auto" follows your system's light/dark setting.</p>
-        <div class="colorway-grid">
-          <button type="submit" name="colorway" value="" class="colorway-swatch {{ 'active' if not me.colorway }}">
-            <span class="swatch-preview swatch-auto"></span>Auto
-          </button>
-          {% for c in colorways %}
-          <button type="submit" name="colorway" value="{{ c.value }}" class="colorway-swatch {{ 'active' if me.colorway == c }}">
-            <span class="swatch-preview swatch-{{ c.value }}"></span>{{ c.label }}
-          </button>
-          {% endfor %}
-        </div>
-        {{ err('colorway') }}
+        <label class="field {{ 'has-error' if errors.colorway }}">
+          <span>Colorway</span>
+          <select name="colorway">
+            <option value="" {{ 'selected' if not me.colorway }}>Auto</option>
+            {% for c in colorways %}
+            <option value="{{ c.value }}" {{ 'selected' if me.colorway == c }}>{{ c.label }}</option>
+            {% endfor %}
+          </select>
+          {{ err('colorway') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save colorway</button>
       </form>
     </section>
 
