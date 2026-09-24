@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% set active_nav = "settings" %}
+{% block title %}Settings{% endblock %}
+
+{% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="page-head"><div><h1>Settings</h1></div></div>
+
+<div class="settings-layout">
+  <nav class="settings-nav" aria-label="Settings sections">
+    <a href="#user">User</a>
+    <a href="#display">Display</a>
+    <a href="#integrations">Integrations</a>
+    {% if me.is_admin %}<a href="#admin">Admin</a>{% endif %}
+  </nav>
+
+  <div class="settings-sections">
+    <section id="user" class="builder-step">
+      <h2 class="section-title">User</h2>
+
+      <form method="post" action="/settings/username" class="settings-form" novalidate>
+        <h3 class="small muted">Change username</h3>
+        <div class="grid">
+          <label class="field {{ 'has-error' if errors.username }}">
+            <span>New username</span>
+            <input name="username" value="{{ me.username }}" maxlength="32" autocomplete="off">
+            {{ err('username') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.current_password }}">
+            <span>Current password</span>
+            <input name="current_password" type="password" autocomplete="current-password">
+            {{ err('current_password') }}
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save username</button>
+      </form>
+
+      <form method="post" action="/settings/password" class="settings-form" novalidate>
+        <h3 class="small muted">Change password</h3>
+        <div class="grid">
+          <label class="field {{ 'has-error' if errors.current_password }}">
+            <span>Current password</span>
+            <input name="current_password" type="password" autocomplete="current-password">
+          </label>
+          <label class="field {{ 'has-error' if errors.new_password }}">
+            <span>New password</span>
+            <input name="new_password" type="password" autocomplete="new-password">
+          </label>
+          <label class="field">
+            <span>Re-enter new password</span>
+            <input name="confirm" type="password" autocomplete="new-password">
+          </label>
+        </div>
+        {{ err('new_password') }}
+        <p class="small muted">Changing your password signs you out everywhere else, but keeps this session signed in.</p>
+        <button type="submit" class="btn btn-primary">Save password</button>
+      </form>
+
+      <div class="settings-form">
+        <h3 class="small muted">Two-factor authentication</h3>
+        <p>Status: <span class="status {{ 'status-active' if me.totp_enabled else '' }}">{{ 'On' if me.totp_enabled else 'Off' }}</span></p>
+        <a class="btn" href="/account/2fa">Manage two-factor authentication</a>
+      </div>
+
+      <form method="post" action="/settings/timezone" class="settings-form" novalidate>
+        <h3 class="small muted">Timezone</h3>
+        <p class="small muted">Used to display times like "last login" in Admin. Doesn't change dates on Protocols or Calendar yet.</p>
+        <label class="check"><input type="radio" name="mode" value="system" {{ 'checked' if not me.timezone }}> System time</label>
+        <label class="check"><input type="radio" name="mode" value="manual" {{ 'checked' if me.timezone }}> Manual</label>
+        <label class="field {{ 'has-error' if errors.timezone }}">
+          <span>Timezone</span>
+          <select name="timezone">
+            <option value="">—</option>
+            {% for tz in timezones %}<option value="{{ tz }}" {{ 'selected' if me.timezone == tz }}>{{ tz }}</option>{% endfor %}
+          </select>
+          {{ err('timezone') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save timezone</button>
+      </form>
+
+      <form method="post" action="/settings/email" class="settings-form" novalidate>
+        <h3 class="small muted">Email <span class="muted small">(used for sharing features, coming soon)</span></h3>
+        <label class="field {{ 'has-error' if errors.email }}">
+          <span>Email</span>
+          <input name="email" type="email" value="{{ me.email or '' }}" placeholder="you@example.com">
+          {{ err('email') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save email</button>
+      </form>
+
+      <div class="settings-form">
+        <h3 class="small muted">Backup &amp; restore</h3>
+        <p class="small muted">Download or restore your inventory and protocols.</p>
+        <a class="btn" href="/backup">Go to Backup &amp; restore</a>
+      </div>
+    </section>
+
+    <section id="display" class="builder-step">
+      <h2 class="section-title">Display</h2>
+      {% block display_section %}{% endblock %}
+    </section>
+
+    <section id="integrations" class="builder-step">
+      <h2 class="section-title">Integrations</h2>
+      <div class="integration-grid">
+        <div class="integration-card">
+          <strong>Apple Health</strong>
+          <span class="tag">Coming soon</span>
+        </div>
+        <div class="integration-card">
+          <strong>Hume</strong>
+          <span class="tag">Coming soon</span>
+        </div>
+      </div>
+    </section>
+
+    {% if me.is_admin %}
+    <section id="admin" class="builder-step">
+      <h2 class="section-title">Admin</h2>
+      {% block admin_section %}{% endblock %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/settings.js') }}" defer></script>
+{% endblock %}

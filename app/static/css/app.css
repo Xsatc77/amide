@@ -543,6 +543,18 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .sort-btn.sort-asc::after { border-bottom: 5px solid currentColor; opacity: 1; }
 .sort-btn.sort-desc::after { border-top: 5px solid currentColor; opacity: 1; }
 
+/* ---------- settings ---------- */
+.settings-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; align-items: start; }
+.settings-nav { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 2px; }
+.settings-nav a { padding: 8px 10px; border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.9rem; }
+.settings-nav a:hover { background: var(--bg); }
+.settings-sections { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.settings-form { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.settings-form:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.settings-form .grid { width: 100%; }
+.integration-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.integration-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); opacity: 0.75; }
+
 /* ---------- phones: table becomes cards ---------- */
 @media (max-width: 720px) {
   .topbar { padding: 10px 16px; gap: 12px; }
@@ -561,6 +573,8 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .span-2 { grid-column: auto; }
   .footer { padding-bottom: 80px; }
   .card-grid, .goal-grid { grid-template-columns: 1fr; }
+  .settings-layout { grid-template-columns: 1fr; }
+  .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
   .calc-layout { grid-template-columns: 1fr; }
   .calc-result { position: static; }
   .cal-month-head, .cal-month-row { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }

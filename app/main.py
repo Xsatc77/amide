@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app import config
 from app.auth import gate
 from app.migrate import upgrade_db
-from app.routers import auth, backup, calculator, calendar, inventory, library, protocols
+from app.routers import auth, backup, calculator, calendar, inventory, library, protocols, settings
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.include_router(calendar.router)
 app.include_router(calculator.router)
 app.include_router(backup.router)
 app.include_router(library.router)
+app.include_router(settings.router)
 
 
 @app.get("/", include_in_schema=False)
