@@ -12,7 +12,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import DoseUnit, InventoryItem, Medium, StorageLocation
+from app.models import DoseUnit, InventoryItem, Medium, Share, ShareCategory, StorageLocation, User
 from app.templating import templates
 
 router = APIRouter()
@@ -193,15 +193,48 @@ def _own_items(session: Session, uid: int):
                            .order_by(InventoryItem.name.collate("NOCASE"))).all()
 
 
+def _visible_items(session: Session, uid: int):
+    """This user's own items, plus items owned by anyone who granted them Inventory sharing."""
+    shared_owner_ids = select(Share.owner_id).where(
+        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    items = session.scalars(
+        select(InventoryItem)
+        .where((InventoryItem.owner_id == uid) | (InventoryItem.owner_id.in_(shared_owner_ids)))
+        .order_by(InventoryItem.name.collate("NOCASE"))
+    ).all()
+    other_owner_ids = {i.owner_id for i in items if i.owner_id != uid}
+    owner_names = {}
+    if other_owner_ids:
+        owner_names = dict(session.execute(
+            select(User.id, User.username).where(User.id.in_(other_owner_ids))).all())
+    return items, owner_names
+
+
+def _visible_item(session: Session, item_id: int, uid: int) -> InventoryItem | None:
+    """The item if it's this user's own, or if its owner granted them Inventory sharing.
+    Read access only -- never use this to authorize a mutating route."""
+    item = session.get(InventoryItem, item_id)
+    if item is None:
+        return None
+    if item.owner_id == uid:
+        return item
+    shared = session.scalar(select(Share).where(
+        Share.owner_id == item.owner_id, Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY))
+    return item if shared else None
+
+
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200):
-    items = _own_items(session, request.state.user.id)
+    uid = request.state.user.id
+    items, owner_names = _visible_items(session, uid)
     return templates.TemplateResponse(
         request,
         "inventory/list.html",
         {
             "items": items,
-            "edit_data": {i.id: _form_values(i) for i in items},
+            "viewer_id": uid,
+            "owner_names": owner_names,
+            "edit_data": {i.id: _form_values(i) for i in items if i.owner_id == uid},
             "mediums": list(Medium),
             "dose_units": list(DoseUnit),
             "storage_locations": list(StorageLocation),
@@ -290,7 +323,7 @@ def delete_item(item_id: int, session: Session = Depends(get_session), uid: int 
 
 @router.get("/inventory/{item_id}/coa")
 def get_coa(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    item = _own_item(session, item_id, uid)
+    item = _visible_item(session, item_id, uid)
     if item is None or not item.coa_filename:
         raise HTTPException(404, "No COA on file")
     path = uploads.coa_path(item.coa_filename)

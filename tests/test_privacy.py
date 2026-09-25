@@ -1,4 +1,4 @@
-"""Each user sees only their own inventory and protocols."""
+"""Each user sees only their own inventory and protocols, unless the owner explicitly shared it."""
 
 import json
 import re
@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import InventoryItem, Peptide, Protocol
+from app.models import InventoryItem, Peptide, Protocol, User
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
@@ -93,3 +93,64 @@ def test_library_is_shared_but_used_in_is_private(client, other, mine):
     assert other.get(f"/library/{bpc}").status_code == 200  # library is shared
     assert "My private protocol" not in other.get(f"/library/{bpc}").text
     assert "My private protocol" in client.get(f"/library/{bpc}").text
+
+
+from app.models import Share, ShareCategory
+
+
+def _grant(owner_id: int, grantee_id: int, category: ShareCategory) -> None:
+    with SessionLocal() as s:
+        s.add(Share(owner_id=owner_id, grantee_id=grantee_id, category=category))
+        s.commit()
+
+
+def _revoke(owner_id: int, grantee_id: int, category: ShareCategory) -> None:
+    with SessionLocal() as s:
+        s.query(Share).filter_by(owner_id=owner_id, grantee_id=grantee_id, category=category).delete()
+        s.commit()
+
+
+def test_shared_inventory_item_appears_tagged_and_is_read_only(client, other, mine, me):
+    item_id, _ = mine
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(me, other_id, ShareCategory.INVENTORY)
+    try:
+        t = other.get("/inventory").text
+        assert "My BPC vial" in t
+        assert "Tester" in t  # tagged with the owner's username
+        assert f'action="/inventory/{item_id}"' not in t  # no edit form for a shared row
+        assert f'action="/inventory/{item_id}/delete"' not in t
+
+        assert other.get(f"/inventory/{item_id}/coa").status_code == 200  # viewable
+        assert other.post(f"/inventory/{item_id}", data={"name": "Hacked"}).status_code == 404
+        assert other.post(f"/inventory/{item_id}/delete").status_code == 404
+    finally:
+        _revoke(me, other_id, ShareCategory.INVENTORY)
+
+
+def test_third_party_never_sees_shared_inventory(client, other, mine, me):
+    """Sharing with `other` must never leak to a third account that wasn't granted anything."""
+    item_id, _ = mine
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    third = TestClient(app, follow_redirects=False)
+    third.post("/notice", data={"understand": "1"})
+    third.post("/register", data={"username": "ThirdParty", "password": "Third1!aa", "confirm": "Third1!aa"})
+
+    _grant(me, other_id, ShareCategory.INVENTORY)  # shared with `other`, not with `third`
+    try:
+        assert "My BPC vial" not in third.get("/inventory").text
+        assert third.get(f"/inventory/{item_id}/coa").status_code == 404
+    finally:
+        _revoke(me, other_id, ShareCategory.INVENTORY)
+
+
+def test_revoking_inventory_share_removes_visibility_immediately(client, other, mine, me):
+    item_id, _ = mine
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(me, other_id, ShareCategory.INVENTORY)
+    assert "My BPC vial" in other.get("/inventory").text
+    _revoke(me, other_id, ShareCategory.INVENTORY)
+    assert "My BPC vial" not in other.get("/inventory").text

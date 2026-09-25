@@ -46,6 +46,7 @@
           data-sort-arrived="{{ item.arrival_date.isoformat() if item.arrival_date else '' }}">
         <td data-label="Item" class="item-name">
           {{ item.name }}
+          {% if item.owner_id != viewer_id %}<div class="muted small">Shared by {{ owner_names[item.id] }}</div>{% endif %}
           {% if item.lot_number %}<div class="muted small">Lot {{ item.lot_number }}</div>{% endif %}
           {% if item.expiration_date %}<div class="muted small">Exp {{ item.expiration_date | shortdate }}</div>{% endif %}
           {% if item.notes %}<div class="muted small">{{ item.notes }}</div>{% endif %}
@@ -70,11 +71,15 @@
           {% if not item.coa_filename and not has_lab %}<span class="muted">None</span>{% endif %}
         </td>
         <td class="actions">
+          {% if item.owner_id == viewer_id %}
           <button type="button" class="btn btn-ghost" data-action="edit"
                   data-item='{{ edit_data[item.id] | tojson }}'>Edit</button>
           <form method="post" action="/inventory/{{ item.id }}/delete" class="inline" data-confirm="Delete “{{ item.name }}”? This can't be undone.">
             <button type="submit" class="btn btn-ghost btn-danger">Delete</button>
           </form>
+          {% else %}
+          <span class="muted small">Read only</span>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
