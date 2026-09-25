@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import current_user_id
 from app.calculator.reconstitution import SYRINGE_CAPACITIES_UNITS, compute, water_for_target_units
 from app.db import get_session
-from app.models import ActiveVial, DoseUnit, InventoryItem, Medium, Protocol, ProtocolItem
+from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Protocol, ProtocolItem
 from app.templating import templates
 
 router = APIRouter()
@@ -57,10 +57,12 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
 
     inventory = session.scalars(
         select(InventoryItem)
-        .where(InventoryItem.owner_id == uid, InventoryItem.medium == Medium.LYOPHILIZED,
-              InventoryItem.vial_size_mg.is_not(None), InventoryItem.vial_size_unit == DoseUnit.MG)
+        .where(InventoryItem.owner_id == uid, InventoryItem.category == Category.MEDICINE,
+              InventoryItem.medium == Medium.LYOPHILIZED, InventoryItem.vial_size_mg.is_not(None),
+              InventoryItem.vial_size_unit == DoseUnit.MG)
         .order_by(InventoryItem.name.collate("NOCASE"))
     ).all()
+    inventory = [i for i in inventory if i.available_count > 0]
 
     if selected_item_id and any(str(i.id) == selected_item_id for i in inventory):
         # The selected item's own vial size always wins over any ?vial_mg= query override --
@@ -83,7 +85,7 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
         # Number(1.0) stringifies to "1" (not "1.0"), which would silently miss the 1.0 mL entry on
         # lookup. The page builds a JS Map from this list instead, where numeric keys work correctly.
         "syringe_capacities": list(SYRINGE_CAPACITIES_UNITS.items()),
-        "inventory": [{"id": i.id, "name": i.name, "vial_mg": i.vial_size_mg, "count": i.count} for i in inventory],
+        "inventory": [{"id": i.id, "name": i.name, "vial_mg": i.vial_size_mg, "count": i.available_count} for i in inventory],
         "protocol_doses": [
             {"protocol": p.name, "peptide": it.peptide.name, "dose": it.dose, "unit": it.dose_unit.value}
             for p in protocols for it in p.items if it.dose is not None
@@ -106,7 +108,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
     except (TypeError, ValueError):
         raise HTTPException(status_code=404)
     item = session.get(InventoryItem, item_id)
-    if item is None or item.owner_id != uid or item.vial_size_unit != DoseUnit.MG:
+    if item is None or item.owner_id != uid or item.category != Category.MEDICINE or item.vial_size_unit != DoseUnit.MG:
         raise HTTPException(status_code=404)
 
     water_ml = _num(form.get("water_ml"))
@@ -115,7 +117,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
     discard_by_raw = str(form.get("discard_by", ""))
 
     errors = []
-    if item.count <= 0:
+    if item.available_count <= 0:
         errors.append("This item has none left in stock to reconstitute.")
     if water_ml is None or water_ml <= 0:
         errors.append("Enter the water added.")
@@ -143,6 +145,6 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
         water_ml=water_ml, dose_value=dose_value, dose_unit=DoseUnit(dose_unit),
         doses_total=result.doses_per_vial, date_mixed=date.today(), discard_by=discard_by,
     ))
-    item.count -= 1
+    item.reconstituted_count += 1
     session.commit()
     return RedirectResponse("/inventory#active-vials", status_code=303)

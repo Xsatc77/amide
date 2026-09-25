@@ -72,11 +72,11 @@
         </td>
         <td class="actions">
           {% if item.owner_id == viewer_id %}
-          {% if item.medium and item.medium.value == 'Lyophilized' and item.vial_size_mg and item.vial_size_unit.value == 'mg' %}
+          {% if item.category.value == 'Medicine' and item.medium and item.medium.value == 'Lyophilized' and item.vial_size_mg and item.vial_size_unit.value == 'mg' %}
           <button type="button" class="btn btn-ghost" data-action="reconstitute" data-item-id="{{ item.id }}"
                   data-item-name="{{ item.name }}"
                   {% if item.id in open_vials %}data-active-vial='{{ {"concentration": open_vials[item.id].concentration_mg_ml, "doses": open_vials[item.id].doses_total, "discard_by": open_vials[item.id].discard_by.isoformat()} | tojson }}'{% endif %}
-                  {% if item.count == 0 %}disabled{% endif %}>Reconstitute</button>
+                  {% if item.available_count == 0 %}disabled{% endif %}>Reconstitute</button>
           {% endif %}
           <button type="button" class="btn btn-ghost" data-action="edit"
                   data-item='{{ edit_data[item.id] | tojson }}'>Edit</button>
