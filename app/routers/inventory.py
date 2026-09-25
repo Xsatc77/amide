@@ -576,11 +576,11 @@ def _iso(d: date | None) -> str | None:
 
 
 def _to_json(item: InventoryItem) -> dict:
-    # For backward compatibility with the old flat structure, return the first order's details if available
-    first_order = item.orders[0] if item.orders else None
     return {
         "id": item.id,
         "name": item.name,
+        "category": item.category.value,
+        "available_count": item.available_count,
         "count": item.count,
         "vial_size_mg": item.vial_size_mg,
         "vial_size_unit": item.vial_size_unit.value,
@@ -590,9 +590,16 @@ def _to_json(item: InventoryItem) -> dict:
         "storage": item.storage.value if item.storage else None,
         "cost": item.cost,
         "vendor": item.vendor,
-        "vendor_id": item.vendor_id,
-        "has_coa": bool(first_order and first_order.coa_filename),
         "notes": item.notes,
+        "orders": [{
+            "id": o.id, "quantity": o.quantity, "order_date": _iso(o.order_date),
+            "shipped_date": _iso(o.shipped_date), "arrival_date": _iso(o.arrival_date),
+            "tracking_site": o.tracking_site, "tracking_number": o.tracking_number,
+            "vendor": o.vendor, "lot_number": o.lot_number, "cost": o.cost, "tax": o.tax,
+            "shipping": o.shipping, "expiration_date": _iso(o.expiration_date),
+            "has_coa": bool(o.coa_filename), "coa_vial_size_mg": o.coa_vial_size_mg,
+            "coa_purity_pct": o.coa_purity_pct,
+        } for o in item.orders],
         "created_at": item.created_at.isoformat(),
         "updated_at": item.updated_at.isoformat(),
     }

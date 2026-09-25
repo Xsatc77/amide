@@ -164,7 +164,8 @@ def test_json_api(client):
     [row] = client.get("/api/inventory").json()
     assert row["name"] == "Retatrutide"
     assert row["cost"] == 80.0
-    assert row["has_coa"] is False
+    assert row["orders"] == []  # Supply items have no orders
+    assert row["category"] == "Supply"
     assert client.get(f"/api/inventory/{row['id']}").json()["id"] == row["id"]
     assert client.get("/api/inventory/9999").status_code == 404
 
@@ -521,3 +522,16 @@ def test_inventory_page_notes_removed_from_list_columns(client, db):
     t = text(client.get("/inventory"))
     section = t.split('id="supplies-heading"')[1].split("</section>")[0]
     assert "keep in the closet" not in section
+
+
+def test_api_inventory_includes_category_available_count_and_orders(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "tracking_number": "LY123",
+    })
+    body = client.get("/api/inventory").json()
+    item = next(i for i in body if i["name"] == "Retatrutide")
+    assert item["category"] == "Medicine"
+    assert item["available_count"] == 0  # not arrived yet
+    assert item["orders"][0]["tracking_number"] == "LY123"
+    assert "lot_number" not in item  # moved to orders, no longer a bare item field
