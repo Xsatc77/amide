@@ -223,7 +223,7 @@
   <h2 id="sales-heading" class="section-title">Sale history</h2>
   {% if is_owner %}
   <button type="button" class="btn btn-ghost" data-action="sold"
-          {% if item.available_count == 0 %}disabled title="Nothing available to sell"{% endif %}>Sold</button>
+          {% if item.available_count <= 0 %}disabled title="Nothing available to sell"{% endif %}>Sold</button>
   {% endif %}
   {% if item.sales %}
   <div class="table-wrap">
@@ -257,7 +257,7 @@
     <div class="grid">
       <label {{ scls('sale_date') }}>
         <span>Sale date</span>
-        <input name="sale_date" type="date" value="{{ sf.sale_date or today_iso }}">
+        <input name="sale_date" type="date" value="{{ sf.sale_date or today_iso }}" max="{{ today_iso }}">
         {{ serr('sale_date') }}
       </label>
       <label {{ scls('quantity') }}>
@@ -306,6 +306,7 @@
         </div>
         {% else %}
         <p class="muted">No BAC Water in stock.</p>
+        {{ serr('bac_item_id') }}
         {% endif %}
       </div>
       {% endif %}

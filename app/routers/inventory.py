@@ -582,7 +582,12 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
     bac_values = None
     include_bac_water = bool(raw["include_bac_water"]) and item.category == Category.MEDICINE
     if include_bac_water:
-        bac_item = _own_item(session, int(raw["bac_item_id"]), uid) if raw["bac_item_id"].isdigit() else None
+        bac_item = None
+        if raw["bac_item_id"].isdigit():
+            try:
+                bac_item = _own_item(session, int(raw["bac_item_id"]), uid)
+            except (ValueError, OverflowError):
+                bac_item = None
         if bac_item is None or bac_item.category != Category.BAC_WATER:
             errors["bac_item_id"] = "Select a BAC Water item."
         else:

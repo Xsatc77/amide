@@ -278,6 +278,10 @@
   function syncBacGroup() {
     if (!bacCheckbox || !bacGroup) return;
     bacGroup.hidden = !bacCheckbox.checked;
+    // No BAC Water in stock -- the group renders no <select>, so a checked box would submit an
+    // incomplete bundle. Block that at the button instead of silently posting.
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = bacCheckbox.checked && !bacItemSelect;
     updateTotal();
   }
 

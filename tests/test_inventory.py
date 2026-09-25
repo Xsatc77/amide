@@ -903,6 +903,81 @@ def test_sale_validation_error_reopens_dialog_prefilled(client, db):
     assert 'name="price" type="number" min="0" step="0.01" id="sale-price" value="10.00"' in t
 
 
+def test_quantity_exceeds_available_error_renders_in_html(client, db):
+    item_id = _medicine_with_stock(client, quantity=5)
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "6", "price": "10.00",
+    })
+    assert r.status_code == 422
+    assert "Only 5 available to sell" in html.unescape(r.text)
+
+
+def test_bac_water_required_error_renders_when_no_bac_water_in_stock(client, db):
+    # No BAC Water item exists at all for this user -- bac_water_options is empty, so the dialog
+    # renders the "No BAC Water in stock." message branch instead of the <select>. The error must
+    # still surface there, not just show the generic "fix the highlighted fields" banner.
+    item_id = _medicine_with_stock(client)
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "10.00", "include_bac_water": "1",
+    })
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert "Select a BAC Water item" in t
+    assert "No BAC Water in stock." in t
+
+
+def test_malformed_bac_item_id_returns_422_not_500(client, db):
+    item_id = _medicine_with_stock(client)
+    # A Unicode "digit" character passes str.isdigit() but int() on it (and a very long run of
+    # ASCII digits) must not blow up the route with an unhandled exception.
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "10.00",
+        "include_bac_water": "1", "bac_item_id": "²", "bac_quantity": "1", "bac_price": "1.00",
+    })
+    assert r.status_code == 422
+
+    r2 = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "10.00",
+        "include_bac_water": "1", "bac_item_id": "9" * 400, "bac_quantity": "1", "bac_price": "1.00",
+    })
+    assert r2.status_code == 422
+
+
+def test_sell_exactly_available_count_succeeds(client, db):
+    item_id = _medicine_with_stock(client, quantity=5)
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "5", "price": "10.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).available_count == 0
+
+
+def test_available_count_reflects_new_value_on_next_render_after_sale(client, db):
+    item_id = _medicine_with_stock(client, quantity=10)
+    client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "3", "price": "10.00",
+    }, follow_redirects=False)
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert '<dt>Available</dt><dd id="inv-available-count"><strong>7</strong></dd>' in t
+
+
+def test_shared_viewer_does_not_see_sold_button_or_dialog(client, db, me):
+    item_id = _medicine_with_stock(client, name="Shared Sellable")
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "SoldViewer", "password": "SoldViewer1!", "confirm": "SoldViewer1!"})
+    with SessionLocal() as s:
+        grantee_id = s.scalar(select(User.id).where(User.username_key == "soldviewer"))
+    try:
+        client.post(f"/settings/sharing/{grantee_id}/inventory")
+        t = html.unescape(other.get(f"/inventory/{item_id}").text)
+        assert 'data-action="sold"' not in t
+        assert 'id="sale-dialog"' not in t
+    finally:
+        client.post(f"/settings/sharing/{grantee_id}/inventory", data={"on": "0"})
+
+
 # ---------------------------------------------------------------- Task 7: list resectioning
 
 
