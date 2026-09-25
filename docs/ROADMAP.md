@@ -66,7 +66,7 @@ Firm up the base before anything depends on it.
 - ✅ *Accounts, legal notice, private data per user and 2FA shipped in v0.4.*
 - ✅ *Backup/export (JSON + CSV, additive-only import) shipped in v0.7.*
 - ✅ *Settings page shipped in v0.8*: username/password/2FA, email, timezone, colorway, and an admin Manage Users panel, reached from the account menu; Backup & restore now lives there too.
-- **Still open:** Sharing (inventory or full personal data with others on the same network).
+- ✅ *Sharing shipped in v0.9*: per-person, opt-in read-only sharing of Inventory and Personal Data (Protocols), managed from Settings.
 
 ## Phase 2 — v0.3: Reconstitution Calculator + Active Vials
 

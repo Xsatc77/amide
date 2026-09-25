@@ -43,6 +43,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v0.9 — Sharing.** Per-person sharing, off by default: grant specific users a read-only view of your Inventory, your Protocols (personal data), or both, from the new Sharing section in Settings. Shared inventory merges into the viewer's own list, tagged by owner; shared protocols show in a separate "Shared with me" tab, never mixed into your own view or Calendar. Vendors are now a shared list across all users (like the peptide library) — what you bought from one stays private unless you share your inventory.
+
 **v0.8 — Settings.** A Settings page (from the username menu) for changing your username/password, turning two-factor authentication on or off, setting an email (for future sharing features) and timezone, and picking a colorway — Light, Dark, or one of seven named palettes, including a pure-black-and-white High Contrast option. Admins get a Manage Users panel: add accounts, reset passwords, remove someone's two-factor authentication, or delete an account (which also removes everything they own, after two confirmations).
 
 **v0.7 — Inventory Foundations.** The inventory form adapts to the medium: amount + unit (mg/mcg/IU), volume for Liquid, units-per-package for Autoinjector/Pill, plus expiration date and storage location, each required only where it makes sense. Vendors are now their own table (type a name to reuse or create it, like the peptide picker). The inventory list has search, medium filters, and sortable columns. Backup & restore (JSON + CSV export, additive-only import) is on the account menu.
