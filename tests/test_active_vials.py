@@ -164,22 +164,15 @@ def test_reconstitute_commit_rejects_non_mg_item(client, db, mcg_item):
         assert item.count == 0  # untouched -- vestigial for Medicine
 
 
-def test_reconstitute_button_hidden_for_non_mg_item(client, db, mcg_item):
+def test_reconstitute_dropdown_excludes_non_mg_items(client, db, mcg_item):
+    """Items with vial_size_unit != mg are excluded from the calculator dropdown (1000x concentration error prevention)."""
     # Test the calculator dropdown - mcg items should not appear there
     t = text(client.get("/calculator"))
     assert f'<option value="{mcg_item}"' not in t
 
 
-def _button_tag(t: str, item_id) -> str:
-    """The full opening <button ...> tag whose data-item-id matches, regardless of attribute
-    order or surrounding whitespace -- avoids brittle fixed-length slicing."""
-    marker = f'data-item-id="{item_id}"'
-    start = t.rindex("<button", 0, t.index(marker))
-    end = t.index(">", t.index(marker)) + 1
-    return t[start:end]
-
-
-def test_reconstitute_button_present_and_disabled_when_out_of_stock(client, db, lyo_item, me):
+def test_reconstitute_dropdown_excludes_zero_stock_items(client, db, lyo_item, me):
+    """Items with available_count == 0 (no arrived orders) are excluded from the calculator dropdown."""
     zero_id = _create_item("Zero Stock", category="Medicine", medium="Lyophilized",
                            vial_size_mg=5, quantity=0, arrival_date=date(2026, 8, 10), uid=me)
     # Test the calculator dropdown - items with 0 available_count should not appear
@@ -188,7 +181,8 @@ def test_reconstitute_button_present_and_disabled_when_out_of_stock(client, db, 
     assert f'<option value="{zero_id}"' not in t  # zero_id has available_count == 0
 
 
-def test_duplicate_vial_check_scoped_to_exact_item(client, db, lyo_item, me):
+def test_reconstitute_creates_vial_for_correct_item_only(client, db, lyo_item, me):
+    """Reconstitute creates an ActiveVial only for the exact item specified, not others with same name."""
     other_item_id = _create_item("AV Test Peptide Two", category="Medicine", medium="Lyophilized",
                                  vial_size_mg=10, quantity=1, arrival_date=date(2026, 8, 10), uid=me)
 
@@ -219,9 +213,9 @@ def _reconstitute(client, item_id, discard_by="2026-12-31"):
         return s.scalar(select(ActiveVial.id).where(ActiveVial.inventory_item_id == item_id))
 
 
-def test_active_vial_card_shows_icon_and_label_fields(client, db, lyo_item):
+def test_reconstitute_vial_stores_correct_data(client, db, lyo_item):
+    """Reconstitute correctly computes and stores concentration and doses_total in the ActiveVial."""
     vial_id = _reconstitute(client, lyo_item)
-    # Test that the vial was created with the correct data (cannot test HTML rendering due to broken /inventory page)
     with SessionLocal() as s:
         vial = s.get(ActiveVial, vial_id)
         item = s.get(InventoryItem, lyo_item)
@@ -299,7 +293,8 @@ def test_expiry_prompt_names_each_expired_vial(client, db, lyo_item, me):
         assert vial2.discard_by < date.today()  # expired
 
 
-def test_shared_active_vial_is_read_only(client, db, lyo_item, me):
+def test_shared_active_vial_discard_restricted_to_owner(client, db, lyo_item, me):
+    """Grantees cannot discard active vials they don't own; discard endpoint enforces ownership check."""
     from app.models import Share, ShareCategory
 
     other = TestClient(app, follow_redirects=False)
@@ -312,13 +307,13 @@ def test_shared_active_vial_is_read_only(client, db, lyo_item, me):
 
     try:
         vial_id = _reconstitute(client, lyo_item)
-        # Verify the vial is accessible by the other user but they can't discard it
+        # Verify the vial was created (exists in DB)
         with SessionLocal() as s:
             vial = s.get(ActiveVial, vial_id)
             assert vial is not None
             assert vial.inventory_item_id == lyo_item
 
-        # Attempt to discard as other user should fail (they don't own it)
+        # Attempt to discard as other user (grantee) should fail (they don't own it)
         assert other.post(f"/active-vials/{vial_id}/discard", follow_redirects=False).status_code == 404
     finally:
         with SessionLocal() as s:
