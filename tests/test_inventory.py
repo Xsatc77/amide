@@ -353,3 +353,37 @@ def test_editing_item_does_not_create_or_touch_orders(client, db, me):
         item = s.get(InventoryItem, item_id)
         assert item.name == "Retatrutide XR" and item.storage.value == "fridge"
         assert len(item.orders) == 1  # unchanged
+
+
+# ---------------------------------------------------------------- Task 4: Item detail page
+
+
+def test_item_detail_page_shows_details_and_available_count(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert "Retatrutide" in t
+    assert "10 mg" in t
+    assert "0" in t.split('id="inv-available-count"')[1][:20]  # not arrived yet
+
+
+def test_item_detail_page_404s_for_someone_elses_private_item(client, db):
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "DetailOther", "password": "DetailOther1!", "confirm": "DetailOther1!"})
+    other.post("/inventory", data={"name": "Private Item", "category": "Supply", "count": "1"})
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Private Item"))
+    assert client.get(f"/inventory/{item_id}").status_code == 404
+
+
+def test_inventory_list_row_links_to_detail_page(client, db):
+    client.post("/inventory", data={"name": "Alcohol Pads", "category": "Supply", "count": "5"}, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Alcohol Pads"))
+    t = html.unescape(client.get("/inventory").text)
+    assert f'href="/inventory/{item_id}"' in t

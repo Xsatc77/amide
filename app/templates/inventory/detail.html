@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% set active_nav = "inventory" %}
+{% block title %}{{ item.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="muted small"><a href="/inventory">&larr; Inventory</a></p>
+    <h1>{{ item.name }}</h1>
+    <p class="muted"><span class="tag">{{ item.category.value }}</span></p>
+  </div>
+</div>
+
+<section aria-labelledby="details-heading">
+  <h2 id="details-heading" class="section-title">Details</h2>
+  <dl class="kv">
+    {% if item.category.value == 'Medicine' %}
+    <dt>Medium</dt><dd>{{ item.medium.value if item.medium else '—' }}</dd>
+    <dt>Amount</dt><dd>{% if item.vial_size_mg %}{{ '%g' % item.vial_size_mg }} {{ item.vial_size_unit.value }}{% else %}—{% endif %}</dd>
+    {% endif %}
+    <dt>Storage</dt><dd>{{ item.storage.label if item.storage else '—' }}</dd>
+    {% if item.category.value == 'Supply' %}
+    <dt>Cost</dt><dd>{{ item.cost | money or '—' }}</dd>
+    <dt>Vendor</dt><dd>{{ item.vendor or '—' }}</dd>
+    {% endif %}
+    <dt>Notes</dt><dd>{{ item.notes or '—' }}</dd>
+  </dl>
+  {% if is_owner %}
+  <button type="button" class="btn btn-ghost" data-action="edit-item">Edit</button>
+  {% endif %}
+</section>
+
+<section aria-labelledby="inventory-heading">
+  <h2 id="inventory-heading" class="section-title">Inventory</h2>
+  {% if item.category.value == 'Supply' %}
+  <p>Count: <strong id="inv-available-count">{{ item.available_count }}</strong></p>
+  {% else %}
+  <dl class="kv">
+    <dt>Arrived</dt><dd>{{ arrived }}</dd>
+    <dt>Reconstituted</dt><dd>{{ item.reconstituted_count }}</dd>
+    <dt>Sold</dt><dd>{{ item.sold_count }}</dd>
+    <dt>Available</dt><dd id="inv-available-count"><strong>{{ item.available_count }}</strong></dd>
+  </dl>
+  {% endif %}
+</section>
+{% endblock %}

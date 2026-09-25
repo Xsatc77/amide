@@ -347,6 +347,31 @@ def list_inventory(request: Request, session: Session = Depends(get_session)):
     return _render_list(request, session)
 
 
+@router.get("/inventory/{item_id}")
+def item_detail(item_id: int, request: Request, session: Session = Depends(get_session),
+                uid: int = Depends(current_user_id)):
+    item = _visible_item(session, item_id, uid)
+    if item is None:
+        raise HTTPException(404, "Inventory item not found")
+    arrived = sum(o.quantity for o in item.orders if o.arrival_date is not None)
+    return templates.TemplateResponse(request, "inventory/detail.html", {
+        "item": item,
+        "is_owner": item.owner_id == uid,
+        "arrived": arrived,
+        "storage_locations": list(StorageLocation),
+        "mediums": list(Medium),
+        "dose_units": list(DoseUnit),
+        "medium_rules": {
+            m.value: {
+                "required": sorted(required_fields_for(m)),
+                "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
+            }
+            for m in Medium
+        },
+        "edit_data": _form_values(item),
+    })
+
+
 @router.post("/inventory")
 async def create_item(request: Request, session: Session = Depends(get_session),
                       uid: int = Depends(current_user_id)):
