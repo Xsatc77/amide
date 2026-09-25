@@ -286,6 +286,14 @@ section + section { margin-top: 36px; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.vial-card-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.vial-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.vial-card-icon { position: relative; display: flex; justify-content: center; }
+.vial-card-icon img { width: 100px; height: auto; }
+.vial-card-label { position: absolute; inset: 38% 8px auto 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 0.7rem; line-height: 1.2; color: #1a1a1a; }
+.vial-card-label strong { font-size: 0.75rem; }
+.vial-card-expired { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.vial-card-yellow { border-color: #d4a017; background: color-mix(in srgb, #d4a017 12%, var(--surface)); }
 .protocol-card {
   position: relative; overflow: hidden;
   display: flex; flex-direction: column; gap: 10px;

@@ -156,3 +156,38 @@
     rows.forEach((row) => tbody.append(row));
   }));
 })();
+
+// ---------------------------------------------------------------- active vials: expiry popups
+(() => {
+  // One popup per vial flagged by the server (data-expired-prompt), shown on load.
+  document.querySelectorAll("[data-expired-prompt]").forEach((card) => {
+    const vialId = card.dataset.expiredPrompt;
+    const dialog = document.getElementById("expiry-prompt");
+    dialog.querySelector('[data-action="expiry-discard"]').onclick = () => {
+      dialog.close();
+      fetch(`/active-vials/${vialId}/discard`, { method: "POST" }).then(() => {
+        const itemId = card.dataset.itemIdForReconstitute;
+        const again = document.getElementById("reconstitute-again-prompt");
+        again.querySelector('[data-action="reconstitute-again-yes"]').onclick = () => {
+          window.location.href = `/calculator?inventory_item_id=${itemId}`;
+        };
+        again.querySelector('[data-action="reconstitute-again-no"]').onclick = () => {
+          again.close();
+          window.location.href = "/inventory#active-vials";
+        };
+        again.showModal();
+      });
+    };
+    dialog.querySelector('[data-action="expiry-not-yet"]').onclick = () => {
+      dialog.close();
+      fetch(`/active-vials/${vialId}/snooze-prompt`, { method: "POST" }).then(() => window.location.reload());
+    };
+    dialog.showModal();
+  });
+
+  // If we just redirected here after discarding via the Inventory-page popup flow, drop the query
+  // param from the visible URL without a reload (it's already done its job).
+  if (window.location.search.includes("just_discarded")) {
+    window.history.replaceState({}, "", "/inventory#active-vials");
+  }
+})();

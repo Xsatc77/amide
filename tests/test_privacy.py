@@ -257,3 +257,17 @@ def test_personal_data_share_does_not_leak_inventory(client, other, mine, me):
         assert "My BPC vial" not in other.get("/inventory").text
     finally:
         _revoke(me, other_id, ShareCategory.PERSONAL_DATA)
+
+
+def test_active_vial_not_visible_without_inventory_grant(client, other, me):
+    from app.models import ActiveVial
+
+    client.post("/inventory", data={"name": "AV Privacy Item", "count": "1", "vial_size_mg": "10",
+                                    "medium": "Lyophilized"})
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Privacy Item"))
+    client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
+        "discard_by": "2026-12-31",
+    })
+    assert "AV Privacy Item" not in other.get("/inventory").text

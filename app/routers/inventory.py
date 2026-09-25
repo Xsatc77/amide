@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -9,6 +9,7 @@ from starlette.datastructures import UploadFile
 
 from app import uploads
 from app.auth.deps import current_user_id
+from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
@@ -238,12 +239,39 @@ def _open_active_vials(session: Session, item_ids: list[int]) -> dict[int, Activ
     return result
 
 
+def _visible_active_vials(session: Session, uid: int):
+    """This user's own open Active Vials, plus open vials on items owned by anyone who granted
+    them Inventory sharing -- the same grant, no new category."""
+    shared_owner_ids = select(Share.owner_id).where(
+        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    vials = session.scalars(
+        select(ActiveVial)
+        .where(ActiveVial.discarded_at.is_(None),
+              (ActiveVial.owner_id == uid) | (ActiveVial.owner_id.in_(shared_owner_ids)))
+        .order_by(ActiveVial.discard_by)
+    ).all()
+    item_ids = {v.inventory_item_id for v in vials}
+    items_by_id = {i.id: i for i in session.scalars(
+        select(InventoryItem).where(InventoryItem.id.in_(item_ids)))} if item_ids else {}
+    owner_ids = {v.owner_id for v in vials if v.owner_id != uid}
+    owner_names = dict(session.execute(
+        select(User.id, User.username).where(User.id.in_(owner_ids))).all()) if owner_ids else {}
+    return vials, items_by_id, owner_names
+
+
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
     own_lyo_ids = [i.id for i in items if i.owner_id == uid and i.medium == Medium.LYOPHILIZED]
     open_vials = _open_active_vials(session, own_lyo_ids)
+    vials, vial_items, vial_owner_names = _visible_active_vials(session, uid)
+    now = now_utc()
+    expired_prompts = {
+        v.id for v in vials
+        if v.owner_id == uid and v.discard_by < date.today()
+        and (v.last_discard_prompt_at is None or now - v.last_discard_prompt_at > timedelta(hours=24))
+    }
     return templates.TemplateResponse(
         request,
         "inventory/list.html",
@@ -252,6 +280,11 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "viewer_id": uid,
             "owner_names": owner_names,
             "open_vials": open_vials,
+            "active_vials": vials,
+            "vial_items": vial_items,
+            "vial_owner_names": vial_owner_names,
+            "expired_prompts": expired_prompts,
+            "today": date.today(),
             "edit_data": {i.id: _form_values(i) for i in items if i.owner_id == uid},
             "mediums": list(Medium),
             "dose_units": list(DoseUnit),
@@ -337,6 +370,32 @@ def delete_item(item_id: int, session: Session = Depends(get_session), uid: int 
     session.delete(item)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
+
+
+def _own_active_vial(session: Session, vial_id: int, uid: int) -> ActiveVial | None:
+    vial = session.get(ActiveVial, vial_id)
+    return vial if vial is not None and vial.owner_id == uid else None
+
+
+@router.post("/active-vials/{vial_id}/discard")
+def discard_active_vial(vial_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    vial = _own_active_vial(session, vial_id, uid)
+    if vial is None:
+        raise HTTPException(404)
+    vial.discarded_at = now_utc()
+    session.commit()
+    return RedirectResponse(f"/inventory?just_discarded={vial.inventory_item_id}#active-vials", status_code=303)
+
+
+@router.post("/active-vials/{vial_id}/snooze-prompt")
+def snooze_active_vial_prompt(vial_id: int, session: Session = Depends(get_session),
+                              uid: int = Depends(current_user_id)):
+    vial = _own_active_vial(session, vial_id, uid)
+    if vial is None:
+        raise HTTPException(404)
+    vial.last_discard_prompt_at = now_utc()
+    session.commit()
+    return {"ok": True}
 
 
 @router.get("/inventory/{item_id}/coa")

@@ -112,3 +112,96 @@ def test_duplicate_vial_check_scoped_to_exact_item(client, db, lyo_item):
     assert "data-active-vial=" in _button_tag(t, lyo_item)
     # The similarly-named other item has no open vial and carries no such data.
     assert "data-active-vial=" not in _button_tag(t, other_item_id)
+
+
+from datetime import datetime, timedelta
+
+
+def _reconstitute(client, item_id, discard_by="2026-12-31"):
+    client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
+        "discard_by": discard_by,
+    })
+    with SessionLocal() as s:
+        return s.scalar(select(ActiveVial.id).where(ActiveVial.inventory_item_id == item_id))
+
+
+def test_active_vial_card_shows_icon_and_label_fields(client, db, lyo_item):
+    _reconstitute(client, lyo_item)
+    t = text(client.get("/inventory"))
+    assert 'id="active-vials"' in t
+    assert "vial-blank-label.png" in t
+    assert "AV Test Peptide" in t.split('id="active-vials"')[1]
+    assert "5 mg/mL" in t  # 10mg / 2mL
+    assert "10 mg" in t.split('id="active-vials"')[1].split("5 mg/mL")[0][-30:]  # total content near it
+
+
+def test_discard_sets_discarded_at_and_leaves_active_list(client, db, lyo_item):
+    vial_id = _reconstitute(client, lyo_item)
+    r = client.post(f"/active-vials/{vial_id}/discard", follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        v = s.get(ActiveVial, vial_id)
+        assert v is not None and v.discarded_at is not None  # row survives
+    t = text(client.get("/inventory"))
+    assert "AV Test Peptide" not in t.split('id="active-vials"')[1].split("</section>")[0]
+
+
+def test_expiry_popup_fires_once_then_throttles_24_hours(client, db, lyo_item):
+    vial_id = _reconstitute(client, lyo_item, discard_by="2020-01-01")  # already expired
+    t = text(client.get("/inventory"))
+    assert f'data-expired-prompt="{vial_id}"' in t  # server flags it for the JS popup to show
+
+    client.post(f"/active-vials/{vial_id}/snooze-prompt")
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, vial_id).last_discard_prompt_at is not None
+
+    t = text(client.get("/inventory"))
+    assert f'data-expired-prompt="{vial_id}"' not in t  # throttled, no popup flag
+    section = t.split('id="active-vials"')[1].split("</section>")[0]
+    assert "vial-card-yellow" in section  # renders yellow instead
+
+
+def test_expiry_popup_does_not_repeat_within_24_hours(client, db, lyo_item):
+    vial_id = _reconstitute(client, lyo_item, discard_by="2020-01-01")
+    with SessionLocal() as s:
+        v = s.get(ActiveVial, vial_id)
+        v.last_discard_prompt_at = datetime.utcnow() - timedelta(hours=1)
+        s.commit()
+    t = text(client.get("/inventory"))
+    assert f'data-expired-prompt="{vial_id}"' not in t
+
+    with SessionLocal() as s:
+        v = s.get(ActiveVial, vial_id)
+        v.last_discard_prompt_at = datetime.utcnow() - timedelta(hours=25)
+        s.commit()
+    t = text(client.get("/inventory"))
+    assert f'data-expired-prompt="{vial_id}"' in t
+
+
+def test_shared_active_vial_is_read_only(client, db, lyo_item, me):
+    from app.models import Share, ShareCategory
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "AVShared", "password": "AVShared1!", "confirm": "AVShared1!"})
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "avshared"))
+        s.add(Share(owner_id=me, grantee_id=other_id, category=ShareCategory.INVENTORY))
+        s.commit()
+
+    try:
+        vial_id = _reconstitute(client, lyo_item)
+        t = text(other.get("/inventory"))
+        section = t.split('id="active-vials"')[1].split("</section>")[0]
+        assert "AV Test Peptide" in section
+        assert f'data-vial-id="{vial_id}"' in section
+        assert f'action="/active-vials/{vial_id}/discard"' not in section  # read-only: no discard button for a grantee
+
+        assert other.post(f"/active-vials/{vial_id}/discard").status_code == 404
+    finally:
+        with SessionLocal() as s:
+            s.query(Share).filter_by(owner_id=me, grantee_id=other_id, category=ShareCategory.INVENTORY).delete()
+            s.commit()
+
+    assert other.post(f"/active-vials/{vial_id}/discard").status_code == 404
