@@ -662,7 +662,7 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
         if raw_received:
             try:
                 received_quantity = int(raw_received)
-                if not 0 <= received_quantity <= line_values["quantity"]:
+                if line_values["quantity"] is not None and not 0 <= received_quantity <= line_values["quantity"]:
                     errors["received_quantity"] = f"Must be between 0 and {line_values['quantity']}."
             except ValueError:
                 errors["received_quantity"] = "Must be a whole number."

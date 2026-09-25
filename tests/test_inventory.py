@@ -1139,6 +1139,27 @@ def test_editing_a_checked_in_line_can_correct_received_quantity(client, db):
         assert s.get(InventoryItem, item_id).available_count == 10
 
 
+def test_editing_a_checked_in_line_with_unparseable_quantity_is_a_422_not_a_crash(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)
+        li.received_quantity = 9  # simulate a prior check-in that received 9 of 10
+        s.commit()
+
+    r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
+        "quantity": "not-a-number", "order_date": "2026-08-01", "received_quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    assert "whole number" in r.text
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].received_quantity == 9  # unchanged
+
+
 def test_deleting_sole_line_deletes_orphaned_order_header(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
