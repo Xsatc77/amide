@@ -7,6 +7,7 @@ writes to the database: it creates an ActiveVial and decrements the source Inven
 
 from dataclasses import asdict
 from datetime import date
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -82,7 +83,7 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
         # Number(1.0) stringifies to "1" (not "1.0"), which would silently miss the 1.0 mL entry on
         # lookup. The page builds a JS Map from this list instead, where numeric keys work correctly.
         "syringe_capacities": list(SYRINGE_CAPACITIES_UNITS.items()),
-        "inventory": [{"id": i.id, "name": i.name, "vial_mg": i.vial_size_mg} for i in inventory],
+        "inventory": [{"id": i.id, "name": i.name, "vial_mg": i.vial_size_mg, "count": i.count} for i in inventory],
         "protocol_doses": [
             {"protocol": p.name, "peptide": it.peptide.name, "dose": it.dose, "unit": it.dose_unit.value}
             for p in protocols for it in p.items if it.dose is not None
@@ -92,6 +93,7 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
     return templates.TemplateResponse(request, "calculator/calculator.html", {
         "state": state, "result": result, "data": data, "capacities": SYRINGE_CAPACITIES_UNITS,
         "selected_item_id": int(selected_item_id) if selected_item_id and selected_item_id.isdigit() else None,
+        "reconstitute_error": q.get("reconstitute_error"),
     })
 
 
@@ -125,12 +127,16 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
         discard_by = None
         errors.append("Enter a valid discard-by date.")
 
+    def error_redirect(message: str) -> RedirectResponse:
+        return RedirectResponse(
+            f"/calculator?inventory_item_id={item.id}&reconstitute_error={quote(message)}", status_code=303)
+
     if errors:
-        raise HTTPException(status_code=422, detail=" ".join(errors))
+        return error_redirect(" ".join(errors))
 
     result = compute(item.vial_size_mg, water_ml, dose_value, dose_unit, 1.0)
     if result.concentration_mg_ml is None:
-        raise HTTPException(status_code=422, detail="Could not compute a concentration from these values.")
+        return error_redirect("Could not compute a concentration from these values.")
 
     session.add(ActiveVial(
         owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=result.concentration_mg_ml,

@@ -100,12 +100,20 @@
     })
   );
 
+  const inventoryById = new Map(data.inventory.map((i) => [String(i.id), i]));
+
   function updateReconstituteVisibility() {
     if (!els.reconstituteWrap) return;
     els.reconstituteWrap.hidden = !els.inventory?.value;
     // Locked to the selected item's real vial size so it can never diverge from what the server
     // will actually save; editable again once the selection is cleared (standalone/practice mode).
     els.vial.readOnly = !!els.inventory?.value;
+    const item = els.inventory?.value ? inventoryById.get(els.inventory.value) : null;
+    const outOfStock = !!item && item.count <= 0;
+    if (els.reconstituteBtn) {
+      els.reconstituteBtn.disabled = outOfStock;
+      els.reconstituteBtn.title = outOfStock ? "None left in stock to reconstitute." : "";
+    }
   }
 
   els.inventory?.addEventListener("change", () => {

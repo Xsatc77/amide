@@ -79,10 +79,22 @@ def test_reconstitute_commit_refuses_when_count_is_zero(client, db, me):
     r = client.post("/calculator/reconstitute", data={
         "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": "2026-12-31",
-    })
-    assert r.status_code == 422
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"].startswith(f"/calculator?inventory_item_id={item_id}")
+    assert "reconstitute_error=" in r.headers["location"]
     with SessionLocal() as s:
         assert s.query(ActiveVial).filter_by(inventory_item_id=item_id).count() == 0
+
+    t = text(client.get(r.headers["location"]))
+    assert "none left in stock" in t
+
+
+def test_calculator_page_shows_count_0_and_disables_from_dropdown_data(client, db):
+    client.post("/inventory", data={"name": "Empty Stock 2", "count": "0", "vial_size_mg": "10",
+                                    "medium": "Lyophilized"})
+    t = text(client.get("/calculator"))
+    assert '"count": 0' in t
 
 
 def test_reconstitute_commit_requires_ownership(client, db, lyo_item):

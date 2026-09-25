@@ -10,6 +10,10 @@
   </div>
 </div>
 
+{% if reconstitute_error %}
+<div class="alert" role="alert">{{ reconstitute_error }}</div>
+{% endif %}
+
 <div class="calc-layout">
   <form id="calc-form" class="builder-step calc-form" novalidate>
     <fieldset class="form-section">
