@@ -28,6 +28,21 @@ def test_empty_page_has_add_button(client):
     assert "No inventory yet" in html.unescape(r.text)
 
 
+def test_add_item_dialog_has_category_radios(client, db):
+    t = html.unescape(client.get("/inventory").text)
+    assert 'name="category" value="Medicine"' in t
+    assert 'name="category" value="BAC Water"' in t
+    assert 'name="category" value="Supply"' in t
+
+
+def test_add_item_dialog_has_order_and_supply_field_groups(client, db):
+    t = html.unescape(client.get("/inventory").text)
+    assert 'data-category-group="order"' in t
+    assert 'data-category-group="supply"' in t
+    assert 'name="quantity"' in t and 'name="tracking_site"' in t and 'name="tracking_number"' in t
+    assert 'name="tax"' in t and 'name="shipping"' in t
+
+
 def test_create_full_item_with_coa(client, db):
     r = client.post(
         "/inventory",

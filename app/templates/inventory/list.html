@@ -153,7 +153,16 @@
     {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
     {% macro cls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if errors[field] }}"{% endmacro %}
 
-    <fieldset class="form-section">
+    <fieldset class="form-section" data-category-group="category">
+      <legend>Category</legend>
+      <div class="chips" role="radiogroup" aria-label="Category">
+        <label class="chip-radio"><input type="radio" name="category" value="Medicine" {{ 'checked' if f.category in (None, 'Medicine') }}> Medicine</label>
+        <label class="chip-radio"><input type="radio" name="category" value="BAC Water" {{ 'checked' if f.category == 'BAC Water' }}> BAC Water</label>
+        <label class="chip-radio"><input type="radio" name="category" value="Supply" {{ 'checked' if f.category == 'Supply' }}> Supply</label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section" data-category-group="medicine">
       <legend>Item</legend>
       <div class="grid">
         <label {{ cls('name', 'span-2') }}>
@@ -162,13 +171,7 @@
           {{ err('name') }}
         </label>
 
-        <label {{ cls('count') }}>
-          <span>Count</span>
-          <input name="count" type="number" min="0" step="1" inputmode="numeric" value="{{ f.count or 1 }}">
-          {{ err('count') }}
-        </label>
-
-        <label {{ cls('medium') }}>
+        <label {{ cls('medium') }} data-field-group="medium-only">
           <span>Medium</span>
           <select name="medium" id="inv-medium">
             <option value="">— Select —</option>
@@ -179,7 +182,7 @@
           {{ err('medium') }}
         </label>
 
-        <div {{ cls('vial_size_mg') }} data-field="vial_size_mg">
+        <div {{ cls('vial_size_mg') }} data-field="vial_size_mg" data-field-group="medium-only">
           <span data-label-for="vial_size_mg">Amount</span>
           <div class="inline-inputs">
             <input name="vial_size_mg" type="number" min="0" step="any" inputmode="decimal" value="{{ f.vial_size_mg }}" placeholder="e.g. 10">
@@ -190,28 +193,16 @@
           {{ err('vial_size_mg') }}
         </div>
 
-        <label {{ cls('volume_ml') }} data-field="volume_ml" hidden>
+        <label {{ cls('volume_ml') }} data-field="volume_ml" data-field-group="medium-only" hidden>
           <span>Volume (mL)</span>
           <input name="volume_ml" type="number" min="0" step="any" inputmode="decimal" value="{{ f.volume_ml }}" placeholder="e.g. 2">
           {{ err('volume_ml') }}
         </label>
 
-        <label {{ cls('units_per_package') }} data-field="units_per_package" hidden>
+        <label {{ cls('units_per_package') }} data-field="units_per_package" data-field-group="medium-only" hidden>
           <span data-label-for="units_per_package">Units per package</span>
           <input name="units_per_package" type="number" min="1" step="1" inputmode="numeric" value="{{ f.units_per_package }}">
           {{ err('units_per_package') }}
-        </label>
-
-        <label {{ cls('lot_number') }}>
-          <span>Lot / Batch #</span>
-          <input name="lot_number" maxlength="100" autocomplete="off" value="{{ f.lot_number }}">
-          {{ err('lot_number') }}
-        </label>
-
-        <label {{ cls('expiration_date') }}>
-          <span>Expiration date</span>
-          <input name="expiration_date" type="date" value="{{ f.expiration_date }}">
-          {{ err('expiration_date') }}
         </label>
 
         <label {{ cls('storage') }}>
@@ -225,64 +216,117 @@
       </div>
     </fieldset>
 
-    <fieldset class="form-section">
-      <legend>Order</legend>
+    <fieldset class="form-section" data-category-group="supply">
+      <legend>Item</legend>
       <div class="grid">
+        <label {{ cls('name', 'span-2') }}>
+          <span>Item name <em>*</em></span>
+          <input name="supply_name" maxlength="200" autocomplete="off" value="{{ f.name }}" placeholder="e.g. Alcohol prep pads" data-mirror="name">
+        </label>
+        <label {{ cls('count') }}>
+          <span>Count</span>
+          <input name="count" type="number" min="0" step="1" inputmode="numeric" value="{{ f.count or 1 }}">
+          {{ err('count') }}
+        </label>
         <label {{ cls('cost') }}>
           <span>Cost ($)</span>
-          <input name="cost" type="number" min="0" step="0.01" inputmode="decimal" value="{{ f.cost }}" placeholder="0.00">
+          <input name="supply_cost" type="number" min="0" step="0.01" inputmode="decimal" value="{{ f.cost }}" placeholder="0.00" data-mirror="cost">
           {{ err('cost') }}
+        </label>
+        <label {{ cls('vendor') }}>
+          <span>Vendor</span>
+          <input name="supply_vendor" maxlength="200" value="{{ f.vendor }}" placeholder="Where you bought it" data-mirror="vendor">
+        </label>
+        <label {{ cls('storage') }}>
+          <span>Storage</span>
+          <select name="supply_storage" data-mirror="storage">
+            <option value="">— Select —</option>
+            {% for s in storage_locations %}<option value="{{ s.value }}" {{ 'selected' if f.storage == s.value }}>{{ s.label }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section" data-category-group="order">
+      <legend>First order</legend>
+      <div class="grid">
+        <label {{ cls('quantity') }}>
+          <span>Quantity</span>
+          <input name="quantity" type="number" min="1" step="1" inputmode="numeric" value="1">
+          {{ err('quantity') }}
+        </label>
+
+        <label {{ cls('order_date') }}>
+          <span>Order date</span>
+          <input name="order_date" type="date" value="{{ today_iso }}">
+          {{ err('order_date') }}
+        </label>
+
+        <label {{ cls('tracking_site') }}>
+          <span>Tracking site (URL)</span>
+          <input name="tracking_site" type="url" maxlength="500" placeholder="https://...">
+          {{ err('tracking_site') }}
+        </label>
+
+        <label {{ cls('tracking_number') }}>
+          <span>Tracking number</span>
+          <input name="tracking_number" maxlength="100">
+          {{ err('tracking_number') }}
         </label>
 
         <label {{ cls('vendor') }}>
           <span>Vendor</span>
-          <input name="vendor" maxlength="200" value="{{ f.vendor }}" placeholder="Where you bought it">
+          <input name="vendor" maxlength="200" placeholder="Where you bought it">
           {{ err('vendor') }}
         </label>
 
-        <div class="dates span-2">
-          <label {{ cls('order_date') }}>
-            <span>Order date</span>
-            <input name="order_date" type="date" value="{{ f.order_date }}">
-            {{ err('order_date') }}
-          </label>
-          <label {{ cls('shipped_date') }}>
-            <span>Shipped date</span>
-            <input name="shipped_date" type="date" value="{{ f.shipped_date }}">
-            {{ err('shipped_date') }}
-          </label>
-          <label {{ cls('arrival_date') }}>
-            <span>Arrival date</span>
-            <input name="arrival_date" type="date" value="{{ f.arrival_date }}">
-            {{ err('arrival_date') }}
-          </label>
-        </div>
+        <label {{ cls('lot_number') }}>
+          <span>Lot / Batch #</span>
+          <input name="lot_number" maxlength="100" autocomplete="off">
+          {{ err('lot_number') }}
+        </label>
+
+        <label {{ cls('cost') }}>
+          <span>Cost ($)</span>
+          <input name="cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+          {{ err('cost') }}
+        </label>
+        <label {{ cls('tax') }}>
+          <span>Tax ($)</span>
+          <input name="tax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+          {{ err('tax') }}
+        </label>
+        <label {{ cls('shipping') }}>
+          <span>Shipping ($)</span>
+          <input name="shipping" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+          {{ err('shipping') }}
+        </label>
+
+        <label {{ cls('expiration_date') }}>
+          <span>Expiration date</span>
+          <input name="expiration_date" type="date">
+          {{ err('expiration_date') }}
+        </label>
       </div>
     </fieldset>
 
-    <fieldset class="form-section">
+    <fieldset class="form-section" data-category-group="order">
       <legend>COA</legend>
       <div class="grid">
         <div {{ cls('coa', 'span-2') }}>
           <label for="coa-input"><span>COA (photo or PDF)</span></label>
           <input id="coa-input" name="coa" type="file" accept="image/*,.heic,.heif,application/pdf">
-          <div class="coa-existing" data-coa-existing {% if not (editing and editing.coa_filename) %}hidden{% endif %}>
-            <span class="muted small">A COA is already on file. Uploading a new one replaces it.</span>
-            <label class="check"><input type="checkbox" name="remove_coa" value="1"> Remove current COA</label>
-          </div>
           {{ err('coa') }}
           <img class="coa-preview" data-coa-preview alt="COA preview" hidden>
         </div>
-
         <label {{ cls('coa_vial_size_mg') }}>
           <span>Lab vial size (mg)</span>
-          <input name="coa_vial_size_mg" type="number" min="0" step="any" inputmode="decimal" value="{{ f.coa_vial_size_mg }}" placeholder="As measured on COA">
+          <input name="coa_vial_size_mg" type="number" min="0" step="any" inputmode="decimal" placeholder="As measured on COA">
           {{ err('coa_vial_size_mg') }}
         </label>
-
         <label {{ cls('coa_purity_pct') }}>
           <span>Lab purity (%)</span>
-          <input name="coa_purity_pct" type="number" min="0" max="100" step="any" inputmode="decimal" value="{{ f.coa_purity_pct }}" placeholder="e.g. 99.2">
+          <input name="coa_purity_pct" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="e.g. 99.2">
           {{ err('coa_purity_pct') }}
         </label>
       </div>

@@ -7,13 +7,12 @@
   const coaInput = dialog.querySelector('input[name="coa"]');
   const preview = dialog.querySelector("[data-coa-preview]");
   const fields = [
-    "name", "count", "vial_size_mg", "vial_size_unit", "medium", "volume_ml", "units_per_package",
-    "expiration_date", "storage", "cost", "vendor",
-    "lot_number", "order_date", "shipped_date", "arrival_date",
-    "coa_vial_size_mg", "coa_purity_pct", "notes",
+    "name", "category", "count", "vial_size_mg", "vial_size_unit", "medium", "volume_ml",
+    "units_per_package", "storage", "cost", "vendor", "notes",
   ];
   const rules = JSON.parse(document.getElementById("inv-rules").textContent);
   const mediumSelect = form.elements.medium;
+  const categoryRadios = form.querySelectorAll('input[name="category"]');
   const fieldWrappers = {
     vial_size_mg: form.querySelector('[data-field="vial_size_mg"]'),
     volume_ml: form.querySelector('[data-field="volume_ml"]'),
@@ -35,6 +34,19 @@
   }
   mediumSelect.addEventListener("change", syncMediumFields);
 
+  function syncCategoryFields() {
+    const category = form.querySelector('input[name="category"]:checked')?.value || "Medicine";
+    const isEdit = dialog.dataset.mode === "edit";
+    dialog.querySelector('[data-category-group="medicine"]').hidden = category === "Supply";
+    dialog.querySelector('[data-category-group="supply"]').hidden = category !== "Supply";
+    dialog.querySelectorAll('[data-category-group="order"]').forEach((el) => {
+      el.hidden = category === "Supply" || isEdit;
+    });
+    dialog.querySelector('[data-category-group="category"]').hidden = isEdit;  // immutable once created
+    if (category === "Medicine") syncMediumFields();
+  }
+  categoryRadios.forEach((r) => r.addEventListener("change", syncCategoryFields));
+
   function clearErrors() {
     dialog.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
     dialog.querySelectorAll(".error, .alert").forEach((el) => el.remove());
@@ -52,14 +64,28 @@
     resetPreview();
     form.action = item ? `/inventory/${item.id}` : "/inventory";
     title.textContent = item ? "Edit item" : "New inventory item";
+    dialog.dataset.mode = item ? "edit" : "add";
     for (const f of fields) {
+      if (f === "category") continue;  // radios, set below
       form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : f === "vial_size_unit" ? "mg" : "";
     }
-    coaExisting.hidden = !(item && item.has_coa);
-    syncMediumFields();
+    const category = item ? item.category : "Medicine";
+    form.querySelectorAll('input[name="category"]').forEach((r) => { r.checked = r.value === category; });
+    if (coaExisting) coaExisting.hidden = true;  // COA lives per-order now (Task 5), never on this dialog
+    syncCategoryFields();
     dialog.showModal();
     form.elements.name.focus();
   }
+
+  form.addEventListener("submit", () => {
+    // Only mirror when the Supply group is the one actually in use -- otherwise these (empty,
+    // hidden) supply_* inputs would blank out the real name/cost/vendor/storage fields on every
+    // Medicine/BAC Water submit.
+    if (dialog.querySelector('[data-category-group="supply"]').hidden) return;
+    form.querySelectorAll("[data-mirror]").forEach((el) => {
+      form.elements[el.dataset.mirror].value = el.value;
+    });
+  });
 
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");

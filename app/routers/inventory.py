@@ -320,6 +320,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "vial_owner_names": vial_owner_names,
             "expired_prompts": expired_prompts,
             "today": date.today(),
+            "today_iso": date.today().isoformat(),
             "edit_data": {i.id: _form_values(i) for i in items if i.owner_id == uid},
             "mediums": list(Medium),
             "dose_units": list(DoseUnit),
