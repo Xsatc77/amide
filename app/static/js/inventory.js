@@ -197,7 +197,7 @@
   const orderFields = [
     "quantity", "order_date", "shipped_date", "arrival_date", "tracking_site", "tracking_number",
     "vendor", "lot_number", "cost", "tax", "shipping", "expiration_date",
-    "coa_vial_size_mg", "coa_purity_pct",
+    "coa_vial_size_mg", "coa_purity_pct", "received_quantity",
   ];
 
   document.querySelectorAll('[data-action="add-order"]').forEach((btn) => btn.addEventListener("click", () => {
@@ -212,6 +212,8 @@
     for (const f of orderFields) {
       if (form.elements[f]) form.elements[f].value = order[f] ?? "";
     }
+    const receivedGroup = form.querySelector('[data-field="received_quantity"]');
+    if (receivedGroup) receivedGroup.hidden = !order.arrived;
     form.action = `${window.location.pathname}/orders/${btn.dataset.orderId}`;
     dialog.querySelector("[data-title]").textContent = "Edit order";
     dialog.showModal();
@@ -250,6 +252,84 @@
   // Server re-rendered the page after a validation error: values are already server-rendered
   // from `form`, so just reopen as-is.
   if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
+})();
+
+// ---------------------------------------------------------------- item detail: check-in dialog
+(() => {
+  const dialog = document.getElementById("checkin-dialog");
+  if (!dialog) return;  // Supply items, or a non-owner viewer, have no Order History section
+  const form = dialog.querySelector("form");
+  const linesContainer = dialog.querySelector("[data-checkin-lines]");
+  const alertBox = dialog.querySelector("[data-checkin-alert]");
+  const arrivalInput = form.elements.arrival_date;
+  const arrivalError = dialog.querySelector('[data-error="arrival_date"]');
+  const checkinData = JSON.parse(document.getElementById("checkin-data").textContent);
+
+  function clearErrors() {
+    alertBox.hidden = true;
+    arrivalError.hidden = true;
+    arrivalError.textContent = "";
+    dialog.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
+    dialog.querySelectorAll("[data-error]").forEach((el) => { el.hidden = true; el.textContent = ""; });
+  }
+
+  function buildLines(orderId, prefill) {
+    linesContainer.innerHTML = "";
+    const lines = checkinData[orderId] || [];
+    for (const line of lines) {
+      const row = document.createElement("div");
+      row.className = "grid";
+      const posted = prefill && prefill.form ? prefill.form[`received_quantity_${line.id}`] : null;
+      const postedNote = prefill && prefill.form ? prefill.form[`received_note_${line.id}`] : null;
+      const err = prefill && prefill.errors ? prefill.errors[`received_quantity_${line.id}`] : null;
+      row.innerHTML = `
+        <div class="field span-2"><span>${line.item_name} (ordered ${line.quantity})</span></div>
+        <label class="field ${err ? "has-error" : ""}">
+          <span>Received</span>
+          <input name="received_quantity_${line.id}" type="number" min="0" max="${line.quantity}" step="1"
+                 value="${posted != null && posted !== "" ? posted : line.quantity}">
+          ${err ? `<small class="error">${err}</small>` : ""}
+        </label>
+        <label class="field">
+          <span>Note (if short or damaged)</span>
+          <input name="received_note_${line.id}" maxlength="300" value="${postedNote || ""}">
+        </label>
+      `;
+      linesContainer.appendChild(row);
+    }
+  }
+
+  document.querySelectorAll('[data-action="check-in"]').forEach((btn) => btn.addEventListener("click", () => {
+    clearErrors();
+    form.reset();
+    const orderId = btn.dataset.orderId;
+    form.action = `${window.location.pathname}/orders/${orderId}/check-in`;
+    buildLines(orderId, null);
+    dialog.showModal();
+  }));
+  dialog.querySelectorAll('[data-action="close-checkin"]').forEach((btn) =>
+    btn.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  // Server re-rendered the page after a check-in validation error: rebuild this order's rows from
+  // checkin-data (same as a fresh open) then overlay what was actually posted and each field's
+  // error, using checkin-error-data -- there is no server-rendered row to just reopen as-is here.
+  if (dialog.hasAttribute("data-open-on-load")) {
+    const errorData = JSON.parse(document.getElementById("checkin-error-data").textContent);
+    const orderId = errorData.order_id;
+    form.action = `${window.location.pathname}/orders/${orderId}/check-in`;
+    arrivalInput.value = errorData.form.arrival_date || "";
+    if (errorData.errors.arrival_date) {
+      alertBox.hidden = false;
+      arrivalError.hidden = false;
+      arrivalError.textContent = errorData.errors.arrival_date;
+    }
+    buildLines(orderId, errorData);
+    if (Object.keys(errorData.errors).length) alertBox.hidden = false;
+    dialog.showModal();
+  }
 })();
 
 // ---------------------------------------------------------------- item detail: sale dialog
