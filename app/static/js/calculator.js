@@ -12,6 +12,8 @@
     concentration: $("calc-concentration"), draw: $("calc-draw"), doses: $("calc-doses"),
     fill: $("calc-fill"), ticks: $("calc-ticks"), scale: $("calc-scale"),
     targetUnits: $("calc-target-units"), targetResult: $("calc-target-result"),
+    reconstituteWrap: $("calc-reconstitute"), reconstituteBtn: $("calc-reconstitute-btn"),
+    confirmDialog: $("reconstitute-confirm"),
   };
   let syringeMl = Number(document.querySelector('[data-syringe][aria-pressed="true"]')?.dataset.syringe) || 1.0;
 
@@ -98,9 +100,42 @@
     })
   );
 
+  function updateReconstituteVisibility() {
+    if (!els.reconstituteWrap) return;
+    els.reconstituteWrap.hidden = !els.inventory?.value;
+  }
+
   els.inventory?.addEventListener("change", () => {
-    if (els.inventory.value) { els.vial.value = els.inventory.value; recompute(); }
+    const opt = els.inventory.selectedOptions[0];
+    if (opt?.dataset.vialMg) { els.vial.value = opt.dataset.vialMg; recompute(); }
+    updateReconstituteVisibility();
   });
+  updateReconstituteVisibility();
+
+  els.reconstituteBtn?.addEventListener("click", () => {
+    const opt = els.inventory.selectedOptions[0];
+    const dialog = els.confirmDialog;
+    dialog.querySelector('[data-fill="item-name"]').textContent = opt.textContent;
+    dialog.querySelector('[data-fill="water-ml"]').textContent = `${els.water.value} mL`;
+    dialog.querySelector('[data-fill="concentration"]').textContent = els.concentration.textContent;
+    dialog.querySelector('[data-fill="dose"]').textContent = `${els.dose.value} ${els.doseUnit.value}`;
+    dialog.querySelector('[data-fill="doses"]').textContent = els.doses.textContent;
+    dialog.querySelector("[data-inventory-item-id]").value = opt.value;
+    dialog.querySelector("[data-water-ml-value]").value = els.water.value;
+    dialog.querySelector("[data-dose-value]").value = els.dose.value;
+    dialog.querySelector("[data-dose-unit-value]").value = els.doseUnit.value;
+    const discardInput = dialog.querySelector("[data-discard-by]");
+    if (!discardInput.value) {
+      const d = new Date();
+      d.setDate(d.getDate() + (Number(data.default_discard_days) || 28));
+      discardInput.value = d.toISOString().slice(0, 10);
+    }
+    dialog.showModal();
+  });
+  els.confirmDialog?.querySelector('[data-action="cancel-reconstitute"]')?.addEventListener("click", () => {
+    els.confirmDialog.close();
+  });
+
   els.protocolDose?.addEventListener("change", () => {
     if (!els.protocolDose.value) return;
     const [dose, unit] = els.protocolDose.value.split("|");

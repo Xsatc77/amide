@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column('last_discard_prompt_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(['owner_id'], ['users.id']),
-        sa.ForeignKeyConstraint(['inventory_item_id'], ['inventory_items.id']),
+        sa.ForeignKeyConstraint(['inventory_item_id'], ['inventory_items.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
     )
     op.create_index('ix_active_vials_owner_id', 'active_vials', ['owner_id'])

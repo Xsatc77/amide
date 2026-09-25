@@ -20,7 +20,7 @@
           <span>From inventory <span class="muted small">(lyophilized items only)</span></span>
           <select id="calc-inventory">
             <option value="">— Choose an item —</option>
-            {% for i in data.inventory %}<option value="{{ i.vial_mg }}">{{ i.name }} ({{ '%g' % i.vial_mg }} mg)</option>{% endfor %}
+            {% for i in data.inventory %}<option value="{{ i.id }}" data-vial-mg="{{ '%g' % i.vial_mg }}"{{ ' selected' if selected_item_id == i.id else '' }}>{{ i.name }} ({{ '%g' % i.vial_mg }} mg)</option>{% endfor %}
           </select>
         </label>
         {% endif %}
@@ -85,6 +85,10 @@
     </fieldset>
   </form>
 
+  <div class="calc-reconstitute" id="calc-reconstitute" hidden>
+    <button type="button" class="btn btn-primary" id="calc-reconstitute-btn">Reconstitute this vial</button>
+  </div>
+
   <div class="calc-result builder-step">
     <div id="calc-warning" class="alert" role="alert" hidden></div>
     <div class="calc-units" id="calc-units-value">
@@ -124,6 +128,32 @@
 </div>
 
 <script type="application/json" id="calc-data">{{ data | tojson }}</script>
+
+<dialog id="reconstitute-confirm" class="dialog">
+  <form method="post" action="/calculator/reconstitute">
+    <div class="dialog-head"><h3>Reconstitute <span data-fill="item-name"></span>?</h3></div>
+    <div class="form-section">
+      <dl class="kv calc-kv">
+        <dt>Water added</dt><dd data-fill="water-ml"></dd>
+        <dt>Concentration</dt><dd data-fill="concentration"></dd>
+        <dt>Per dose</dt><dd data-fill="dose"></dd>
+        <dt>Doses per vial</dt><dd data-fill="doses"></dd>
+      </dl>
+      <label class="field">
+        <span>Discard by</span>
+        <input type="date" name="discard_by" data-discard-by>
+      </label>
+      <input type="hidden" name="inventory_item_id" data-inventory-item-id>
+      <input type="hidden" name="water_ml" data-water-ml-value>
+      <input type="hidden" name="dose_value" data-dose-value>
+      <input type="hidden" name="dose_unit" data-dose-unit-value>
+    </div>
+    <div class="dialog-foot">
+      <button type="submit" class="btn btn-primary">Reconstitute</button>
+      <button type="button" class="btn" data-action="cancel-reconstitute">Cancel</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}

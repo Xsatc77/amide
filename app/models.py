@@ -150,7 +150,7 @@ class ActiveVial(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), index=True)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
     concentration_mg_ml: Mapped[float] = mapped_column(Float)
     water_ml: Mapped[float] = mapped_column(Float)
     dose_value: Mapped[float] = mapped_column(Float)
