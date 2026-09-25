@@ -70,8 +70,9 @@ Firm up the base before anything depends on it.
 
 ## Phase 2 — v0.3: Reconstitution Calculator + Active Vials
 
-- ✅ *Calculator shipped in v0.6*: concentration, draw volume, U-100 units, syringe-fill visual using real U-100 Icons, presets, reverse target-units solver, Inventory/Protocol prefill.
-- **Still open — Active Vials:** a "Reconstitute" action that takes 1 from inventory count and creates a tracked mixed vial (using real vial icons with labels, concentration, date mixed, discard-by date, doses remaining). This needs its own decisions (default discard window, what happens to the inventory count, whether reconstituting requires an inventory item to exist first) before it's built.
+- ✅ *Calculator shipped in v0.6*: concentration, draw volume, U-100 units, syringe-fill visual, presets, reverse target-units solver, Inventory/Protocol prefill.
+- **Still open — Active Vials:** a "Reconstitute" action that takes 1 from inventory count and creates a tracked mixed vial (concentration, date mixed, discard-by date, doses remaining). This needs its own decisions (default discard window, what happens to the inventory count, whether reconstituting requires an inventory item to exist first) before it's built.
+- **Still open — real icon art:** replace the Calculator's syringe-fill visual and Active Vials' vial icons with the real syringe/vial/pen artwork now in `app/static/img/icons/` (cropped from a reference sheet), once each feature's UI is built or being reworked.
 
 - **Calculator:** vial mg + bacteriostatic water mL + desired dose → concentration, **units to draw on a U-100 syringe**, and doses per vial. Syringe size picker (0.3 / 0.5 / 1 mL) with a visual fill line.
 - Works standalone, *or* pre-filled by picking an inventory item.
