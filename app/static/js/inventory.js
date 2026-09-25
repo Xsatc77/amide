@@ -251,3 +251,69 @@
   // from `form`, so just reopen as-is.
   if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
 })();
+
+// ---------------------------------------------------------------- item detail: sale dialog
+(() => {
+  const dialog = document.getElementById("sale-dialog");
+  if (!dialog) return;  // Supply items, or a non-owner viewer, have no Sold button/dialog
+  const form = dialog.querySelector("form");
+  const bacCheckbox = form.elements.include_bac_water;
+  const bacGroup = dialog.querySelector("[data-bac-group]");
+  const bacItemSelect = form.elements.bac_item_id;
+  const bacQuantitySelect = form.elements.bac_quantity;
+  const priceInput = form.elements.price;
+  const bacPriceInput = form.elements.bac_price;
+  const totalEl = document.getElementById("sale-total");
+
+  function money(n) {
+    return `$${n.toFixed(2)}`;
+  }
+
+  function updateTotal() {
+    const main = parseFloat(priceInput.value) || 0;
+    const bac = (bacCheckbox && bacCheckbox.checked && bacPriceInput) ? (parseFloat(bacPriceInput.value) || 0) : 0;
+    totalEl.textContent = money(main + bac);
+  }
+
+  function syncBacGroup() {
+    if (!bacCheckbox || !bacGroup) return;
+    bacGroup.hidden = !bacCheckbox.checked;
+    updateTotal();
+  }
+
+  function rebuildBacQuantityOptions() {
+    if (!bacItemSelect || !bacQuantitySelect) return;
+    const selected = bacItemSelect.selectedOptions[0];
+    const available = selected ? parseInt(selected.dataset.available || "0", 10) : 0;
+    const wanted = bacQuantitySelect.dataset.selected || "";
+    bacQuantitySelect.innerHTML = "";
+    for (let n = 1; n <= available; n++) {
+      const opt = document.createElement("option");
+      opt.value = String(n);
+      opt.textContent = String(n);
+      bacQuantitySelect.appendChild(opt);
+    }
+    if (wanted) bacQuantitySelect.value = wanted;
+  }
+
+  document.querySelectorAll('[data-action="sold"]').forEach((btn) => btn.addEventListener("click", () => {
+    dialog.showModal();
+  }));
+  dialog.querySelectorAll('[data-action="close-sale"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  if (bacCheckbox) bacCheckbox.addEventListener("change", syncBacGroup);
+  if (bacItemSelect) bacItemSelect.addEventListener("change", () => { rebuildBacQuantityOptions(); updateTotal(); });
+  if (bacPriceInput) bacPriceInput.addEventListener("input", updateTotal);
+  priceInput.addEventListener("input", updateTotal);
+
+  // Initial state matters both for a fresh dialog and for a server re-render after a validation
+  // error (sf.* values already reflected server-side; this fills in what only JS can compute).
+  rebuildBacQuantityOptions();
+  syncBacGroup();
+  updateTotal();
+
+  if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
+})();
