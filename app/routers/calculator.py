@@ -57,7 +57,7 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
     inventory = session.scalars(
         select(InventoryItem)
         .where(InventoryItem.owner_id == uid, InventoryItem.medium == Medium.LYOPHILIZED,
-              InventoryItem.vial_size_mg.is_not(None))
+              InventoryItem.vial_size_mg.is_not(None), InventoryItem.vial_size_unit == DoseUnit.MG)
         .order_by(InventoryItem.name.collate("NOCASE"))
     ).all()
 
@@ -103,7 +103,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
     except (TypeError, ValueError):
         raise HTTPException(status_code=404)
     item = session.get(InventoryItem, item_id)
-    if item is None or item.owner_id != uid:
+    if item is None or item.owner_id != uid or item.vial_size_unit != DoseUnit.MG:
         raise HTTPException(status_code=404)
 
     water_ml = _num(form.get("water_ml"))

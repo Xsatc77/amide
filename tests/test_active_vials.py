@@ -22,6 +22,16 @@ def lyo_item(client):
         return s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Test Peptide"))
 
 
+@pytest.fixture
+def mcg_item(client):
+    """A Lyophilized inventory item labeled in mcg, not mg -- Reconstitute must not treat its
+    vial_size_mg number as milligrams (that would be a 1000x concentration error)."""
+    client.post("/inventory", data={"name": "AV Mcg Peptide", "count": "2", "vial_size_mg": "500",
+                                    "vial_size_unit": "mcg", "medium": "Lyophilized"})
+    with SessionLocal() as s:
+        return s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Mcg Peptide"))
+
+
 def test_calculator_inventory_select_uses_item_id_as_value(client, db, lyo_item):
     t = text(client.get("/calculator"))
     assert f'<option value="{lyo_item}" data-vial-mg="10">AV Test Peptide (10 mg)</option>' in t
@@ -74,6 +84,30 @@ def test_reconstitute_commit_requires_ownership(client, db, lyo_item):
         "discard_by": "2026-12-31",
     })
     assert r.status_code == 404
+
+
+def test_calculator_page_excludes_non_mg_inventory_items(client, db, lyo_item, mcg_item):
+    """vial_size_mg is only ever milligrams to the reconstitution math; an mcg- or IU-labeled
+    item would silently compute a wildly wrong concentration if offered here."""
+    t = text(client.get("/calculator"))
+    assert f'<option value="{lyo_item}"' in t
+    assert f'<option value="{mcg_item}"' not in t
+
+
+def test_reconstitute_commit_rejects_non_mg_item(client, db, mcg_item):
+    r = client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(mcg_item), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
+        "discard_by": "2026-12-31",
+    }, follow_redirects=False)
+    assert r.status_code == 404
+    with SessionLocal() as s:
+        assert s.query(ActiveVial).filter_by(inventory_item_id=mcg_item).count() == 0
+        assert s.get(InventoryItem, mcg_item).count == 2  # untouched
+
+
+def test_reconstitute_button_hidden_for_non_mg_item(client, db, mcg_item):
+    t = text(client.get("/inventory"))
+    assert f'data-item-id="{mcg_item}"' not in t
 
 
 def _button_tag(t: str, item_id) -> str:
