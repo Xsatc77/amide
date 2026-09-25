@@ -43,6 +43,9 @@
       el.hidden = category === "Supply" || isEdit;
     });
     dialog.querySelector('[data-category-group="category"]').hidden = isEdit;  // immutable once created
+    dialog.querySelectorAll('[data-field-group="medium-only"]').forEach((el) => {
+      el.hidden = category !== "Medicine";  // BAC Water has no medium-specific fields
+    });
     if (category === "Medicine") syncMediumFields();
   }
   categoryRadios.forEach((r) => r.addEventListener("change", syncCategoryFields));
