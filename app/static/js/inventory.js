@@ -231,3 +231,23 @@
     window.history.replaceState({}, "", "/inventory#active-vials");
   }
 })();
+
+// ---------------------------------------------------------------- item detail: order dialog
+(() => {
+  const dialog = document.getElementById("order-dialog");
+  if (!dialog) return;  // Supply items have no Order History section
+  const form = dialog.querySelector("form");
+
+  document.querySelectorAll('[data-action="add-order"]').forEach((btn) => btn.addEventListener("click", () => {
+    form.reset();
+    form.action = window.location.pathname + "/orders";
+    dialog.querySelector("[data-title]").textContent = "Add order";
+    dialog.showModal();
+  }));
+  document.querySelectorAll('[data-action="edit-order"]').forEach((btn) => btn.addEventListener("click", () => {
+    form.action = `${window.location.pathname}/orders/${btn.dataset.orderId}`;
+    dialog.querySelector("[data-title]").textContent = "Edit order";
+    dialog.showModal();
+  }));
+  dialog.querySelectorAll('[data-action="close-order"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
+})();

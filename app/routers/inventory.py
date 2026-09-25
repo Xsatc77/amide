@@ -21,8 +21,9 @@ router = APIRouter()
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "medium",
               "volume_ml", "units_per_package", "storage", "cost", "vendor", "notes")
-ORDER_FIELDS = ("quantity", "order_date", "tracking_site", "tracking_number", "vendor", "cost",
-                "tax", "shipping", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
+ORDER_FIELDS = ("quantity", "order_date", "shipped_date", "arrival_date", "tracking_site",
+                "tracking_number", "vendor", "cost", "tax", "shipping", "lot_number",
+                "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_FIELDS))  # union, order preserved, no dupes
 
 
@@ -159,6 +160,8 @@ def _parse_order_form(raw: dict[str, str], session: Session, uid: int) -> tuple[
     values["order_date"] = _parse_date(raw["order_date"], "order_date", errors)
     if values["order_date"] is None and "order_date" not in errors:
         errors["order_date"] = "Order date is required."
+    values["shipped_date"] = _parse_date(raw["shipped_date"], "shipped_date", errors)
+    values["arrival_date"] = _parse_date(raw["arrival_date"], "arrival_date", errors)
     values["tracking_site"] = raw["tracking_site"] or None
     values["tracking_number"] = raw["tracking_number"] or None
 
@@ -431,11 +434,101 @@ def delete_item(item_id: int, session: Session = Depends(get_session), uid: int 
     if item is None:
         raise HTTPException(404, "Inventory item not found")
     for order in item.orders:
-        if order.coa_filename:
-            uploads.delete_coa(order.coa_filename)
+        uploads.delete_coa(order.coa_filename)
     session.delete(item)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
+
+
+def _own_order(session: Session, item_id: int, order_id: int, uid: int) -> Order | None:
+    item = _own_item(session, item_id, uid)
+    if item is None:
+        return None
+    order = session.get(Order, order_id)
+    return order if order is not None and order.inventory_item_id == item.id else None
+
+
+@router.post("/inventory/{item_id}/orders")
+async def add_order(item_id: int, request: Request, session: Session = Depends(get_session),
+                    uid: int = Depends(current_user_id)):
+    item = _own_item(session, item_id, uid)
+    if item is None or item.category == Category.SUPPLY:
+        raise HTTPException(404, "Inventory item not found")
+
+    raw, coa, _ = await _read_form(request)
+    values, errors = _parse_order_form(raw, session, uid)
+
+    coa_filename = None
+    if not errors and coa:
+        try:
+            coa_filename = await uploads.save_coa(coa)
+        except uploads.UploadError as e:
+            errors["coa"] = str(e)
+
+    if errors:
+        return templates.TemplateResponse(
+            request, "inventory/detail.html",
+            {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
+            "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
+            "storage_locations": list(StorageLocation), "mediums": list(Medium),
+            "dose_units": list(DoseUnit), "edit_data": _form_values(item)},
+            status_code=422)
+
+    item.orders.append(Order(**values, coa_filename=coa_filename))
+    session.commit()
+    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
+
+
+@router.post("/inventory/{item_id}/orders/{order_id}")
+async def update_order(item_id: int, order_id: int, request: Request,
+                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    order = _own_order(session, item_id, order_id, uid)
+    if order is None:
+        raise HTTPException(404, "Order not found")
+
+    raw, coa, remove_coa = await _read_form(request)
+    values, errors = _parse_order_form(raw, session, uid)
+
+    new_coa = None
+    if not errors and coa:
+        try:
+            new_coa = await uploads.save_coa(coa)
+        except uploads.UploadError as e:
+            errors["coa"] = str(e)
+
+    if errors:
+        item = order.inventory_item
+        return templates.TemplateResponse(
+            request, "inventory/detail.html",
+            {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
+            "editing_order": order,
+            "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
+            "storage_locations": list(StorageLocation),
+            "mediums": list(Medium), "dose_units": list(DoseUnit), "edit_data": _form_values(item)},
+            status_code=422)
+
+    for key, value in values.items():
+        setattr(order, key, value)
+    if new_coa or remove_coa:
+        uploads.delete_coa(order.coa_filename)
+        order.coa_filename = new_coa
+    session.commit()
+    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
+
+
+@router.get("/inventory/{item_id}/orders/{order_id}/coa")
+def get_order_coa(item_id: int, order_id: int, session: Session = Depends(get_session),
+                  uid: int = Depends(current_user_id)):
+    item = _visible_item(session, item_id, uid)
+    order = session.get(Order, order_id) if item else None
+    if item is None or order is None or order.inventory_item_id != item.id or not order.coa_filename:
+        raise HTTPException(404, "No COA on file")
+    path = uploads.coa_path(order.coa_filename)
+    if not path.exists():
+        raise HTTPException(404, "COA file is missing from disk")
+    return FileResponse(path, media_type=uploads.media_type(order.coa_filename),
+                        headers={"X-Content-Type-Options": "nosniff"},
+                        content_disposition_type="inline")
 
 
 def _own_active_vial(session: Session, vial_id: int, uid: int) -> ActiveVial | None:
@@ -462,13 +555,6 @@ def snooze_active_vial_prompt(vial_id: int, session: Session = Depends(get_sessi
     vial.last_discard_prompt_at = now_utc()
     session.commit()
     return {"ok": True}
-
-
-@router.get("/inventory/{item_id}/coa")
-def get_coa(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    # COA is now per-order (Task 1 removed item.coa_filename). This endpoint will be replaced by
-    # Task 5's GET /inventory/{item_id}/orders/{order_id}/coa. For now, return 404 stopgap.
-    raise HTTPException(404, "No COA on file")
 
 
 # ---------------------------------------------------------------- JSON API

@@ -10,7 +10,7 @@ from app import config
 from app.db import SessionLocal
 from datetime import date
 
-from app.models import InventoryItem, Medium, Vendor
+from app.models import InventoryItem, Medium, User, Vendor
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 PDF = b"%PDF-1.7\n" + b"\x00" * 32
@@ -19,6 +19,10 @@ PDF = b"%PDF-1.7\n" + b"\x00" * 32
 def _items(db):
     db.expire_all()
     return db.scalars(select(InventoryItem)).all()
+
+
+def text(r):
+    return html.unescape(r.text)
 
 
 def test_empty_page_has_add_button(client):
@@ -379,3 +383,101 @@ def test_item_detail_page_404s_for_someone_elses_private_item(client, db):
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Private Item"))
     assert client.get(f"/inventory/{item_id}").status_code == 404
+
+
+# ---------------------------------------------------------------- Task 5: Order History section
+
+
+def test_add_order_creates_a_second_order_and_updates_available_count(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        s.get(InventoryItem, item_id).orders[0].arrival_date = date(2026, 8, 10)  # simulate first order having arrived
+        s.commit()
+
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-09-20", "tracking_number": "LY456",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert len(item.orders) == 2
+        assert item.available_count == 10  # the new order hasn't arrived yet
+
+
+def test_edit_order_filling_in_arrival_date_updates_available_count(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        order_id = s.get(InventoryItem, item_id).orders[0].id
+        assert s.get(InventoryItem, item_id).available_count == 0  # not arrived yet
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}", data={
+        "quantity": "10", "order_date": "2026-08-01", "shipped_date": "2026-08-03",
+        "arrival_date": "2026-08-10",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).available_count == 10
+
+
+def test_add_order_requires_ownership(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "OrderOther", "password": "OrderOther1!", "confirm": "OrderOther1!"})
+    r = other.post(f"/inventory/{item_id}/orders", data={"quantity": "5", "order_date": "2026-09-20"})
+    assert r.status_code == 404
+
+
+def test_shared_item_order_history_is_visible_but_not_editable(client, db, me):
+    client.post("/inventory", data={
+        "name": "Shared Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "tracking_number": "LY123",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Shared Retatrutide"))
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "SharedGrantee", "password": "SharedGrantee1!", "confirm": "SharedGrantee1!"})
+    with SessionLocal() as s:
+        grantee_id = s.scalar(select(User.id).where(User.username_key == "sharedgrantee"))
+    try:
+        client.post(f"/settings/sharing/{grantee_id}/inventory")  # matches this app's existing Share-grant route
+
+        t = text(other.get(f"/inventory/{item_id}"))
+        assert "LY123" in t  # order history visible to the grantee
+        assert 'data-action="add-order"' not in t  # but not editable
+
+        assert other.post(f"/inventory/{item_id}/orders", data={"quantity": "1", "order_date": "2026-09-01"}).status_code == 404
+        with SessionLocal() as s:
+            order_id = s.get(InventoryItem, item_id).orders[0].id
+        assert other.post(f"/inventory/{item_id}/orders/{order_id}", data={"quantity": "1", "order_date": "2026-09-01"}).status_code == 404
+    finally:
+        client.post(f"/settings/sharing/{grantee_id}/inventory", data={"on": "0"})  # revoke -- keep suite state clean
+
+
+def test_detail_page_lists_order_history(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "tracking_site": "https://track.example/x",
+        "tracking_number": "LY123",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = text(client.get(f"/inventory/{item_id}"))
+    assert "LY123" in t
+    assert 'href="https://track.example/x"' in t
