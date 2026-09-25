@@ -286,8 +286,8 @@ def test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor(client, d
     owner = TestClient(app, follow_redirects=False)
     owner.post("/notice", data={"understand": "1"})
     owner.post("/register", data={"username": "OwnsStuff", "password": "Owns1!aaa", "confirm": "Owns1!aaa"})
-    owner.post("/inventory", data={"name": "Their vial", "medium": "Lyophilized", "vial_size_mg": "10",
-                                    "vendor": "Their Vendor"},
+    owner.post("/inventory", data={"name": "Their vial", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+                                    "vendor": "Their Vendor", "quantity": "1", "order_date": "2026-08-01"},
               files={"coa": ("c.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")})
 
     with SessionLocal() as s:
@@ -296,8 +296,8 @@ def test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor(client, d
         s.commit()
 
         inv = s.scalar(select(InventoryItem).where(InventoryItem.owner_id == owner_id))
-        coa_filename = inv.coa_filename
-        vendor_id = inv.vendor_id
+        coa_filename = inv.orders[0].coa_filename  # COA lives on the Order now, not the item (Task 1)
+        vendor_id = inv.orders[0].vendor_id  # same for vendor -- vestigial/None on the item for Medicine
         assert coa_filename is not None
         assert (config.COA_DIR / coa_filename).exists()
         assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 1

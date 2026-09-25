@@ -238,9 +238,9 @@ def test_logout_returns_to_welcome(fresh):
 def test_cross_origin_post_rejected(fresh):
     accept(fresh)
     register(fresh, "Origins")
-    r = fresh.post("/inventory", data={"name": "X"}, headers={"Origin": "http://evil.example"})
+    r = fresh.post("/inventory", data={"name": "X", "category": "Supply"}, headers={"Origin": "http://evil.example"})
     assert r.status_code == 403
-    r = fresh.post("/inventory", data={"name": "X"}, headers={"Origin": "http://testserver"})
+    r = fresh.post("/inventory", data={"name": "X", "category": "Supply"}, headers={"Origin": "http://testserver"})
     assert r.status_code == 303
 
 

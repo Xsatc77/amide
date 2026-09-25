@@ -291,8 +291,9 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
 
     coa_filenames = []
     for item in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == target.id)):
-        if item.coa_filename:
-            coa_filenames.append(item.coa_filename)
+        for order in item.orders:  # COA lives on the Order now, not the item (Task 1)
+            if order.coa_filename:
+                coa_filenames.append(order.coa_filename)
         session.delete(item)
     for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
         session.delete(protocol)

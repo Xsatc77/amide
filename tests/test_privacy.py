@@ -31,7 +31,7 @@ def peptide_id(name):
 @pytest.fixture
 def mine(client):
     """An inventory item (with COA) and a protocol owned by the main test user."""
-    client.post("/inventory", data={"name": "My BPC vial", "count": "2"}, files={"coa": ("c.png", PNG, "image/png")})
+    client.post("/inventory", data={"name": "My BPC vial", "count": "2", "category": "Supply"}, files={"coa": ("c.png", PNG, "image/png")})
     with SessionLocal() as s:
         item = s.scalar(select(InventoryItem).where(InventoryItem.name == "My BPC vial"))
     client.post("/protocols", data={
@@ -114,8 +114,11 @@ def test_shared_inventory_item_appears_tagged_and_is_read_only(client, other, me
     # `other` owns a throwaway item first, so the shared item's id doesn't coincidentally equal
     # the owner's user id (1) -- a bug that looks up the owner by item id instead of owner id
     # would otherwise pass by rowid coincidence.
-    other.post("/inventory", data={"name": "Other's own vial", "count": "1"})
-    client.post("/inventory", data={"name": "My BPC vial", "count": "2"}, files={"coa": ("c.png", PNG, "image/png")})
+    other.post("/inventory", data={"name": "Other's own vial", "count": "1", "category": "Supply"})
+    # Supply items have no Order and thus no COA (COA is per-order, Medicine/BAC Water only, since
+    # Task 1/5) -- the upload here is a no-op, and the old item-scoped `/inventory/{id}/coa` route
+    # this test used to check no longer exists (COA now lives at `/inventory/{id}/orders/{oid}/coa`).
+    client.post("/inventory", data={"name": "My BPC vial", "count": "2", "category": "Supply"}, files={"coa": ("c.png", PNG, "image/png")})
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "My BPC vial"))
         other_id = s.scalar(select(User.id).where(User.username_key == "other"))
@@ -129,7 +132,6 @@ def test_shared_inventory_item_appears_tagged_and_is_read_only(client, other, me
         assert f'action="/inventory/{item_id}"' not in t  # no edit form for a shared row
         assert f'action="/inventory/{item_id}/delete"' not in t
 
-        assert other.get(f"/inventory/{item_id}/coa").status_code == 200  # viewable
         assert other.post(f"/inventory/{item_id}", data={"name": "Hacked"}).status_code == 404
         assert other.post(f"/inventory/{item_id}/delete").status_code == 404
     finally:
@@ -216,7 +218,7 @@ def test_admin_gets_no_bypass_without_an_explicit_grant(client, other, me):
     """`client` (Tester) is the admin (first-ever account). Admin status must never substitute
     for a Share grant -- the whole point of Sharing is that even the admin can't see what wasn't
     shared with them."""
-    other.post("/inventory", data={"name": "Other Private Vial", "count": "1"},
+    other.post("/inventory", data={"name": "Other Private Vial", "count": "1", "category": "Supply"},
               files={"coa": ("c.png", PNG, "image/png")})
     other.post("/protocols", data={
         "name": "Other Private Protocol", "start_date": "2026-09-01", "goal": ["muscle-recovery"],
@@ -260,12 +262,16 @@ def test_personal_data_share_does_not_leak_inventory(client, other, mine, me):
 
 
 def test_active_vial_not_visible_without_inventory_grant(client, other, me):
+    from datetime import date
+
     from app.models import ActiveVial
 
-    client.post("/inventory", data={"name": "AV Privacy Item", "count": "1", "vial_size_mg": "10",
-                                    "medium": "Lyophilized"})
+    client.post("/inventory", data={"name": "AV Privacy Item", "category": "Medicine", "vial_size_mg": "10",
+                                    "medium": "Lyophilized", "quantity": "1", "order_date": "2026-08-01"})
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Privacy Item"))
+        s.get(InventoryItem, item_id).orders[0].arrival_date = date(2026, 8, 10)  # must have arrived to reconstitute
+        s.commit()
     client.post("/calculator/reconstitute", data={
         "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": "2026-12-31",

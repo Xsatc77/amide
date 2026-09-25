@@ -75,8 +75,17 @@ def test_reverse_solver_endpoint_invalid(client):
 
 
 def test_inventory_prefill_only_lyophilized_and_own(client, db):
-    client.post("/inventory", data={"name": "My Powder", "count": "1", "vial_size_mg": "10", "medium": "Lyophilized"})
-    client.post("/inventory", data={"name": "My Liquid", "count": "1", "vial_size_mg": "5", "medium": "Liquid"})
+    from datetime import date
+
+    client.post("/inventory", data={"name": "My Powder", "category": "Medicine", "vial_size_mg": "10", "medium": "Lyophilized",
+                                    "quantity": "1", "order_date": "2026-08-01"})
+    client.post("/inventory", data={"name": "My Liquid", "category": "Medicine", "vial_size_mg": "5", "medium": "Liquid",
+                                    "volume_ml": "2", "quantity": "1", "order_date": "2026-08-01"})
+    with SessionLocal() as s:
+        for name in ("My Powder", "My Liquid"):
+            item = s.scalar(select(InventoryItem).where(InventoryItem.name == name))
+            item.orders[0].arrival_date = date(2026, 8, 10)  # must have arrived to show up in the dropdown
+        s.commit()
     t = text(client.get("/calculator"))
     data = json.loads(t.split('id="calc-data">')[1].split("</script>")[0])
     names = [i["name"] for i in data["inventory"]]
