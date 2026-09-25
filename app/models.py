@@ -140,6 +140,9 @@ class InventoryItem(Base):
     orders: Mapped[list["Order"]] = relationship(
         back_populates="inventory_item", order_by="Order.order_date.desc()", cascade="all, delete-orphan")
 
+    sales: Mapped[list["Sale"]] = relationship(
+        back_populates="inventory_item", order_by="Sale.sale_date.desc()", cascade="all, delete-orphan")
+
     @property
     def available_count(self) -> int:
         """Medicine/BAC Water: arrived-order quantity minus reconstituted/sold. Supply: the plain
@@ -200,6 +203,34 @@ class Order(Base):
     @property
     def shipping(self) -> float | None:
         return None if self.shipping_cents is None else self.shipping_cents / 100
+
+
+class Sale(Base):
+    """One sale transaction out of a Medicine or BAC Water InventoryItem's available_count. Pure
+    history -- InventoryItem.sold_count (incremented alongside each Sale) is what available_count
+    actually subtracts, the same relationship Order has to arrived count. A Medicine sale that
+    bundles BAC Water creates two independent Sale rows (one per item, same sale_date) -- there is
+    no link between them; each item's history is tracked on its own for accurate per-item cost
+    tracking. Sales are append-only: no edit or delete route exists."""
+
+    __tablename__ = "sales"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_sale_quantity_pos"),
+        CheckConstraint("price_cents >= 0", name="ck_sale_price_nonneg"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[int] = mapped_column(Integer)
+    sale_date: Mapped[date] = mapped_column(Date)
+    price_cents: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    inventory_item: Mapped["InventoryItem"] = relationship(back_populates="sales")
+
+    @property
+    def price(self) -> float:
+        return self.price_cents / 100
 
 
 class ActiveVial(Base):

@@ -5,6 +5,9 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
+import pytest
 
 from app import config
 from app.db import SessionLocal
@@ -296,6 +299,29 @@ def test_available_count_medicine_sums_arrived_orders_minus_reconstituted_and_so
     db.commit()
     db.refresh(item)
     assert item.available_count == 10 - 2 - 1  # the in-transit order of 5 doesn't count yet
+
+
+def test_sale_model_has_quantity_and_price_constraints(db, me):
+    from app.models import Sale
+
+    item = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                         medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    db.add(item)
+    db.flush()
+    item.sales.append(Sale(quantity=2, sale_date=date(2026, 9, 20), price_cents=15000))
+    db.commit()
+    db.refresh(item)
+    assert item.sales[0].price == 150.0
+
+    with pytest.raises(IntegrityError):
+        db.add(Sale(inventory_item_id=item.id, quantity=0, sale_date=date(2026, 9, 20), price_cents=100))
+        db.flush()
+    db.rollback()
+
+    with pytest.raises(IntegrityError):
+        db.add(Sale(inventory_item_id=item.id, quantity=1, sale_date=date(2026, 9, 20), price_cents=-100))
+        db.flush()
+    db.rollback()
 
 
 # ---------------------------------------------------------------- Task 2: category-gated parsing, first Order on create

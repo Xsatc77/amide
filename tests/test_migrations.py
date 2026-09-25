@@ -286,3 +286,29 @@ def test_0011_adds_orders_and_categorizes_existing_items(tmp_path):
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
         assert "orders" not in tables
         assert "category" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+
+
+def test_0012_adds_sales_table(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0011")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-25')")
+        c.execute("insert into inventory_items(name,count,vial_size_unit,category,created_at,"
+                  "updated_at,owner_id) values ('Retatrutide',0,'mg','Medicine','2026-09-25',"
+                  "'2026-09-25',1)")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(sales)")}
+        assert {"inventory_item_id", "quantity", "sale_date", "price_cents", "created_at"} <= cols
+        item_id = c.execute("select id from inventory_items where name='Retatrutide'").fetchone()[0]
+        c.execute("insert into sales(inventory_item_id,quantity,sale_date,price_cents,created_at) "
+                  "values (?,2,'2026-09-25',15000,'2026-09-25')", (item_id,))
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into sales(inventory_item_id,quantity,sale_date,price_cents,created_at) "
+                      "values (?,0,'2026-09-25',100,'2026-09-25')", (item_id,))
+    command.downgrade(cfg, "0011")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "sales" not in tables
