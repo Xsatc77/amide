@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import zoneinfo
@@ -184,13 +185,23 @@ async def toggle_share(grantee_id: int, category: str, request: Request,
     if grantee_id == uid or session.get(User, grantee_id) is None:
         raise HTTPException(status_code=404)
 
+    form = await request.form()
+    # The button posts the state it wants, not "flip whatever it is now" -- a double-click, a
+    # stale second tab, or a back-button resubmit must converge to the same state, never flip an
+    # already-applied change back.
+    want_on = str(form.get("on", "1")) == "1"
+
     existing = session.scalar(select(Share).where(
         Share.owner_id == uid, Share.grantee_id == grantee_id, Share.category == cat))
-    if existing:
-        session.delete(existing)
-    else:
+    if want_on and existing is None:
         session.add(Share(owner_id=uid, grantee_id=grantee_id, category=cat))
-    session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()  # a concurrent request already granted this -- already in the state we want
+    elif not want_on and existing is not None:
+        session.delete(existing)
+        session.commit()
     return RedirectResponse("/settings#sharing", status_code=303)
 
 

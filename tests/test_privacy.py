@@ -110,15 +110,22 @@ def _revoke(owner_id: int, grantee_id: int, category: ShareCategory) -> None:
         s.commit()
 
 
-def test_shared_inventory_item_appears_tagged_and_is_read_only(client, other, mine, me):
-    item_id, _ = mine
+def test_shared_inventory_item_appears_tagged_and_is_read_only(client, other, me):
+    # `other` owns a throwaway item first, so the shared item's id doesn't coincidentally equal
+    # the owner's user id (1) -- a bug that looks up the owner by item id instead of owner id
+    # would otherwise pass by rowid coincidence.
+    other.post("/inventory", data={"name": "Other's own vial", "count": "1"})
+    client.post("/inventory", data={"name": "My BPC vial", "count": "2"}, files={"coa": ("c.png", PNG, "image/png")})
     with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "My BPC vial"))
         other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    assert item_id != me  # sanity: guards against the exact bug this test targets
+
     _grant(me, other_id, ShareCategory.INVENTORY)
     try:
         t = other.get("/inventory").text
         assert "My BPC vial" in t
-        assert "Tester" in t  # tagged with the owner's username
+        assert "Shared by Tester" in t  # tagged with the owner's username, not a blank/wrong one
         assert f'action="/inventory/{item_id}"' not in t  # no edit form for a shared row
         assert f'action="/inventory/{item_id}/delete"' not in t
 
@@ -168,6 +175,7 @@ def test_shared_protocol_appears_under_shared_tab_only(client, other, mine, me):
         assert 'id="tab-shared"' in t
         # Never merged into the grantee's own Active/Saved sections.
         assert t.count("My private protocol") == 1
+        assert "Dose not set" in t  # dose/frequency detail is shown, not just the peptide name
 
         for action in ("pause", "resume", "end", "delete"):
             assert other.post(f"/protocols/{proto_id}/{action}").status_code == 404, action
@@ -200,5 +208,52 @@ def test_shared_protocol_not_on_calendar(client, other, mine, me):
     _grant(me, other_id, ShareCategory.PERSONAL_DATA)
     try:
         assert "My private protocol" not in other.get("/calendar").text
+    finally:
+        _revoke(me, other_id, ShareCategory.PERSONAL_DATA)
+
+
+def test_admin_gets_no_bypass_without_an_explicit_grant(client, other, me):
+    """`client` (Tester) is the admin (first-ever account). Admin status must never substitute
+    for a Share grant -- the whole point of Sharing is that even the admin can't see what wasn't
+    shared with them."""
+    other.post("/inventory", data={"name": "Other Private Vial", "count": "1"},
+              files={"coa": ("c.png", PNG, "image/png")})
+    other.post("/protocols", data={
+        "name": "Other Private Protocol", "start_date": "2026-09-01", "goal": ["muscle-recovery"],
+        "items-0-peptide_id": str(peptide_id("BPC-157"))})
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Other Private Vial"))
+
+    assert "Other Private Vial" not in client.get("/inventory").text
+    assert "Other Private Protocol" not in client.get("/protocols").text
+    assert client.get(f"/inventory/{item_id}/coa").status_code == 404
+
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(other_id, me, ShareCategory.INVENTORY)
+    try:
+        assert "Other Private Vial" in client.get("/inventory").text
+    finally:
+        _revoke(other_id, me, ShareCategory.INVENTORY)
+
+
+def test_inventory_share_does_not_leak_protocols(client, other, mine, me):
+    """Categories are independent: sharing Inventory must not expose Personal Data."""
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(me, other_id, ShareCategory.INVENTORY)
+    try:
+        assert "My private protocol" not in other.get("/protocols").text
+    finally:
+        _revoke(me, other_id, ShareCategory.INVENTORY)
+
+
+def test_personal_data_share_does_not_leak_inventory(client, other, mine, me):
+    """Categories are independent: sharing Personal Data must not expose Inventory."""
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(me, other_id, ShareCategory.PERSONAL_DATA)
+    try:
+        assert "My BPC vial" not in other.get("/inventory").text
     finally:
         _revoke(me, other_id, ShareCategory.PERSONAL_DATA)

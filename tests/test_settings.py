@@ -361,12 +361,41 @@ def test_sharing_toggle_grants_and_revokes(client, db):
         assert s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
                                         category=ShareCategory.INVENTORY).count() == 1
     t = text(client.get("/settings"))
-    assert "Sharing" in t  # button now shows the granted state somewhere on the page
+    assert "Sharing ✓" in t  # the button itself reflects the granted state, not just page chrome
 
-    client.post(f"/settings/sharing/{partner_id}/inventory")  # toggle again -- revoke
+    client.post(f"/settings/sharing/{partner_id}/inventory", data={"on": "0"})  # revoke
     with SessionLocal() as s:
         assert s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
                                         category=ShareCategory.INVENTORY).count() == 0
+    t = text(client.get("/settings"))
+    assert "Sharing ✓" not in t  # button reverted to "Not shared"
+
+
+def test_sharing_toggle_is_idempotent_against_stale_or_duplicate_submits(client, db):
+    """The button's form posts the desired end state (on=1/0), not "flip whatever it is now" --
+    a double-click, a stale second tab, or a back-button resubmit must never re-grant a share the
+    user already revoked, or vice versa."""
+    from app.models import Share, ShareCategory
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "IdemPartner", "password": "Idem1!aa", "confirm": "Idem1!aa"})
+    with SessionLocal() as s:
+        me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+        partner_id = s.scalar(select(User.id).where(User.username_key == "idempartner"))
+
+    def count():
+        with SessionLocal() as s:
+            return s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
+                                            category=ShareCategory.INVENTORY).count()
+
+    client.post(f"/settings/sharing/{partner_id}/inventory", data={"on": "1"})
+    client.post(f"/settings/sharing/{partner_id}/inventory", data={"on": "1"})  # duplicate submit
+    assert count() == 1  # still granted, not toggled back off
+
+    client.post(f"/settings/sharing/{partner_id}/inventory", data={"on": "0"})
+    client.post(f"/settings/sharing/{partner_id}/inventory", data={"on": "0"})  # duplicate submit
+    assert count() == 0  # still revoked, not toggled back on
 
 
 def test_grant_is_one_directional(client, db):
@@ -383,7 +412,7 @@ def test_grant_is_one_directional(client, db):
     with SessionLocal() as s:
         assert s.query(Share).filter_by(owner_id=me_id, grantee_id=other_id).count() == 1
         assert s.query(Share).filter_by(owner_id=other_id, grantee_id=me_id).count() == 0
-    client.post(f"/settings/sharing/{other_id}/inventory")  # revoke, keep suite state clean
+    client.post(f"/settings/sharing/{other_id}/inventory", data={"on": "0"})  # revoke, keep suite state clean
 
 
 def test_sharing_route_404_for_self_or_unknown_user(client, db, me):

@@ -111,6 +111,7 @@
               <td class="item-name">{{ u.username }}</td>
               <td>
                 <form method="post" action="/settings/sharing/{{ u.id }}/inventory" class="inline-form">
+                  <input type="hidden" name="on" value="{{ '0' if (u.id, 'inventory') in my_shares else '1' }}">
                   <button type="submit" class="btn {{ 'btn-primary' if (u.id, 'inventory') in my_shares else 'btn-ghost' }}">
                     {{ 'Sharing ✓' if (u.id, 'inventory') in my_shares else 'Not shared' }}
                   </button>
@@ -118,6 +119,7 @@
               </td>
               <td>
                 <form method="post" action="/settings/sharing/{{ u.id }}/personal_data" class="inline-form">
+                  <input type="hidden" name="on" value="{{ '0' if (u.id, 'personal_data') in my_shares else '1' }}">
                   <button type="submit" class="btn {{ 'btn-primary' if (u.id, 'personal_data') in my_shares else 'btn-ghost' }}">
                     {{ 'Sharing ✓' if (u.id, 'personal_data') in my_shares else 'Not shared' }}
                   </button>

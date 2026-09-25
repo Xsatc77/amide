@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 
@@ -183,10 +184,17 @@ def test_0009_adds_shares_and_makes_vendors_shared(tmp_path):
     with sqlite3.connect(db) as c:
         cols = {r[1] for r in c.execute("pragma table_info(vendors)")}
         assert "created_by_id" in cols and "owner_id" not in cols
+        # The hardest part of this migration: SQLite reflection drops custom collations, so a naive
+        # batch_alter_table recreate silently loses vendors.name's COLLATE NOCASE. Assert it survived.
+        vendors_sql = c.execute("select sql from sqlite_master where name='vendors'").fetchone()[0]
+        assert "COLLATE NOCASE" in vendors_sql.upper() or "COLLATE \"NOCASE\"" in vendors_sql.upper()
         rows = c.execute("select id, created_by_id, name from vendors").fetchall()
         assert len(rows) == 1  # deduped
         kept_id = rows[0][0]
+        assert kept_id == 1  # the lowest id survives, per the dedupe rule
         assert rows[0][2].lower() == "acme peptides"
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into vendors(created_by_id,name,created_at) values (1,'ACME PEPTIDES','2026-09-24')")
         # Item B's vendor_id was repointed to the surviving row.
         assert c.execute("select vendor_id from inventory_items where name='Item B'").fetchone() == (kept_id,)
         shares_cols = {r[1] for r in c.execute("pragma table_info(shares)")}

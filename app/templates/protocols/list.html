@@ -148,7 +148,14 @@
           {% set p = v.p %}
           <tr>
             <td data-label="Protocol" class="item-name">{{ p.name }}
-              <div class="muted small">{{ v["items"] | map(attribute='name') | join(', ') }}</div>
+              <ul class="dose-list">
+                {% for it in v["items"] %}
+                <li>
+                  <strong>{{ it.name }}</strong> — <span class="{{ '' if it.dose_set else 'muted' }}">{{ it.desc }}</span>
+                  {% if it.step %}<div class="small step">{{ it.step }}</div>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
             </td>
             <td data-label="Shared by">{{ v.owner_name }}</td>
             <td data-label="Status"><span class="status status-{{ v.status.value }}">{{ v.status.label }}</span></td>

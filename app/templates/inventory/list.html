@@ -46,7 +46,7 @@
           data-sort-arrived="{{ item.arrival_date.isoformat() if item.arrival_date else '' }}">
         <td data-label="Item" class="item-name">
           {{ item.name }}
-          {% if item.owner_id != viewer_id %}<div class="muted small">Shared by {{ owner_names[item.id] }}</div>{% endif %}
+          {% if item.owner_id != viewer_id %}<div class="muted small">Shared by {{ owner_names[item.owner_id] }}</div>{% endif %}
           {% if item.lot_number %}<div class="muted small">Lot {{ item.lot_number }}</div>{% endif %}
           {% if item.expiration_date %}<div class="muted small">Exp {{ item.expiration_date | shortdate }}</div>{% endif %}
           {% if item.notes %}<div class="muted small">{{ item.notes }}</div>{% endif %}
