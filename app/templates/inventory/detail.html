@@ -156,7 +156,7 @@
     <thead><tr><th>Quantity</th><th>Received</th><th>Ordered</th><th>Shipped</th><th>Arrived</th><th>Expiration</th><th>Tracking</th><th>Vendor</th><th>Lot #</th><th>Cost</th><th>Tax</th><th>Shipping</th><th>COA</th>{% if is_owner %}<th></th>{% endif %}</tr></thead>
     <tbody>
       {% for li in item.order_items %}
-      {% set siblings = item.order_items | selectattr('order_id', 'equalto', li.order_id) | rejectattr('id', 'equalto', li.id) | list %}
+      {% set siblings = li.order.items | rejectattr('id', 'equalto', li.id) | list %}
       <tr>
         <td>
           {{ li.quantity }}

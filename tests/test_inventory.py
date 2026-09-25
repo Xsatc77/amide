@@ -1310,3 +1310,28 @@ def test_check_in_requires_ownership(client, db):
     other.post("/register", data={"username": "CheckinOther", "password": "CheckinOther1!", "confirm": "CheckinOther1!"})
     r = other.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={"arrival_date": "2026-08-10"})
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------- Multi-item orders: sibling note
+
+def test_also_in_this_shipment_note_finds_siblings_across_items(client, db, me):
+    from app.models import OrderItem
+
+    medicine = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                             medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    bac_water = InventoryItem(owner_id=me, name="Bacteriostatic Water", category=Category.BAC_WATER)
+    db.add_all([medicine, bac_water])
+    db.flush()
+
+    order = Order(order_date=date(2026, 8, 1))
+    db.add(order)
+    db.flush()
+    db.add(OrderItem(order_id=order.id, inventory_item_id=medicine.id, quantity=5))
+    db.add(OrderItem(order_id=order.id, inventory_item_id=bac_water.id, quantity=2))
+    db.commit()
+
+    t1 = html.unescape(client.get(f"/inventory/{medicine.id}").text)
+    assert "other item" in t1 and "in this shipment" in t1
+
+    t2 = html.unescape(client.get(f"/inventory/{bac_water.id}").text)
+    assert "other item" in t2 and "in this shipment" in t2
