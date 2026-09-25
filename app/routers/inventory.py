@@ -373,6 +373,13 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
         "edit_data": _form_values(item),
         "bac_water_options": _bac_water_options(session, uid) if item.category == Category.MEDICINE else [],
         "today_iso": date.today().isoformat(),
+        "checkin_data": {
+            li.order_id: [
+                {"id": sib.id, "quantity": sib.quantity, "item_name": sib.inventory_item.name}
+                for sib in li.order.items
+            ]
+            for li in item.order_items if li.order.arrival_date is None
+        },
     }
 
 
@@ -547,6 +554,75 @@ def _own_order_item(session: Session, item_id: int, order_item_id: int, uid: int
         return None
     li = session.get(OrderItem, order_item_id)
     return li if li is not None and li.inventory_item_id == item.id else None
+
+
+def _own_order_for_item(session: Session, item_id: int, order_id: int, uid: int) -> Order | None:
+    """The Order if `item_id` is one of the caller's own items with a line in it -- check-in acts
+    on every line in the order at once, not just this item's."""
+    item = _own_item(session, item_id, uid)
+    if item is None:
+        return None
+    order = session.get(Order, order_id)
+    if order is None or not any(li.inventory_item_id == item.id for li in order.items):
+        return None
+    return order
+
+
+@router.post("/inventory/{item_id}/orders/{order_id}/check-in")
+async def check_in_order(item_id: int, order_id: int, request: Request,
+                         session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    order = _own_order_for_item(session, item_id, order_id, uid)
+    if order is None:
+        raise HTTPException(404, "Order not found")
+
+    form = await request.form()
+    raw = {"arrival_date": str(form.get("arrival_date") or "").strip()}
+    for li in order.items:
+        raw[f"received_quantity_{li.id}"] = str(form.get(f"received_quantity_{li.id}") or "").strip()
+        raw[f"received_note_{li.id}"] = str(form.get(f"received_note_{li.id}") or "").strip()
+
+    errors: dict[str, str] = {}
+    arrival_date = _parse_date(raw["arrival_date"], "arrival_date", errors)
+    if arrival_date is None and "arrival_date" not in errors:
+        errors["arrival_date"] = "Arrival date is required."
+    elif arrival_date and arrival_date > date.today():
+        errors["arrival_date"] = "Arrival date can't be in the future."
+    elif arrival_date and order.shipped_date and arrival_date < order.shipped_date:
+        errors["arrival_date"] = "Arrival date can't be before the shipped date."
+    elif arrival_date and arrival_date < order.order_date:
+        errors["arrival_date"] = "Arrival date can't be before the order date."
+
+    received: dict[int, tuple[int, str | None]] = {}
+    for li in order.items:
+        field = f"received_quantity_{li.id}"
+        raw_qty = raw[field]
+        try:
+            qty = int(raw_qty) if raw_qty else li.quantity
+        except ValueError:
+            errors[field] = "Must be a whole number."
+            continue
+        if not 0 <= qty <= li.quantity:
+            errors[field] = f"Must be between 0 and {li.quantity}."
+            continue
+        received[li.id] = (qty, raw[f"received_note_{li.id}"] or None)
+
+    if errors:
+        item = _own_item(session, item_id, uid)
+        return templates.TemplateResponse(
+            request, "inventory/detail.html",
+            {"item": item, "is_owner": True, "checkin_errors": errors, "checkin_form": raw,
+            "checkin_order": order,
+            "arrived": _arrived_quantity(item),
+            **_detail_context(session, item, uid)},
+            status_code=422)
+
+    order.arrival_date = arrival_date
+    for li in order.items:
+        qty, note = received[li.id]
+        li.received_quantity = qty
+        li.received_note = note
+    session.commit()
+    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
 
 
 @router.post("/inventory/{item_id}/orders")

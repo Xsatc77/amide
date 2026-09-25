@@ -1173,3 +1173,97 @@ def test_deleting_sole_line_deletes_orphaned_order_header(client, db):
     with SessionLocal() as s:
         from app.models import Order
         assert s.get(Order, order_id) is None
+
+
+# ---------------------------------------------------------------- Multi-item orders: Task 3 (check-in)
+
+
+def test_check_in_order_sets_arrival_and_received_quantity(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "10",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert item.order_items[0].order.arrival_date == date(2026, 8, 10)
+        assert item.order_items[0].received_quantity == 10
+        assert item.available_count == 10
+
+
+def test_check_in_order_with_short_receipt_does_not_inflate_available_count(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "8",
+        f"received_note_{li_id}": "2 vials cracked in transit",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert item.available_count == 8
+        assert item.order_items[0].received_note == "2 vials cracked in transit"
+
+
+def test_check_in_rejects_received_quantity_above_ordered(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "11",
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date is None
+
+
+def test_check_in_rejects_future_arrival_date(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2099-01-01", f"received_quantity_{li_id}": "10",
+    })
+    assert r.status_code == 422
+
+
+def test_check_in_requires_ownership(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        order_id = s.get(InventoryItem, item_id).order_items[0].order_id
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "CheckinOther", "password": "CheckinOther1!", "confirm": "CheckinOther1!"})
+    r = other.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={"arrival_date": "2026-08-10"})
+    assert r.status_code == 404
