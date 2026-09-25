@@ -128,7 +128,7 @@ Firm up the base before anything depends on it.
 ## Phase 9 — v1.0: Integrations & Polish
 
 - **Health trackers.** How realistic each one is:
-  - *Apple Health* has no web API. Realistic options: import Apple Health's `export.zip`, or an **iOS Shortcut** that posts data to Amide's API. (Possibly https://www.healthyapps.dev/)
+  - *Apple Health* has no web API. Realistic options: import Apple Health's `export.zip`, or an **iOS Shortcut** that posts data to Amide's API. (Possibly https://www.healthyapps.dev/  or some sort of Webhooks app?)
   - *Google Health Connect* is on-device only (same approach: companion Shortcut/app or file import).
   - *Withings, Fitbit, Oura, Hume*: check each for an available cloud API; OAuth connectors where possible.
   - Requires **personal API tokens** in Amide.
