@@ -603,6 +603,78 @@ def test_add_order_requires_ownership(client, db):
     assert r.status_code == 404
 
 
+# ---------------------------------------------------------------- Sold flow: Task 2 (no BAC bundling yet)
+
+
+def _medicine_with_stock(client, name="Retatrutide", quantity=10):
+    client.post("/inventory", data={
+        "name": name, "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": str(quantity), "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == name))
+    return item_id
+
+
+def test_sell_item_creates_sale_and_updates_available_count(client, db):
+    item_id = _medicine_with_stock(client)
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "3", "price": "150.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert item.sold_count == 3
+        assert item.available_count == 7
+        [sale] = item.sales
+        assert sale.quantity == 3 and sale.price == 150.0 and sale.sale_date == date(2026, 9, 25)
+
+
+def test_sell_item_rejects_more_than_available(client, db):
+    item_id = _medicine_with_stock(client, quantity=5)
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "6", "price": "10.00",
+    })
+    assert r.status_code == 422
+    assert "Only 5 available to sell" in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).sold_count == 0
+
+
+def test_sell_item_requires_price(client, db):
+    item_id = _medicine_with_stock(client)
+    r = client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "1"})
+    assert r.status_code == 422
+    assert "price is required" in html.unescape(r.text)
+
+
+def test_sell_item_rejects_future_date(client, db):
+    item_id = _medicine_with_stock(client)
+    r = client.post(f"/inventory/{item_id}/sales", data={
+        "sale_date": "2099-01-01", "quantity": "1", "price": "10.00",
+    })
+    assert r.status_code == 422
+    assert "can&#39;t be in the future" in r.text or "can't be in the future" in html.unescape(r.text)
+
+
+def test_sell_item_404s_for_supply(client, db):
+    r = client.post("/inventory", data={"name": "Alcohol Pads", "category": "Supply", "count": "10"},
+                    follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Alcohol Pads"))
+    r = client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "1", "price": "1.00"})
+    assert r.status_code == 404
+
+
+def test_sell_item_requires_ownership(client, db):
+    item_id = _medicine_with_stock(client)
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "SaleOther", "password": "SaleOther1!", "confirm": "SaleOther1!"})
+    r = other.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "1", "price": "1.00"})
+    assert r.status_code == 404
+
+
 def test_shared_item_order_history_is_visible_but_not_editable(client, db, me):
     client.post("/inventory", data={
         "name": "Shared Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",

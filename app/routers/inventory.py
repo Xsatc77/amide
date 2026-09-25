@@ -13,7 +13,7 @@ from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Order, Share, ShareCategory, StorageLocation, User
+from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Order, Sale, Share, ShareCategory, StorageLocation, User
 from app.templating import templates
 
 router = APIRouter()
@@ -203,6 +203,38 @@ def _parse_order_form(raw: dict[str, str], session: Session, uid: int) -> tuple[
     return values, errors
 
 
+def _parse_sale_fields(raw: dict[str, str], prefix: str, label: str, max_quantity: int,
+                       errors: dict) -> dict:
+    """Parses one item's portion of a sale (quantity/price), keyed by `prefix` ('' for the item
+    the Sold button lives on, 'bac_' for a bundled BAC Water portion). Errors are stored under the
+    prefixed field name so the template highlights the right input."""
+    values: dict = {}
+    qty_field, price_field = f"{prefix}quantity", f"{prefix}price"
+
+    values["quantity"] = None
+    try:
+        if raw[qty_field]:
+            values["quantity"] = int(raw[qty_field])
+        if not values["quantity"] or values["quantity"] <= 0:
+            errors[qty_field] = f"{label} quantity must be a whole number greater than 0."
+        elif values["quantity"] > max_quantity:
+            errors[qty_field] = f"Only {max_quantity} available to sell."
+    except ValueError:
+        errors[qty_field] = f"{label} quantity must be a whole number."
+
+    values["price_cents"] = _parse_money(raw[price_field], price_field, f"{label} price", errors)
+    if values["price_cents"] is None and price_field not in errors:
+        errors[price_field] = f"{label} price is required."
+
+    return values
+
+
+async def _read_sale_form(request: Request) -> dict[str, str]:
+    form = await request.form()
+    fields = ("sale_date", "quantity", "price", "include_bac_water", "bac_item_id", "bac_quantity", "bac_price")
+    return {f: str(form.get(f) or "").strip() for f in fields}
+
+
 def _form_values(item: InventoryItem) -> dict:
     """An item's Details values as the edit form expects them (all strings)."""
     def num(v):
@@ -310,6 +342,37 @@ def _visible_active_vials(session: Session, uid: int):
     return vials, items_by_id, owner_names
 
 
+def _bac_water_options(session: Session, uid: int) -> list[InventoryItem]:
+    """The owner's BAC Water items that currently have stock, for the Sold dialog's bundle
+    dropdown on a Medicine item's page."""
+    items = session.scalars(
+        select(InventoryItem).where(InventoryItem.owner_id == uid, InventoryItem.category == Category.BAC_WATER)
+        .order_by(InventoryItem.name.collate("NOCASE"))
+    ).all()
+    return [i for i in items if i.available_count > 0]
+
+
+def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
+    """Template keys detail.html needs regardless of which route rendered it -- the GET route, or
+    any of update_item/add_order/update_order/sell_item re-rendering it after a validation
+    error."""
+    return {
+        "storage_locations": list(StorageLocation),
+        "mediums": list(Medium),
+        "dose_units": list(DoseUnit),
+        "medium_rules": {
+            m.value: {
+                "required": sorted(required_fields_for(m)),
+                "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
+            }
+            for m in Medium
+        },
+        "edit_data": _form_values(item),
+        "bac_water_options": _bac_water_options(session, uid) if item.category == Category.MEDICINE else [],
+        "today_iso": date.today().isoformat(),
+    }
+
+
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200):
     uid = request.state.user.id
@@ -385,17 +448,7 @@ def item_detail(item_id: int, request: Request, session: Session = Depends(get_s
         "item": item,
         "is_owner": item.owner_id == uid,
         "arrived": arrived,
-        "storage_locations": list(StorageLocation),
-        "mediums": list(Medium),
-        "dose_units": list(DoseUnit),
-        "medium_rules": {
-            m.value: {
-                "required": sorted(required_fields_for(m)),
-                "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
-            }
-            for m in Medium
-        },
-        "edit_data": _form_values(item),
+        **_detail_context(session, item, uid),
     })
 
 
@@ -445,17 +498,8 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         arrived = sum(o.quantity for o in item.orders if o.arrival_date is not None)
         return templates.TemplateResponse(request, "inventory/detail.html", {
             "item": item, "is_owner": True, "arrived": arrived,
-            "storage_locations": list(StorageLocation), "mediums": list(Medium),
-            "dose_units": list(DoseUnit),
-            "medium_rules": {
-                m.value: {
-                    "required": sorted(required_fields_for(m)),
-                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
-                }
-                for m in Medium
-            },
-            "edit_data": _form_values(item),
             "form": raw, "errors": errors, "editing": item,
+            **_detail_context(session, item, uid),
         }, status_code=422)
 
     for key, value in values.items():
@@ -508,18 +552,42 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
             request, "inventory/detail.html",
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
             "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
-            "storage_locations": list(StorageLocation), "mediums": list(Medium),
-            "dose_units": list(DoseUnit), "edit_data": _form_values(item),
-            "medium_rules": {
-                m.value: {
-                    "required": sorted(required_fields_for(m)),
-                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
-                }
-                for m in Medium
-            }},
+            **_detail_context(session, item, uid)},
             status_code=422)
 
     item.orders.append(Order(**values, coa_filename=coa_filename))
+    session.commit()
+    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
+
+
+@router.post("/inventory/{item_id}/sales")
+async def sell_item(item_id: int, request: Request, session: Session = Depends(get_session),
+                    uid: int = Depends(current_user_id)):
+    item = _own_item(session, item_id, uid)
+    if item is None or item.category == Category.SUPPLY:
+        raise HTTPException(404, "Inventory item not found")
+
+    raw = await _read_sale_form(request)
+    errors: dict[str, str] = {}
+
+    sale_date = _parse_date(raw["sale_date"], "sale_date", errors)
+    if sale_date is None and "sale_date" not in errors:
+        errors["sale_date"] = "Sale date is required."
+    elif sale_date and sale_date > date.today():
+        errors["sale_date"] = "Sale date can't be in the future."
+
+    main = _parse_sale_fields(raw, "", item.name, item.available_count, errors)
+
+    if errors:
+        return templates.TemplateResponse(
+            request, "inventory/detail.html",
+            {"item": item, "is_owner": True, "sale_errors": errors, "sale_form": raw,
+            "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
+            **_detail_context(session, item, uid)},
+            status_code=422)
+
+    item.sales.append(Sale(quantity=main["quantity"], sale_date=sale_date, price_cents=main["price_cents"]))
+    item.sold_count += main["quantity"]
     session.commit()
     return RedirectResponse(f"/inventory/{item_id}", status_code=303)
 
@@ -548,15 +616,7 @@ async def update_order(item_id: int, order_id: int, request: Request,
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
             "editing_order": order,
             "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
-            "storage_locations": list(StorageLocation),
-            "mediums": list(Medium), "dose_units": list(DoseUnit), "edit_data": _form_values(item),
-            "medium_rules": {
-                m.value: {
-                    "required": sorted(required_fields_for(m)),
-                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
-                }
-                for m in Medium
-            }},
+            **_detail_context(session, item, uid)},
             status_code=422)
 
     for key, value in values.items():
