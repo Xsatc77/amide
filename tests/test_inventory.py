@@ -242,16 +242,22 @@ def test_expiration_date_must_be_valid(client, db):
 
 # ---------------------------------------------------------------- Phase 1: search / sort / filter markup
 
-def test_list_has_search_and_filter_and_sort_markup(client, db):
+def test_list_renders_both_items_in_the_medicines_section(client, db):
+    # The search/filter/sort toolbar was removed in Task 7 (five sectioned tables replaced the
+    # single filterable one); this now legitimately renders the list page instead of only
+    # checking the DB, since the old rendering crash (removed InventoryItem fields) is fixed.
     client.post("/inventory", data={"name": "BPC-157", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
                                     "quantity": "1", "order_date": "2026-09-01", "vendor": "Acme"}, follow_redirects=False)
     client.post("/inventory", data={"name": "Retatrutide", "category": "Medicine", "medium": "Liquid", "vial_size_mg": "5",
                                     "volume_ml": "2", "quantity": "1", "order_date": "2026-09-01"}, follow_redirects=False)
-    # Note: can't test the actual list page HTML due to template issues with accessing removed item fields.
-    # That's a template update task, not a backend task.
     items = _items(db)
     assert len(items) == 2
     assert {i.name for i in items} == {"BPC-157", "Retatrutide"}
+
+    t = text(client.get("/inventory"))
+    section = t.split('id="medicines-heading"')[1].split("</section>")[0]
+    assert "BPC-157" in section and "Retatrutide" in section
+    assert "inv-search" not in t and "data-filter" not in t and "sort-btn" not in t
 
 
 def test_search_filter_scoped_to_owner_only(client, db):
@@ -481,3 +487,37 @@ def test_detail_page_lists_order_history(client, db):
     t = text(client.get(f"/inventory/{item_id}"))
     assert "LY123" in t
     assert 'href="https://track.example/x"' in t
+
+
+# ---------------------------------------------------------------- Task 7: list resectioning
+
+
+def test_inventory_page_sections_items_by_category(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    })
+    client.post("/inventory", data={"name": "Bac Water", "category": "BAC Water", "quantity": "4", "order_date": "2026-08-01"})
+    client.post("/inventory", data={"name": "Alcohol Pads", "category": "Supply", "count": "250"})
+    t = text(client.get("/inventory"))
+    assert t.index("Retatrutide") < t.index("Bac Water") < t.index("Alcohol Pads")
+    assert '<h2 id="medicines-heading"' in t
+    assert '<h2 id="bac-water-heading"' in t
+    assert '<h2 id="supplies-heading"' in t
+
+
+def test_inventory_page_shows_in_transit_orders(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "tracking_number": "LY123",
+    })
+    t = text(client.get("/inventory"))
+    section = t.split('id="in-transit"')[1].split("</section>")[0]
+    assert "Retatrutide" in section and "LY123" in section
+
+
+def test_inventory_page_notes_removed_from_list_columns(client, db):
+    client.post("/inventory", data={"name": "Alcohol Pads", "category": "Supply", "count": "5", "notes": "keep in the closet"})
+    t = text(client.get("/inventory"))
+    section = t.split('id="supplies-heading"')[1].split("</section>")[0]
+    assert "keep in the closet" not in section

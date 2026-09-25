@@ -137,55 +137,6 @@
   if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
 })();
 
-// ---------------------------------------------------------------- search / filter / sort
-(() => {
-  const table = document.getElementById("inv-table");
-  if (!table) return;  // no rows yet
-  const search = document.getElementById("inv-search");
-  const tbody = table.querySelector("tbody");
-  const rows = [...tbody.querySelectorAll("tr")];
-  const chips = [...document.querySelectorAll("[data-filter]")];
-  const emptyNote = document.getElementById("inv-empty-filter");
-  let filter = "all";
-  let sortKey = null;
-  let sortDir = 1;
-
-  function apply() {
-    const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
-    let shown = 0;
-    for (const row of rows) {
-      const matchesFilter = filter === "all" || row.dataset.medium === filter;
-      const matchesSearch = words.every((w) => row.dataset.search.includes(w));
-      row.hidden = !(matchesFilter && matchesSearch);
-      if (!row.hidden) shown++;
-    }
-    emptyNote.hidden = shown > 0;
-  }
-
-  search.addEventListener("input", apply);
-  chips.forEach((chip) => chip.addEventListener("click", () => {
-    filter = chip.dataset.filter;
-    chips.forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
-    apply();
-  }));
-
-  document.querySelectorAll(".sort-btn").forEach((btn) => btn.addEventListener("click", () => {
-    const key = btn.dataset.sort;
-    sortDir = sortKey === key ? -sortDir : 1;
-    sortKey = key;
-    document.querySelectorAll(".sort-btn").forEach((b) => b.classList.remove("sort-asc", "sort-desc"));
-    btn.classList.add(sortDir === 1 ? "sort-asc" : "sort-desc");
-    const numeric = key === "count" || key === "amount" || key === "cost";
-    rows.sort((a, b) => {
-      const av = a.dataset[`sort${key[0].toUpperCase()}${key.slice(1)}`];
-      const bv = b.dataset[`sort${key[0].toUpperCase()}${key.slice(1)}`];
-      if (numeric) return (Number(av) - Number(bv)) * sortDir;
-      return av.localeCompare(bv) * sortDir;
-    });
-    rows.forEach((row) => tbody.append(row));
-  }));
-})();
-
 // ---------------------------------------------------------------- active vials: expiry popups
 (() => {
   // One popup per vial flagged by the server (data-expired-prompt), shown one at a time -- a

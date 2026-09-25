@@ -13,87 +13,7 @@
   </button>
 </div>
 
-{% if items %}
-<div class="lib-toolbar">
-  <input id="inv-search" type="search" placeholder="Search name, vendor or notes" autocomplete="off" aria-label="Search inventory">
-  <div class="chips" role="group" aria-label="Filter by medium">
-    <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
-    {% for m in mediums %}<button type="button" class="chip" data-filter="{{ m.value }}" aria-pressed="false">{{ m.value }}</button>{% endfor %}
-  </div>
-</div>
-<div class="table-wrap">
-  <table class="inv-table" id="inv-table">
-    <thead>
-      <tr>
-        <th><button type="button" class="sort-btn" data-sort="name">Item</button></th>
-        <th class="num"><button type="button" class="sort-btn" data-sort="count">Count</button></th>
-        <th class="num"><button type="button" class="sort-btn" data-sort="amount">Amount</button></th>
-        <th>Medium</th>
-        <th class="num"><button type="button" class="sort-btn" data-sort="cost">Cost</button></th>
-        <th><button type="button" class="sort-btn" data-sort="vendor">Vendor</button></th>
-        <th><button type="button" class="sort-btn" data-sort="arrived">Arrived</button></th>
-        <th>COA</th>
-        <th><span class="sr-only">Actions</span></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in items %}
-      <tr data-medium="{{ item.medium.value if item.medium else '' }}"
-          data-search="{{ ([item.name, item.vendor or '', item.notes or ''] | join(' ')) | lower }}"
-          data-sort-name="{{ item.name | lower }}" data-sort-count="{{ item.count }}"
-          data-sort-amount="{{ item.vial_size_mg or 0 }}" data-sort-cost="{{ item.cost_cents or 0 }}"
-          data-sort-vendor="{{ (item.vendor or '') | lower }}"
-          data-sort-arrived="{{ item.arrival_date.isoformat() if item.arrival_date else '' }}">
-        <td data-label="Item" class="item-name">
-          <a href="/inventory/{{ item.id }}">{{ item.name }}</a>
-          {% if item.owner_id != viewer_id %}<div class="muted small">Shared by {{ owner_names[item.owner_id] }}</div>{% endif %}
-          {% if item.lot_number %}<div class="muted small">Lot {{ item.lot_number }}</div>{% endif %}
-          {% if item.expiration_date %}<div class="muted small">Exp {{ item.expiration_date | shortdate }}</div>{% endif %}
-          {% if item.notes %}<div class="muted small">{{ item.notes }}</div>{% endif %}
-        </td>
-        <td data-label="Count" class="num">{{ item.count }}</td>
-        <td data-label="Amount" class="num">{% if item.vial_size_mg %}{{ '%g' % item.vial_size_mg }} {{ item.vial_size_unit.value }}{% else %}—{% endif %}</td>
-        <td data-label="Medium">{% if item.medium %}<span class="tag">{{ item.medium.value }}</span>{% else %}—{% endif %}</td>
-        <td data-label="Cost" class="num">{{ item.cost | money or '—' }}</td>
-        <td data-label="Vendor">{{ item.vendor or '—' }}</td>
-        <td data-label="Arrived">{{ item.arrival_date | shortdate or '—' }}</td>
-        <td data-label="COA" class="coa-cell">
-          {% set has_lab = item.coa_purity_pct is not none or item.coa_vial_size_mg %}
-          {% set lab_low = item.coa_vial_size_mg and item.vial_size_mg and item.coa_vial_size_mg < item.vial_size_mg * 0.9 %}
-          {% if item.coa_filename %}<a href="/inventory/{{ item.id }}/coa" target="_blank" rel="noopener">View</a>{% endif %}
-          {% if has_lab %}
-          <div class="small {{ 'warn' if lab_low else 'muted' }}"{% if lab_low %} title="Lab-measured amount is more than 10% below the labeled vial size"{% endif %}>
-            {%- if item.coa_purity_pct is not none %}{{ '%g' % item.coa_purity_pct }}%{% endif -%}
-            {%- if item.coa_purity_pct is not none and item.coa_vial_size_mg %} · {% endif -%}
-            {%- if item.coa_vial_size_mg %}{{ item.coa_vial_size_mg | mg }}{% endif -%}
-          </div>
-          {% endif %}
-          {% if not item.coa_filename and not has_lab %}<span class="muted">None</span>{% endif %}
-        </td>
-        <td class="actions">
-          {% if item.owner_id == viewer_id %}
-          {% if item.category.value == 'Medicine' and item.medium and item.medium.value == 'Lyophilized' and item.vial_size_mg and item.vial_size_unit.value == 'mg' %}
-          <button type="button" class="btn btn-ghost" data-action="reconstitute" data-item-id="{{ item.id }}"
-                  data-item-name="{{ item.name }}"
-                  {% if item.id in open_vials %}data-active-vial='{{ {"concentration": open_vials[item.id].concentration_mg_ml, "doses": open_vials[item.id].doses_total, "discard_by": open_vials[item.id].discard_by.isoformat()} | tojson }}'{% endif %}
-                  {% if item.available_count == 0 %}disabled{% endif %}>Reconstitute</button>
-          {% endif %}
-          <button type="button" class="btn btn-ghost" data-action="edit"
-                  data-item='{{ edit_data[item.id] | tojson }}'>Edit</button>
-          <form method="post" action="/inventory/{{ item.id }}/delete" class="inline" data-confirm="Delete “{{ item.name }}”? This can't be undone.">
-            <button type="submit" class="btn btn-ghost btn-danger">Delete</button>
-          </form>
-          {% else %}
-          <span class="muted small">Read only</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-<p class="muted small" id="inv-empty-filter" hidden>No items match.</p>
-{% else %}
+{% if not items %}
 <div class="empty">
   <p><strong>No inventory yet.</strong></p>
   <p class="muted">Press <strong>+ Add item</strong> to log your first vial, pen, or product.</p>
@@ -132,6 +52,91 @@
   </div>
   {% else %}
   <p class="muted">No open vials yet — reconstitute one from a Lyophilized item above.</p>
+  {% endif %}
+</section>
+
+{% macro item_table(section_id, heading, items, show_medium) %}
+<section id="{{ section_id }}" aria-labelledby="{{ section_id }}-heading">
+  <h2 id="{{ section_id }}-heading" class="section-title">{{ heading }}</h2>
+  {% if items %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="num">Count</th>
+          {% if show_medium %}<th class="num">Amount</th><th>Medium</th>{% else %}<th class="num">Cost</th><th>Vendor</th>{% endif %}
+          <th>Storage</th>
+          <th><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td data-label="Item" class="item-name">
+            <a href="/inventory/{{ item.id }}">{{ item.name }}</a>
+            {% if item.owner_id != viewer_id %}<div class="muted small">Shared by {{ owner_names[item.owner_id] }}</div>{% endif %}
+          </td>
+          <td data-label="Count" class="num">{{ item.available_count }}</td>
+          {% if show_medium %}
+          <td data-label="Amount" class="num">{% if item.vial_size_mg %}{{ '%g' % item.vial_size_mg }} {{ item.vial_size_unit.value }}{% else %}—{% endif %}</td>
+          <td data-label="Medium">{% if item.medium %}<span class="tag">{{ item.medium.value }}</span>{% else %}—{% endif %}</td>
+          {% else %}
+          <td data-label="Cost" class="num">{{ item.cost | money or '—' }}</td>
+          <td data-label="Vendor">{{ item.vendor or '—' }}</td>
+          {% endif %}
+          <td data-label="Storage">{{ item.storage.label if item.storage else '—' }}</td>
+          <td class="actions">
+            {% if item.owner_id == viewer_id %}
+            {% if item.category.value == 'Medicine' and item.medium and item.medium.value == 'Lyophilized' and item.vial_size_mg and item.vial_size_unit.value == 'mg' %}
+            <button type="button" class="btn btn-ghost" data-action="reconstitute" data-item-id="{{ item.id }}"
+                    data-item-name="{{ item.name }}"
+                    {% if item.id in open_vials %}data-active-vial='{{ {"concentration": open_vials[item.id].concentration_mg_ml, "doses": open_vials[item.id].doses_total, "discard_by": open_vials[item.id].discard_by.isoformat()} | tojson }}'{% endif %}
+                    {% if item.available_count == 0 %}disabled{% endif %}>Reconstitute</button>
+            {% endif %}
+            <form method="post" action="/inventory/{{ item.id }}/delete" class="inline" data-confirm="Delete “{{ item.name }}”? This can't be undone.">
+              <button type="submit" class="btn btn-ghost btn-danger">Delete</button>
+            </form>
+            {% else %}
+            <span class="muted small">Read only</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">None yet.</p>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{{ item_table('medicines', 'Peptides / Medicines', medicine_items, true) }}
+{{ item_table('bac-water', 'BAC Water', bac_water_items, false) }}
+{{ item_table('supplies', 'Supplies', supply_items, false) }}
+
+<section id="in-transit" aria-labelledby="in-transit-heading">
+  <h2 id="in-transit-heading" class="section-title">In-transit</h2>
+  {% if in_transit_orders %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Item</th><th class="num">Quantity</th><th>Ordered</th><th>Shipped</th><th>Tracking</th></tr></thead>
+      <tbody>
+        {% for item, order in in_transit_orders %}
+        <tr>
+          <td><a href="/inventory/{{ item.id }}">{{ item.name }}</a></td>
+          <td class="num">{{ order.quantity }}</td>
+          <td>{{ order.order_date | shortdate }}</td>
+          <td>{{ order.shipped_date | shortdate or '—' }}</td>
+          <td>{% if order.tracking_site %}<a href="{{ order.tracking_site }}" target="_blank" rel="noopener">{{ order.tracking_number or 'Track' }}</a>{% else %}{{ order.tracking_number or '—' }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nothing in transit.</p>
   {% endif %}
 </section>
 

@@ -301,7 +301,14 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
                  editing: InventoryItem | None = None, status_code: int = 200):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
-    own_lyo_ids = [i.id for i in items if i.owner_id == uid and i.medium == Medium.LYOPHILIZED]
+    medicine_items = [i for i in items if i.category == Category.MEDICINE]
+    bac_water_items = [i for i in items if i.category == Category.BAC_WATER]
+    supply_items = [i for i in items if i.category == Category.SUPPLY]
+    in_transit_orders = [
+        (item, order) for item in medicine_items + bac_water_items for order in item.orders
+        if order.arrival_date is None
+    ]
+    own_lyo_ids = [i.id for i in medicine_items if i.owner_id == uid and i.medium == Medium.LYOPHILIZED]
     open_vials = _open_active_vials(session, own_lyo_ids)
     vials, vial_items, vial_owner_names = _visible_active_vials(session, uid)
     now = now_utc()
@@ -315,6 +322,10 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
         "inventory/list.html",
         {
             "items": items,
+            "medicine_items": medicine_items,
+            "bac_water_items": bac_water_items,
+            "supply_items": supply_items,
+            "in_transit_orders": in_transit_orders,
             "viewer_id": uid,
             "owner_names": owner_names,
             "open_vials": open_vials,
