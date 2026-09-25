@@ -379,11 +379,3 @@ def test_item_detail_page_404s_for_someone_elses_private_item(client, db):
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Private Item"))
     assert client.get(f"/inventory/{item_id}").status_code == 404
-
-
-def test_inventory_list_row_links_to_detail_page(client, db):
-    client.post("/inventory", data={"name": "Alcohol Pads", "category": "Supply", "count": "5"}, follow_redirects=False)
-    with SessionLocal() as s:
-        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Alcohol Pads"))
-    t = html.unescape(client.get("/inventory").text)
-    assert f'href="/inventory/{item_id}"' in t

@@ -141,27 +141,6 @@ class InventoryItem(Base):
         back_populates="inventory_item", order_by="Order.order_date.desc()", cascade="all, delete-orphan")
 
     @property
-    def arrival_date(self) -> date | None:
-        """The earliest arrival_date among this item's orders, or None if no orders have arrived."""
-        arrived_orders = [o.arrival_date for o in self.orders if o.arrival_date is not None]
-        return min(arrived_orders) if arrived_orders else None
-
-    @property
-    def coa_filename(self) -> str | None:
-        """The COA filename from the first order, or None if no orders or no COA."""
-        return self.orders[0].coa_filename if self.orders else None
-
-    @property
-    def coa_purity_pct(self) -> float | None:
-        """The COA purity percentage from the first order, or None if not set."""
-        return self.orders[0].coa_purity_pct if self.orders else None
-
-    @property
-    def coa_vial_size_mg(self) -> float | None:
-        """The COA vial size from the first order, or None if not set."""
-        return self.orders[0].coa_vial_size_mg if self.orders else None
-
-    @property
     def available_count(self) -> int:
         """Medicine/BAC Water: arrived-order quantity minus reconstituted/sold. Supply: the plain
         count column. The Inventory list and Calculator read this, never `count` directly, for
