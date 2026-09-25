@@ -215,7 +215,7 @@ h2 { font-size: 1.2rem; margin: 0; }
 form.inline { display: inline; }
 
 /* ---------- table ---------- */
-.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; overflow-y: hidden; }
 .inv-table { width: 100%; border-collapse: collapse; }
 .inv-table th, .inv-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .inv-table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; background: var(--bg); }
