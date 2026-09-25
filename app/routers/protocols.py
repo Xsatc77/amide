@@ -10,7 +10,7 @@ from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.models import (
     WEEKDAY_LETTERS, WEEKDAY_NAMES, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
-    Protocol, ProtocolGoal, ProtocolItem, Route, TimeOfDay, TitrationStep,
+    Protocol, ProtocolGoal, ProtocolItem, Route, Share, ShareCategory, TimeOfDay, TitrationStep, User,
 )
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
@@ -29,6 +29,17 @@ def get_today() -> date:
 def _protocol_query(uid: int):
     """This user's protocols (others' are never visible)."""
     return select(Protocol).where(Protocol.owner_id == uid).options(
+        selectinload(Protocol.goals),
+        selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
+        selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+    )
+
+
+def _shared_protocol_query(uid: int):
+    """Protocols owned by anyone who granted this user Personal Data sharing."""
+    shared_owner_ids = select(Share.owner_id).where(
+        Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
+    return select(Protocol).where(Protocol.owner_id.in_(shared_owner_ids)).options(
         selectinload(Protocol.goals),
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
         selectinload(Protocol.items).selectinload(ProtocolItem.steps),
@@ -71,12 +82,13 @@ def _step_text(item: ProtocolItem, week: int | None) -> str | None:
     return f"Week {week} · step {number}: {_amount(step.dose, item.dose_unit)}"
 
 
-def _view(p: Protocol, today: date) -> dict:
+def _view(p: Protocol, today: date, owner_name: str | None = None) -> dict:
     week = current_week(p.start_date, today)
     return {
         "p": p,
         "status": protocol_status(p, today),
         "day": day_number(p.start_date, today),
+        "owner_name": owner_name,
         "items": [
             {
                 "name": it.peptide.name,
@@ -98,8 +110,18 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
     views = [_view(p, today) for p in protocols]
     active = sorted((v for v in views if v["status"] is Status.ACTIVE), key=lambda v: v["p"].start_date)
     saved = [v for v in views if v["status"] is not Status.ACTIVE]
+
+    shared_protocols = session.scalars(
+        _shared_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
+    owner_ids = {p.owner_id for p in shared_protocols}
+    owner_names = {}
+    if owner_ids:
+        owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
+    shared_views = [_view(p, today, owner_name=owner_names.get(p.owner_id)) for p in shared_protocols]
+
     return templates.TemplateResponse(request, "protocols/list.html",
-                                      {"active_views": active, "saved_views": saved, "goals": GOALS, "statuses": list(Status)})
+                                      {"active_views": active, "saved_views": saved, "shared_views": shared_views,
+                                       "goals": GOALS, "statuses": list(Status)})
 
 
 # ---------------------------------------------------------------- builder

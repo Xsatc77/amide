@@ -154,3 +154,51 @@ def test_revoking_inventory_share_removes_visibility_immediately(client, other, 
     assert "My BPC vial" in other.get("/inventory").text
     _revoke(me, other_id, ShareCategory.INVENTORY)
     assert "My BPC vial" not in other.get("/inventory").text
+
+
+def test_shared_protocol_appears_under_shared_tab_only(client, other, mine, me):
+    _, proto_id = mine
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(me, other_id, ShareCategory.PERSONAL_DATA)
+    try:
+        t = other.get("/protocols").text
+        assert "My private protocol" in t
+        assert "Tester" in t  # tagged with the owner's username
+        assert 'id="tab-shared"' in t
+        # Never merged into the grantee's own Active/Saved sections.
+        assert t.count("My private protocol") == 1
+
+        for action in ("pause", "resume", "end", "delete"):
+            assert other.post(f"/protocols/{proto_id}/{action}").status_code == 404, action
+        assert other.get(f"/protocols/{proto_id}/repeat").status_code == 404
+        assert other.get(f"/protocols/{proto_id}/edit").status_code == 404
+    finally:
+        _revoke(me, other_id, ShareCategory.PERSONAL_DATA)
+
+
+def test_third_party_never_sees_shared_protocol(client, other, mine, me):
+    _, proto_id = mine
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    third = TestClient(app, follow_redirects=False)
+    third.post("/notice", data={"understand": "1"})
+    third.post("/register", data={"username": "ThirdProto", "password": "Third1!aa", "confirm": "Third1!aa"})
+
+    _grant(me, other_id, ShareCategory.PERSONAL_DATA)
+    try:
+        assert "My private protocol" not in third.get("/protocols").text
+        assert third.get(f"/protocols/{proto_id}/edit").status_code == 404
+    finally:
+        _revoke(me, other_id, ShareCategory.PERSONAL_DATA)
+
+
+def test_shared_protocol_not_on_calendar(client, other, mine, me):
+    _, proto_id = mine
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "other"))
+    _grant(me, other_id, ShareCategory.PERSONAL_DATA)
+    try:
+        assert "My private protocol" not in other.get("/calendar").text
+    finally:
+        _revoke(me, other_id, ShareCategory.PERSONAL_DATA)

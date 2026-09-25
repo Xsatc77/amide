@@ -14,6 +14,12 @@
   </div>
 </div>
 
+<div class="chips" role="group" aria-label="View">
+  <button type="button" class="chip" data-tab="mine" aria-pressed="true">Mine</button>
+  <button type="button" class="chip" data-tab="shared" aria-pressed="false">Shared with me</button>
+</div>
+
+<div id="tab-mine">
 {# ---------- Active protocols ---------- #}
 <section aria-labelledby="active-heading">
   <h2 id="active-heading" class="section-title">Active protocols</h2>
@@ -128,6 +134,38 @@
   <p class="muted">Protocols you pause, schedule for later, or end are kept here until you delete them.</p>
   {% endif %}
 </section>
+</div>
+
+<div id="tab-shared" hidden>
+  <section aria-labelledby="shared-heading">
+    <h2 id="shared-heading" class="section-title">Shared with me</h2>
+    {% if shared_views %}
+    <div class="table-wrap">
+      <table class="inv-table">
+        <thead><tr><th>Protocol</th><th>Shared by</th><th>Status</th><th>Goals</th><th>Dates</th></tr></thead>
+        <tbody>
+          {% for v in shared_views %}
+          {% set p = v.p %}
+          <tr>
+            <td data-label="Protocol" class="item-name">{{ p.name }}
+              <div class="muted small">{{ v["items"] | map(attribute='name') | join(', ') }}</div>
+            </td>
+            <td data-label="Shared by">{{ v.owner_name }}</td>
+            <td data-label="Status"><span class="status status-{{ v.status.value }}">{{ v.status.label }}</span></td>
+            <td data-label="Goals">{{ p.goal_slugs | map('goal_label') | join(', ') }}</td>
+            <td data-label="Dates" class="small">
+              {{ p.start_date | shortdate }} – {{ (p.ended_on or p.end_date) | shortdate or 'ongoing' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">Nobody has shared their protocols with you yet.</p>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}
 
 {% block scripts %}

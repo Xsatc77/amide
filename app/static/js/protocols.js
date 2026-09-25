@@ -42,4 +42,14 @@
       if (!confirm(f.dataset.confirm)) e.preventDefault();
     })
   );
+
+  // Mine / Shared with me tabs.
+  const tabChips = [...document.querySelectorAll("[data-tab]")];
+  const tabPanels = { mine: document.getElementById("tab-mine"), shared: document.getElementById("tab-shared") };
+  tabChips.forEach((chip) =>
+    chip.addEventListener("click", () => {
+      tabChips.forEach((c) => c.setAttribute("aria-pressed", c === chip ? "true" : "false"));
+      Object.entries(tabPanels).forEach(([key, panel]) => { panel.hidden = key !== chip.dataset.tab; });
+    })
+  );
 })();
