@@ -231,3 +231,64 @@ def test_csv_export_includes_reconstituted_and_sold_columns(client, db):
     row = next(row for row in rows if row and row[0] == "Tirzepatide")
     assert row[header.index("Reconstituted")] == "2"
     assert row[header.index("Sold")] == "1"
+
+
+def test_json_export_includes_sale_history(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+    })
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
+               follow_redirects=False)
+    payload = client.get("/backup/export.json").json()
+    item = next(i for i in payload["inventory"] if i["name"] == "Retatrutide")
+    assert item["sales"] == [{"quantity": 3, "sale_date": "2026-09-25", "price": 150.0}]
+
+
+def test_json_import_recreates_sale_history(client, db):
+    payload = {
+        "inventory": [{
+            "name": "Imported Peptide", "category": "Medicine", "medium": "Lyophilized",
+            "vial_size_mg": 10, "vial_size_unit": "mg", "sold_count": 3,
+            "orders": [{"quantity": 5, "order_date": "2026-08-01", "arrival_date": "2026-08-10"}],
+            "sales": [{"quantity": 3, "sale_date": "2026-09-25", "price": 150.0}],
+        }],
+    }
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Imported Peptide"))
+        assert item.sold_count == 3
+        [sale] = item.sales
+        assert sale.quantity == 3 and sale.price == 150.0 and sale.sale_date == date(2026, 9, 25)
+
+
+def test_json_import_tolerates_old_backup_shape_with_no_sales_key(client, db):
+    payload = {"inventory": [{"name": "Old Supply", "category": "Supply", "count": 3}]}
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Old Supply"))
+        assert item.sales == []
+
+
+def test_csv_export_includes_sales_section(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+    })
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
+               follow_redirects=False)
+    r = client.get("/backup/export/inventory.csv")
+    # Sections are items, orders, sales -- separated by blank lines.
+    blank_indices = [i for i, line in enumerate(r.text.split('\n')) if line.strip() == '']
+    lines = r.text.split('\n')
+    sale_lines = lines[blank_indices[1] + 1:]
+    sale_rows = list(csv.DictReader(io.StringIO('\n'.join(sale_lines))))
+    assert sale_rows[0]["Item"] == "Retatrutide" and sale_rows[0]["Quantity"] == "3" and sale_rows[0]["Price"] == "150.0"

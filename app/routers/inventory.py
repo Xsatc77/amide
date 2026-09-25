@@ -715,6 +715,9 @@ def _to_json(item: InventoryItem) -> dict:
             "has_coa": bool(o.coa_filename), "coa_vial_size_mg": o.coa_vial_size_mg,
             "coa_purity_pct": o.coa_purity_pct,
         } for o in item.orders],
+        "sales": [{
+            "id": s.id, "quantity": s.quantity, "sale_date": _iso(s.sale_date), "price": s.price,
+        } for s in item.sales],
         "created_at": item.created_at.isoformat(),
         "updated_at": item.updated_at.isoformat(),
     }

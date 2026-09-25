@@ -18,7 +18,7 @@ from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
     Category, DoseUnit, Frequency, InventoryItem, Medium, Order, Protocol, ProtocolGoal, ProtocolItem, Route,
-    StorageLocation, TimeOfDay, TitrationStep,
+    Sale, StorageLocation, TimeOfDay, TitrationStep,
 )
 from app.routers.protocols import _find_or_create_peptide
 from app.templating import templates
@@ -41,6 +41,7 @@ def _inventory_row(i: InventoryItem) -> dict:
         "cost": i.cost, "vendor": i.vendor, "notes": i.notes,
         "reconstituted_count": i.reconstituted_count, "sold_count": i.sold_count,
         "orders": [_order_row(o) for o in i.orders],
+        "sales": [_sale_row(s) for s in i.sales],
     }
 
 
@@ -52,6 +53,10 @@ def _order_row(o: Order) -> dict:
         "cost": o.cost, "tax": o.tax, "shipping": o.shipping, "expiration_date": _iso(o.expiration_date),
         "coa_vial_size_mg": o.coa_vial_size_mg, "coa_purity_pct": o.coa_purity_pct,
     }
+
+
+def _sale_row(s: Sale) -> dict:
+    return {"quantity": s.quantity, "sale_date": _iso(s.sale_date), "price": s.price}
 
 
 def _protocol_row(p: Protocol) -> dict:
@@ -79,7 +84,7 @@ def backup_page(request: Request):
 def export_json(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     inventory = session.scalars(
         select(InventoryItem).where(InventoryItem.owner_id == uid)
-        .options(selectinload(InventoryItem.orders)).order_by(InventoryItem.name)
+        .options(selectinload(InventoryItem.orders), selectinload(InventoryItem.sales)).order_by(InventoryItem.name)
     ).all()
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid)
@@ -111,13 +116,16 @@ ORDER_CSV_COLUMNS = [
     ("Tracking number", "tracking_number"), ("Vendor", "vendor"), ("Lot/Batch #", "lot_number"),
     ("Cost", "cost"), ("Tax", "tax"), ("Shipping", "shipping"), ("Expiration", "expiration_date"),
 ]
+SALE_CSV_COLUMNS = [
+    ("Item", "item_name"), ("Quantity", "quantity"), ("Sale date", "sale_date"), ("Price", "price"),
+]
 
 
 @router.get("/backup/export/inventory.csv")
 def export_inventory_csv(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     inventory = session.scalars(
         select(InventoryItem).where(InventoryItem.owner_id == uid)
-        .options(selectinload(InventoryItem.orders)).order_by(InventoryItem.name)
+        .options(selectinload(InventoryItem.orders), selectinload(InventoryItem.sales)).order_by(InventoryItem.name)
     ).all()
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -131,6 +139,12 @@ def export_inventory_csv(session: Session = Depends(get_session), uid: int = Dep
         for o in i.orders:
             row = {**_order_row(o), "item_name": i.name}
             writer.writerow(["" if row[key] is None else row[key] for _, key in ORDER_CSV_COLUMNS])
+    writer.writerow([])
+    writer.writerow([header for header, _ in SALE_CSV_COLUMNS])
+    for i in inventory:
+        for sale in i.sales:
+            row = {**_sale_row(sale), "item_name": i.name}
+            writer.writerow(["" if row[key] is None else row[key] for _, key in SALE_CSV_COLUMNS])
     filename = f"amide-inventory-{date.today().isoformat()}.csv"
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
@@ -162,6 +176,11 @@ def _import_inventory_row(session: Session, uid: int, row: dict) -> None:
             shipping_cents=round(o["shipping"] * 100) if o.get("shipping") is not None else None,
             expiration_date=date.fromisoformat(o["expiration_date"]) if o.get("expiration_date") else None,
             coa_vial_size_mg=o.get("coa_vial_size_mg"), coa_purity_pct=o.get("coa_purity_pct"),
+        ))
+    for sale in row.get("sales", []):  # absent entirely in a pre-Sold-flow backup file -- treat as none
+        item.sales.append(Sale(
+            quantity=sale["quantity"], sale_date=date.fromisoformat(sale["sale_date"]),
+            price_cents=round(sale["price"] * 100),
         ))
     session.add(item)
 

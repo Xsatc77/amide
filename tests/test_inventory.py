@@ -948,3 +948,12 @@ def test_api_inventory_includes_category_available_count_and_orders(client, db):
     assert item["available_count"] == 0  # not arrived yet
     assert item["orders"][0]["tracking_number"] == "LY123"
     assert "lot_number" not in item  # moved to orders, no longer a bare item field
+
+
+def test_api_inventory_includes_sales(client, db):
+    item_id = _medicine_with_stock(client)
+    client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
+               follow_redirects=False)
+    r = client.get(f"/api/inventory/{item_id}")
+    assert r.json()["sales"] == [{"id": r.json()["sales"][0]["id"], "quantity": 3,
+                                  "sale_date": "2026-09-25", "price": 150.0}]
