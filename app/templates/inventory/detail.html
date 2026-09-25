@@ -150,28 +150,42 @@
   {% if is_owner %}
   <button type="button" class="btn btn-ghost" data-action="add-order">Add order</button>
   {% endif %}
-  {% if item.orders %}
+  {% if item.order_items %}
   <div class="table-wrap">
   <table class="inv-table">
-    <thead><tr><th>Quantity</th><th>Ordered</th><th>Shipped</th><th>Arrived</th><th>Expiration</th><th>Tracking</th><th>Vendor</th><th>Lot #</th><th>Cost</th><th>Tax</th><th>Shipping</th><th>COA</th>{% if is_owner %}<th></th>{% endif %}</tr></thead>
+    <thead><tr><th>Quantity</th><th>Received</th><th>Ordered</th><th>Shipped</th><th>Arrived</th><th>Expiration</th><th>Tracking</th><th>Vendor</th><th>Lot #</th><th>Cost</th><th>Tax</th><th>Shipping</th><th>COA</th>{% if is_owner %}<th></th>{% endif %}</tr></thead>
     <tbody>
-      {% for o in item.orders %}
+      {% for li in item.order_items %}
+      {% set siblings = item.order_items | selectattr('order_id', 'equalto', li.order_id) | rejectattr('id', 'equalto', li.id) | list %}
       <tr>
-        <td>{{ o.quantity }}</td>
-        <td>{{ o.order_date | shortdate }}</td>
-        <td>{{ o.shipped_date | shortdate or '—' }}</td>
-        <td>{{ o.arrival_date | shortdate or '—' }}</td>
-        <td>{{ o.expiration_date | shortdate or '—' }}</td>
         <td>
-          {% if o.tracking_site %}<a href="{{ o.tracking_site }}" target="_blank" rel="noopener">{{ o.tracking_number or 'Track' }}</a>{% else %}{{ o.tracking_number or '—' }}{% endif %}
+          {{ li.quantity }}
+          {% if siblings %}
+          <div class="muted small">+ {{ siblings | length }} other item{{ '' if siblings | length == 1 else 's' }} in this shipment</div>
+          {% endif %}
         </td>
-        <td>{{ o.vendor or '—' }}</td>
-        <td>{{ o.lot_number or '—' }}</td>
-        <td>{{ o.cost | money or '—' }}</td>
-        <td>{{ o.tax | money or '—' }}</td>
-        <td>{{ o.shipping | money or '—' }}</td>
-        <td>{% if o.coa_filename %}<a href="/inventory/{{ item.id }}/orders/{{ o.id }}/coa" target="_blank" rel="noopener">View</a>{% else %}—{% endif %}</td>
-        {% if is_owner %}<td><button type="button" class="btn btn-ghost" data-action="edit-order" data-order-id="{{ o.id }}" data-order='{{ {"quantity": o.quantity, "order_date": o.order_date.isoformat() if o.order_date else "", "shipped_date": o.shipped_date.isoformat() if o.shipped_date else "", "arrival_date": o.arrival_date.isoformat() if o.arrival_date else "", "tracking_site": o.tracking_site or "", "tracking_number": o.tracking_number or "", "vendor": o.vendor or "", "lot_number": o.lot_number or "", "cost": "" if o.cost is none else ("%.2f" % o.cost), "tax": "" if o.tax is none else ("%.2f" % o.tax), "shipping": "" if o.shipping is none else ("%.2f" % o.shipping), "expiration_date": o.expiration_date.isoformat() if o.expiration_date else "", "coa_vial_size_mg": "" if o.coa_vial_size_mg is none else ("%g" % o.coa_vial_size_mg), "coa_purity_pct": "" if o.coa_purity_pct is none else ("%g" % o.coa_purity_pct)} | tojson }}'>Edit</button></td>{% endif %}
+        <td>{{ li.received_quantity if li.received_quantity is not none else '—' }}</td>
+        <td>{{ li.order.order_date | shortdate }}</td>
+        <td>{{ li.order.shipped_date | shortdate or '—' }}</td>
+        <td>{{ li.order.arrival_date | shortdate or '—' }}</td>
+        <td>{{ li.expiration_date | shortdate or '—' }}</td>
+        <td>
+          {% if li.order.tracking_site %}<a href="{{ li.order.tracking_site }}" target="_blank" rel="noopener">{{ li.order.tracking_number or 'Track' }}</a>{% else %}{{ li.order.tracking_number or '—' }}{% endif %}
+        </td>
+        <td>{{ li.order.vendor or '—' }}</td>
+        <td>{{ li.lot_number or '—' }}</td>
+        <td>{{ li.cost | money or '—' }}</td>
+        <td>{{ li.order.tax | money or '—' }}</td>
+        <td>{{ li.order.shipping | money or '—' }}</td>
+        <td>{% if li.coa_filename %}<a href="/inventory/{{ item.id }}/orders/{{ li.id }}/coa" target="_blank" rel="noopener">View</a>{% else %}—{% endif %}</td>
+        {% if is_owner %}
+        <td>
+          {% if li.order.arrival_date is none %}
+          <button type="button" class="btn btn-ghost" data-action="check-in" data-order-id="{{ li.order_id }}">Check in</button>
+          {% endif %}
+          <button type="button" class="btn btn-ghost" data-action="edit-order" data-order-id="{{ li.id }}" data-order='{{ {"quantity": li.quantity, "order_date": li.order.order_date.isoformat() if li.order.order_date else "", "shipped_date": li.order.shipped_date.isoformat() if li.order.shipped_date else "", "tracking_site": li.order.tracking_site or "", "tracking_number": li.order.tracking_number or "", "vendor": li.order.vendor or "", "lot_number": li.lot_number or "", "cost": "" if li.cost is none else ("%.2f" % li.cost), "tax": "" if li.order.tax is none else ("%.2f" % li.order.tax), "shipping": "" if li.order.shipping is none else ("%.2f" % li.order.shipping), "expiration_date": li.expiration_date.isoformat() if li.expiration_date else "", "coa_vial_size_mg": "" if li.coa_vial_size_mg is none else ("%g" % li.coa_vial_size_mg), "coa_purity_pct": "" if li.coa_purity_pct is none else ("%g" % li.coa_purity_pct), "received_quantity": "" if li.received_quantity is none else li.received_quantity|string, "arrived": li.order.arrival_date is not none} | tojson }}'>Edit</button>
+        </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -199,7 +213,6 @@
       <label {{ ocls('quantity') }}><span>Quantity</span><input name="quantity" type="number" min="1" step="1" value="{{ of.quantity }}">{{ oerr('quantity') }}</label>
       <label {{ ocls('order_date') }}><span>Order date</span><input name="order_date" type="date" value="{{ of.order_date }}">{{ oerr('order_date') }}</label>
       <label {{ ocls('shipped_date') }}><span>Shipped date</span><input name="shipped_date" type="date" value="{{ of.shipped_date }}">{{ oerr('shipped_date') }}</label>
-      <label {{ ocls('arrival_date') }}><span>Arrival date</span><input name="arrival_date" type="date" value="{{ of.arrival_date }}">{{ oerr('arrival_date') }}</label>
       <label {{ ocls('tracking_site') }}><span>Tracking site (URL)</span><input name="tracking_site" type="url" value="{{ of.tracking_site }}">{{ oerr('tracking_site') }}</label>
       <label {{ ocls('tracking_number') }}><span>Tracking number</span><input name="tracking_number" value="{{ of.tracking_number }}">{{ oerr('tracking_number') }}</label>
       <label {{ ocls('vendor') }}><span>Vendor</span><input name="vendor" value="{{ of.vendor }}">{{ oerr('vendor') }}</label>
@@ -211,6 +224,11 @@
       <label {{ ocls('coa', 'span-2') }}><span>COA (photo or PDF)</span><input name="coa" type="file" accept="image/*,.heic,.heif,application/pdf">{{ oerr('coa') }}</label>
       <label {{ ocls('coa_vial_size_mg') }}><span>Lab vial size (mg)</span><input name="coa_vial_size_mg" type="number" min="0" step="any" value="{{ of.coa_vial_size_mg }}">{{ oerr('coa_vial_size_mg') }}</label>
       <label {{ ocls('coa_purity_pct') }}><span>Lab purity (%)</span><input name="coa_purity_pct" type="number" min="0" max="100" step="any" value="{{ of.coa_purity_pct }}">{{ oerr('coa_purity_pct') }}</label>
+      <label {{ ocls('received_quantity') }} data-field="received_quantity" {% if not of.arrived %}hidden{% endif %}>
+        <span>Received quantity</span>
+        <input name="received_quantity" type="number" min="0" step="1" value="{{ of.received_quantity }}">
+        {{ oerr('received_quantity') }}
+      </label>
     </div>
     <footer class="dialog-foot">
       <button type="button" class="btn" data-action="close-order">Cancel</button>
@@ -218,6 +236,29 @@
     </footer>
   </form>
 </dialog>
+<dialog id="checkin-dialog" class="dialog" {% if checkin_errors %}data-open-on-load{% endif %}>
+  <form method="post" class="item-form" novalidate action="#">
+    <header class="dialog-head">
+      <h2 data-title>Check in order</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-checkin" aria-label="Close">×</button>
+    </header>
+    <div class="alert" role="alert" data-checkin-alert hidden>Please fix the highlighted fields.</div>
+    <div class="grid">
+      <label class="field" data-field="arrival_date">
+        <span>Arrival date</span>
+        <input name="arrival_date" type="date" max="{{ today_iso }}">
+        <small class="error" data-error="arrival_date" hidden></small>
+      </label>
+    </div>
+    <div data-checkin-lines></div>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-checkin">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </footer>
+  </form>
+</dialog>
+<script type="application/json" id="checkin-data">{{ checkin_data | tojson }}</script>
+<script type="application/json" id="checkin-error-data">{{ {"order_id": checkin_order.id if checkin_order else None, "errors": checkin_errors or {}, "form": checkin_form or {}} | tojson }}</script>
 
 <section aria-labelledby="sales-heading">
   <h2 id="sales-heading" class="section-title">Sale history</h2>

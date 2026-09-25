@@ -840,9 +840,7 @@ def test_shared_item_order_history_is_visible_but_not_editable(client, db, me):
 
         t = text(other.get(f"/inventory/{item_id}"))
         assert "Shared Retatrutide" in t  # item visible to the grantee
-        # detail.html's Order history table still reads the removed `item.orders` relationship --
-        # Task 4 updates it to read `item.order_items` (see task-2-brief.md's Interfaces section),
-        # so the tracking number isn't visible in the rendered page again until then.
+        assert "LY123" in t  # tracking info visible again now that Task 4 reads item.order_items
         assert 'data-action="add-order"' not in t  # but not editable
 
         assert other.post(f"/inventory/{item_id}/orders", data={"quantity": "1", "order_date": "2026-09-01"}).status_code == 404
@@ -853,9 +851,6 @@ def test_shared_item_order_history_is_visible_but_not_editable(client, db, me):
         client.post(f"/settings/sharing/{grantee_id}/inventory", data={"on": "0"})  # revoke -- keep suite state clean
 
 
-@pytest.mark.skip(reason="detail.html's Order history table still reads the removed item.orders "
-                         "relationship; Task 4 updates it to read item.order_items (out of scope "
-                         "for Task 2 per task-2-brief.md's Interfaces section).")
 def test_detail_page_lists_order_history(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
@@ -869,9 +864,6 @@ def test_detail_page_lists_order_history(client, db):
     assert 'href="https://track.example/x"' in t
 
 
-@pytest.mark.skip(reason="detail.html's Order history table still reads the removed item.orders "
-                         "relationship; Task 4 updates it to read item.order_items (out of scope "
-                         "for Task 2 per task-2-brief.md's Interfaces section).")
 def test_order_history_table_shows_expiration_tax_and_shipping(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
@@ -883,6 +875,57 @@ def test_order_history_table_shows_expiration_tax_and_shipping(client, db):
     t = text(client.get(f"/inventory/{item_id}"))
     assert "<th>Expiration</th>" in t and "<th>Tax</th>" in t and "<th>Shipping</th>" in t
     assert "$5.25" in t and "$12.00" in t
+
+
+# ---------------------------------------------------------------- Multi-item orders: Task 4 (template)
+
+
+def test_order_history_shows_lines_and_checkin_button(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="check-in"' in t
+    assert 'id="checkin-dialog"' in t
+    assert "10" in t  # quantity shown
+
+
+def test_order_history_hides_checkin_button_once_arrived(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)
+        li.received_quantity = 10
+        s.commit()
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="check-in" data-order-id="' not in t
+
+
+def test_checkin_validation_error_reopens_dialog(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "11",
+    })
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert "data-open-on-load" in t
+    assert 'id="checkin-dialog"' in t
+    assert "Must be between 0 and 10" in t
 
 
 # ---------------------------------------------------------------- Sold flow: Task 4 (template)
