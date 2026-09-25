@@ -338,3 +338,63 @@ def test_delete_user_cleans_up_shares_both_directions(client, db):
     with SessionLocal() as s:
         assert s.query(Share).filter(
             (Share.owner_id == a_id) | (Share.grantee_id == a_id)).count() == 0
+
+
+def test_sharing_section_lists_other_users(client, db):
+    t = text(client.get("/settings"))
+    assert 'id="sharing"' in t
+
+
+def test_sharing_toggle_grants_and_revokes(client, db):
+    from app.models import Share, ShareCategory
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "SharePartner", "password": "Share1!aa", "confirm": "Share1!aa"})
+    with SessionLocal() as s:
+        me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+        partner_id = s.scalar(select(User.id).where(User.username_key == "sharepartner"))
+
+    r = client.post(f"/settings/sharing/{partner_id}/inventory", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/settings#sharing"
+    with SessionLocal() as s:
+        assert s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
+                                        category=ShareCategory.INVENTORY).count() == 1
+    t = text(client.get("/settings"))
+    assert "Sharing" in t  # button now shows the granted state somewhere on the page
+
+    client.post(f"/settings/sharing/{partner_id}/inventory")  # toggle again -- revoke
+    with SessionLocal() as s:
+        assert s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
+                                        category=ShareCategory.INVENTORY).count() == 0
+
+
+def test_grant_is_one_directional(client, db):
+    from app.models import Share, ShareCategory
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "OneWay", "password": "OneWay1!", "confirm": "OneWay1!"})
+    with SessionLocal() as s:
+        me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+        other_id = s.scalar(select(User.id).where(User.username_key == "oneway"))
+
+    client.post(f"/settings/sharing/{other_id}/inventory")
+    with SessionLocal() as s:
+        assert s.query(Share).filter_by(owner_id=me_id, grantee_id=other_id).count() == 1
+        assert s.query(Share).filter_by(owner_id=other_id, grantee_id=me_id).count() == 0
+    client.post(f"/settings/sharing/{other_id}/inventory")  # revoke, keep suite state clean
+
+
+def test_sharing_route_404_for_self_or_unknown_user(client, db, me):
+    assert client.post(f"/settings/sharing/{me}/inventory").status_code == 404
+    assert client.post("/settings/sharing/999999/inventory").status_code == 404
+
+
+def test_sharing_route_422_for_bad_category(client, db):
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "BadCat", "password": "BadCat1!", "confirm": "BadCat1!"})
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "badcat"))
+    assert client.post(f"/settings/sharing/{other_id}/not-a-real-category").status_code == 422

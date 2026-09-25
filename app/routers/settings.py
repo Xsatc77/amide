@@ -12,7 +12,7 @@ from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import Colorway, InventoryItem, Protocol, Share, User, Vendor
+from app.models import Colorway, InventoryItem, Protocol, Share, ShareCategory, User, Vendor
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
 from app.users import user_rows
@@ -36,8 +36,15 @@ def _format_last_login(last_login, tz_name: str | None) -> str:
 
 def _render(request: Request, session: Session, *, errors: dict | None = None, status_code: int = 200):
     me = _me(session, request.state.user.id)
+    other_users = session.scalars(
+        select(User).where(User.id != me.id).order_by(User.username.collate("NOCASE"))).all()
+    my_shares = {
+        (s.grantee_id, s.category.value)
+        for s in session.scalars(select(Share).where(Share.owner_id == me.id))
+    }
     context = {
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
+        "other_users": other_users, "my_shares": my_shares,
     }
     if me.is_admin:
         users = user_rows(session)
@@ -165,6 +172,26 @@ async def change_display(request: Request, session: Session = Depends(get_sessio
     _me(session, uid).colorway = colorway
     session.commit()
     return RedirectResponse("/settings#display", status_code=303)
+
+
+@router.post("/settings/sharing/{grantee_id}/{category}")
+async def toggle_share(grantee_id: int, category: str, request: Request,
+                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    try:
+        cat = ShareCategory(category)
+    except ValueError:
+        raise HTTPException(status_code=422)
+    if grantee_id == uid or session.get(User, grantee_id) is None:
+        raise HTTPException(status_code=404)
+
+    existing = session.scalar(select(Share).where(
+        Share.owner_id == uid, Share.grantee_id == grantee_id, Share.category == cat))
+    if existing:
+        session.delete(existing)
+    else:
+        session.add(Share(owner_id=uid, grantee_id=grantee_id, category=cat))
+    session.commit()
+    return RedirectResponse("/settings#sharing", status_code=303)
 
 
 @router.post("/settings/admin/users/new")

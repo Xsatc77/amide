@@ -10,6 +10,7 @@
 <div class="settings-layout">
   <nav class="settings-nav" aria-label="Settings sections">
     <a href="#user">User</a>
+    <a href="#sharing">Sharing</a>
     <a href="#display">Display</a>
     <a href="#integrations">Integrations</a>
     {% if me.is_admin %}<a href="#admin">Admin</a>{% endif %}
@@ -95,6 +96,41 @@
         <p class="small muted">Download or restore your inventory and protocols.</p>
         <a class="btn" href="/backup">Go to Backup &amp; restore</a>
       </div>
+    </section>
+
+    <section id="sharing" class="builder-step">
+      <h2 class="section-title">Sharing</h2>
+      <p class="small muted">Choose who can see your inventory or your personal data (protocols). Nothing is shared until you turn it on here — and it's one-directional: sharing with someone doesn't let you see theirs.</p>
+      {% if other_users %}
+      <div class="table-wrap">
+        <table class="inv-table">
+          <thead><tr><th>User</th><th>Inventory</th><th>Personal data</th></tr></thead>
+          <tbody>
+            {% for u in other_users %}
+            <tr>
+              <td class="item-name">{{ u.username }}</td>
+              <td>
+                <form method="post" action="/settings/sharing/{{ u.id }}/inventory" class="inline-form">
+                  <button type="submit" class="btn {{ 'btn-primary' if (u.id, 'inventory') in my_shares else 'btn-ghost' }}">
+                    {{ 'Sharing ✓' if (u.id, 'inventory') in my_shares else 'Not shared' }}
+                  </button>
+                </form>
+              </td>
+              <td>
+                <form method="post" action="/settings/sharing/{{ u.id }}/personal_data" class="inline-form">
+                  <button type="submit" class="btn {{ 'btn-primary' if (u.id, 'personal_data') in my_shares else 'btn-ghost' }}">
+                    {{ 'Sharing ✓' if (u.id, 'personal_data') in my_shares else 'Not shared' }}
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="muted">No other users yet — sharing options appear once someone else has an account.</p>
+      {% endif %}
     </section>
 
     <section id="display" class="builder-step">
