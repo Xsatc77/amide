@@ -68,6 +68,20 @@
     if (action === "add") openFor(null);
     else if (action === "edit") openFor(JSON.parse(btn.dataset.item));
     else if (action === "close") dialog.close();
+    else if (action === "reconstitute") {
+      const itemId = btn.dataset.itemId;
+      const existing = btn.dataset.activeVial ? JSON.parse(btn.dataset.activeVial) : null;
+      const goToCalculator = () => { window.location.href = `/calculator?inventory_item_id=${itemId}`; };
+      if (!existing) { goToCalculator(); return; }
+
+      const checkDialog = document.getElementById("duplicate-vial-check");
+      checkDialog.querySelector('[data-fill="item-name"]').textContent = btn.dataset.itemName;
+      checkDialog.querySelector('[data-fill="existing-summary"]').textContent =
+        `${existing.concentration.toFixed(2)} mg/mL, ${existing.doses} doses, discard by ${existing.discard_by}.`;
+      checkDialog.querySelector('[data-action="continue-reconstitute"]').onclick = () => { checkDialog.close(); goToCalculator(); };
+      checkDialog.querySelector('[data-action="cancel-reconstitute-check"]').onclick = () => checkDialog.close();
+      checkDialog.showModal();
+    }
   });
 
   // Close when clicking the backdrop.

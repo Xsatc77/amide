@@ -12,7 +12,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import DoseUnit, InventoryItem, Medium, Share, ShareCategory, StorageLocation, User
+from app.models import ActiveVial, DoseUnit, InventoryItem, Medium, Share, ShareCategory, StorageLocation, User
 from app.templating import templates
 
 router = APIRouter()
@@ -223,10 +223,27 @@ def _visible_item(session: Session, item_id: int, uid: int) -> InventoryItem | N
     return item if shared else None
 
 
+def _open_active_vials(session: Session, item_ids: list[int]) -> dict[int, ActiveVial]:
+    """The earliest-discard-by open (non-discarded) ActiveVial per inventory_item_id, for the
+    duplicate-vial warning check. Only one per item is shown even if more than one exists."""
+    if not item_ids:
+        return {}
+    vials = session.scalars(
+        select(ActiveVial).where(ActiveVial.inventory_item_id.in_(item_ids), ActiveVial.discarded_at.is_(None))
+        .order_by(ActiveVial.discard_by)
+    ).all()
+    result: dict[int, ActiveVial] = {}
+    for v in vials:
+        result.setdefault(v.inventory_item_id, v)  # first (earliest discard_by) wins per item
+    return result
+
+
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
+    own_lyo_ids = [i.id for i in items if i.owner_id == uid and i.medium == Medium.LYOPHILIZED]
+    open_vials = _open_active_vials(session, own_lyo_ids)
     return templates.TemplateResponse(
         request,
         "inventory/list.html",
@@ -234,6 +251,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "items": items,
             "viewer_id": uid,
             "owner_names": owner_names,
+            "open_vials": open_vials,
             "edit_data": {i.id: _form_values(i) for i in items if i.owner_id == uid},
             "mediums": list(Medium),
             "dose_units": list(DoseUnit),

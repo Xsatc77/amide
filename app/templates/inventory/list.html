@@ -72,6 +72,12 @@
         </td>
         <td class="actions">
           {% if item.owner_id == viewer_id %}
+          {% if item.medium and item.medium.value == 'Lyophilized' %}
+          <button type="button" class="btn btn-ghost" data-action="reconstitute" data-item-id="{{ item.id }}"
+                  data-item-name="{{ item.name }}"
+                  {% if item.id in open_vials %}data-active-vial='{{ {"concentration": open_vials[item.id].concentration_mg_ml, "doses": open_vials[item.id].doses_total, "discard_by": open_vials[item.id].discard_by.isoformat()} | tojson }}'{% endif %}
+                  {% if item.count == 0 %}disabled{% endif %}>Reconstitute</button>
+          {% endif %}
           <button type="button" class="btn btn-ghost" data-action="edit"
                   data-item='{{ edit_data[item.id] | tojson }}'>Edit</button>
           <form method="post" action="/inventory/{{ item.id }}/delete" class="inline" data-confirm="Delete “{{ item.name }}”? This can't be undone.">
@@ -264,6 +270,18 @@
 </dialog>
 
 <script type="application/json" id="inv-rules">{{ medium_rules | tojson }}</script>
+
+<dialog id="duplicate-vial-check" class="dialog">
+  <div class="dialog-head"><h3>You already have an open vial of <span data-fill="item-name"></span></h3></div>
+  <div class="form-section">
+    <p class="small muted" data-fill="existing-summary"></p>
+    <p class="small muted">Reconstitute a new one anyway?</p>
+  </div>
+  <div class="dialog-foot">
+    <button type="button" class="btn btn-primary" data-action="continue-reconstitute">Continue anyway</button>
+    <button type="button" class="btn" data-action="cancel-reconstitute-check">Cancel</button>
+  </div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}

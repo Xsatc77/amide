@@ -74,3 +74,41 @@ def test_reconstitute_commit_requires_ownership(client, db, lyo_item):
         "discard_by": "2026-12-31",
     })
     assert r.status_code == 404
+
+
+def _button_tag(t: str, item_id) -> str:
+    """The full opening <button ...> tag whose data-item-id matches, regardless of attribute
+    order or surrounding whitespace -- avoids brittle fixed-length slicing."""
+    marker = f'data-item-id="{item_id}"'
+    start = t.rindex("<button", 0, t.index(marker))
+    end = t.index(">", t.index(marker)) + 1
+    return t[start:end]
+
+
+def test_reconstitute_button_present_and_disabled_when_out_of_stock(client, db, lyo_item):
+    client.post("/inventory", data={"name": "Zero Stock", "count": "0", "vial_size_mg": "5",
+                                    "medium": "Lyophilized"})
+    with SessionLocal() as s:
+        zero_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Zero Stock"))
+    t = text(client.get("/inventory"))
+    assert f'data-action="reconstitute" data-item-id="{lyo_item}"' in t
+    assert "disabled" in _button_tag(t, zero_id)
+    assert "disabled" not in _button_tag(t, lyo_item)  # has stock -- not disabled
+
+
+def test_duplicate_vial_check_scoped_to_exact_item(client, db, lyo_item):
+    client.post("/inventory", data={"name": "AV Test Peptide Two", "count": "1", "vial_size_mg": "10",
+                                    "medium": "Lyophilized"})
+    with SessionLocal() as s:
+        other_item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Test Peptide Two"))
+
+    client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(lyo_item), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
+        "discard_by": "2026-12-31",
+    })
+
+    t = text(client.get("/inventory"))
+    # The exact item with an open vial carries its data for the JS-side warning dialog.
+    assert "data-active-vial=" in _button_tag(t, lyo_item)
+    # The similarly-named other item has no open vial and carries no such data.
+    assert "data-active-vial=" not in _button_tag(t, other_item_id)
