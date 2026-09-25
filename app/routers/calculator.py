@@ -61,9 +61,10 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
         .order_by(InventoryItem.name.collate("NOCASE"))
     ).all()
 
-    if selected_item_id and any(str(i.id) == selected_item_id for i in inventory) and "vial_mg" not in q:
-        # Only auto-fill the vial amount from the id if the caller didn't also pass an explicit
-        # vial_mg -- an explicit vial_mg (e.g. a bookmarked link) always wins.
+    if selected_item_id and any(str(i.id) == selected_item_id for i in inventory):
+        # The selected item's own vial size always wins over any ?vial_mg= query override --
+        # otherwise the confirmation modal (built from this field) could save a concentration
+        # that doesn't match the item's real amount.
         state["vial_mg"] = "%g" % next(i.vial_size_mg for i in inventory if str(i.id) == selected_item_id)
 
     syringe_ml = _syringe_ml(state["syringe_ml"])

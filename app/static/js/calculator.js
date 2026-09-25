@@ -103,6 +103,9 @@
   function updateReconstituteVisibility() {
     if (!els.reconstituteWrap) return;
     els.reconstituteWrap.hidden = !els.inventory?.value;
+    // Locked to the selected item's real vial size so it can never diverge from what the server
+    // will actually save; editable again once the selection is cleared (standalone/practice mode).
+    els.vial.readOnly = !!els.inventory?.value;
   }
 
   els.inventory?.addEventListener("change", () => {

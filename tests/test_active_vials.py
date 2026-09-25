@@ -37,6 +37,16 @@ def test_calculator_inventory_select_uses_item_id_as_value(client, db, lyo_item)
     assert f'<option value="{lyo_item}" data-vial-mg="10">AV Test Peptide (10 mg)</option>' in t
 
 
+def test_calculator_ignores_vial_mg_override_when_item_selected(client, db, lyo_item):
+    """A bookmarked/forged ?vial_mg= must never win over the selected item's real amount --
+    otherwise the confirmation modal (built from the live field) can save a different
+    concentration than what the item's own vial size implies."""
+    t = text(client.get(f"/calculator?inventory_item_id={lyo_item}&vial_mg=999"))
+    assert 'id="calc-vial"' in t
+    assert 'value="10"' in t.split('id="calc-vial"')[1][:200]
+    assert 'value="999"' not in t
+
+
 def test_calculator_prefills_from_inventory_item_id_query_param(client, db, lyo_item):
     t = text(client.get(f"/calculator?inventory_item_id={lyo_item}"))
     assert f'<option value="{lyo_item}" data-vial-mg="10" selected>' in t
