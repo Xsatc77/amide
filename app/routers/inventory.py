@@ -440,18 +440,8 @@ def snooze_active_vial_prompt(vial_id: int, session: Session = Depends(get_sessi
 
 @router.get("/inventory/{item_id}/coa")
 def get_coa(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    item = _visible_item(session, item_id, uid)
-    if item is None:
-        raise HTTPException(404, "Inventory item not found")
-    # COA is now per-order; return the first order's COA if available
-    for order in item.orders:
-        if order.coa_filename:
-            path = uploads.coa_path(order.coa_filename)
-            if not path.exists():
-                raise HTTPException(404, "COA file is missing from disk")
-            return FileResponse(path, media_type=uploads.media_type(order.coa_filename),
-                                headers={"X-Content-Type-Options": "nosniff"},
-                                content_disposition_type="inline")
+    # COA is now per-order (Task 1 removed item.coa_filename). This endpoint will be replaced by
+    # Task 5's GET /inventory/{item_id}/orders/{order_id}/coa. For now, return 404 stopgap.
     raise HTTPException(404, "No COA on file")
 
 
