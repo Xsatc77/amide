@@ -13,7 +13,7 @@ from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import Colorway, InventoryItem, Protocol, Share, ShareCategory, User, Vendor
+from app.models import Colorway, InventoryItem, Order, Protocol, Share, ShareCategory, User, Vendor
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
 from app.users import user_rows
@@ -290,10 +290,12 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
                       status_code=422)
 
     coa_filenames = []
+    order_ids = set()
     for item in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == target.id)):
-        for order in item.orders:  # COA lives on the Order now, not the item (Task 1)
-            if order.coa_filename:
-                coa_filenames.append(order.coa_filename)
+        for li in item.order_items:
+            if li.coa_filename:
+                coa_filenames.append(li.coa_filename)
+            order_ids.add(li.order_id)
         session.delete(item)
     for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
         session.delete(protocol)
@@ -308,6 +310,10 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
     # so SQLAlchemy's flush ordering doesn't know they must precede the user row, and SQLite's
     # per-statement FK check rejects deleting the user while a stale owner_id reference still exists.
     session.flush()
+    for order_id in order_ids:
+        order = session.get(Order, order_id)
+        if order is not None and not order.items:
+            session.delete(order)
     session.delete(target)
     session.commit()
     for filename in coa_filenames:

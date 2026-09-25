@@ -296,8 +296,8 @@ def test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor(client, d
         s.commit()
 
         inv = s.scalar(select(InventoryItem).where(InventoryItem.owner_id == owner_id))
-        coa_filename = inv.orders[0].coa_filename  # COA lives on the Order now, not the item (Task 1)
-        vendor_id = inv.orders[0].vendor_id  # same for vendor -- vestigial/None on the item for Medicine
+        coa_filename = inv.order_items[0].coa_filename  # COA lives on the OrderItem now, not the item (Task 1)
+        vendor_id = inv.order_items[0].order.vendor_id  # same for vendor -- vestigial/None on the item for Medicine
         assert coa_filename is not None
         assert (config.COA_DIR / coa_filename).exists()
         assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 1
@@ -315,6 +315,27 @@ def test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor(client, d
         vendor = s.get(Vendor, vendor_id)
         assert vendor is not None and vendor.name == "Their Vendor" and vendor.created_by_id is None
     assert not (config.COA_DIR / coa_filename).exists()
+
+
+def test_admin_delete_user_removes_orphaned_orders(client, db):
+    from app.models import Order
+
+    owner = TestClient(app, follow_redirects=False)
+    owner.post("/notice", data={"understand": "1"})
+    owner.post("/register", data={"username": "OrderOwner", "password": "OrderOwn1!", "confirm": "OrderOwn1!"})
+    owner.post("/inventory", data={"name": "Their vial", "category": "Medicine", "medium": "Lyophilized",
+                                   "vial_size_mg": "10", "quantity": "1", "order_date": "2026-08-01"})
+
+    with SessionLocal() as s:
+        owner_id = s.scalar(select(User.id).where(User.username_key == "orderowner"))
+        item = s.scalar(select(InventoryItem).where(InventoryItem.owner_id == owner_id))
+        order_id = item.order_items[0].order_id
+
+    r = client.post(f"/settings/admin/users/{owner_id}/delete", data={"username": "OrderOwner"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(Order, order_id) is None
 
 
 def test_delete_user_cleans_up_shares_both_directions(client, db):

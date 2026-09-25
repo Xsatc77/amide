@@ -13,7 +13,7 @@ from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Order, Sale, Share, ShareCategory, StorageLocation, User
+from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Order, OrderItem, Sale, Share, ShareCategory, StorageLocation, User
 from app.templating import templates
 
 router = APIRouter()
@@ -21,10 +21,9 @@ router = APIRouter()
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "medium",
               "volume_ml", "units_per_package", "storage", "cost", "vendor", "notes")
-ORDER_FIELDS = ("quantity", "order_date", "shipped_date", "arrival_date", "tracking_site",
-                "tracking_number", "vendor", "cost", "tax", "shipping", "lot_number",
-                "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
-FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_FIELDS))  # union, order preserved, no dupes
+ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
+ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
+FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_HEADER_FIELDS + ORDER_LINE_FIELDS + ("received_quantity",)))
 
 
 # ---------------------------------------------------------------- form parsing
@@ -141,37 +140,17 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
     return values, errors
 
 
-def _parse_order_form(raw: dict[str, str], session: Session, uid: int) -> tuple[dict, dict]:
-    """Parses the Order fields (quantity, dates, tracking, vendor/cost/tax/shipping/lot/
-    expiration/COA numbers). Used by create (the item's first order) and by Task 5's Add/Edit
-    order routes."""
-    errors: dict[str, str] = {}
+def _parse_order_header_fields(raw: dict[str, str], session: Session, uid: int, errors: dict) -> dict:
+    """Parses the fields shared by every line in one order: dates, tracking, vendor, tax/shipping.
+    No arrival_date here -- that's set only by check-in (see check_in_order)."""
     values: dict = {}
-
-    values["quantity"] = None
-    try:
-        if raw["quantity"]:
-            values["quantity"] = int(raw["quantity"])
-        if not values["quantity"] or values["quantity"] <= 0:
-            errors["quantity"] = "Quantity must be a whole number greater than 0."
-    except ValueError:
-        errors["quantity"] = "Quantity must be a whole number."
-
     values["order_date"] = _parse_date(raw["order_date"], "order_date", errors)
     if values["order_date"] is None and "order_date" not in errors:
         errors["order_date"] = "Order date is required."
     values["shipped_date"] = _parse_date(raw["shipped_date"], "shipped_date", errors)
-    values["arrival_date"] = _parse_date(raw["arrival_date"], "arrival_date", errors)
-
     if (values["shipped_date"] and values["order_date"] and "order_date" not in errors
             and "shipped_date" not in errors and values["shipped_date"] < values["order_date"]):
         errors["shipped_date"] = "Shipped date can't be before the order date."
-    if (values["arrival_date"] and values["shipped_date"] and "shipped_date" not in errors
-            and "arrival_date" not in errors and values["arrival_date"] < values["shipped_date"]):
-        errors["arrival_date"] = "Arrival date can't be before the shipped date."
-    elif (values["arrival_date"] and values["order_date"] and "order_date" not in errors
-            and "arrival_date" not in errors and values["arrival_date"] < values["order_date"]):
-        errors["arrival_date"] = "Arrival date can't be before the order date."
 
     values["tracking_site"] = raw["tracking_site"] or None
     if values["tracking_site"] and not values["tracking_site"].lower().startswith(("http://", "https://")):
@@ -181,24 +160,42 @@ def _parse_order_form(raw: dict[str, str], session: Session, uid: int) -> tuple[
     vendor = resolve_vendor(session, uid, raw["vendor"])
     values["vendor_id"] = vendor.id if vendor else None
     values["vendor"] = vendor.name if vendor else None
-    values["lot_number"] = raw["lot_number"] or None
 
-    values["cost_cents"] = _parse_money(raw["cost"], "cost", "Cost", errors)
     values["tax_cents"] = _parse_money(raw["tax"], "tax", "Tax", errors)
     values["shipping_cents"] = _parse_money(raw["shipping"], "shipping", "Shipping", errors)
-    values["expiration_date"] = _parse_date(raw["expiration_date"], "expiration_date", errors)
+    return values
 
+
+def _parse_order_line_fields(raw: dict[str, str], *, prefix: str = "") -> tuple[dict, dict]:
+    """Parses one order line's own fields (quantity/cost/lot/expiration/COA numbers) -- the part
+    that varies per item within an order, as opposed to _parse_order_header_fields' shared fields.
+    `prefix` namespaces error keys for the New Order form's repeated lines (e.g. 'lines-0-')."""
+    errors: dict[str, str] = {}
+    values: dict = {}
+
+    values["quantity"] = None
+    try:
+        if raw["quantity"]:
+            values["quantity"] = int(raw["quantity"])
+        if not values["quantity"] or values["quantity"] <= 0:
+            errors[f"{prefix}quantity"] = "Quantity must be a whole number greater than 0."
+    except ValueError:
+        errors[f"{prefix}quantity"] = "Quantity must be a whole number."
+
+    values["cost_cents"] = _parse_money(raw["cost"], f"{prefix}cost", "Cost", errors)
+    values["lot_number"] = raw["lot_number"] or None
+    values["expiration_date"] = _parse_date(raw["expiration_date"], f"{prefix}expiration_date", errors)
     values["coa_vial_size_mg"] = _parse_positive_float(
-        raw["coa_vial_size_mg"], "coa_vial_size_mg", "Lab vial size", errors)
+        raw["coa_vial_size_mg"], f"{prefix}coa_vial_size_mg", "Lab vial size", errors)
     values["coa_purity_pct"] = None
     purity = raw["coa_purity_pct"].rstrip("%").strip()
     if purity:
         try:
             values["coa_purity_pct"] = float(purity)
             if not 0 <= values["coa_purity_pct"] <= 100:
-                errors["coa_purity_pct"] = "Purity must be between 0 and 100%."
+                errors[f"{prefix}coa_purity_pct"] = "Purity must be between 0 and 100%."
         except ValueError:
-            errors["coa_purity_pct"] = "Purity must be a number, e.g. 99.2."
+            errors[f"{prefix}coa_purity_pct"] = "Purity must be a number, e.g. 99.2."
 
     return values, errors
 
@@ -352,6 +349,12 @@ def _bac_water_options(session: Session, uid: int) -> list[InventoryItem]:
     return [i for i in items if i.available_count > 0]
 
 
+def _arrived_quantity(item: InventoryItem) -> int:
+    """Sum of received_quantity across this item's checked-in order lines -- the numerator
+    available_count itself uses, exposed separately for the detail page's "Arrived" stat."""
+    return sum((li.received_quantity or 0) for li in item.order_items if li.order.arrival_date is not None)
+
+
 def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
     """Template keys detail.html needs regardless of which route rendered it -- the GET route, or
     any of update_item/add_order/update_order/sell_item re-rendering it after a validation
@@ -380,10 +383,14 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
     medicine_items = [i for i in items if i.category == Category.MEDICINE]
     bac_water_items = [i for i in items if i.category == Category.BAC_WATER]
     supply_items = [i for i in items if i.category == Category.SUPPLY]
-    in_transit_orders = [
-        (item, order) for item in medicine_items + bac_water_items for order in item.orders
-        if order.arrival_date is None
+    in_transit_lines = [
+        (item, li) for item in medicine_items + bac_water_items for li in item.order_items
+        if li.order.arrival_date is None
     ]
+    in_transit_by_order: dict[int, list] = {}
+    for item, li in in_transit_lines:
+        in_transit_by_order.setdefault(li.order_id, []).append((item, li))
+    in_transit_groups = [{"order": lines[0][1].order, "lines": lines} for lines in in_transit_by_order.values()]
     own_lyo_ids = [i.id for i in medicine_items if i.owner_id == uid and i.medium == Medium.LYOPHILIZED]
     open_vials = _open_active_vials(session, own_lyo_ids)
     vials, vial_items, vial_owner_names = _visible_active_vials(session, uid)
@@ -401,7 +408,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "medicine_items": medicine_items,
             "bac_water_items": bac_water_items,
             "supply_items": supply_items,
-            "in_transit_orders": in_transit_orders,
+            "in_transit_groups": in_transit_groups,
             "viewer_id": uid,
             "owner_names": owner_names,
             "open_vials": open_vials,
@@ -443,7 +450,7 @@ def item_detail(item_id: int, request: Request, session: Session = Depends(get_s
     item = _visible_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
-    arrived = sum(o.quantity for o in item.orders if o.arrival_date is not None)
+    arrived = _arrived_quantity(item)
     return templates.TemplateResponse(request, "inventory/detail.html", {
         "item": item,
         "is_owner": item.owner_id == uid,
@@ -461,10 +468,12 @@ async def create_item(request: Request, session: Session = Depends(get_session),
     values, item_errors = _parse_item_fields(raw, session, uid, category)
     errors.update(item_errors)
 
-    order_values = {}
+    order_header = {}
+    order_line = {}
     if category != Category.SUPPLY:
-        order_values, order_errors = _parse_order_form(raw, session, uid)
-        errors.update(order_errors)
+        order_header = _parse_order_header_fields(raw, session, uid, errors)
+        order_line, line_errors = _parse_order_line_fields(raw)
+        errors.update(line_errors)
 
     coa_filename = None
     if not errors and coa and category != Category.SUPPLY:
@@ -478,7 +487,11 @@ async def create_item(request: Request, session: Session = Depends(get_session),
 
     item = InventoryItem(**values, owner_id=uid)
     if category != Category.SUPPLY:
-        item.orders.append(Order(**order_values, coa_filename=coa_filename))
+        order = Order(**order_header)
+        session.add(order)
+        li = OrderItem(**order_line, coa_filename=coa_filename)
+        item.order_items.append(li)
+        order.items.append(li)
     session.add(item)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
@@ -495,7 +508,7 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
     values, errors = _parse_item_fields(raw, session, uid, item.category)  # category is immutable
 
     if errors:
-        arrived = sum(o.quantity for o in item.orders if o.arrival_date is not None)
+        arrived = _arrived_quantity(item)
         return templates.TemplateResponse(request, "inventory/detail.html", {
             "item": item, "is_owner": True, "arrived": arrived,
             "form": raw, "errors": errors, "editing": item,
@@ -515,19 +528,25 @@ def delete_item(item_id: int, session: Session = Depends(get_session), uid: int 
     item = _own_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
-    for order in item.orders:
-        uploads.delete_coa(order.coa_filename)
+    order_ids = {li.order_id for li in item.order_items}
+    for li in item.order_items:
+        uploads.delete_coa(li.coa_filename)
     session.delete(item)
+    session.flush()
+    for order_id in order_ids:
+        order = session.get(Order, order_id)
+        if order is not None and not order.items:
+            session.delete(order)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
 
 
-def _own_order(session: Session, item_id: int, order_id: int, uid: int) -> Order | None:
+def _own_order_item(session: Session, item_id: int, order_item_id: int, uid: int) -> OrderItem | None:
     item = _own_item(session, item_id, uid)
     if item is None:
         return None
-    order = session.get(Order, order_id)
-    return order if order is not None and order.inventory_item_id == item.id else None
+    li = session.get(OrderItem, order_item_id)
+    return li if li is not None and li.inventory_item_id == item.id else None
 
 
 @router.post("/inventory/{item_id}/orders")
@@ -538,7 +557,10 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
         raise HTTPException(404, "Inventory item not found")
 
     raw, coa, _ = await _read_form(request)
-    values, errors = _parse_order_form(raw, session, uid)
+    errors: dict[str, str] = {}
+    header_values = _parse_order_header_fields(raw, session, uid, errors)
+    line_values, line_errors = _parse_order_line_fields(raw)
+    errors.update(line_errors)
 
     coa_filename = None
     if not errors and coa:
@@ -551,11 +573,21 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
         return templates.TemplateResponse(
             request, "inventory/detail.html",
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
-            "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
+            "arrived": _arrived_quantity(item),
             **_detail_context(session, item, uid)},
             status_code=422)
 
-    item.orders.append(Order(**values, coa_filename=coa_filename))
+    order = Order(**header_values)
+    session.add(order)
+    li = OrderItem(**line_values, coa_filename=coa_filename)
+    # item (unlike a freshly created item in create_item) is already persistent here, so the first
+    # of these two appends that touches its not-yet-loaded order_items collection triggers a
+    # premature autoflush -- before the *other* side of the association is wired up in memory --
+    # violating order_items' order_id/inventory_item_id NOT NULL constraints. no_autoflush defers
+    # that flush until both sides are set, right before the explicit commit below.
+    with session.no_autoflush:
+        item.order_items.append(li)
+        order.items.append(li)
     session.commit()
     return RedirectResponse(f"/inventory/{item_id}", status_code=303)
 
@@ -597,7 +629,7 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
         return templates.TemplateResponse(
             request, "inventory/detail.html",
             {"item": item, "is_owner": True, "sale_errors": errors, "sale_form": raw,
-            "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
+            "arrived": _arrived_quantity(item),
             **_detail_context(session, item, uid)},
             status_code=422)
 
@@ -611,15 +643,29 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
     return RedirectResponse(f"/inventory/{item_id}", status_code=303)
 
 
-@router.post("/inventory/{item_id}/orders/{order_id}")
-async def update_order(item_id: int, order_id: int, request: Request,
+@router.post("/inventory/{item_id}/orders/{order_item_id}")
+async def update_order(item_id: int, order_item_id: int, request: Request,
                        session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    order = _own_order(session, item_id, order_id, uid)
-    if order is None:
+    li = _own_order_item(session, item_id, order_item_id, uid)
+    if li is None:
         raise HTTPException(404, "Order not found")
 
     raw, coa, remove_coa = await _read_form(request)
-    values, errors = _parse_order_form(raw, session, uid)
+    errors: dict[str, str] = {}
+    header_values = _parse_order_header_fields(raw, session, uid, errors)
+    line_values, line_errors = _parse_order_line_fields(raw)
+    errors.update(line_errors)
+
+    received_quantity = li.received_quantity
+    if li.order.arrival_date is not None:
+        raw_received = str((await request.form()).get("received_quantity") or "").strip()
+        if raw_received:
+            try:
+                received_quantity = int(raw_received)
+                if not 0 <= received_quantity <= line_values["quantity"]:
+                    errors["received_quantity"] = f"Must be between 0 and {line_values['quantity']}."
+            except ValueError:
+                errors["received_quantity"] = "Must be a whole number."
 
     new_coa = None
     if not errors and coa:
@@ -629,35 +675,38 @@ async def update_order(item_id: int, order_id: int, request: Request,
             errors["coa"] = str(e)
 
     if errors:
-        item = order.inventory_item
+        item = li.inventory_item
         return templates.TemplateResponse(
             request, "inventory/detail.html",
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
-            "editing_order": order,
-            "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
+            "editing_order": li,
+            "arrived": _arrived_quantity(item),
             **_detail_context(session, item, uid)},
             status_code=422)
 
-    for key, value in values.items():
-        setattr(order, key, value)
+    for key, value in header_values.items():
+        setattr(li.order, key, value)
+    for key, value in line_values.items():
+        setattr(li, key, value)
+    li.received_quantity = received_quantity
     if new_coa or remove_coa:
-        uploads.delete_coa(order.coa_filename)
-        order.coa_filename = new_coa
+        uploads.delete_coa(li.coa_filename)
+        li.coa_filename = new_coa
     session.commit()
     return RedirectResponse(f"/inventory/{item_id}", status_code=303)
 
 
-@router.get("/inventory/{item_id}/orders/{order_id}/coa")
-def get_order_coa(item_id: int, order_id: int, session: Session = Depends(get_session),
+@router.get("/inventory/{item_id}/orders/{order_item_id}/coa")
+def get_order_coa(item_id: int, order_item_id: int, session: Session = Depends(get_session),
                   uid: int = Depends(current_user_id)):
     item = _visible_item(session, item_id, uid)
-    order = session.get(Order, order_id) if item else None
-    if item is None or order is None or order.inventory_item_id != item.id or not order.coa_filename:
+    li = session.get(OrderItem, order_item_id) if item else None
+    if item is None or li is None or li.inventory_item_id != item.id or not li.coa_filename:
         raise HTTPException(404, "No COA on file")
-    path = uploads.coa_path(order.coa_filename)
+    path = uploads.coa_path(li.coa_filename)
     if not path.exists():
         raise HTTPException(404, "COA file is missing from disk")
-    return FileResponse(path, media_type=uploads.media_type(order.coa_filename),
+    return FileResponse(path, media_type=uploads.media_type(li.coa_filename),
                         headers={"X-Content-Type-Options": "nosniff"},
                         content_disposition_type="inline")
 
@@ -712,14 +761,15 @@ def _to_json(item: InventoryItem) -> dict:
         "vendor": item.vendor,
         "notes": item.notes,
         "orders": [{
-            "id": o.id, "quantity": o.quantity, "order_date": _iso(o.order_date),
-            "shipped_date": _iso(o.shipped_date), "arrival_date": _iso(o.arrival_date),
-            "tracking_site": o.tracking_site, "tracking_number": o.tracking_number,
-            "vendor": o.vendor, "lot_number": o.lot_number, "cost": o.cost, "tax": o.tax,
-            "shipping": o.shipping, "expiration_date": _iso(o.expiration_date),
-            "has_coa": bool(o.coa_filename), "coa_vial_size_mg": o.coa_vial_size_mg,
-            "coa_purity_pct": o.coa_purity_pct,
-        } for o in item.orders],
+            "id": li.id, "quantity": li.quantity, "received_quantity": li.received_quantity,
+            "order_date": _iso(li.order.order_date), "shipped_date": _iso(li.order.shipped_date),
+            "arrival_date": _iso(li.order.arrival_date), "tracking_site": li.order.tracking_site,
+            "tracking_number": li.order.tracking_number, "vendor": li.order.vendor,
+            "lot_number": li.lot_number, "cost": li.cost, "tax": li.order.tax,
+            "shipping": li.order.shipping, "expiration_date": _iso(li.expiration_date),
+            "has_coa": bool(li.coa_filename), "coa_vial_size_mg": li.coa_vial_size_mg,
+            "coa_purity_pct": li.coa_purity_pct,
+        } for li in sorted(item.order_items, key=lambda li: li.order.order_date, reverse=True)],
         "sales": [{
             "id": s.id, "quantity": s.quantity, "sale_date": _iso(s.sale_date), "price": s.price,
         } for s in item.sales],
