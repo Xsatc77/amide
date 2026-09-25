@@ -312,3 +312,43 @@ def test_0012_adds_sales_table(tmp_path):
     with sqlite3.connect(db) as c:
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
         assert "sales" not in tables
+
+
+def test_0013_splits_orders_into_order_items(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0012")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-25')")
+        c.execute("insert into inventory_items(name,count,vial_size_unit,category,created_at,"
+                  "updated_at,owner_id) values ('Retatrutide',0,'mg','Medicine','2026-09-25',"
+                  "'2026-09-25',1)")
+        item_id = c.execute("select id from inventory_items where name='Retatrutide'").fetchone()[0]
+        # An arrived order (should backfill received_quantity = quantity).
+        c.execute("insert into orders(inventory_item_id,quantity,order_date,arrival_date,cost_cents,"
+                  "created_at) values (?,10,'2026-08-01','2026-08-10',8400,'2026-08-01')", (item_id,))
+        # An in-transit order (should backfill received_quantity = NULL).
+        c.execute("insert into orders(inventory_item_id,quantity,order_date,created_at) "
+                  "values (?,5,'2026-09-20','2026-09-20')", (item_id,))
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(order_items)")}
+        assert {"order_id", "inventory_item_id", "quantity", "received_quantity", "received_note",
+               "cost_cents", "lot_number", "expiration_date", "coa_filename", "coa_vial_size_mg",
+               "coa_purity_pct"} <= cols
+        order_cols = {r[1] for r in c.execute("pragma table_info(orders)")}
+        assert "inventory_item_id" not in order_cols and "quantity" not in order_cols
+        assert {"order_date", "arrival_date", "tax_cents", "shipping_cents"} <= order_cols
+
+        rows = c.execute("select quantity, received_quantity, cost_cents from order_items "
+                         "order by quantity desc").fetchall()
+        assert rows == [(10, 10, 8400), (5, None, None)]
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into order_items(order_id,inventory_item_id,quantity,received_quantity) "
+                      "values (1,?,5,6)", (item_id,))  # received > ordered
+    command.downgrade(cfg, "0012")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "order_items" not in tables
+        assert "inventory_item_id" in {r[1] for r in c.execute("pragma table_info(orders)")}

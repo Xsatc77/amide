@@ -287,18 +287,40 @@ def test_available_count_supply_is_the_plain_count_column(db, me):
     assert item.available_count == 250
 
 
-def test_available_count_medicine_sums_arrived_orders_minus_reconstituted_and_sold(db, me):
+def test_available_count_uses_received_quantity_not_ordered_quantity(db, me):
+    from app.models import OrderItem
+
     item = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
                          medium=Medium.LYOPHILIZED, vial_size_mg=10, reconstituted_count=2, sold_count=1)
     db.add(item)
     db.flush()
-    db.add_all([
-        Order(inventory_item_id=item.id, quantity=10, order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 10)),
-        Order(inventory_item_id=item.id, quantity=5, order_date=date(2026, 9, 20)),  # not arrived
-    ])
+    arrived_order = Order(order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 10))
+    in_transit_order = Order(order_date=date(2026, 9, 20))
+    db.add_all([arrived_order, in_transit_order])
+    db.flush()
+    item.order_items.append(OrderItem(order_id=arrived_order.id, quantity=10, received_quantity=8))
+    item.order_items.append(OrderItem(order_id=in_transit_order.id, quantity=5))  # not checked in
     db.commit()
     db.refresh(item)
-    assert item.available_count == 10 - 2 - 1  # the in-transit order of 5 doesn't count yet
+    # 8 received (not the 10 ordered -- 2 were short) - 2 reconstituted - 1 sold; the in-transit
+    # line's 5 don't count at all yet.
+    assert item.available_count == 8 - 2 - 1
+
+
+def test_order_item_received_quantity_cannot_exceed_ordered_quantity(db, me):
+    from app.models import OrderItem
+
+    item = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                         medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    db.add(item)
+    db.flush()
+    order = Order(order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 10))
+    db.add(order)
+    db.flush()
+    with pytest.raises(IntegrityError):
+        db.add(OrderItem(order_id=order.id, inventory_item_id=item.id, quantity=5, received_quantity=6))
+        db.flush()
+    db.rollback()
 
 
 def test_sale_model_has_quantity_and_price_constraints(db, me):

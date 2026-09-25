@@ -137,42 +137,36 @@ class InventoryItem(Base):
     def cost(self) -> float | None:
         return None if self.cost_cents is None else self.cost_cents / 100
 
-    orders: Mapped[list["Order"]] = relationship(
-        back_populates="inventory_item", order_by="Order.order_date.desc()", cascade="all, delete-orphan")
+    order_items: Mapped[list["OrderItem"]] = relationship(
+        back_populates="inventory_item", cascade="all, delete-orphan")
 
     sales: Mapped[list["Sale"]] = relationship(
         back_populates="inventory_item", order_by="Sale.sale_date.desc()", cascade="all, delete-orphan")
 
     @property
     def available_count(self) -> int:
-        """Medicine/BAC Water: arrived-order quantity minus reconstituted/sold. Supply: the plain
-        count column. The Inventory list and Calculator read this, never `count` directly, for
-        Medicine/BAC Water items."""
+        """Medicine/BAC Water: received quantity (from checked-in orders only) minus
+        reconstituted/sold. Supply: the plain count column. A short or damaged receipt caught at
+        check-in never inflates this -- only OrderItem.received_quantity counts, never the
+        original quantity ordered."""
         if self.category == Category.SUPPLY:
             return self.count
-        arrived = sum(o.quantity for o in self.orders if o.arrival_date is not None)
+        arrived = sum(
+            (li.received_quantity or 0) for li in self.order_items if li.order.arrival_date is not None)
         return arrived - self.reconstituted_count - self.sold_count
 
 
 class Order(Base):
-    """One shipment/lot of a Medicine or BAC Water InventoryItem. Filling in arrival_date is what
-    moves this order's quantity into the item's available_count; until then it shows in the
-    Inventory page's In-Transit section. Supply items never have Orders."""
+    """One shipment/vendor order, possibly containing several items (see OrderItem). Filling in
+    arrival_date is the single combined "checked in" action -- see OrderItem.received_quantity."""
 
     __tablename__ = "orders"
     __table_args__ = (
-        CheckConstraint("quantity > 0", name="ck_order_quantity_pos"),
-        CheckConstraint("cost_cents IS NULL OR cost_cents >= 0", name="ck_order_cost_nonneg"),
         CheckConstraint("tax_cents IS NULL OR tax_cents >= 0", name="ck_order_tax_nonneg"),
         CheckConstraint("shipping_cents IS NULL OR shipping_cents >= 0", name="ck_order_shipping_nonneg"),
-        CheckConstraint("coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0", name="ck_order_coa_vial_size_pos"),
-        CheckConstraint("coa_purity_pct IS NULL OR (coa_purity_pct >= 0 AND coa_purity_pct <= 100)",
-                        name="ck_order_coa_purity_range"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
-    quantity: Mapped[int] = mapped_column(Integer)
     order_date: Mapped[date] = mapped_column(Date)
     shipped_date: Mapped[date | None] = mapped_column(Date)
     arrival_date: Mapped[date | None] = mapped_column(Date)
@@ -180,21 +174,11 @@ class Order(Base):
     tracking_number: Mapped[str | None] = mapped_column(String(100))
     vendor: Mapped[str | None] = mapped_column(String(200))
     vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
-    lot_number: Mapped[str | None] = mapped_column(String(100))
-    cost_cents: Mapped[int | None] = mapped_column(Integer)
     tax_cents: Mapped[int | None] = mapped_column(Integer)
     shipping_cents: Mapped[int | None] = mapped_column(Integer)
-    expiration_date: Mapped[date | None] = mapped_column(Date)
-    coa_filename: Mapped[str | None] = mapped_column(String(100))
-    coa_vial_size_mg: Mapped[float | None] = mapped_column(Float)
-    coa_purity_pct: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    inventory_item: Mapped["InventoryItem"] = relationship(back_populates="orders")
-
-    @property
-    def cost(self) -> float | None:
-        return None if self.cost_cents is None else self.cost_cents / 100
+    items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
 
     @property
     def tax(self) -> float | None:
@@ -203,6 +187,47 @@ class Order(Base):
     @property
     def shipping(self) -> float | None:
         return None if self.shipping_cents is None else self.shipping_cents / 100
+
+
+class OrderItem(Base):
+    """One line of an Order: a quantity of one InventoryItem, with its own cost/lot/expiration/COA
+    (different peptides, different lots of the same peptide, and BAC Water can each carry their
+    own COA/lot/expiration even within one shipment). received_quantity is null until the parent
+    Order is checked in; check-in fills it in for every line at once (pre-filled to `quantity`,
+    editable down for anything short or damaged) -- nothing here counts toward
+    InventoryItem.available_count until then."""
+
+    __tablename__ = "order_items"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_order_item_quantity_pos"),
+        CheckConstraint(
+            "received_quantity IS NULL OR (received_quantity >= 0 AND received_quantity <= quantity)",
+            name="ck_order_item_received_range"),
+        CheckConstraint("cost_cents IS NULL OR cost_cents >= 0", name="ck_order_item_cost_nonneg"),
+        CheckConstraint("coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0", name="ck_order_item_coa_vial_size_pos"),
+        CheckConstraint("coa_purity_pct IS NULL OR (coa_purity_pct >= 0 AND coa_purity_pct <= 100)",
+                        name="ck_order_item_coa_purity_range"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[int] = mapped_column(Integer)
+    received_quantity: Mapped[int | None] = mapped_column(Integer)
+    received_note: Mapped[str | None] = mapped_column(String(300))
+    cost_cents: Mapped[int | None] = mapped_column(Integer)
+    lot_number: Mapped[str | None] = mapped_column(String(100))
+    expiration_date: Mapped[date | None] = mapped_column(Date)
+    coa_filename: Mapped[str | None] = mapped_column(String(100))
+    coa_vial_size_mg: Mapped[float | None] = mapped_column(Float)
+    coa_purity_pct: Mapped[float | None] = mapped_column(Float)
+
+    order: Mapped["Order"] = relationship(back_populates="items")
+    inventory_item: Mapped["InventoryItem"] = relationship(back_populates="order_items")
+
+    @property
+    def cost(self) -> float | None:
+        return None if self.cost_cents is None else self.cost_cents / 100
 
 
 class Sale(Base):
