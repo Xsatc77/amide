@@ -271,3 +271,29 @@ def test_search_filter_scoped_to_owner_only(client, db):
     other.post("/register", data={"username": "InvOther", "password": "Inv0ther!", "confirm": "Inv0ther!"})
     t = other.get("/inventory").text
     assert "Mine Only" not in t
+
+
+# ---------------------------------------------------------------- available_count
+
+from app.models import Category, Order
+
+
+def test_available_count_supply_is_the_plain_count_column(db, me):
+    item = InventoryItem(owner_id=me, name="Alcohol Pads", category=Category.SUPPLY, count=250)
+    db.add(item)
+    db.commit()
+    assert item.available_count == 250
+
+
+def test_available_count_medicine_sums_arrived_orders_minus_reconstituted_and_sold(db, me):
+    item = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                         medium=Medium.LYOPHILIZED, vial_size_mg=10, reconstituted_count=2, sold_count=1)
+    db.add(item)
+    db.flush()
+    db.add_all([
+        Order(inventory_item_id=item.id, quantity=10, order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 10)),
+        Order(inventory_item_id=item.id, quantity=5, order_date=date(2026, 9, 20)),  # not arrived
+    ])
+    db.commit()
+    db.refresh(item)
+    assert item.available_count == 10 - 2 - 1  # the in-transit order of 5 doesn't count yet

@@ -225,3 +225,48 @@ def test_0010_adds_active_vials_and_discard_days(tmp_path):
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
         assert "active_vials" not in tables
         assert "default_discard_days" not in {r[1] for r in c.execute("pragma table_info(users)")}
+
+
+def test_0011_adds_orders_and_categorizes_existing_items(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0010")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-25')")
+        # A Lyophilized item with full legacy order/vendor/lot/COA data.
+        c.execute("insert into inventory_items(name,count,vial_size_unit,medium,vendor,lot_number,"
+                  "cost_cents,order_date,shipped_date,arrival_date,coa_vial_size_mg,coa_purity_pct,"
+                  "created_at,updated_at,owner_id) values ('Retatrutide',10,'mg','Lyophilized',"
+                  "'PeptideCo','LOT1',8400,'2026-08-01','2026-08-03','2026-08-10',9.48,99.5,"
+                  "'2026-08-01','2026-08-01',1)")
+        # A no-medium item (today's "supply" pattern), no order data at all.
+        c.execute("insert into inventory_items(name,count,vial_size_unit,created_at,updated_at,owner_id)"
+                  " values ('Alcohol Prep Pads',250,'mg','2026-09-01','2026-09-01',1)")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(orders)")}
+        assert {"inventory_item_id", "quantity", "order_date", "shipped_date", "arrival_date",
+               "tracking_site", "tracking_number", "vendor", "vendor_id", "lot_number",
+               "cost_cents", "tax_cents", "shipping_cents", "expiration_date", "coa_filename",
+               "coa_vial_size_mg", "coa_purity_pct"} <= cols
+        item_cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+        assert {"category", "reconstituted_count", "sold_count"} <= item_cols
+        assert "lot_number" not in item_cols and "arrival_date" not in item_cols
+
+        cat, qty = c.execute("select category,count from inventory_items where name='Retatrutide'").fetchone()
+        assert cat == "Medicine"
+        order = c.execute("select quantity,vendor,lot_number,arrival_date from orders "
+                          "where inventory_item_id=(select id from inventory_items where name='Retatrutide')").fetchone()
+        assert order == (10, "PeptideCo", "LOT1", "2026-08-10")
+
+        cat2 = c.execute("select category from inventory_items where name='Alcohol Prep Pads'").fetchone()[0]
+        assert cat2 == "Supply"
+        no_orders = c.execute("select count(*) from orders where inventory_item_id="
+                              "(select id from inventory_items where name='Alcohol Prep Pads')").fetchone()[0]
+        assert no_orders == 0
+    command.downgrade(cfg, "0010")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "orders" not in tables
+        assert "category" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}

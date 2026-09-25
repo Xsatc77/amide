@@ -44,6 +44,12 @@ class Medium(str, enum.Enum):
     SALVE = "Salve"
 
 
+class Category(str, enum.Enum):
+    MEDICINE = "Medicine"
+    BAC_WATER = "BAC Water"
+    SUPPLY = "Supply"
+
+
 class StorageLocation(LabeledEnum):
     FRIDGE = ("fridge", "Fridge")
     FREEZER = ("freezer", "Freezer")
@@ -121,16 +127,10 @@ class InventoryItem(Base):
     # no changes; vendor_id is the source of truth once set.
     vendor: Mapped[str | None] = mapped_column(String(200))
     vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
-    lot_number: Mapped[str | None] = mapped_column(String(100))
-    order_date: Mapped[date | None] = mapped_column(Date)
-    shipped_date: Mapped[date | None] = mapped_column(Date)
-    arrival_date: Mapped[date | None] = mapped_column(Date)
-    # Filename (not path) of the uploaded COA inside config.COA_DIR.
-    coa_filename: Mapped[str | None] = mapped_column(String(100))
-    # What the lab actually measured, per the COA (vs. the labeled vial_size_mg).
-    coa_vial_size_mg: Mapped[float | None] = mapped_column(Float)
-    coa_purity_pct: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[Category] = mapped_column(_enum_column(Category), default=Category.MEDICINE)
+    reconstituted_count: Mapped[int] = mapped_column(Integer, default=0)
+    sold_count: Mapped[int] = mapped_column(Integer, default=0)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -139,6 +139,70 @@ class InventoryItem(Base):
     @property
     def cost(self) -> float | None:
         return None if self.cost_cents is None else self.cost_cents / 100
+
+    orders: Mapped[list["Order"]] = relationship(
+        back_populates="inventory_item", order_by="Order.order_date.desc()", cascade="all, delete-orphan")
+
+    @property
+    def available_count(self) -> int:
+        """Medicine/BAC Water: arrived-order quantity minus reconstituted/sold. Supply: the plain
+        count column. The Inventory list and Calculator read this, never `count` directly, for
+        Medicine/BAC Water items."""
+        if self.category == Category.SUPPLY:
+            return self.count
+        arrived = sum(o.quantity for o in self.orders if o.arrival_date is not None)
+        return arrived - self.reconstituted_count - self.sold_count
+
+
+class Order(Base):
+    """One shipment/lot of a Medicine or BAC Water InventoryItem. Filling in arrival_date is what
+    moves this order's quantity into the item's available_count; until then it shows in the
+    Inventory page's In-Transit section. Supply items never have Orders."""
+
+    __tablename__ = "orders"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_order_quantity_pos"),
+        CheckConstraint("cost_cents IS NULL OR cost_cents >= 0", name="ck_order_cost_nonneg"),
+        CheckConstraint("tax_cents IS NULL OR tax_cents >= 0", name="ck_order_tax_nonneg"),
+        CheckConstraint("shipping_cents IS NULL OR shipping_cents >= 0", name="ck_order_shipping_nonneg"),
+        CheckConstraint("coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0", name="ck_order_coa_vial_size_pos"),
+        CheckConstraint("coa_purity_pct IS NULL OR (coa_purity_pct >= 0 AND coa_purity_pct <= 100)",
+                        name="ck_order_coa_purity_range"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[int] = mapped_column(Integer)
+    order_date: Mapped[date] = mapped_column(Date)
+    shipped_date: Mapped[date | None] = mapped_column(Date)
+    arrival_date: Mapped[date | None] = mapped_column(Date)
+    tracking_site: Mapped[str | None] = mapped_column(String(500))
+    tracking_number: Mapped[str | None] = mapped_column(String(100))
+    vendor: Mapped[str | None] = mapped_column(String(200))
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
+    lot_number: Mapped[str | None] = mapped_column(String(100))
+    cost_cents: Mapped[int | None] = mapped_column(Integer)
+    tax_cents: Mapped[int | None] = mapped_column(Integer)
+    shipping_cents: Mapped[int | None] = mapped_column(Integer)
+    expiration_date: Mapped[date | None] = mapped_column(Date)
+    coa_filename: Mapped[str | None] = mapped_column(String(100))
+    coa_vial_size_mg: Mapped[float | None] = mapped_column(Float)
+    coa_purity_pct: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    inventory_item: Mapped["InventoryItem"] = relationship(back_populates="orders")
+
+    @property
+    def cost(self) -> float | None:
+        return None if self.cost_cents is None else self.cost_cents / 100
+
+    @property
+    def tax(self) -> float | None:
+        return None if self.tax_cents is None else self.tax_cents / 100
+
+    @property
+    def shipping(self) -> float | None:
+        return None if self.shipping_cents is None else self.shipping_cents / 100
 
 
 class ActiveVial(Base):
