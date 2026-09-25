@@ -237,6 +237,11 @@
   const dialog = document.getElementById("order-dialog");
   if (!dialog) return;  // Supply items have no Order History section
   const form = dialog.querySelector("form");
+  const orderFields = [
+    "quantity", "order_date", "shipped_date", "arrival_date", "tracking_site", "tracking_number",
+    "vendor", "lot_number", "cost", "tax", "shipping", "expiration_date",
+    "coa_vial_size_mg", "coa_purity_pct",
+  ];
 
   document.querySelectorAll('[data-action="add-order"]').forEach((btn) => btn.addEventListener("click", () => {
     form.reset();
@@ -245,6 +250,11 @@
     dialog.showModal();
   }));
   document.querySelectorAll('[data-action="edit-order"]').forEach((btn) => btn.addEventListener("click", () => {
+    form.reset();
+    const order = JSON.parse(btn.dataset.order);
+    for (const f of orderFields) {
+      if (form.elements[f]) form.elements[f].value = order[f] ?? "";
+    }
     form.action = `${window.location.pathname}/orders/${btn.dataset.orderId}`;
     dialog.querySelector("[data-title]").textContent = "Edit order";
     dialog.showModal();

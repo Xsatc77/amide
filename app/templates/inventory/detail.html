@@ -67,7 +67,7 @@
         <td>{{ o.lot_number or '—' }}</td>
         <td>{{ o.cost | money or '—' }}</td>
         <td>{% if o.coa_filename %}<a href="/inventory/{{ item.id }}/orders/{{ o.id }}/coa" target="_blank" rel="noopener">View</a>{% else %}—{% endif %}</td>
-        {% if is_owner %}<td><button type="button" class="btn btn-ghost" data-action="edit-order" data-order-id="{{ o.id }}">Edit</button></td>{% endif %}
+        {% if is_owner %}<td><button type="button" class="btn btn-ghost" data-action="edit-order" data-order-id="{{ o.id }}" data-order='{{ {"quantity": o.quantity, "order_date": o.order_date.isoformat() if o.order_date else "", "shipped_date": o.shipped_date.isoformat() if o.shipped_date else "", "arrival_date": o.arrival_date.isoformat() if o.arrival_date else "", "tracking_site": o.tracking_site or "", "tracking_number": o.tracking_number or "", "vendor": o.vendor or "", "lot_number": o.lot_number or "", "cost": "" if o.cost is none else ("%.2f" % o.cost), "tax": "" if o.tax is none else ("%.2f" % o.tax), "shipping": "" if o.shipping is none else ("%.2f" % o.shipping), "expiration_date": o.expiration_date.isoformat() if o.expiration_date else "", "coa_vial_size_mg": "" if o.coa_vial_size_mg is none else ("%g" % o.coa_vial_size_mg), "coa_purity_pct": "" if o.coa_purity_pct is none else ("%g" % o.coa_purity_pct)} | tojson }}'>Edit</button></td>{% endif %}
       </tr>
       {% endfor %}
     </tbody>
