@@ -218,6 +218,110 @@
     </footer>
   </form>
 </dialog>
+
+<section aria-labelledby="sales-heading">
+  <h2 id="sales-heading" class="section-title">Sale history</h2>
+  {% if is_owner %}
+  <button type="button" class="btn btn-ghost" data-action="sold"
+          {% if item.available_count == 0 %}disabled title="Nothing available to sell"{% endif %}>Sold</button>
+  {% endif %}
+  {% if item.sales %}
+  <div class="table-wrap">
+  <table class="inv-table">
+    <thead><tr><th>Date</th><th>Quantity</th><th>Price</th></tr></thead>
+    <tbody>
+      {% for s in item.sales %}
+      <tr><td>{{ s.sale_date | shortdate }}</td><td>{{ s.quantity }}</td><td>{{ s.price | money }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No sales yet.</p>
+  {% endif %}
+</section>
+
+{% if is_owner %}
+{% set sf = sale_form or {} %}
+{% macro serr(field) %}{% if sale_errors and sale_errors[field] %}<small class="error">{{ sale_errors[field] }}</small>{% endif %}{% endmacro %}
+{% macro scls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if sale_errors and sale_errors[field] }}"{% endmacro %}
+<dialog id="sale-dialog" class="dialog" {% if sale_errors %}data-open-on-load{% endif %}>
+  <form method="post" class="item-form" action="/inventory/{{ item.id }}/sales" novalidate>
+    <header class="dialog-head">
+      <h2 data-title>Sold</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-sale" aria-label="Close">×</button>
+    </header>
+    {% if sale_errors %}
+    <div class="alert" role="alert">Please fix the highlighted fields.</div>
+    {% endif %}
+    <div class="grid">
+      <label {{ scls('sale_date') }}>
+        <span>Sale date</span>
+        <input name="sale_date" type="date" value="{{ sf.sale_date or today_iso }}">
+        {{ serr('sale_date') }}
+      </label>
+      <label {{ scls('quantity') }}>
+        <span>Quantity</span>
+        <select name="quantity" id="sale-quantity">
+          {% for n in range(1, item.available_count + 1) %}
+          <option value="{{ n }}" {{ 'selected' if sf.quantity == n|string }}>{{ n }}</option>
+          {% endfor %}
+        </select>
+        {{ serr('quantity') }}
+      </label>
+      <label {{ scls('price') }}>
+        <span>Price sold for ($)</span>
+        <input name="price" type="number" min="0" step="0.01" id="sale-price" value="{{ sf.price }}">
+        {{ serr('price') }}
+      </label>
+
+      {% if item.category.value == 'Medicine' %}
+      <label class="field span-2 checkbox-field">
+        <input type="checkbox" name="include_bac_water" id="sale-include-bac" value="1" {{ 'checked' if sf.include_bac_water }}>
+        <span>Include BAC Water sold in this transaction</span>
+      </label>
+      <div data-bac-group {{ 'hidden' if not sf.include_bac_water }} class="span-2">
+        {% if bac_water_options %}
+        <div class="grid">
+          <label {{ scls('bac_item_id') }}>
+            <span>BAC Water item</span>
+            <select name="bac_item_id" id="sale-bac-item">
+              <option value="">— Select —</option>
+              {% for b in bac_water_options %}
+              <option value="{{ b.id }}" data-available="{{ b.available_count }}" {{ 'selected' if sf.bac_item_id == b.id|string }}>{{ b.name }} ({{ b.available_count }} available)</option>
+              {% endfor %}
+            </select>
+            {{ serr('bac_item_id') }}
+          </label>
+          <label {{ scls('bac_quantity') }}>
+            <span>BAC Water quantity</span>
+            <select name="bac_quantity" id="sale-bac-quantity" data-selected="{{ sf.bac_quantity }}"></select>
+            {{ serr('bac_quantity') }}
+          </label>
+          <label {{ scls('bac_price') }}>
+            <span>BAC Water price sold for ($)</span>
+            <input name="bac_price" type="number" min="0" step="0.01" id="sale-bac-price" value="{{ sf.bac_price }}">
+            {{ serr('bac_price') }}
+          </label>
+        </div>
+        {% else %}
+        <p class="muted">No BAC Water in stock.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="field span-2">
+        <span>Total</span>
+        <strong id="sale-total">$0.00</strong>
+      </div>
+    </div>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-sale">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </footer>
+  </form>
+</dialog>
+{% endif %}
 {% endif %}
 {% endblock %}
 

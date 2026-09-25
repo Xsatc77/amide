@@ -845,6 +845,64 @@ def test_order_history_table_shows_expiration_tax_and_shipping(client, db):
     assert "$5.25" in t and "$12.00" in t
 
 
+# ---------------------------------------------------------------- Sold flow: Task 4 (template)
+
+
+def test_detail_page_shows_sold_button_and_dialog_for_medicine(client, db):
+    item_id = _medicine_with_stock(client)
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="sold"' in t
+    assert 'id="sale-dialog"' in t
+    assert 'name="include_bac_water"' in t
+    assert 'Sale history' in t
+
+
+def test_detail_page_shows_sold_button_for_bac_water_without_bundle_checkbox(client, db):
+    item_id = _bac_water_with_stock(client)
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="sold"' in t
+    assert 'name="include_bac_water"' not in t
+
+
+def test_detail_page_hides_sold_button_for_supply(client, db):
+    r = client.post("/inventory", data={"name": "Alcohol Pads", "category": "Supply", "count": "10"},
+                    follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Alcohol Pads"))
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="sold"' not in t
+
+
+def test_sold_button_disabled_when_nothing_available(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",  # no arrival_date -- 0 available
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="sold"' in t and "disabled" in t.split('data-action="sold"')[1][:80]
+
+
+def test_sale_history_lists_committed_sales(client, db):
+    item_id = _medicine_with_stock(client)
+    client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
+               follow_redirects=False)
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert "Sale history" in t
+    assert "$150.00" in t
+
+
+def test_sale_validation_error_reopens_dialog_prefilled(client, db):
+    item_id = _medicine_with_stock(client, quantity=5)
+    r = client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "6", "price": "10.00"})
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert "data-open-on-load" in t
+    assert 'id="sale-dialog"' in t
+    assert 'name="price" type="number" min="0" step="0.01" id="sale-price" value="10.00"' in t
+
+
 # ---------------------------------------------------------------- Task 7: list resectioning
 
 
