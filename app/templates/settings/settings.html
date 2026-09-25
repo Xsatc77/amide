@@ -91,6 +91,18 @@
         <button type="submit" class="btn btn-primary">Save email</button>
       </form>
 
+      <form method="post" action="/settings/discard-window" class="settings-form" novalidate>
+        <h3 class="small muted">Default discard window</h3>
+        <p class="small muted">How many days after reconstituting a vial it defaults to expiring. You can still change it per vial when you reconstitute.</p>
+        <label class="field {{ 'has-error' if errors.default_discard_days }}">
+          <span>Days</span>
+          <input name="default_discard_days" type="number" min="1" step="1" inputmode="numeric"
+                value="{{ me.default_discard_days or 28 }}">
+          {{ err('default_discard_days') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+
       <div class="settings-form">
         <h3 class="small muted">Backup &amp; restore</h3>
         <p class="small muted">Download or restore your inventory and protocols.</p>

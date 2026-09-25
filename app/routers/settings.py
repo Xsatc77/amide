@@ -156,6 +156,24 @@ async def change_email(request: Request, session: Session = Depends(get_session)
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/discard-window")
+async def change_discard_window(request: Request, session: Session = Depends(get_session),
+                                uid: int = Depends(current_user_id)):
+    form = await request.form()
+    raw = str(form.get("default_discard_days", "")).strip()
+    try:
+        days = int(raw)
+        if days <= 0:
+            raise ValueError
+    except ValueError:
+        return _render(request, session, errors={"default_discard_days": "Enter a whole number of days, greater than 0."},
+                      status_code=422)
+
+    _me(session, uid).default_discard_days = days
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)
+
+
 @router.post("/settings/display")
 async def change_display(request: Request, session: Session = Depends(get_session),
                          uid: int = Depends(current_user_id)):

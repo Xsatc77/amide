@@ -427,3 +427,23 @@ def test_sharing_route_422_for_bad_category(client, db):
     with SessionLocal() as s:
         other_id = s.scalar(select(User.id).where(User.username_key == "badcat"))
     assert client.post(f"/settings/sharing/{other_id}/not-a-real-category").status_code == 422
+
+
+def test_discard_window_saves_and_defaults_to_28(client, db, me):
+    t = text(client.get("/settings"))
+    assert 'value="28"' in t  # unset -> the form shows the application default, not blank
+
+    r = client.post("/settings/discard-window", data={"default_discard_days": "45"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert _current(me).default_discard_days == 45
+
+    t = text(client.get("/settings"))
+    assert 'value="45"' in t
+
+
+def test_discard_window_rejects_non_positive(client, db, me):
+    r = client.post("/settings/discard-window", data={"default_discard_days": "0"})
+    assert r.status_code == 422
+    r = client.post("/settings/discard-window", data={"default_discard_days": "not-a-number"})
+    assert r.status_code == 422
+    assert _current(me).default_discard_days in (None, 45)  # unchanged from whatever the prior test left
