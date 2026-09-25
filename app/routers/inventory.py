@@ -578,6 +578,16 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
 
     main = _parse_sale_fields(raw, "", item.name, item.available_count, errors)
 
+    bac_item = None
+    bac_values = None
+    include_bac_water = bool(raw["include_bac_water"]) and item.category == Category.MEDICINE
+    if include_bac_water:
+        bac_item = _own_item(session, int(raw["bac_item_id"]), uid) if raw["bac_item_id"].isdigit() else None
+        if bac_item is None or bac_item.category != Category.BAC_WATER:
+            errors["bac_item_id"] = "Select a BAC Water item."
+        else:
+            bac_values = _parse_sale_fields(raw, "bac_", bac_item.name, bac_item.available_count, errors)
+
     if errors:
         return templates.TemplateResponse(
             request, "inventory/detail.html",
@@ -588,6 +598,10 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
 
     item.sales.append(Sale(quantity=main["quantity"], sale_date=sale_date, price_cents=main["price_cents"]))
     item.sold_count += main["quantity"]
+    if bac_item is not None:
+        bac_item.sales.append(Sale(quantity=bac_values["quantity"], sale_date=sale_date,
+                                   price_cents=bac_values["price_cents"]))
+        bac_item.sold_count += bac_values["quantity"]
     session.commit()
     return RedirectResponse(f"/inventory/{item_id}", status_code=303)
 

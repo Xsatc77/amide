@@ -679,6 +679,118 @@ def test_sell_item_requires_ownership(client, db):
     assert r.status_code == 404
 
 
+def _bac_water_with_stock(client, name="Bacteriostatic Water", quantity=20):
+    client.post("/inventory", data={
+        "name": name, "category": "BAC Water", "quantity": str(quantity), "order_date": "2026-08-01",
+        "arrival_date": "2026-08-05",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == name))
+    return item_id
+
+
+def test_sell_medicine_with_bundled_bac_water_creates_two_separate_sales(client, db):
+    med_id = _medicine_with_stock(client)
+    bac_id = _bac_water_with_stock(client)
+    r = client.post(f"/inventory/{med_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "2", "price": "150.00",
+        "include_bac_water": "1", "bac_item_id": str(bac_id), "bac_quantity": "3", "bac_price": "9.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        med = s.get(InventoryItem, med_id)
+        bac = s.get(InventoryItem, bac_id)
+        assert med.sold_count == 2 and med.available_count == 8
+        assert bac.sold_count == 3 and bac.available_count == 17
+        [med_sale] = med.sales
+        [bac_sale] = bac.sales
+        assert med_sale.price == 150.0 and med_sale.quantity == 2
+        assert bac_sale.price == 9.0 and bac_sale.quantity == 3
+        assert med_sale.sale_date == bac_sale.sale_date == date(2026, 9, 25)
+
+
+def test_sell_with_bac_water_checked_requires_bac_quantity_and_price(client, db):
+    med_id = _medicine_with_stock(client)
+    bac_id = _bac_water_with_stock(client)
+    # BAC Water item picked, but its quantity/price left blank -- must not be silently dropped.
+    r = client.post(f"/inventory/{med_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "50.00", "include_bac_water": "1",
+        "bac_item_id": str(bac_id),
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, med_id).sold_count == 0  # nothing committed -- one form, one transaction
+        assert s.get(InventoryItem, bac_id).sold_count == 0
+        assert s.get(InventoryItem, med_id).sales == []
+        assert s.get(InventoryItem, bac_id).sales == []
+
+
+def test_sell_with_bac_water_checked_but_no_item_selected_is_rejected(client, db):
+    med_id = _medicine_with_stock(client)
+    bac_id = _bac_water_with_stock(client)
+    r = client.post(f"/inventory/{med_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "50.00", "include_bac_water": "1",
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, med_id).sold_count == 0
+        assert s.get(InventoryItem, med_id).sales == []
+        assert s.get(InventoryItem, bac_id).sold_count == 0
+        assert s.get(InventoryItem, bac_id).sales == []
+
+
+def test_sell_rejects_more_bac_water_than_available(client, db):
+    med_id = _medicine_with_stock(client)
+    bac_id = _bac_water_with_stock(client, quantity=2)
+    r = client.post(f"/inventory/{med_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "50.00", "include_bac_water": "1",
+        "bac_item_id": str(bac_id), "bac_quantity": "3", "bac_price": "9.00",
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, med_id).sold_count == 0
+        assert s.get(InventoryItem, med_id).sales == []
+        assert s.get(InventoryItem, bac_id).sold_count == 0
+        assert s.get(InventoryItem, bac_id).sales == []
+
+
+def test_sell_rejects_bac_item_not_owned_by_caller(client, db):
+    med_id = _medicine_with_stock(client)
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "BacOther", "password": "BacOther1!", "confirm": "BacOther1!"})
+    other.post("/inventory", data={
+        "name": "Their Water", "category": "BAC Water", "quantity": "20", "order_date": "2026-08-01",
+    })
+    with SessionLocal() as s:
+        their_bac_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Their Water"))
+    r = client.post(f"/inventory/{med_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "50.00", "include_bac_water": "1",
+        "bac_item_id": str(their_bac_id), "bac_quantity": "1", "bac_price": "9.00",
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, med_id).sold_count == 0
+        assert s.get(InventoryItem, med_id).sales == []
+        assert s.get(InventoryItem, their_bac_id).sold_count == 0
+        assert s.get(InventoryItem, their_bac_id).sales == []
+
+
+def test_sell_rejects_bac_item_that_is_not_bac_water_category(client, db):
+    med_id = _medicine_with_stock(client)
+    other_med_id = _medicine_with_stock(client, name="Semaglutide")
+    r = client.post(f"/inventory/{med_id}/sales", data={
+        "sale_date": "2026-09-25", "quantity": "1", "price": "50.00", "include_bac_water": "1",
+        "bac_item_id": str(other_med_id), "bac_quantity": "1", "bac_price": "9.00",
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, med_id).sold_count == 0
+        assert s.get(InventoryItem, med_id).sales == []
+        assert s.get(InventoryItem, other_med_id).sold_count == 0
+        assert s.get(InventoryItem, other_med_id).sales == []
+
+
 def test_shared_item_order_history_is_visible_but_not_editable(client, db, me):
     client.post("/inventory", data={
         "name": "Shared Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
