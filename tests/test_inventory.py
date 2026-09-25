@@ -1078,10 +1078,6 @@ def test_inventory_page_sections_items_by_category(client, db):
     assert '<h2 id="supplies-heading"' in t
 
 
-@pytest.mark.skip(reason="list.html's In-Transit table still reads the old in_transit_orders "
-                         "context key; Task 6 updates it to read the pre-grouped in_transit_groups "
-                         "_render_list now produces (out of scope for Task 2 -- see task-2-brief.md "
-                         "Step 12).")
 def test_inventory_page_shows_in_transit_orders(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
@@ -1335,3 +1331,29 @@ def test_also_in_this_shipment_note_finds_siblings_across_items(client, db, me):
 
     t2 = html.unescape(client.get(f"/inventory/{bac_water.id}").text)
     assert "other item" in t2 and "in this shipment" in t2
+
+
+# ---------------------------------------------------------------- Multi-item orders: Task 6 (In-Transit grouping)
+
+
+def test_in_transit_groups_multiple_items_from_one_order(client, db):
+    from app.models import Order, OrderItem
+
+    with SessionLocal() as s:
+        me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+        med = InventoryItem(owner_id=me_id, name="Retatrutide", category=Category.MEDICINE,
+                            medium=Medium.LYOPHILIZED, vial_size_mg=10)
+        bac = InventoryItem(owner_id=me_id, name="Bacteriostatic Water", category=Category.BAC_WATER)
+        s.add_all([med, bac])
+        s.flush()
+        order = Order(order_date=date(2026, 9, 1), tracking_number="SHARED123")
+        s.add(order)
+        s.flush()
+        order.items.append(OrderItem(inventory_item_id=med.id, quantity=5))
+        order.items.append(OrderItem(inventory_item_id=bac.id, quantity=10))
+        s.commit()
+
+    t = html.unescape(client.get("/inventory").text)
+    assert "SHARED123" in t
+    assert t.count("SHARED123") == 1  # one row for the whole order, not one per line
+    assert "Retatrutide" in t and "Bacteriostatic Water" in t

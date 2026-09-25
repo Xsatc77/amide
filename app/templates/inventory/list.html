@@ -118,18 +118,22 @@
 
 <section id="in-transit" aria-labelledby="in-transit-heading">
   <h2 id="in-transit-heading" class="section-title">In-transit</h2>
-  {% if in_transit_orders %}
+  {% if in_transit_groups %}
   <div class="table-wrap">
     <table class="inv-table">
-      <thead><tr><th>Item</th><th class="num">Quantity</th><th>Ordered</th><th>Shipped</th><th>Tracking</th></tr></thead>
+      <thead><tr><th>Items</th><th>Ordered</th><th>Shipped</th><th>Tracking</th><th></th></tr></thead>
       <tbody>
-        {% for item, order in in_transit_orders %}
+        {% for group in in_transit_groups %}
         <tr>
-          <td><a href="/inventory/{{ item.id }}">{{ item.name }}</a></td>
-          <td class="num">{{ order.quantity }}</td>
-          <td>{{ order.order_date | shortdate }}</td>
-          <td>{{ order.shipped_date | shortdate or '—' }}</td>
-          <td>{% if order.tracking_site %}<a href="{{ order.tracking_site }}" target="_blank" rel="noopener">{{ order.tracking_number or 'Track' }}</a>{% else %}{{ order.tracking_number or '—' }}{% endif %}</td>
+          <td>
+            {% for item, li in group.lines %}
+            <div><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}</div>
+            {% endfor %}
+          </td>
+          <td>{{ group.order.order_date | shortdate }}</td>
+          <td>{{ group.order.shipped_date | shortdate or '—' }}</td>
+          <td>{% if group.order.tracking_site %}<a href="{{ group.order.tracking_site }}" target="_blank" rel="noopener">{{ group.order.tracking_number or 'Track' }}</a>{% else %}{{ group.order.tracking_number or '—' }}{% endif %}</td>
+          <td><a href="/inventory/{{ group.lines[0][0].id }}" class="btn btn-ghost">Check in</a></td>
         </tr>
         {% endfor %}
       </tbody>
