@@ -658,6 +658,9 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .integration-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); opacity: 0.75; }
 
 .inline-form { display: flex; align-items: center; gap: 8px; }
+/* .table-wrap normally clips to keep its rounded corners; let it open up while a row's menu is
+   expanded, since the popover panel below intentionally extends past the table's own bounds. */
+.table-wrap:has(.admin-row-menu[open]) { overflow: visible; }
 .admin-row-menu { position: relative; }
 .admin-row-menu summary { list-style: none; cursor: pointer; }
 .admin-row-menu summary::-webkit-details-marker { display: none; }
