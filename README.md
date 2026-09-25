@@ -43,6 +43,8 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
+**v1.0 — Active Vials.** Reconstituting a Lyophilized inventory item (from the Inventory page or the Calculator) creates a tracked Active Vial — concentration, total content, discard-by date, and doses per vial, shown as a card with the real vial icon. Expired vials flag themselves for a one-time-per-24-hours discard prompt; discarding never deletes the record, just retires it. A default discard window (in days) is configurable in Settings.
+
 **v0.9 — Sharing.** Per-person sharing, off by default: grant specific users a read-only view of your Inventory, your Protocols (personal data), or both, from the new Sharing section in Settings. Shared inventory merges into the viewer's own list, tagged by owner; shared protocols show in a separate "Shared with me" tab, never mixed into your own view or Calendar. Vendors are now a shared list across all users (like the peptide library) — what you bought from one stays private unless you share your inventory.
 
 **v0.8 — Settings.** A Settings page (from the username menu) for changing your username/password, turning two-factor authentication on or off, setting an email (for future sharing features) and timezone, and picking a colorway — Light, Dark, or one of seven named palettes, including a pure-black-and-white High Contrast option. Admins get a Manage Users panel: add accounts, reset passwords, remove someone's two-factor authentication, or delete an account (which also removes everything they own, after two confirmations).
