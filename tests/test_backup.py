@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import InventoryItem, Peptide, Protocol
+from app.models import Category, InventoryItem, Peptide, Protocol
 
 
 def peptide_id(name):
@@ -27,15 +27,17 @@ def other():
 
 
 def make_sample_data(client):
-    client.post("/inventory", data={"name": "BPC-157", "medium": "Lyophilized", "vial_size_mg": "10",
-                                    "vendor": "Acme", "cost": "45.99", "notes": "test note"})
-    client.post("/protocols", data={
+    r = client.post("/inventory", data={"name": "BPC-157", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+                                    "quantity": "5", "order_date": "2026-08-01", "vendor": "Acme", "cost": "45.99", "notes": "test note"})
+    assert r.status_code in (200, 303), f"Inventory POST failed: {r.status_code}"
+    r = client.post("/protocols", data={
         "name": "Heal", "start_date": "2026-09-01", "goal": ["muscle-recovery"], "titration": "1",
         "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
         "items-0-frequency": "daily", "items-0-time_of_day": "am",
         "items-0-steps-0-start_week": "1", "items-0-steps-0-end_week": "4", "items-0-steps-0-dose": "125",
         "items-0-steps-1-start_week": "5", "items-0-steps-1-dose": "250",
     })
+    assert r.status_code in (200, 303), f"Protocols POST failed: {r.status_code}"
 
 
 def test_backup_page_has_export_and_import_links(client):
@@ -55,7 +57,10 @@ def test_json_export_shape_and_content(client, db):
 
     [item] = data["inventory"]
     assert item["name"] == "BPC-157" and item["medium"] == "Lyophilized" and item["vial_size_mg"] == 10
-    assert item["vendor"] == "Acme" and item["cost"] == 45.99 and item["notes"] == "test note"
+    assert item["notes"] == "test note"
+    # vendor and cost are now on the Order for Medicine items
+    [order] = item["orders"]
+    assert order["vendor"] == "Acme" and order["cost"] == 45.99 and order["quantity"] == 5
 
     [proto] = data["protocols"]
     assert proto["name"] == "Heal" and proto["goals"] == ["muscle-recovery"] and proto["titration_enabled"]
@@ -68,8 +73,17 @@ def test_csv_export_headers_and_row(client, db):
     make_sample_data(client)
     r = client.get("/backup/export/inventory.csv")
     assert r.status_code == 200 and "text/csv" in r.headers["content-type"]
-    rows = list(csv.DictReader(io.StringIO(r.text)))
-    assert rows[0]["Name"] == "BPC-157" and rows[0]["Vendor"] == "Acme" and rows[0]["Cost"] == "45.99"
+    lines = r.text.split('\n')
+    # First section is items, second section is orders (separated by blank line)
+    split_idx = next(i for i, line in enumerate(lines) if line.strip() == '')
+    item_lines = lines[:split_idx]
+    order_lines = lines[split_idx + 1:]  # skip blank row
+
+    item_rows = list(csv.DictReader(io.StringIO('\n'.join(item_lines))))
+    assert item_rows[0]["Name"] == "BPC-157"
+
+    order_rows = list(csv.DictReader(io.StringIO('\n'.join(order_lines))))
+    assert order_rows[0]["Item"] == "BPC-157" and order_rows[0]["Vendor"] == "Acme" and order_rows[0]["Cost"] == "45.99"
 
 
 def test_export_excludes_other_users_data(client, db, other):
@@ -110,7 +124,8 @@ def test_import_is_additive_only_never_touches_existing_rows(client, db, other):
         assert s.query(InventoryItem).filter_by(name="BPC-157").count() == 2
         assert s.query(Protocol).filter_by(name="Heal").count() == 2
 
-    other.post("/inventory", data={"name": "Other's own item", "medium": "Lyophilized", "vial_size_mg": "1"})
+    other.post("/inventory", data={"name": "Other's own item", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "1",
+                                   "quantity": "1", "order_date": "2026-08-01"})
     other.post("/backup/import", files={"file": ("backup.json", exported, "application/json")})
     assert any(i["name"] == "Other's own item" for i in other.get("/api/inventory").json())
 
@@ -130,3 +145,43 @@ def test_import_skips_unknown_goal_without_failing(client, db):
 def test_import_rejects_malformed_file(client, db):
     r = client.post("/backup/import", files={"file": ("b.json", b"not json", "application/json")})
     assert r.status_code == 422
+
+
+def test_json_export_includes_orders_and_category(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "tracking_number": "LY123",
+    })
+    payload = client.get("/backup/export.json").json()
+    item = next(i for i in payload["inventory"] if i["name"] == "Retatrutide")
+    assert item["category"] == "Medicine"
+    assert item["orders"][0]["quantity"] == 10 and item["orders"][0]["tracking_number"] == "LY123"
+
+
+def test_json_import_recreates_item_and_its_orders(client, db):
+    payload = {
+        "inventory": [{
+            "name": "Imported Peptide", "category": "Medicine", "medium": "Lyophilized",
+            "vial_size_mg": 10, "vial_size_unit": "mg",
+            "orders": [{"quantity": 5, "order_date": "2026-08-01", "arrival_date": "2026-08-10",
+                       "tracking_number": "LY999"}],
+        }],
+    }
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Imported Peptide"))
+        assert item.category == Category.MEDICINE
+        assert item.orders[0].quantity == 5 and item.orders[0].tracking_number == "LY999"
+        assert item.available_count == 5
+
+
+def test_json_import_tolerates_old_backup_shape_with_no_orders_key(client, db):
+    payload = {"inventory": [{"name": "Old Supply", "category": "Supply", "count": 3}]}
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Old Supply"))
+        assert item.category == Category.SUPPLY and item.available_count == 3

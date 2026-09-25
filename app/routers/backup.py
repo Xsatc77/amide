@@ -17,7 +17,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
-    DoseUnit, Frequency, InventoryItem, Medium, Protocol, ProtocolGoal, ProtocolItem, Route,
+    Category, DoseUnit, Frequency, InventoryItem, Medium, Order, Protocol, ProtocolGoal, ProtocolItem, Route,
     StorageLocation, TimeOfDay, TitrationStep,
 )
 from app.routers.protocols import _find_or_create_peptide
@@ -34,14 +34,22 @@ def _iso(d) -> str | None:
 
 def _inventory_row(i: InventoryItem) -> dict:
     return {
-        "name": i.name, "count": i.count, "vial_size_mg": i.vial_size_mg,
+        "name": i.name, "category": i.category.value, "count": i.count, "vial_size_mg": i.vial_size_mg,
         "vial_size_unit": i.vial_size_unit.value, "medium": i.medium.value if i.medium else None,
         "volume_ml": i.volume_ml, "units_per_package": i.units_per_package,
-        "expiration_date": _iso(i.expiration_date), "storage": i.storage.value if i.storage else None,
-        "cost": i.cost, "vendor": i.vendor, "lot_number": i.lot_number,
-        "order_date": _iso(i.order_date), "shipped_date": _iso(i.shipped_date),
-        "arrival_date": _iso(i.arrival_date), "coa_vial_size_mg": i.coa_vial_size_mg,
-        "coa_purity_pct": i.coa_purity_pct, "notes": i.notes,
+        "storage": i.storage.value if i.storage else None,
+        "cost": i.cost, "vendor": i.vendor, "notes": i.notes,
+        "orders": [_order_row(o) for o in i.orders],
+    }
+
+
+def _order_row(o: Order) -> dict:
+    return {
+        "quantity": o.quantity, "order_date": _iso(o.order_date), "shipped_date": _iso(o.shipped_date),
+        "arrival_date": _iso(o.arrival_date), "tracking_site": o.tracking_site,
+        "tracking_number": o.tracking_number, "vendor": o.vendor, "lot_number": o.lot_number,
+        "cost": o.cost, "tax": o.tax, "shipping": o.shipping, "expiration_date": _iso(o.expiration_date),
+        "coa_vial_size_mg": o.coa_vial_size_mg, "coa_purity_pct": o.coa_purity_pct,
     }
 
 
@@ -68,8 +76,10 @@ def backup_page(request: Request):
 
 @router.get("/backup/export.json")
 def export_json(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
-                                .order_by(InventoryItem.name)).all()
+    inventory = session.scalars(
+        select(InventoryItem).where(InventoryItem.owner_id == uid)
+        .options(selectinload(InventoryItem.orders)).order_by(InventoryItem.name)
+    ).all()
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid)
         .options(selectinload(Protocol.goals), selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
@@ -88,24 +98,37 @@ def export_json(session: Session = Depends(get_session), uid: int = Depends(curr
 
 
 CSV_COLUMNS = [
-    ("Name", "name"), ("Count", "count"), ("Amount", "vial_size_mg"), ("Unit", "vial_size_unit"),
-    ("Medium", "medium"), ("Volume (mL)", "volume_ml"), ("Units per package", "units_per_package"),
-    ("Expiration", "expiration_date"), ("Storage", "storage"), ("Cost", "cost"), ("Vendor", "vendor"),
-    ("Lot/Batch #", "lot_number"), ("Order date", "order_date"), ("Shipped date", "shipped_date"),
-    ("Arrival date", "arrival_date"), ("Notes", "notes"),
+    ("Name", "name"), ("Category", "category"), ("Count", "count"), ("Amount", "vial_size_mg"),
+    ("Unit", "vial_size_unit"), ("Medium", "medium"), ("Volume (mL)", "volume_ml"),
+    ("Units per package", "units_per_package"), ("Storage", "storage"), ("Cost", "cost"),
+    ("Vendor", "vendor"), ("Notes", "notes"),
+]
+ORDER_CSV_COLUMNS = [
+    ("Item", "item_name"), ("Quantity", "quantity"), ("Order date", "order_date"),
+    ("Shipped date", "shipped_date"), ("Arrival date", "arrival_date"), ("Tracking site", "tracking_site"),
+    ("Tracking number", "tracking_number"), ("Vendor", "vendor"), ("Lot/Batch #", "lot_number"),
+    ("Cost", "cost"), ("Tax", "tax"), ("Shipping", "shipping"), ("Expiration", "expiration_date"),
 ]
 
 
 @router.get("/backup/export/inventory.csv")
 def export_inventory_csv(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
-                                .order_by(InventoryItem.name)).all()
+    inventory = session.scalars(
+        select(InventoryItem).where(InventoryItem.owner_id == uid)
+        .options(selectinload(InventoryItem.orders)).order_by(InventoryItem.name)
+    ).all()
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([header for header, _ in CSV_COLUMNS])
     for i in inventory:
         row = _inventory_row(i)
         writer.writerow(["" if row[key] is None else row[key] for _, key in CSV_COLUMNS])
+    writer.writerow([])
+    writer.writerow([header for header, _ in ORDER_CSV_COLUMNS])
+    for i in inventory:
+        for o in i.orders:
+            row = {**_order_row(o), "item_name": i.name}
+            writer.writerow(["" if row[key] is None else row[key] for _, key in ORDER_CSV_COLUMNS])
     filename = f"amide-inventory-{date.today().isoformat()}.csv"
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
@@ -115,20 +138,29 @@ def export_inventory_csv(session: Session = Depends(get_session), uid: int = Dep
 
 def _import_inventory_row(session: Session, uid: int, row: dict) -> None:
     medium = Medium(row["medium"]) if row.get("medium") else None
-    session.add(InventoryItem(
-        owner_id=uid, name=row["name"], count=row.get("count", 1), vial_size_mg=row.get("vial_size_mg"),
+    item = InventoryItem(
+        owner_id=uid, name=row["name"], category=Category(row.get("category") or "Medicine"),
+        count=row.get("count", 1), vial_size_mg=row.get("vial_size_mg"),
         vial_size_unit=DoseUnit(row.get("vial_size_unit") or "mg"), medium=medium,
         volume_ml=row.get("volume_ml"), units_per_package=row.get("units_per_package"),
-        expiration_date=date.fromisoformat(row["expiration_date"]) if row.get("expiration_date") else None,
         storage=StorageLocation(row["storage"]) if row.get("storage") else None,
         cost_cents=round(row["cost"] * 100) if row.get("cost") is not None else None,
-        vendor=row.get("vendor"), lot_number=row.get("lot_number"),
-        order_date=date.fromisoformat(row["order_date"]) if row.get("order_date") else None,
-        shipped_date=date.fromisoformat(row["shipped_date"]) if row.get("shipped_date") else None,
-        arrival_date=date.fromisoformat(row["arrival_date"]) if row.get("arrival_date") else None,
-        coa_vial_size_mg=row.get("coa_vial_size_mg"), coa_purity_pct=row.get("coa_purity_pct"),
-        notes=row.get("notes"),
-    ))
+        vendor=row.get("vendor"), notes=row.get("notes"),
+    )
+    for o in row.get("orders", []):  # absent entirely in a pre-Order-history backup file -- treat as none
+        item.orders.append(Order(
+            quantity=o["quantity"], order_date=date.fromisoformat(o["order_date"]),
+            shipped_date=date.fromisoformat(o["shipped_date"]) if o.get("shipped_date") else None,
+            arrival_date=date.fromisoformat(o["arrival_date"]) if o.get("arrival_date") else None,
+            tracking_site=o.get("tracking_site"), tracking_number=o.get("tracking_number"),
+            vendor=o.get("vendor"), lot_number=o.get("lot_number"),
+            cost_cents=round(o["cost"] * 100) if o.get("cost") is not None else None,
+            tax_cents=round(o["tax"] * 100) if o.get("tax") is not None else None,
+            shipping_cents=round(o["shipping"] * 100) if o.get("shipping") is not None else None,
+            expiration_date=date.fromisoformat(o["expiration_date"]) if o.get("expiration_date") else None,
+            coa_vial_size_mg=o.get("coa_vial_size_mg"), coa_purity_pct=o.get("coa_purity_pct"),
+        ))
+    session.add(item)
 
 
 def _import_protocol_row(session: Session, uid: int, row: dict) -> None:
