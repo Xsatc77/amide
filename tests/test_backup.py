@@ -185,3 +185,49 @@ def test_json_import_tolerates_old_backup_shape_with_no_orders_key(client, db):
     with SessionLocal() as s:
         item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Old Supply"))
         assert item.category == Category.SUPPLY and item.available_count == 3
+
+
+def test_json_export_import_round_trip_preserves_available_count(client, db):
+    # 10 arrived, 6 reconstituted -- available_count should be 4 both before and after a
+    # round-trip export/import (reconstituted_count must survive the trip, or it "heals" back to 10).
+    client.post("/inventory", data={
+        "name": "Semaglutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+    })
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Semaglutide"))
+        item.reconstituted_count = 6
+        s.commit()
+        assert item.available_count == 4
+
+    payload = client.get("/backup/export.json").json()
+    exported = next(i for i in payload["inventory"] if i["name"] == "Semaglutide")
+    assert exported["reconstituted_count"] == 6 and exported["sold_count"] == 0
+
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        imported = s.scalar(select(InventoryItem).where(
+            InventoryItem.name == "Semaglutide", InventoryItem.id != item.id))
+        assert imported.reconstituted_count == 6
+        assert imported.available_count == 4
+
+
+def test_csv_export_includes_reconstituted_and_sold_columns(client, db):
+    client.post("/inventory", data={
+        "name": "Tirzepatide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+    })
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Tirzepatide"))
+        item.reconstituted_count = 2
+        item.sold_count = 1
+        s.commit()
+    r = client.get("/backup/export/inventory.csv")
+    rows = list(csv.reader(io.StringIO(r.text)))
+    header = rows[0]
+    assert "Reconstituted" in header and "Sold" in header
+    row = next(row for row in rows if row and row[0] == "Tirzepatide")
+    assert row[header.index("Reconstituted")] == "2"
+    assert row[header.index("Sold")] == "1"

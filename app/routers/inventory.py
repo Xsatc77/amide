@@ -162,7 +162,20 @@ def _parse_order_form(raw: dict[str, str], session: Session, uid: int) -> tuple[
         errors["order_date"] = "Order date is required."
     values["shipped_date"] = _parse_date(raw["shipped_date"], "shipped_date", errors)
     values["arrival_date"] = _parse_date(raw["arrival_date"], "arrival_date", errors)
+
+    if (values["shipped_date"] and values["order_date"] and "order_date" not in errors
+            and "shipped_date" not in errors and values["shipped_date"] < values["order_date"]):
+        errors["shipped_date"] = "Shipped date can't be before the order date."
+    if (values["arrival_date"] and values["shipped_date"] and "shipped_date" not in errors
+            and "arrival_date" not in errors and values["arrival_date"] < values["shipped_date"]):
+        errors["arrival_date"] = "Arrival date can't be before the shipped date."
+    elif (values["arrival_date"] and values["order_date"] and "order_date" not in errors
+            and "arrival_date" not in errors and values["arrival_date"] < values["order_date"]):
+        errors["arrival_date"] = "Arrival date can't be before the order date."
+
     values["tracking_site"] = raw["tracking_site"] or None
+    if values["tracking_site"] and not values["tracking_site"].lower().startswith(("http://", "https://")):
+        errors["tracking_site"] = "Tracking site must be a valid http(s) URL."
     values["tracking_number"] = raw["tracking_number"] or None
 
     vendor = resolve_vendor(session, uid, raw["vendor"])
@@ -429,7 +442,21 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
     values, errors = _parse_item_fields(raw, session, uid, item.category)  # category is immutable
 
     if errors:
-        return _render_list(request, session, form=raw, errors=errors, editing=item, status_code=422)
+        arrived = sum(o.quantity for o in item.orders if o.arrival_date is not None)
+        return templates.TemplateResponse(request, "inventory/detail.html", {
+            "item": item, "is_owner": True, "arrived": arrived,
+            "storage_locations": list(StorageLocation), "mediums": list(Medium),
+            "dose_units": list(DoseUnit),
+            "medium_rules": {
+                m.value: {
+                    "required": sorted(required_fields_for(m)),
+                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
+                }
+                for m in Medium
+            },
+            "edit_data": _form_values(item),
+            "form": raw, "errors": errors, "editing": item,
+        }, status_code=422)
 
     for key, value in values.items():
         if key == "category":
@@ -482,7 +509,14 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
             "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
             "storage_locations": list(StorageLocation), "mediums": list(Medium),
-            "dose_units": list(DoseUnit), "edit_data": _form_values(item)},
+            "dose_units": list(DoseUnit), "edit_data": _form_values(item),
+            "medium_rules": {
+                m.value: {
+                    "required": sorted(required_fields_for(m)),
+                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
+                }
+                for m in Medium
+            }},
             status_code=422)
 
     item.orders.append(Order(**values, coa_filename=coa_filename))
@@ -515,7 +549,14 @@ async def update_order(item_id: int, order_id: int, request: Request,
             "editing_order": order,
             "arrived": sum(o.quantity for o in item.orders if o.arrival_date is not None),
             "storage_locations": list(StorageLocation),
-            "mediums": list(Medium), "dose_units": list(DoseUnit), "edit_data": _form_values(item)},
+            "mediums": list(Medium), "dose_units": list(DoseUnit), "edit_data": _form_values(item),
+            "medium_rules": {
+                m.value: {
+                    "required": sorted(required_fields_for(m)),
+                    "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
+                }
+                for m in Medium
+            }},
             status_code=422)
 
     for key, value in values.items():

@@ -1,6 +1,7 @@
 // Inventory page: the "+" add button, edit buttons, and the item dialog.
 (() => {
   const dialog = document.getElementById("item-dialog");
+  if (!dialog) return;  // Item detail page has no Add/Edit-item dialog (list.html only)
   const form = dialog.querySelector("form");
   const title = dialog.querySelector("[data-title]");
   const coaExisting = dialog.querySelector("[data-coa-existing]");
@@ -133,8 +134,13 @@
     })
   );
 
-  // Server re-rendered the page with validation errors: reopen the dialog as-is.
-  if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
+  // Server re-rendered the page with validation errors: reopen the dialog as-is. Category
+  // fields must be synced first, or every fieldset (Medicine/Supply/Order/COA) shows at once --
+  // which also makes the submit-mirror logic run and clobber corrected fields with stale blanks.
+  if (dialog.hasAttribute("data-open-on-load")) {
+    syncCategoryFields();
+    dialog.showModal();
+  }
 })();
 
 // ---------------------------------------------------------------- active vials: expiry popups
@@ -211,4 +217,37 @@
     dialog.showModal();
   }));
   dialog.querySelectorAll('[data-action="close-order"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
+
+  // Server re-rendered the page after an order validation error: the form's action/title/values
+  // are already server-rendered correctly (see detail.html) -- just reopen the dialog as-is.
+  if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
+})();
+
+// ---------------------------------------------------------------- item detail: edit-item dialog
+(() => {
+  const dialog = document.getElementById("item-edit-dialog");
+  if (!dialog) return;  // Not the item owner, or not on the detail page
+  const dataEl = document.getElementById("edit-item-data");
+  const data = dataEl ? JSON.parse(dataEl.textContent) : null;
+  const form = dialog.querySelector("form");
+  const fields = ["name", "medium", "vial_size_mg", "vial_size_unit", "volume_ml",
+    "units_per_package", "count", "cost", "vendor", "storage", "notes"];
+
+  document.querySelectorAll('[data-action="edit-item"]').forEach((btn) => btn.addEventListener("click", () => {
+    if (data) {
+      for (const f of fields) {
+        if (form.elements[f]) form.elements[f].value = data[f] ?? "";
+      }
+    }
+    dialog.showModal();
+  }));
+  dialog.querySelectorAll('[data-action="close-item-edit"]').forEach((btn) =>
+    btn.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  // Server re-rendered the page after a validation error: values are already server-rendered
+  // from `form`, so just reopen as-is.
+  if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
 })();

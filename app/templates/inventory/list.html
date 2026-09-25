@@ -257,59 +257,59 @@
       <div class="grid">
         <label {{ cls('quantity') }}>
           <span>Quantity</span>
-          <input name="quantity" type="number" min="1" step="1" inputmode="numeric" value="1">
+          <input name="quantity" type="number" min="1" step="1" inputmode="numeric" value="{{ f.quantity or '1' }}">
           {{ err('quantity') }}
         </label>
 
         <label {{ cls('order_date') }}>
           <span>Order date</span>
-          <input name="order_date" type="date" value="{{ today_iso }}">
+          <input name="order_date" type="date" value="{{ f.order_date or today_iso }}">
           {{ err('order_date') }}
         </label>
 
         <label {{ cls('tracking_site') }}>
           <span>Tracking site (URL)</span>
-          <input name="tracking_site" type="url" maxlength="500" placeholder="https://...">
+          <input name="tracking_site" type="url" maxlength="500" placeholder="https://..." value="{{ f.tracking_site }}">
           {{ err('tracking_site') }}
         </label>
 
         <label {{ cls('tracking_number') }}>
           <span>Tracking number</span>
-          <input name="tracking_number" maxlength="100">
+          <input name="tracking_number" maxlength="100" value="{{ f.tracking_number }}">
           {{ err('tracking_number') }}
         </label>
 
         <label {{ cls('vendor') }}>
           <span>Vendor</span>
-          <input name="vendor" maxlength="200" placeholder="Where you bought it">
+          <input name="vendor" maxlength="200" placeholder="Where you bought it" value="{{ f.vendor }}">
           {{ err('vendor') }}
         </label>
 
         <label {{ cls('lot_number') }}>
           <span>Lot / Batch #</span>
-          <input name="lot_number" maxlength="100" autocomplete="off">
+          <input name="lot_number" maxlength="100" autocomplete="off" value="{{ f.lot_number }}">
           {{ err('lot_number') }}
         </label>
 
         <label {{ cls('cost') }}>
           <span>Cost ($)</span>
-          <input name="cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+          <input name="cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="{{ f.cost }}">
           {{ err('cost') }}
         </label>
         <label {{ cls('tax') }}>
           <span>Tax ($)</span>
-          <input name="tax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+          <input name="tax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="{{ f.tax }}">
           {{ err('tax') }}
         </label>
         <label {{ cls('shipping') }}>
           <span>Shipping ($)</span>
-          <input name="shipping" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+          <input name="shipping" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="{{ f.shipping }}">
           {{ err('shipping') }}
         </label>
 
         <label {{ cls('expiration_date') }}>
           <span>Expiration date</span>
-          <input name="expiration_date" type="date">
+          <input name="expiration_date" type="date" value="{{ f.expiration_date }}">
           {{ err('expiration_date') }}
         </label>
       </div>
@@ -326,12 +326,12 @@
         </div>
         <label {{ cls('coa_vial_size_mg') }}>
           <span>Lab vial size (mg)</span>
-          <input name="coa_vial_size_mg" type="number" min="0" step="any" inputmode="decimal" placeholder="As measured on COA">
+          <input name="coa_vial_size_mg" type="number" min="0" step="any" inputmode="decimal" placeholder="As measured on COA" value="{{ f.coa_vial_size_mg }}">
           {{ err('coa_vial_size_mg') }}
         </label>
         <label {{ cls('coa_purity_pct') }}>
           <span>Lab purity (%)</span>
-          <input name="coa_purity_pct" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="e.g. 99.2">
+          <input name="coa_purity_pct" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="e.g. 99.2" value="{{ f.coa_purity_pct }}">
           {{ err('coa_purity_pct') }}
         </label>
       </div>

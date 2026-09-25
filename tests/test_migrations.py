@@ -243,6 +243,11 @@ def test_0011_adds_orders_and_categorizes_existing_items(tmp_path):
         # A no-medium item (today's "supply" pattern), no order data at all.
         c.execute("insert into inventory_items(name,count,vial_size_unit,created_at,updated_at,owner_id)"
                   " values ('Alcohol Prep Pads',250,'mg','2026-09-01','2026-09-01',1)")
+        # A fully-consumed Lyophilized item (count=0) that still carries vendor/lot/order-date
+        # data -- a very common real case (bought it, used it all, purchase record remains).
+        c.execute("insert into inventory_items(name,count,vial_size_unit,medium,vendor,lot_number,"
+                  "cost_cents,order_date,created_at,updated_at,owner_id) values ('Tirzepatide',0,'mg',"
+                  "'Lyophilized','PeptideCo','LOT2',7000,'2026-07-01','2026-07-01','2026-07-01',1)")
     command.upgrade(cfg, "head")
     with sqlite3.connect(db) as c:
         cols = {r[1] for r in c.execute("pragma table_info(orders)")}
@@ -265,6 +270,17 @@ def test_0011_adds_orders_and_categorizes_existing_items(tmp_path):
         no_orders = c.execute("select count(*) from orders where inventory_item_id="
                               "(select id from inventory_items where name='Alcohol Prep Pads')").fetchone()[0]
         assert no_orders == 0
+
+        # Fully-consumed item: a qty=1 Order had to be synthesized (quantity>0 constraint), but
+        # reconstituted_count was bumped to match, so quantity - reconstituted_count == 0 -- no
+        # phantom stock.
+        tirz_id = c.execute("select id from inventory_items where name='Tirzepatide'").fetchone()[0]
+        tirz_qty = c.execute("select quantity from orders where inventory_item_id=?", (tirz_id,)).fetchone()[0]
+        tirz_reconstituted = c.execute(
+            "select reconstituted_count from inventory_items where id=?", (tirz_id,)).fetchone()[0]
+        assert tirz_qty == 1
+        assert tirz_reconstituted == 1
+        assert tirz_qty - tirz_reconstituted == 0
     command.downgrade(cfg, "0010")
     with sqlite3.connect(db) as c:
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}

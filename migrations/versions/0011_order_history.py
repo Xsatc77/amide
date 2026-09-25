@@ -84,6 +84,9 @@ def upgrade() -> None:
             continue
         order_date = r.order_date or (r.created_at[:10] if r.created_at else None)
         arrival_date = r.arrival_date or order_date
+        # quantity>0 is a hard constraint, so a fully-consumed item (count==0) still gets a
+        # qty=1 synthetic Order -- but its unit is immediately marked reconstituted below, so
+        # the net available_count stays 0, matching the pre-migration state.
         bind.execute(text("""
             INSERT INTO orders (inventory_item_id, quantity, order_date, shipped_date, arrival_date,
                                 vendor, vendor_id, lot_number, cost_cents, expiration_date,
@@ -97,6 +100,10 @@ def upgrade() -> None:
               "expiration_date": r.expiration_date, "coa_filename": r.coa_filename,
               "coa_vial_size_mg": r.coa_vial_size_mg, "coa_purity_pct": r.coa_purity_pct,
               "created_at": r.created_at})
+        if not r.count:
+            bind.execute(text(
+                "UPDATE inventory_items SET reconstituted_count = reconstituted_count + 1 WHERE id = :item_id"
+            ), {"item_id": r.id})
 
     with op.batch_alter_table('inventory_items', schema=None) as batch_op:
         batch_op.drop_constraint('ck_inventory_coa_vial_size_pos', type_='check')

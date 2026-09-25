@@ -392,6 +392,50 @@ def test_item_detail_page_404s_for_someone_elses_private_item(client, db):
     assert client.get(f"/inventory/{item_id}").status_code == 404
 
 
+def test_detail_page_has_edit_dialog_with_item_data(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert 'data-action="edit-item"' in t
+    assert 'id="item-edit-dialog"' in t
+    assert 'id="edit-item-data"' in t
+    assert '"name": "Retatrutide"' in t
+
+
+def test_edit_item_from_detail_page_updates_and_rerenders_on_error(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+
+    # Successful edit via the detail-page dialog's target route.
+    r = client.post(f"/inventory/{item_id}", data={
+        "name": "Retatrutide XR", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "storage": "fridge",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert item.name == "Retatrutide XR" and item.storage.value == "fridge"
+
+    # A validation error re-renders detail.html (not list.html) with the dialog reopened.
+    r = client.post(f"/inventory/{item_id}", data={
+        "name": "", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+    })
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert "Item name is required" in t
+    assert "data-open-on-load" in t
+    assert 'id="item-edit-dialog"' in t
+    assert 'Order history' in t  # confirms detail.html rendered, not list.html
+
+
 # ---------------------------------------------------------------- Task 5: Order History section
 
 
@@ -433,6 +477,90 @@ def test_edit_order_filling_in_arrival_date_updates_available_count(client, db):
     assert r.status_code == 303
     with SessionLocal() as s:
         assert s.get(InventoryItem, item_id).available_count == 10
+
+
+def test_order_validation_error_shows_banner_and_reopens_dialog_prefilled(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "not-a-date", "vendor": "PeptideCo", "lot_number": "LOT9",
+    })
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert 'role="alert"' in t and "Please fix the highlighted fields" in t
+    assert "data-open-on-load" in t
+    assert 'id="order-dialog"' in t
+    # The dialog reopens pre-filled with what was submitted, not reset to blank.
+    assert 'name="vendor" value="PeptideCo"' in t
+    assert 'name="lot_number" value="LOT9"' in t
+
+
+def test_order_date_ordering_is_validated(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+
+    # Shipped before order.
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-08-10", "shipped_date": "2026-08-05",
+    })
+    assert r.status_code == 422
+    assert "Shipped date can't be before the order date" in html.unescape(r.text)
+
+    # Arrival before shipped.
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-08-01", "shipped_date": "2026-08-10",
+        "arrival_date": "2026-08-05",
+    })
+    assert r.status_code == 422
+    assert "Arrival date can't be before the shipped date" in html.unescape(r.text)
+
+    # Arrival before order (no shipped date set).
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-08-10", "arrival_date": "2026-08-01",
+    })
+    assert r.status_code == 422
+    assert "Arrival date can't be before the order date" in html.unescape(r.text)
+
+    # Valid ordering succeeds.
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-08-01", "shipped_date": "2026-08-03",
+        "arrival_date": "2026-08-10",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_tracking_site_must_be_http_url(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-08-01", "tracking_site": "javascript:alert(1)",
+    })
+    assert r.status_code == 422
+    assert "Tracking site must be a valid http(s) URL" in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).orders[0].id  # first order still the only one
+        assert len(s.get(InventoryItem, item_id).orders) == 1
+
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-08-01", "tracking_site": "https://track.example.com/x",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert any(o.tracking_site == "https://track.example.com/x" for o in s.get(InventoryItem, item_id).orders)
 
 
 def test_add_order_requires_ownership(client, db):
@@ -488,6 +616,19 @@ def test_detail_page_lists_order_history(client, db):
     t = text(client.get(f"/inventory/{item_id}"))
     assert "LY123" in t
     assert 'href="https://track.example/x"' in t
+
+
+def test_order_history_table_shows_expiration_tax_and_shipping(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "expiration_date": "2027-08-01",
+        "tax": "5.25", "shipping": "12.00",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = text(client.get(f"/inventory/{item_id}"))
+    assert "<th>Expiration</th>" in t and "<th>Tax</th>" in t and "<th>Shipping</th>" in t
+    assert "$5.25" in t and "$12.00" in t
 
 
 # ---------------------------------------------------------------- Task 7: list resectioning

@@ -39,6 +39,7 @@ def _inventory_row(i: InventoryItem) -> dict:
         "volume_ml": i.volume_ml, "units_per_package": i.units_per_package,
         "storage": i.storage.value if i.storage else None,
         "cost": i.cost, "vendor": i.vendor, "notes": i.notes,
+        "reconstituted_count": i.reconstituted_count, "sold_count": i.sold_count,
         "orders": [_order_row(o) for o in i.orders],
     }
 
@@ -102,6 +103,7 @@ CSV_COLUMNS = [
     ("Unit", "vial_size_unit"), ("Medium", "medium"), ("Volume (mL)", "volume_ml"),
     ("Units per package", "units_per_package"), ("Storage", "storage"), ("Cost", "cost"),
     ("Vendor", "vendor"), ("Notes", "notes"),
+    ("Reconstituted", "reconstituted_count"), ("Sold", "sold_count"),
 ]
 ORDER_CSV_COLUMNS = [
     ("Item", "item_name"), ("Quantity", "quantity"), ("Order date", "order_date"),
@@ -146,6 +148,7 @@ def _import_inventory_row(session: Session, uid: int, row: dict) -> None:
         storage=StorageLocation(row["storage"]) if row.get("storage") else None,
         cost_cents=round(row["cost"] * 100) if row.get("cost") is not None else None,
         vendor=row.get("vendor"), notes=row.get("notes"),
+        reconstituted_count=row.get("reconstituted_count") or 0, sold_count=row.get("sold_count") or 0,
     )
     for o in row.get("orders", []):  # absent entirely in a pre-Order-history backup file -- treat as none
         item.orders.append(Order(
