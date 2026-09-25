@@ -280,7 +280,7 @@ def test_delete_user_requires_exact_username_match_server_side(client, db):
         assert s.get(User, target_id) is None
 
 
-def test_delete_user_cascades_inventory_coa_protocols_and_vendors(client, db):
+def test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor(client, db):
     from datetime import date
 
     owner = TestClient(app, follow_redirects=False)
@@ -297,10 +297,11 @@ def test_delete_user_cascades_inventory_coa_protocols_and_vendors(client, db):
 
         inv = s.scalar(select(InventoryItem).where(InventoryItem.owner_id == owner_id))
         coa_filename = inv.coa_filename
+        vendor_id = inv.vendor_id
         assert coa_filename is not None
         assert (config.COA_DIR / coa_filename).exists()
         assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 1
-        assert s.query(Vendor).filter_by(owner_id=owner_id).count() == 1
+        assert s.get(Vendor, vendor_id).created_by_id == owner_id
 
     r = client.post(f"/settings/admin/users/{owner_id}/delete", data={"username": "OwnsStuff"},
                     follow_redirects=False)
@@ -310,5 +311,30 @@ def test_delete_user_cascades_inventory_coa_protocols_and_vendors(client, db):
         assert s.get(User, owner_id) is None
         assert s.query(InventoryItem).filter_by(owner_id=owner_id).count() == 0
         assert s.query(Protocol).filter_by(owner_id=owner_id).count() == 0
-        assert s.query(Vendor).filter_by(owner_id=owner_id).count() == 0
+        # Vendor row survives -- it's a shared resource, not owned data -- but its creator is cleared.
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor is not None and vendor.name == "Their Vendor" and vendor.created_by_id is None
     assert not (config.COA_DIR / coa_filename).exists()
+
+
+def test_delete_user_cleans_up_shares_both_directions(client, db):
+    from app.models import Share, ShareCategory
+
+    a = TestClient(app, follow_redirects=False)
+    a.post("/notice", data={"understand": "1"})
+    a.post("/register", data={"username": "ShareA", "password": "ShareA1!aa", "confirm": "ShareA1!aa"})
+
+    with SessionLocal() as s:
+        me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
+        a_id = s.scalar(select(User.id).where(User.username_key == "sharea"))
+        s.add(Share(owner_id=a_id, grantee_id=me_id, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=me_id, grantee_id=a_id, category=ShareCategory.PERSONAL_DATA))
+        s.commit()
+        assert s.query(Share).filter(
+            (Share.owner_id == a_id) | (Share.grantee_id == a_id)).count() == 2
+
+    client.post(f"/settings/admin/users/{a_id}/delete", data={"username": "ShareA"})
+
+    with SessionLocal() as s:
+        assert s.query(Share).filter(
+            (Share.owner_id == a_id) | (Share.grantee_id == a_id)).count() == 0

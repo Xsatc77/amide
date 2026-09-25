@@ -45,7 +45,7 @@ def s(tmp_path):
 def test_resolve_vendor_creates_new(s):
     session, uid, _ = s
     v = resolve_vendor(session, uid, "Acme Peptides")
-    assert v is not None and v.name == "Acme Peptides" and v.owner_id == uid
+    assert v is not None and v.name == "Acme Peptides" and v.created_by_id == uid
     assert session.query(Vendor).count() == 1
 
 
@@ -64,9 +64,12 @@ def test_resolve_vendor_blank_returns_none(s):
     assert session.query(Vendor).count() == 0
 
 
-def test_resolve_vendor_scoped_per_owner(s):
+def test_resolve_vendor_shared_across_owners(s):
+    """Vendors are a shared reference list (like the peptide library), not scoped per owner --
+    what a user buys from a vendor is what stays private (via Inventory sharing), not the vendor itself."""
     session, uid1, uid2 = s
-    resolve_vendor(session, uid1, "Acme Peptides")
+    v1 = resolve_vendor(session, uid1, "Acme Peptides")
     v2 = resolve_vendor(session, uid2, "Acme Peptides")
-    assert v2.owner_id == uid2
-    assert session.query(Vendor).count() == 2  # separate vendor per owner, not shared
+    assert v2.id == v1.id
+    assert v2.created_by_id == uid1  # creator is whoever added it first; reuse doesn't reassign it
+    assert session.query(Vendor).count() == 1

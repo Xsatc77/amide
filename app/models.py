@@ -62,14 +62,21 @@ class Colorway(LabeledEnum):
     HIGH_CONTRAST = ("high_contrast", "High Contrast")
 
 
+class ShareCategory(LabeledEnum):
+    INVENTORY = ("inventory", "Inventory")
+    PERSONAL_DATA = ("personal_data", "Personal data")
+
+
 class Vendor(Base):
-    """A supplier the owner buys from. Private per owner (not shared, unlike the peptide library)."""
+    """A supplier. Shared across all users (like the peptide library), not scoped per owner --
+    what a user says they bought from a vendor stays private per Inventory sharing; the vendor
+    itself doesn't. `created_by_id` is provenance only, never an access-control field."""
 
     __tablename__ = "vendors"
-    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_vendor_owner_name"),)
+    __table_args__ = (UniqueConstraint("name", name="uq_vendor_name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(200, collation="NOCASE"))
     website: Mapped[str | None] = mapped_column(String(300))
     contact_info: Mapped[str | None] = mapped_column(String(300))
@@ -315,6 +322,20 @@ class User(Base):
     @property
     def initial(self) -> str:
         return self.username[:1].upper()
+
+
+class Share(Base):
+    """A one-directional grant: owner_id lets grantee_id view one category of their data.
+    Revocation is just deleting the row. No accept/pending flow -- the owner's grant is final."""
+
+    __tablename__ = "shares"
+    __table_args__ = (UniqueConstraint("owner_id", "grantee_id", "category", name="uq_share_owner_grantee_category"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    grantee_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    category: Mapped[ShareCategory] = mapped_column(_enum_column(ShareCategory))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class LoginSession(Base):

@@ -12,7 +12,7 @@ from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import Colorway, InventoryItem, Protocol, User, Vendor
+from app.models import Colorway, InventoryItem, Protocol, Share, User, Vendor
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
 from app.users import user_rows
@@ -240,8 +240,13 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
         session.delete(item)
     for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
         session.delete(protocol)
-    for vendor in session.scalars(select(Vendor).where(Vendor.owner_id == target.id)):
-        session.delete(vendor)
+    # Vendors are a shared resource now (see Vendor's docstring) -- keep the row, just clear
+    # provenance. Deleting it would break other users' inventory items still pointing at it.
+    for vendor in session.scalars(select(Vendor).where(Vendor.created_by_id == target.id)):
+        vendor.created_by_id = None
+    for share in session.scalars(select(Share).where(
+            (Share.owner_id == target.id) | (Share.grantee_id == target.id))):
+        session.delete(share)
     # Flush the owned rows' deletes first: nothing links User to these tables via an ORM relationship,
     # so SQLAlchemy's flush ordering doesn't know they must precede the user row, and SQLite's
     # per-statement FK check rejects deleting the user while a stale owner_id reference still exists.

@@ -163,3 +163,36 @@ def test_0008_adds_settings_columns(tmp_path):
     command.downgrade(cfg, "0007")
     with sqlite3.connect(db) as c:
         assert "colorway" not in {r[1] for r in c.execute("pragma table_info(users)")}
+
+
+def test_0009_adds_shares_and_makes_vendors_shared(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0008")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-24')")
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('B','b','x',0,0,0,'2026-09-24')")
+        # Two different owners, same vendor name (case-different) -- the old schema allowed this.
+        c.execute("insert into vendors(owner_id,name,created_at) values (1,'Acme Peptides','2026-09-24')")
+        c.execute("insert into vendors(owner_id,name,created_at) values (2,'acme peptides','2026-09-24')")
+        c.execute("insert into inventory_items(name,count,vial_size_unit,vendor_id,created_at,updated_at,owner_id)"
+                  " values ('Item B',1,'mg',2,'2026-09-24','2026-09-24',2)")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(vendors)")}
+        assert "created_by_id" in cols and "owner_id" not in cols
+        rows = c.execute("select id, created_by_id, name from vendors").fetchall()
+        assert len(rows) == 1  # deduped
+        kept_id = rows[0][0]
+        assert rows[0][2].lower() == "acme peptides"
+        # Item B's vendor_id was repointed to the surviving row.
+        assert c.execute("select vendor_id from inventory_items where name='Item B'").fetchone() == (kept_id,)
+        shares_cols = {r[1] for r in c.execute("pragma table_info(shares)")}
+        assert {"owner_id", "grantee_id", "category", "created_at"} <= shares_cols
+    command.downgrade(cfg, "0008")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "shares" not in tables
+        assert "owner_id" in {r[1] for r in c.execute("pragma table_info(vendors)")}
