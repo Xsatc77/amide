@@ -430,15 +430,21 @@ def test_sharing_route_422_for_bad_category(client, db):
 
 
 def test_discard_window_saves_and_defaults_to_28(client, db, me):
-    t = text(client.get("/settings"))
-    assert 'value="28"' in t  # unset -> the form shows the application default, not blank
+    try:
+        t = text(client.get("/settings"))
+        assert 'value="28"' in t  # unset -> the form shows the application default, not blank
 
-    r = client.post("/settings/discard-window", data={"default_discard_days": "45"}, follow_redirects=False)
-    assert r.status_code == 303
-    assert _current(me).default_discard_days == 45
+        r = client.post("/settings/discard-window", data={"default_discard_days": "45"}, follow_redirects=False)
+        assert r.status_code == 303
+        assert _current(me).default_discard_days == 45
 
-    t = text(client.get("/settings"))
-    assert 'value="45"' in t
+        t = text(client.get("/settings"))
+        assert 'value="45"' in t
+    finally:
+        # client/Tester is shared across the whole suite -- reset so later tests see the default.
+        with SessionLocal() as s:
+            s.get(User, me).default_discard_days = None
+            s.commit()
 
 
 def test_discard_window_rejects_non_positive(client, db, me):
@@ -446,4 +452,4 @@ def test_discard_window_rejects_non_positive(client, db, me):
     assert r.status_code == 422
     r = client.post("/settings/discard-window", data={"default_discard_days": "not-a-number"})
     assert r.status_code == 422
-    assert _current(me).default_discard_days in (None, 45)  # unchanged from whatever the prior test left
+    assert _current(me).default_discard_days is None
