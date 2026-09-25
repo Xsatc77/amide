@@ -13,18 +13,17 @@ from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import ActiveVial, DoseUnit, InventoryItem, Medium, Share, ShareCategory, StorageLocation, User
+from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Order, Share, ShareCategory, StorageLocation, User
 from app.templating import templates
 
 router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
-FORM_FIELDS = (
-    "name", "count", "vial_size_mg", "vial_size_unit", "medium", "volume_ml", "units_per_package",
-    "expiration_date", "storage", "cost", "vendor",
-    "lot_number", "order_date", "shipped_date", "arrival_date",
-    "coa_vial_size_mg", "coa_purity_pct", "notes",
-)
+ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "medium",
+              "volume_ml", "units_per_package", "storage", "cost", "vendor", "notes")
+ORDER_FIELDS = ("quantity", "order_date", "tracking_site", "tracking_number", "vendor", "cost",
+                "tax", "shipping", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
+FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_FIELDS))  # union, order preserved, no dupes
 
 
 # ---------------------------------------------------------------- form parsing
@@ -62,75 +61,119 @@ def _parse_choice(enum_cls, raw: str, default, field: str, errors: dict):
         return default
 
 
-def _parse_form(raw: dict[str, str], session: Session, uid: int) -> tuple[dict, dict[str, str]]:
-    """Returns (column values, field name -> error message)."""
+def _parse_money(raw: str, field: str, label: str, errors: dict) -> int | None:
+    raw = raw.lstrip("$").replace(",", "")
+    if not raw:
+        return None
+    try:
+        cents = (Decimal(raw) * 100).quantize(Decimal("1"))
+    except InvalidOperation:
+        errors[field] = f"{label} must be a number, e.g. 45.99."
+        return None
+    if cents < 0:
+        errors[field] = f"{label} can't be negative."
+    return int(cents)
+
+
+def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category: "Category") -> tuple[dict, dict]:
+    """Parses the Details fields for an item of the given (already-resolved) category. Used by
+    both create (with a freshly-parsed category) and update (with the item's existing, immutable
+    category)."""
     errors: dict[str, str] = {}
-    values: dict = {}
+    values: dict = {"category": category}
 
     values["name"] = raw["name"]
     if not values["name"]:
         errors["name"] = "Item name is required."
-
-    try:
-        values["count"] = int(raw["count"]) if raw["count"] else 1
-        if values["count"] < 0:
-            errors["count"] = "Count can't be negative."
-    except ValueError:
-        errors["count"] = "Count must be a whole number."
-
-    values["vial_size_mg"] = _parse_positive_float(raw["vial_size_mg"], "vial_size_mg", "Amount", errors)
-    values["vial_size_unit"] = _parse_choice(DoseUnit, raw["vial_size_unit"], DoseUnit.MG, "vial_size_unit", errors)
-    values["volume_ml"] = _parse_positive_float(raw["volume_ml"], "volume_ml", "Volume", errors)
-    values["units_per_package"] = None
-    if raw["units_per_package"]:
-        try:
-            values["units_per_package"] = int(raw["units_per_package"])
-            if values["units_per_package"] <= 0:
-                errors["units_per_package"] = "Units per package must be greater than 0."
-        except ValueError:
-            errors["units_per_package"] = "Units per package must be a whole number."
-
-    values["medium"] = None
-    if raw["medium"]:
-        try:
-            values["medium"] = Medium(raw["medium"])
-        except ValueError:
-            errors["medium"] = "Pick a medium from the list."
-
-    for field in required_fields_for(values["medium"]):
-        if values.get(field) is None and field not in errors:
-            errors[field] = f"{field_label(field, values['medium'])} is required for {values['medium'].value}."
-
-    values["expiration_date"] = _parse_date(raw["expiration_date"], "expiration_date", errors)
     values["storage"] = _parse_choice(StorageLocation, raw["storage"], None, "storage", errors)
+    values["notes"] = raw["notes"] or None
 
-    cost = raw["cost"].lstrip("$").replace(",", "")
-    values["cost_cents"] = None
-    if cost:
+    if category == Category.SUPPLY:
         try:
-            cents = (Decimal(cost) * 100).quantize(Decimal("1"))
-            if cents < 0:
-                errors["cost"] = "Cost can't be negative."
-            values["cost_cents"] = int(cents)
-        except InvalidOperation:
-            errors["cost"] = "Cost must be a number, e.g. 45.99."
+            values["count"] = int(raw["count"]) if raw["count"] else 1
+            if values["count"] < 0:
+                errors["count"] = "Count can't be negative."
+        except ValueError:
+            values["count"] = 1
+            errors["count"] = "Count must be a whole number."
+        values["cost_cents"] = _parse_money(raw["cost"], "cost", "Cost", errors)
+        vendor = resolve_vendor(session, uid, raw["vendor"])
+        values["vendor_id"] = vendor.id if vendor else None
+        values["vendor"] = vendor.name if vendor else None
+        values["medium"] = None
+        values["vial_size_mg"] = None
+        values["vial_size_unit"] = DoseUnit.MG
+        values["volume_ml"] = None
+        values["units_per_package"] = None
+        return values, errors
+
+    # Medicine / BAC Water: count/cost/vendor are vestigial here (available_count is derived from
+    # Orders); the item-level columns are simply not written to by these categories.
+    values["count"] = 0
+    values["cost_cents"] = None
+    values["vendor_id"] = None
+    values["vendor"] = None
+
+    if category == Category.MEDICINE:
+        values["medium"] = _parse_choice(Medium, raw["medium"], None, "medium", errors)
+        values["vial_size_mg"] = _parse_positive_float(raw["vial_size_mg"], "vial_size_mg", "Amount", errors)
+        values["vial_size_unit"] = _parse_choice(DoseUnit, raw["vial_size_unit"], DoseUnit.MG, "vial_size_unit", errors)
+        values["volume_ml"] = _parse_positive_float(raw["volume_ml"], "volume_ml", "Volume", errors)
+        values["units_per_package"] = None
+        if raw["units_per_package"]:
+            try:
+                values["units_per_package"] = int(raw["units_per_package"])
+                if values["units_per_package"] <= 0:
+                    errors["units_per_package"] = "Units per package must be greater than 0."
+            except ValueError:
+                errors["units_per_package"] = "Units per package must be a whole number."
+        for field in required_fields_for(values["medium"]):
+            if values.get(field) is None and field not in errors:
+                errors[field] = f"{field_label(field, values['medium'])} is required for {values['medium'].value}."
+    else:  # BAC_WATER
+        values["medium"] = None
+        values["vial_size_mg"] = None
+        values["vial_size_unit"] = DoseUnit.MG
+        values["volume_ml"] = None
+        values["units_per_package"] = None
+
+    return values, errors
+
+
+def _parse_order_form(raw: dict[str, str], session: Session, uid: int) -> tuple[dict, dict]:
+    """Parses the Order fields (quantity, dates, tracking, vendor/cost/tax/shipping/lot/
+    expiration/COA numbers). Used by create (the item's first order) and by Task 5's Add/Edit
+    order routes."""
+    errors: dict[str, str] = {}
+    values: dict = {}
+
+    values["quantity"] = None
+    try:
+        if raw["quantity"]:
+            values["quantity"] = int(raw["quantity"])
+        if not values["quantity"] or values["quantity"] <= 0:
+            errors["quantity"] = "Quantity must be a whole number greater than 0."
+    except ValueError:
+        errors["quantity"] = "Quantity must be a whole number."
+
+    values["order_date"] = _parse_date(raw["order_date"], "order_date", errors)
+    if values["order_date"] is None and "order_date" not in errors:
+        errors["order_date"] = "Order date is required."
+    values["tracking_site"] = raw["tracking_site"] or None
+    values["tracking_number"] = raw["tracking_number"] or None
 
     vendor = resolve_vendor(session, uid, raw["vendor"])
     values["vendor_id"] = vendor.id if vendor else None
     values["vendor"] = vendor.name if vendor else None
     values["lot_number"] = raw["lot_number"] or None
 
-    for field in ("order_date", "shipped_date", "arrival_date"):
-        values[field] = _parse_date(raw[field], field, errors)
-    ordered, shipped, arrived = values["order_date"], values["shipped_date"], values["arrival_date"]
-    if ordered and shipped and shipped < ordered:
-        errors["shipped_date"] = "Shipped date can't be before the order date."
-    if arrived and (shipped or ordered) and arrived < (shipped or ordered):
-        errors["arrival_date"] = f"Arrival date can't be before the {'shipped' if shipped else 'order'} date."
+    values["cost_cents"] = _parse_money(raw["cost"], "cost", "Cost", errors)
+    values["tax_cents"] = _parse_money(raw["tax"], "tax", "Tax", errors)
+    values["shipping_cents"] = _parse_money(raw["shipping"], "shipping", "Shipping", errors)
+    values["expiration_date"] = _parse_date(raw["expiration_date"], "expiration_date", errors)
 
     values["coa_vial_size_mg"] = _parse_positive_float(
         raw["coa_vial_size_mg"], "coa_vial_size_mg", "Lab vial size", errors)
-
     values["coa_purity_pct"] = None
     purity = raw["coa_purity_pct"].rstrip("%").strip()
     if purity:
@@ -141,36 +184,28 @@ def _parse_form(raw: dict[str, str], session: Session, uid: int) -> tuple[dict, 
         except ValueError:
             errors["coa_purity_pct"] = "Purity must be a number, e.g. 99.2."
 
-    values["notes"] = raw["notes"] or None
     return values, errors
 
 
 def _form_values(item: InventoryItem) -> dict:
-    """An item's values as the edit form expects them (all strings)."""
+    """An item's Details values as the edit form expects them (all strings)."""
     def num(v):
         return "" if v is None else f"{v:g}"
 
     return {
         "id": item.id,
         "name": item.name,
+        "category": item.category.value,
         "count": str(item.count),
         "vial_size_mg": num(item.vial_size_mg),
         "vial_size_unit": item.vial_size_unit.value,
         "medium": item.medium.value if item.medium else "",
         "volume_ml": num(item.volume_ml),
         "units_per_package": "" if item.units_per_package is None else str(item.units_per_package),
-        "expiration_date": item.expiration_date.isoformat() if item.expiration_date else "",
         "storage": item.storage.value if item.storage else "",
         "cost": "" if item.cost is None else f"{item.cost:.2f}",
         "vendor": item.vendor or "",
-        "lot_number": item.lot_number or "",
-        "order_date": item.order_date.isoformat() if item.order_date else "",
-        "shipped_date": item.shipped_date.isoformat() if item.shipped_date else "",
-        "arrival_date": item.arrival_date.isoformat() if item.arrival_date else "",
-        "coa_vial_size_mg": num(item.coa_vial_size_mg),
-        "coa_purity_pct": num(item.coa_purity_pct),
         "notes": item.notes or "",
-        "has_coa": item.coa_filename is not None,
     }
 
 
@@ -315,10 +350,18 @@ def list_inventory(request: Request, session: Session = Depends(get_session)):
 async def create_item(request: Request, session: Session = Depends(get_session),
                       uid: int = Depends(current_user_id)):
     raw, coa, _ = await _read_form(request)
-    values, errors = _parse_form(raw, session, uid)
+    errors: dict[str, str] = {}
+    category = _parse_choice(Category, raw["category"], Category.MEDICINE, "category", errors)
+    values, item_errors = _parse_item_fields(raw, session, uid, category)
+    errors.update(item_errors)
+
+    order_values = {}
+    if category != Category.SUPPLY:
+        order_values, order_errors = _parse_order_form(raw, session, uid)
+        errors.update(order_errors)
 
     coa_filename = None
-    if not errors and coa:
+    if not errors and coa and category != Category.SUPPLY:
         try:
             coa_filename = await uploads.save_coa(coa)
         except uploads.UploadError as e:
@@ -327,7 +370,10 @@ async def create_item(request: Request, session: Session = Depends(get_session),
     if errors:
         return _render_list(request, session, form=raw, errors=errors, status_code=422)
 
-    session.add(InventoryItem(**values, coa_filename=coa_filename, owner_id=uid))
+    item = InventoryItem(**values, owner_id=uid)
+    if category != Category.SUPPLY:
+        item.orders.append(Order(**order_values, coa_filename=coa_filename))
+    session.add(item)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
 
@@ -340,23 +386,15 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         raise HTTPException(404, "Inventory item not found")
 
     raw, coa, remove_coa = await _read_form(request)
-    values, errors = _parse_form(raw, session, uid)
-
-    new_coa = None
-    if not errors and coa:
-        try:
-            new_coa = await uploads.save_coa(coa)
-        except uploads.UploadError as e:
-            errors["coa"] = str(e)
+    values, errors = _parse_item_fields(raw, session, uid, item.category)  # category is immutable
 
     if errors:
         return _render_list(request, session, form=raw, errors=errors, editing=item, status_code=422)
 
     for key, value in values.items():
+        if key == "category":
+            continue  # never reassigned after creation
         setattr(item, key, value)
-    if new_coa or remove_coa:
-        uploads.delete_coa(item.coa_filename)
-        item.coa_filename = new_coa
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
 
@@ -366,7 +404,9 @@ def delete_item(item_id: int, session: Session = Depends(get_session), uid: int 
     item = _own_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
-    uploads.delete_coa(item.coa_filename)
+    for order in item.orders:
+        if order.coa_filename:
+            uploads.delete_coa(order.coa_filename)
     session.delete(item)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
@@ -401,14 +441,18 @@ def snooze_active_vial_prompt(vial_id: int, session: Session = Depends(get_sessi
 @router.get("/inventory/{item_id}/coa")
 def get_coa(item_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     item = _visible_item(session, item_id, uid)
-    if item is None or not item.coa_filename:
-        raise HTTPException(404, "No COA on file")
-    path = uploads.coa_path(item.coa_filename)
-    if not path.exists():
-        raise HTTPException(404, "COA file is missing from disk")
-    return FileResponse(path, media_type=uploads.media_type(item.coa_filename),
-                        headers={"X-Content-Type-Options": "nosniff"},
-                        content_disposition_type="inline")
+    if item is None:
+        raise HTTPException(404, "Inventory item not found")
+    # COA is now per-order; return the first order's COA if available
+    for order in item.orders:
+        if order.coa_filename:
+            path = uploads.coa_path(order.coa_filename)
+            if not path.exists():
+                raise HTTPException(404, "COA file is missing from disk")
+            return FileResponse(path, media_type=uploads.media_type(order.coa_filename),
+                                headers={"X-Content-Type-Options": "nosniff"},
+                                content_disposition_type="inline")
+    raise HTTPException(404, "No COA on file")
 
 
 # ---------------------------------------------------------------- JSON API
@@ -419,6 +463,8 @@ def _iso(d: date | None) -> str | None:
 
 
 def _to_json(item: InventoryItem) -> dict:
+    # For backward compatibility with the old flat structure, return the first order's details if available
+    first_order = item.orders[0] if item.orders else None
     return {
         "id": item.id,
         "name": item.name,
@@ -428,18 +474,11 @@ def _to_json(item: InventoryItem) -> dict:
         "medium": item.medium.value if item.medium else None,
         "volume_ml": item.volume_ml,
         "units_per_package": item.units_per_package,
-        "expiration_date": _iso(item.expiration_date),
         "storage": item.storage.value if item.storage else None,
         "cost": item.cost,
         "vendor": item.vendor,
         "vendor_id": item.vendor_id,
-        "lot_number": item.lot_number,
-        "order_date": _iso(item.order_date),
-        "shipped_date": _iso(item.shipped_date),
-        "arrival_date": _iso(item.arrival_date),
-        "has_coa": bool(item.coa_filename),
-        "coa_vial_size_mg": item.coa_vial_size_mg,
-        "coa_purity_pct": item.coa_purity_pct,
+        "has_coa": bool(first_order and first_order.coa_filename),
         "notes": item.notes,
         "created_at": item.created_at.isoformat(),
         "updated_at": item.updated_at.isoformat(),
