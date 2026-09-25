@@ -119,6 +119,10 @@ def downgrade() -> None:
         batch_op.add_column(sa.Column('shipped_date', sa.Date(), nullable=True))
         batch_op.add_column(sa.Column('order_date', sa.Date(), nullable=True))
         batch_op.add_column(sa.Column('lot_number', sa.String(length=100), nullable=True))
+        batch_op.create_check_constraint('ck_inventory_coa_vial_size_pos',
+                                         'coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0')
+        batch_op.create_check_constraint('ck_inventory_coa_purity_range',
+                                         'coa_purity_pct IS NULL OR (coa_purity_pct >= 0 AND coa_purity_pct <= 100)')
         batch_op.drop_column('sold_count')
         batch_op.drop_column('reconstituted_count')
         batch_op.drop_column('category')

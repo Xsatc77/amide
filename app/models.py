@@ -98,9 +98,6 @@ class InventoryItem(Base):
         CheckConstraint("count >= 0", name="ck_inventory_count_nonneg"),
         CheckConstraint("vial_size_mg IS NULL OR vial_size_mg > 0", name="ck_inventory_vial_size_pos"),
         CheckConstraint("cost_cents IS NULL OR cost_cents >= 0", name="ck_inventory_cost_nonneg"),
-        CheckConstraint("coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0", name="ck_inventory_coa_vial_size_pos"),
-        CheckConstraint("coa_purity_pct IS NULL OR (coa_purity_pct >= 0 AND coa_purity_pct <= 100)",
-                        name="ck_inventory_coa_purity_range"),
         CheckConstraint("volume_ml IS NULL OR volume_ml > 0", name="ck_inventory_volume_pos"),
         CheckConstraint("units_per_package IS NULL OR units_per_package > 0", name="ck_inventory_units_pkg_pos"),
     )
