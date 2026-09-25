@@ -204,3 +204,24 @@ def test_0009_adds_shares_and_makes_vendors_shared(tmp_path):
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
         assert "shares" not in tables
         assert "owner_id" in {r[1] for r in c.execute("pragma table_info(vendors)")}
+
+
+def test_0010_adds_active_vials_and_discard_days(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0009")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-25')")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        assert "default_discard_days" in {r[1] for r in c.execute("pragma table_info(users)")}
+        cols = {r[1] for r in c.execute("pragma table_info(active_vials)")}
+        assert {"owner_id", "inventory_item_id", "concentration_mg_ml", "water_ml", "dose_value",
+               "dose_unit", "doses_total", "date_mixed", "discard_by", "discarded_at",
+               "last_discard_prompt_at", "created_at"} <= cols
+    command.downgrade(cfg, "0009")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "active_vials" not in tables
+        assert "default_discard_days" not in {r[1] for r in c.execute("pragma table_info(users)")}

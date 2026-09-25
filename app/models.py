@@ -141,6 +141,30 @@ class InventoryItem(Base):
         return None if self.cost_cents is None else self.cost_cents / 100
 
 
+class ActiveVial(Base):
+    """A reconstituted, opened vial -- created from an InventoryItem, decrementing its count by 1.
+    Doses remaining is a static snapshot computed once at creation (see app.calculator.reconstitution);
+    it never depletes in this pass, since there is no dose-logging feature yet to draw it down."""
+
+    __tablename__ = "active_vials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), index=True)
+    concentration_mg_ml: Mapped[float] = mapped_column(Float)
+    water_ml: Mapped[float] = mapped_column(Float)
+    dose_value: Mapped[float] = mapped_column(Float)
+    dose_unit: Mapped[DoseUnit] = mapped_column(_enum_column(DoseUnit))
+    doses_total: Mapped[int] = mapped_column(Integer)
+    date_mixed: Mapped[date] = mapped_column(Date)
+    discard_by: Mapped[date] = mapped_column(Date)
+    discarded_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_discard_prompt_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: utcnow().replace(tzinfo=None))
+
+    inventory_item: Mapped["InventoryItem"] = relationship()
+
+
 # ---------------------------------------------------------------- protocols
 # (LabeledEnum, _enum_column and DoseUnit are defined above, near Medium, since InventoryItem needs them too.)
 
@@ -318,6 +342,7 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String(320))
     timezone: Mapped[str | None] = mapped_column(String(64))
     colorway: Mapped[Colorway | None] = mapped_column(_enum_column(Colorway))
+    default_discard_days: Mapped[int | None] = mapped_column(Integer)
 
     @property
     def initial(self) -> str:
