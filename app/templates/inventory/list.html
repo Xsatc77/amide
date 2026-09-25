@@ -110,7 +110,7 @@
     {% set item = vial_items.get(v.inventory_item_id) %}
     <article class="vial-card {{ 'vial-card-expired' if expired and v.id in expired_prompts }} {{ 'vial-card-yellow' if expired and v.id not in expired_prompts and v.last_discard_prompt_at }}"
              data-vial-id="{{ v.id }}" {% if is_mine and v.id in expired_prompts %}data-expired-prompt="{{ v.id }}"{% endif %}
-             {% if is_mine %}data-item-id-for-reconstitute="{{ v.inventory_item_id }}"{% endif %}>
+             {% if is_mine %}data-item-id-for-reconstitute="{{ v.inventory_item_id }}" data-item-name="{{ item.name if item else 'Item' }}"{% endif %}>
       <div class="vial-card-icon">
         <img src="{{ static_url('img/icons/vial-blank-label.png') }}" alt="">
         <div class="vial-card-label">
@@ -319,7 +319,7 @@
 </dialog>
 
 <dialog id="expiry-prompt" class="dialog">
-  <div class="dialog-head"><h3>This vial passed its discard-by date</h3></div>
+  <div class="dialog-head"><h3><span data-fill="item-name"></span> passed its discard-by date</h3></div>
   <div class="form-section"><p class="small muted">Discard it?</p></div>
   <div class="dialog-foot">
     <button type="button" class="btn btn-primary" data-action="expiry-discard">Discard</button>

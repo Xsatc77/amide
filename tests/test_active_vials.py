@@ -235,6 +235,24 @@ def test_expiry_popup_does_not_repeat_within_24_hours(client, db, lyo_item):
     assert f'data-expired-prompt="{vial_id}"' in t
 
 
+def test_expiry_prompt_names_each_expired_vial(client, db, lyo_item):
+    """With more than one expired vial, the popup must say which one it's about -- the JS queues
+    them one at a time using this per-card name and the dialog's data-fill="item-name" span."""
+    client.post("/inventory", data={"name": "AV Second Peptide", "count": "2", "vial_size_mg": "10",
+                                    "medium": "Lyophilized"})
+    with SessionLocal() as s:
+        second_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Second Peptide"))
+    vial_id_1 = _reconstitute(client, lyo_item, discard_by="2020-01-01")
+    vial_id_2 = _reconstitute(client, second_id, discard_by="2020-01-01")
+
+    t = text(client.get("/inventory"))
+    assert f'data-vial-id="{vial_id_1}"' in t and 'data-item-name="AV Test Peptide"' in \
+        t[t.index(f'data-vial-id="{vial_id_1}"'):t.index(f'data-vial-id="{vial_id_1}"') + 400]
+    assert f'data-vial-id="{vial_id_2}"' in t and 'data-item-name="AV Second Peptide"' in \
+        t[t.index(f'data-vial-id="{vial_id_2}"'):t.index(f'data-vial-id="{vial_id_2}"') + 400]
+    assert 'data-fill="item-name"' in t.split('id="expiry-prompt"')[1][:200]
+
+
 def test_shared_active_vial_is_read_only(client, db, lyo_item, me):
     from app.models import Share, ShareCategory
 

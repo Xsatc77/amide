@@ -159,10 +159,16 @@
 
 // ---------------------------------------------------------------- active vials: expiry popups
 (() => {
-  // One popup per vial flagged by the server (data-expired-prompt), shown on load.
-  document.querySelectorAll("[data-expired-prompt]").forEach((card) => {
+  // One popup per vial flagged by the server (data-expired-prompt), shown one at a time -- a
+  // shared dialog reused via forEach would only leave the LAST card's handlers wired up.
+  const queue = [...document.querySelectorAll("[data-expired-prompt]")];
+  const dialog = document.getElementById("expiry-prompt");
+
+  function showNext() {
+    const card = queue.shift();
+    if (!card) return;
     const vialId = card.dataset.expiredPrompt;
-    const dialog = document.getElementById("expiry-prompt");
+    dialog.querySelector('[data-fill="item-name"]').textContent = card.dataset.itemName || "This vial";
     dialog.querySelector('[data-action="expiry-discard"]').onclick = () => {
       dialog.close();
       fetch(`/active-vials/${vialId}/discard`, { method: "POST" }).then(() => {
@@ -173,17 +179,22 @@
         };
         again.querySelector('[data-action="reconstitute-again-no"]').onclick = () => {
           again.close();
-          window.location.href = "/inventory#active-vials";
+          if (queue.length) showNext();
+          else window.location.href = "/inventory#active-vials";
         };
         again.showModal();
       });
     };
     dialog.querySelector('[data-action="expiry-not-yet"]').onclick = () => {
       dialog.close();
-      fetch(`/active-vials/${vialId}/snooze-prompt`, { method: "POST" }).then(() => window.location.reload());
+      fetch(`/active-vials/${vialId}/snooze-prompt`, { method: "POST" }).then(() => {
+        if (queue.length) showNext();
+        else window.location.reload();
+      });
     };
     dialog.showModal();
-  });
+  }
+  showNext();
 
   // If we just redirected here after discarding via the Inventory-page popup flow, drop the query
   // param from the visible URL without a reload (it's already done its job).
