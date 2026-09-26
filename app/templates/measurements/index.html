@@ -57,6 +57,56 @@
 </section>
 {% endif %}
 
+{% if charts %}
+<section aria-labelledby="charts-heading">
+  <h2 id="charts-heading" class="section-title">Charts</h2>
+  <div class="tabs" role="tablist" aria-label="Chart range">
+    {% for opt in charts.range_options %}
+    <a href="/measurements?tab=measurements&range={{ opt }}" class="tab {{ 'active' if charts.range == opt }}" role="tab" aria-selected="{{ 'true' if charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
+    {% endfor %}
+  </div>
+
+  {% macro line_chart(chart, label, stroke='currentColor') %}
+  {% if chart %}
+  <div class="card">
+    <h3>{{ label }}</h3>
+    <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
+      <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
+      {% for cx, cy in chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}"></circle>{% endfor %}
+    </svg>
+    <p class="muted">{{ chart.min_d.strftime('%b') }} {{ chart.min_d.day }}, {{ chart.min_d.year }} – {{ chart.max_d.strftime('%b') }} {{ chart.max_d.day }}, {{ chart.max_d.year }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
+  </div>
+  {% endif %}
+  {% endmacro %}
+
+  <div class="dashboard-placeholders">
+    {% for s in charts.series %}
+      {{ line_chart(s.chart, s.label) }}
+    {% endfor %}
+
+    {% if charts.bp %}
+    <div class="card">
+      <h3>Blood pressure</h3>
+      <svg viewBox="0 0 {{ charts.bp.width }} {{ charts.bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
+        <polyline points="{{ charts.bp.poly_a }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+        {% for cx, cy in charts.bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+        <polyline points="{{ charts.bp.poly_b }}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"></polyline>
+        {% for cx, cy in charts.bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+      </svg>
+      <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ charts.bp.min_d.strftime('%b') }} {{ charts.bp.min_d.day }}, {{ charts.bp.min_d.year }} – {{ charts.bp.max_d.strftime('%b') }} {{ charts.bp.max_d.day }}, {{ charts.bp.max_d.year }}</p>
+    </div>
+    {% endif %}
+
+    {{ line_chart(charts.bmi, 'BMI') }}
+    {{ line_chart(charts.bf, 'Body fat %') }}
+
+    {% if not charts.series|selectattr('chart')|list and not charts.bp and not charts.bmi and not charts.bf %}
+    <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
 {% if water %}
 <section aria-labelledby="water-heading">
   <h2 id="water-heading" class="section-title">Water goal</h2>

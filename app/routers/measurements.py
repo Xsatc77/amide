@@ -1,20 +1,46 @@
-from datetime import date
+from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.measurements.calculations import (bmr, macros_for_preset, target_calories, tdee,
-                                           water_goal_oz, water_pace)
+from app.measurements.calculations import (bmi, bmr, body_fat_pct, macros_for_preset,
+                                           target_calories, tdee, water_goal_oz, water_pace)
 from app.models import BodyMeasurement, DietPreset, MacroGoal, Share, ShareCategory, User
 from app.templating import templates
 
 router = APIRouter()
 
 TABS = ("measurements", "macros", "journal", "labs")
+
+# Chart range selector: exactly these seven values are accepted (spec). Anything else -- absent,
+# malformed, or garbage -- falls back to DEFAULT_RANGE rather than ever raising. The day counts
+# below are simple fixed-length lookback windows (not calendar-month arithmetic) since a chart
+# window only needs a reasonable trailing span, not exact month boundaries.
+RANGE_DAYS = {"7d": 7, "14d": 14, "1mo": 30, "3mo": 91, "6mo": 182, "1yr": 365}
+RANGES = (*RANGE_DAYS, "lifetime")
+DEFAULT_RANGE = "3mo"
+RANGE_LABELS = {"7d": "7 Days", "14d": "14 Days", "1mo": "1 Month", "3mo": "3 Months",
+               "6mo": "6 Months", "1yr": "1 Year", "lifetime": "Lifetime"}
+
+# Series rendered as one small SVG line chart each, in this order.
+CHART_FIELDS = (
+    ("weight_lbs", "Weight (lbs)"),
+    ("neck_in", "Neck (in)"),
+    ("waist_in", "Waist (in)"),
+    ("hips_in", "Hips (in)"),
+    ("biceps_l_in", "Biceps L (in)"),
+    ("biceps_r_in", "Biceps R (in)"),
+    ("forearm_l_in", "Forearm L (in)"),
+    ("forearm_r_in", "Forearm R (in)"),
+    ("quad_l_in", "Quad L (in)"),
+    ("quad_r_in", "Quad R (in)"),
+    ("calf_l_in", "Calf L (in)"),
+    ("calf_r_in", "Calf R (in)"),
+)
 
 # Bilateral silhouette locations: (key, left column, right column, display label).
 BILATERAL_LOCATIONS = (
@@ -106,6 +132,111 @@ def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
     return points
 
 
+def _range_window(range_param: str | None, as_of_param: str | None) -> tuple[str, date, date | None]:
+    """(range_key, as_of, window_start). `range_key` is always one of RANGES -- an absent or
+    unrecognized value silently falls back to DEFAULT_RANGE, never a 500. `as_of` mirrors
+    calendar.py's `date` query param: an optional anchor override, parsed the same
+    try/date.fromisoformat/except-fallback-to-today way, mainly useful for deterministic tests but
+    also a legitimate way for a real user to pin the window's end date for historical review.
+    `window_start` is None for 'lifetime' (no lower bound); the window is otherwise a fixed-length
+    lookback ending at `as_of` -- entries are not upper-bounded by `as_of`, since this app allows
+    logging a measurement dated slightly ahead of the server's own clock and that shouldn't make
+    a just-logged entry vanish from its own chart."""
+    range_key = range_param if range_param in RANGES else DEFAULT_RANGE
+    try:
+        as_of = date.fromisoformat(as_of_param) if as_of_param else date.today()
+    except ValueError:
+        as_of = date.today()
+    days = RANGE_DAYS.get(range_key)
+    start = as_of - timedelta(days=days) if days is not None else None
+    return range_key, as_of, start
+
+
+def _in_window(rows: list[BodyMeasurement], start: date | None) -> list[BodyMeasurement]:
+    return rows if start is None else [r for r in rows if r.measured_at >= start]
+
+
+def _scaled_points(points: list[tuple[date, float]], min_d: date, max_d: date, min_v: float,
+                   max_v: float, width: int, height: int, pad_x: int, pad_y: int) -> list[tuple[float, float]]:
+    span_d = (max_d - min_d).days or 1
+    span_v = (max_v - min_v) or None
+    coords = []
+    for d, v in points:
+        cx = pad_x + (d - min_d).days / span_d * (width - 2 * pad_x)
+        cy = height / 2 if span_v is None else height - pad_y - (v - min_v) / span_v * (height - 2 * pad_y)
+        coords.append((round(cx, 1), round(cy, 1)))
+    return coords
+
+
+def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 160,
+          pad_x: int = 28, pad_y: int = 16) -> dict | None:
+    """A single-series line chart's plotted geometry, scaled to its own viewBox from `points`
+    (most-recent-last order not required -- sorted here). None when there's nothing to plot."""
+    if not points:
+        return None
+    points = sorted(points)
+    dates = [d for d, _ in points]
+    values = [v for _, v in points]
+    min_d, max_d, min_v, max_v = min(dates), max(dates), min(values), max(values)
+    coords = _scaled_points(points, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+    return {"width": width, "height": height, "points": coords,
+           "poly": " ".join(f"{x},{y}" for x, y in coords),
+           "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
+
+
+def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, float]], *,
+                width: int = 560, height: int = 160, pad_x: int = 28, pad_y: int = 16) -> dict | None:
+    """Two series (e.g. systolic/diastolic) sharing one date/value scale so they're comparable on
+    the same chart."""
+    if not points_a and not points_b:
+        return None
+    points_a, points_b = sorted(points_a), sorted(points_b)
+    all_points = points_a + points_b
+    dates = [d for d, _ in all_points]
+    values = [v for _, v in all_points]
+    min_d, max_d, min_v, max_v = min(dates), max(dates), min(values), max(values)
+    a = _scaled_points(points_a, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+    b = _scaled_points(points_b, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+    return {"width": width, "height": height, "points_a": a, "points_b": b,
+           "poly_a": " ".join(f"{x},{y}" for x, y in a), "poly_b": " ".join(f"{x},{y}" for x, y in b),
+           "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
+
+
+def _charts_context(windowed_rows: list[BodyMeasurement], own_windowed: list[BodyMeasurement],
+                    user: User | None, range_key: str) -> dict:
+    """Chart data for every tracked series. Raw measurement/weight series (and blood pressure)
+    draw from `windowed_rows` -- the signed-in user's own entries plus anyone sharing Personal
+    Data with them, per Task 4's sharing helpers. BMI and body-fat % are derived series that need
+    the *viewer's own* height/sex, which we don't have for a sharing partner, so those two only
+    ever plot the viewer's own windowed entries (`own_windowed`)."""
+    series = [{"key": field, "label": label,
+              "chart": _chart([(r.measured_at, getattr(r, field)) for r in windowed_rows
+                               if getattr(r, field) is not None])}
+             for field, label in CHART_FIELDS]
+
+    bp_a = [(r.measured_at, r.systolic) for r in windowed_rows if r.systolic is not None]
+    bp_b = [(r.measured_at, r.diastolic) for r in windowed_rows if r.diastolic is not None]
+    bp_chart = _dual_chart(bp_a, bp_b)
+
+    bmi_chart = bf_chart = None
+    if user is not None and user.height_in is not None:
+        bmi_points = [(r.measured_at, bmi(r.weight_lbs, user.height_in)) for r in own_windowed
+                     if r.weight_lbs is not None]
+        bmi_chart = _chart(bmi_points)
+        if user.sex is not None:
+            bf_points = []
+            for r in own_windowed:
+                if r.neck_in is None or r.waist_in is None:
+                    continue
+                pct = body_fat_pct(user.sex, user.height_in, r.neck_in, r.waist_in, r.hips_in)
+                if pct is not None:
+                    bf_points.append((r.measured_at, pct))
+            bf_chart = _chart(bf_points)
+
+    return {"range": range_key, "range_options": RANGES, "range_labels": RANGE_LABELS,
+           "series": series, "bp": bp_chart, "bmi": bmi_chart, "bf": bf_chart}
+
+
 def _macros_context(user: User, latest_weight: float | None) -> dict:
     """Never raises -- a missing required profile field or missing weight yields a `status` the
     template turns into a plain prompt instead of computing anything (Review Focus item 5)."""
@@ -151,7 +282,10 @@ def _macros_context(user: User, latest_weight: float | None) -> dict:
 
 
 def _render(request: Request, session: Session, uid: int, *, tab: str = "measurements",
+           range_param: str | None = None, as_of_param: str | None = None,
            form: dict | None = None, errors: dict | None = None, status_code: int = 200):
+    # Full history (unfiltered by chart range) -- silhouette/macros/water always reflect the
+    # single most recent entry regardless of which chart window is selected.
     own_entries = session.scalars(
         _measurement_query(uid).order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())).all()
 
@@ -162,7 +296,11 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     owner_names = {}
     if owner_ids:
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
-    shared_views = [{"m": m, "owner_name": owner_names.get(m.owner_id)} for m in shared_entries]
+
+    range_key, as_of, window_start = _range_window(range_param, as_of_param)
+    own_windowed = _in_window(own_entries, window_start)
+    shared_windowed = _in_window(shared_entries, window_start)
+    shared_views = [{"m": m, "owner_name": owner_names.get(m.owner_id)} for m in shared_windowed]
 
     tab = tab if tab in TABS else "measurements"
 
@@ -174,7 +312,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz)}
 
     return templates.TemplateResponse(request, "measurements/index.html", {
-        "entries": own_entries,
+        "entries": own_windowed,
         "shared_views": shared_views,
         "form": form or {},
         "errors": errors or {},
@@ -183,13 +321,17 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "silhouette": _silhouette_points(own_entries),
         "water": water,
         "macros": _macros_context(me_user, latest_weight) if me_user else {"status": "missing_profile", "missing_fields": []},
+        "charts": _charts_context(own_windowed + shared_windowed, own_windowed, me_user, range_key),
+        "as_of": as_of.isoformat(),
     }, status_code=status_code)
 
 
 @router.get("/measurements")
-def list_measurements(request: Request, tab: str = "measurements", session: Session = Depends(get_session),
-                      uid: int = Depends(current_user_id)):
-    return _render(request, session, uid, tab=tab)
+def list_measurements(request: Request, tab: str = "measurements",
+                      range_param: str = Query(DEFAULT_RANGE, alias="range"),
+                      as_of_param: str | None = Query(None, alias="as_of"),
+                      session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return _render(request, session, uid, tab=tab, range_param=range_param, as_of_param=as_of_param)
 
 
 @router.post("/measurements")

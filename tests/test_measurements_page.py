@@ -1,4 +1,5 @@
 import html
+from datetime import date
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -233,3 +234,36 @@ def test_water_goal_and_pace_shown_on_measurements_tab(client, db):
         assert "100" in t  # default water goal: 200/2
     finally:
         _clear_measurements(tester)
+
+
+def test_charts_default_to_a_range(client, db, me):
+    try:
+        r = client.get("/measurements")
+        assert r.status_code == 200
+    finally:
+        _clear_measurements(me)
+
+
+def test_charts_range_query_param_changes_window(client, db, me):
+    old = date(2026, 1, 1)
+    recent = date(2026, 9, 28)
+    try:
+        with SessionLocal() as s:
+            tester = s.scalar(select(User).where(User.username_key == "tester"))
+            s.add(BodyMeasurement(owner_id=tester.id, measured_at=old, weight_lbs=190))
+            s.add(BodyMeasurement(owner_id=tester.id, measured_at=recent, weight_lbs=180))
+            s.commit()
+        r_lifetime = client.get("/measurements?range=lifetime")
+        r_7d = client.get(f"/measurements?range=7d&as_of={recent.isoformat()}")
+        assert "190" in r_lifetime.text
+        assert "190" not in r_7d.text  # outside the 7-day window from the pinned "as_of" date
+    finally:
+        _clear_measurements(me)
+
+
+def test_charts_reject_unknown_range_falls_back_to_default(client, db, me):
+    try:
+        r = client.get("/measurements?range=bogus")
+        assert r.status_code == 200  # never a 500 on a garbage query param
+    finally:
+        _clear_measurements(me)
