@@ -173,7 +173,7 @@ def test_json_import_recreates_item_and_its_orders(client, db):
     with SessionLocal() as s:
         item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Imported Peptide"))
         assert item.category == Category.MEDICINE
-        assert item.orders[0].quantity == 5 and item.orders[0].tracking_number == "LY999"
+        assert item.order_items[0].quantity == 5 and item.order_items[0].order.tracking_number == "LY999"
         assert item.available_count == 5
 
 
@@ -274,6 +274,63 @@ def test_json_import_tolerates_old_backup_shape_with_no_sales_key(client, db):
     with SessionLocal() as s:
         item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Old Supply"))
         assert item.sales == []
+
+
+def test_json_export_includes_received_quantity(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    })
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)
+        li.received_quantity = 9
+        s.commit()
+
+    payload = client.get("/backup/export.json").json()
+    item = next(i for i in payload["inventory"] if i["name"] == "Retatrutide")
+    assert item["orders"][0]["received_quantity"] == 9
+    assert item["orders"][0]["arrival_date"] == "2026-08-10"
+
+
+def test_json_import_recreates_order_with_received_quantity(client, db):
+    payload = {
+        "inventory": [{
+            "name": "Imported Peptide", "category": "Medicine", "medium": "Lyophilized",
+            "vial_size_mg": 10, "vial_size_unit": "mg",
+            "orders": [{"quantity": 10, "received_quantity": 8, "order_date": "2026-08-01",
+                       "arrival_date": "2026-08-10", "tracking_number": "LY999"}],
+        }],
+    }
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Imported Peptide"))
+        li = item.order_items[0]
+        assert li.quantity == 10 and li.received_quantity == 8
+        assert li.order.arrival_date == date(2026, 8, 10)
+        assert item.available_count == 8
+
+
+def test_json_import_tolerates_backup_with_no_received_quantity_key(client, db):
+    payload = {
+        "inventory": [{
+            "name": "Old Style", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": 10,
+            "vial_size_unit": "mg",
+            "orders": [{"quantity": 10, "order_date": "2026-08-01", "arrival_date": "2026-08-10"}],
+        }],
+    }
+    files = {"file": ("backup.json", json.dumps(payload), "application/json")}
+    r = client.post("/backup/import", files=files, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Old Style"))
+        # No received_quantity in the file -- since arrival_date is set, treat it as fully received
+        # (matches this order's pre-multi-item-orders meaning: it already counted as available).
+        assert item.order_items[0].received_quantity == 10
+        assert item.available_count == 10
 
 
 def test_csv_export_includes_sales_section(client, db):

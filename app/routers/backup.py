@@ -17,8 +17,8 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
-    Category, DoseUnit, Frequency, InventoryItem, Medium, Order, Protocol, ProtocolGoal, ProtocolItem, Route,
-    Sale, StorageLocation, TimeOfDay, TitrationStep,
+    Category, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Protocol, ProtocolGoal, ProtocolItem,
+    Route, Sale, StorageLocation, TimeOfDay, TitrationStep,
 )
 from app.routers.protocols import _find_or_create_peptide
 from app.templating import templates
@@ -40,18 +40,20 @@ def _inventory_row(i: InventoryItem) -> dict:
         "storage": i.storage.value if i.storage else None,
         "cost": i.cost, "vendor": i.vendor, "notes": i.notes,
         "reconstituted_count": i.reconstituted_count, "sold_count": i.sold_count,
-        "orders": [_order_row(o) for o in i.orders],
+        "orders": [_order_row(li) for li in i.order_items],
         "sales": [_sale_row(s) for s in i.sales],
     }
 
 
-def _order_row(o: Order) -> dict:
+def _order_row(li) -> dict:
     return {
-        "quantity": o.quantity, "order_date": _iso(o.order_date), "shipped_date": _iso(o.shipped_date),
-        "arrival_date": _iso(o.arrival_date), "tracking_site": o.tracking_site,
-        "tracking_number": o.tracking_number, "vendor": o.vendor, "lot_number": o.lot_number,
-        "cost": o.cost, "tax": o.tax, "shipping": o.shipping, "expiration_date": _iso(o.expiration_date),
-        "coa_vial_size_mg": o.coa_vial_size_mg, "coa_purity_pct": o.coa_purity_pct,
+        "quantity": li.quantity, "received_quantity": li.received_quantity,
+        "order_date": _iso(li.order.order_date), "shipped_date": _iso(li.order.shipped_date),
+        "arrival_date": _iso(li.order.arrival_date), "tracking_site": li.order.tracking_site,
+        "tracking_number": li.order.tracking_number, "vendor": li.order.vendor,
+        "lot_number": li.lot_number, "cost": li.cost, "tax": li.order.tax,
+        "shipping": li.order.shipping, "expiration_date": _iso(li.expiration_date),
+        "coa_vial_size_mg": li.coa_vial_size_mg, "coa_purity_pct": li.coa_purity_pct,
     }
 
 
@@ -84,7 +86,8 @@ def backup_page(request: Request):
 def export_json(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     inventory = session.scalars(
         select(InventoryItem).where(InventoryItem.owner_id == uid)
-        .options(selectinload(InventoryItem.orders), selectinload(InventoryItem.sales)).order_by(InventoryItem.name)
+        .options(selectinload(InventoryItem.order_items).selectinload(OrderItem.order),
+                selectinload(InventoryItem.sales)).order_by(InventoryItem.name)
     ).all()
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid)
@@ -111,7 +114,7 @@ CSV_COLUMNS = [
     ("Reconstituted", "reconstituted_count"), ("Sold", "sold_count"),
 ]
 ORDER_CSV_COLUMNS = [
-    ("Item", "item_name"), ("Quantity", "quantity"), ("Order date", "order_date"),
+    ("Item", "item_name"), ("Quantity", "quantity"), ("Received", "received_quantity"), ("Order date", "order_date"),
     ("Shipped date", "shipped_date"), ("Arrival date", "arrival_date"), ("Tracking site", "tracking_site"),
     ("Tracking number", "tracking_number"), ("Vendor", "vendor"), ("Lot/Batch #", "lot_number"),
     ("Cost", "cost"), ("Tax", "tax"), ("Shipping", "shipping"), ("Expiration", "expiration_date"),
@@ -125,7 +128,8 @@ SALE_CSV_COLUMNS = [
 def export_inventory_csv(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     inventory = session.scalars(
         select(InventoryItem).where(InventoryItem.owner_id == uid)
-        .options(selectinload(InventoryItem.orders), selectinload(InventoryItem.sales)).order_by(InventoryItem.name)
+        .options(selectinload(InventoryItem.order_items).selectinload(OrderItem.order),
+                selectinload(InventoryItem.sales)).order_by(InventoryItem.name)
     ).all()
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -136,8 +140,8 @@ def export_inventory_csv(session: Session = Depends(get_session), uid: int = Dep
     writer.writerow([])
     writer.writerow([header for header, _ in ORDER_CSV_COLUMNS])
     for i in inventory:
-        for o in i.orders:
-            row = {**_order_row(o), "item_name": i.name}
+        for li in i.order_items:
+            row = {**_order_row(li), "item_name": i.name}
             writer.writerow(["" if row[key] is None else row[key] for _, key in ORDER_CSV_COLUMNS])
     writer.writerow([])
     writer.writerow([header for header, _ in SALE_CSV_COLUMNS])
@@ -164,19 +168,32 @@ def _import_inventory_row(session: Session, uid: int, row: dict) -> None:
         vendor=row.get("vendor"), notes=row.get("notes"),
         reconstituted_count=row.get("reconstituted_count") or 0, sold_count=row.get("sold_count") or 0,
     )
-    for o in row.get("orders", []):  # absent entirely in a pre-Order-history backup file -- treat as none
-        item.orders.append(Order(
-            quantity=o["quantity"], order_date=date.fromisoformat(o["order_date"]),
+    for o in row.get("orders", []):  # absent entirely in a pre-multi-item-orders backup file -- treat as none
+        order = Order(
+            order_date=date.fromisoformat(o["order_date"]),
             shipped_date=date.fromisoformat(o["shipped_date"]) if o.get("shipped_date") else None,
             arrival_date=date.fromisoformat(o["arrival_date"]) if o.get("arrival_date") else None,
             tracking_site=o.get("tracking_site"), tracking_number=o.get("tracking_number"),
-            vendor=o.get("vendor"), lot_number=o.get("lot_number"),
-            cost_cents=round(o["cost"] * 100) if o.get("cost") is not None else None,
+            vendor=o.get("vendor"),
             tax_cents=round(o["tax"] * 100) if o.get("tax") is not None else None,
             shipping_cents=round(o["shipping"] * 100) if o.get("shipping") is not None else None,
+        )
+        # A file with no received_quantity key predates multi-item orders -- if it had arrived, it
+        # already counted as fully available under the old model, so backfill received_quantity to
+        # quantity (matching migration 0013's own backfill rule) rather than leaving it NULL.
+        received_quantity = o.get("received_quantity")
+        if received_quantity is None and o.get("arrival_date"):
+            received_quantity = o["quantity"]
+        li = OrderItem(
+            quantity=o["quantity"], received_quantity=received_quantity,
+            lot_number=o.get("lot_number"),
+            cost_cents=round(o["cost"] * 100) if o.get("cost") is not None else None,
             expiration_date=date.fromisoformat(o["expiration_date"]) if o.get("expiration_date") else None,
             coa_vial_size_mg=o.get("coa_vial_size_mg"), coa_purity_pct=o.get("coa_purity_pct"),
-        ))
+        )
+        item.order_items.append(li)
+        order.items.append(li)
+        session.add(order)
     for sale in row.get("sales", []):  # absent entirely in a pre-Sold-flow backup file -- treat as none
         item.sales.append(Sale(
             quantity=sale["quantity"], sale_date=date.fromisoformat(sale["sale_date"]),
