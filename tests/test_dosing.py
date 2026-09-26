@@ -364,3 +364,286 @@ def test_calendar_adherence_is_missed_when_one_of_two_daily_items_unlogged(clien
     assert r.status_code == 200
     assert "adherence-missed" in r.text or '"missed"' in r.text
     assert "adherence-on_time" not in r.text and '"on_time"' not in r.text
+
+
+# ---------------------------------------------------------------- Fix 1: empty-vial handling + overdraw guard
+
+def test_open_vial_for_item_excludes_float_residual_as_empty(client, db):
+    """5 real-world 0.4mL draws from a 2.0mL vial leave a residual of ~1.11e-16 mL in plain float
+    arithmetic -- still > 0, but not a real amount of liquid left to draw. _open_vial_for_item must
+    treat that as empty, not offer the vial for a 6th dose."""
+    from app.routers.dosing import _open_vial_for_item
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=0.4)
+    with SessionLocal() as s:
+        vial = s.get(ActiveVial, vial_id)
+        residual = 2.0
+        for _ in range(5):
+            residual -= 0.4  # repeated subtraction, same as the app does on each real draw
+        vial.volume_remaining_ml = residual
+        s.commit()
+        item_id = vial.inventory_item_id
+        assert vial.volume_remaining_ml > 0  # sanity: the residual really is nonzero
+
+    with SessionLocal() as s:
+        assert _open_vial_for_item(s, item_id) is None
+
+
+def test_log_dose_overdraw_clamps_volume_remaining_to_zero(client, db):
+    """A dose whose computed volume exceeds what's left in the vial must not push
+    volume_remaining_ml negative -- the dose still happened in real life even if the vial's
+    tracked volume was already imprecise, so the log is still created, just clamped at 0."""
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)  # draws 0.4mL
+    with SessionLocal() as s:
+        vial = s.get(ActiveVial, vial_id)
+        vial.volume_remaining_ml = 0.1  # less than the 0.4mL this dose will draw
+        s.commit()
+
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == 0.0
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.status == DoseStatus.ON_TIME  # logged, not rejected
+
+
+def test_log_dose_that_exactly_empties_vial_redirects_with_empty_vial_signal(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)  # draws 0.4mL
+    with SessionLocal() as s:
+        vial = s.get(ActiveVial, vial_id)
+        vial.volume_remaining_ml = 0.4  # exactly what this dose draws
+        s.commit()
+
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/today?empty_vial={vial_id}"
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == 0.0
+
+    t = html.unescape(client.get(r.headers["location"]).text)
+    assert "empty" in t.lower()
+    assert f"/active-vials/{vial_id}/discard" in t
+
+
+# ---------------------------------------------------------------- Fix 2: protocol edits preserve DoseLog history
+
+def test_protocol_edit_repoints_doselog_to_new_matching_item(client, db):
+    """Editing a saved protocol (even a simple rename) clears and rebuilds all its ProtocolItem
+    rows -- a previously-logged dose's protocol_item_id must be re-pointed at whichever NEW item
+    represents the same (peptide, time_of_day), not silently left NULL (which would make Calendar,
+    the catch-up list, and Today's already-logged-today check all think that day was never logged)."""
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name="Fat Loss", start_date=date.today(), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.DAILY, time_of_day=TimeOfDay.AM, route=Route.SUBQ)
+        s.add(pitem)
+        s.commit()
+        protocol_id, pitem_id, peptide_id = protocol.id, pitem.id, peptide.id
+
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.protocol_item_id == pitem_id and log.status == DoseStatus.ON_TIME
+        log_id = log.id
+
+    # Edit the protocol -- rename only, same peptide + time_of_day -- via the real HTTP route.
+    r = client.post(f"/protocols/{protocol_id}", data={
+        "name": "Fat Loss v2", "start_date": date.today().isoformat(), "weeks": "8",
+        "goal": ["fat-loss"],
+        "items-0-peptide_id": str(peptide_id), "items-0-dose": "2", "items-0-dose_unit": "mg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am", "items-0-route": "subq",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        p = s.get(Protocol, protocol_id)
+        assert p.name == "Fat Loss v2"
+        [new_item] = p.items
+        # save_protocol always clears and rebuilds every ProtocolItem row on save -- SQLite may or
+        # may not reuse the old numeric id for the replacement row (an implementation detail, not
+        # something to assert on), so the meaningful check is that the log now resolves to a LIVE
+        # item in the edited protocol, not that the id is numerically different from before.
+        log = s.get(DoseLog, log_id)
+        assert log.protocol_item_id == new_item.id  # re-pointed -- not NULL, not orphaned
+
+    # Calendar adherence for that day must still read on_time, not missed.
+    r = client.get(f"/calendar?view=day&date={date.today().isoformat()}")
+    assert r.status_code == 200
+    assert "adherence-on_time" in r.text or '"on_time"' in r.text
+    assert "adherence-missed" not in r.text and '"missed"' not in r.text
+
+    # The catch-up list must not resurrect the already-logged day: today's occurrence should show
+    # up once, in the dose-history table (status "On time"), and not a second time as a missed/
+    # catch-up row.
+    t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
+    assert "On time" in t
+    assert "Log now (late)" not in t
+
+
+# ---------------------------------------------------------------- Fix 3: titrated dose vs logged/drawn amount
+
+def test_log_dose_uses_titrated_step_dose_not_base_dose(client, db):
+    """A titrated protocol's due dose (shown on Today/catch-up, per _due_item()) must be the exact
+    same value that gets drawn into volume_ml and stored on the DoseLog -- not the item's untitrated
+    base dose."""
+    from app.models import TitrationStep
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        item = InventoryItem(owner_id=uid, name="Retatrutide", category=Category.MEDICINE,
+                             medium=Medium.LYOPHILIZED, vial_size_mg=10)
+        s.add(item)
+        s.flush()
+        vial = ActiveVial(owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=5.0, water_ml=2.0,
+                          dose_value=2.0, dose_unit=DoseUnit.MG, doses_total=5, date_mixed=date.today(),
+                          discard_by=date(2099, 1, 1), volume_remaining_ml=2.0)
+        s.add(vial)
+        # start_date far enough back that "today" falls in titration week 3+, well past the
+        # step-1 window, so the effective dose (2.5mg) clearly differs from the base dose (1mg).
+        protocol = Protocol(name="Titrated", start_date=date.today() - timedelta(days=30),
+                            owner_id=uid, titration_enabled=True)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=1.0, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.DAILY, route=Route.SUBQ, inventory_item_id=item.id,
+                             steps=[TitrationStep(start_week=1, end_week=2, dose=1.0),
+                                   TitrationStep(start_week=3, end_week=None, dose=2.5)])
+        s.add(pitem)
+        s.commit()
+        protocol_id, pitem_id, vial_id = protocol.id, pitem.id, vial.id
+
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.dose_value == pytest.approx(2.5)  # the step's dose, not the base 1mg
+        assert log.volume_ml == pytest.approx(2.5 / 5.0)  # 2.5mg / 5mg/mL
+        vial = s.get(ActiveVial, vial_id)
+        assert vial.volume_remaining_ml == pytest.approx(2.0 - 2.5 / 5.0)
+
+
+# ---------------------------------------------------------------- Fix 5: injection site persists without a vial
+
+def test_log_dose_with_no_vial_still_records_explicit_site(client, db):
+    """An item with no linked inventory item (so `vial` stays None the whole time) must not
+    silently discard an explicitly posted injection site."""
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name="No Vial", start_date=date.today(), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.DAILY, route=Route.SUBQ)  # no inventory_item_id
+        s.add(pitem)
+        s.commit()
+        protocol_id, pitem_id = protocol.id, pitem.id
+
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_r",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.active_vial_id is None  # confirms the no-vial path was exercised
+        assert log.injection_site is not None and log.injection_site.value == "abdomen_r"
+
+
+def test_log_dose_rejects_site_ineligible_for_route(client, db):
+    """A posted site that isn't eligible for this item's route (e.g. a forged glute_l on a SubQ
+    item, bypassing the UI's own filtering) must be rejected, not stored as-is."""
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)  # SubQ route
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(), "injection_site": "glute_l",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.injection_site is None or log.injection_site.value != "glute_l"
+
+
+# ---------------------------------------------------------------- Fix 6: duplicate-log guard
+
+def test_double_posting_log_dose_creates_only_one_log_and_one_deduction(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)  # draws 0.4mL
+    data = {
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }
+    r1 = client.post("/today/log", data=data, follow_redirects=False)
+    r2 = client.post("/today/log", data=data, follow_redirects=False)
+    assert r1.status_code == 303 and r2.status_code == 303
+    with SessionLocal() as s:
+        logs = s.scalars(select(DoseLog)).all()
+        assert len(logs) == 1
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(2.0 - 0.4)
+
+
+def test_double_posting_skip_dose_creates_only_one_log(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    data = {
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }
+    r1 = client.post("/today/skip", data=data, follow_redirects=False)
+    r2 = client.post("/today/skip", data=data, follow_redirects=False)
+    assert r1.status_code == 303 and r2.status_code == 303
+    with SessionLocal() as s:
+        assert len(s.scalars(select(DoseLog)).all()) == 1
+
+
+# ---------------------------------------------------------------- Fix 7: catch-up window is bounded
+
+def test_catch_up_list_bounded_to_recent_window_for_old_protocol(client, db):
+    """A protocol running since 2020 must not produce one catch-up row per missed day since then --
+    the list is bounded to a recent window (see CATCH_UP_WINDOW_DAYS in app.routers.protocols)."""
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name="Ancient", start_date=date(2020, 1, 1), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        s.add(ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                           frequency=Frequency.DAILY, route=Route.SUBQ))
+        s.commit()
+        protocol_id = protocol.id
+
+    r = client.get(f"/protocols/{protocol_id}/edit")
+    assert r.status_code == 200
+    # One "Log now (late)" button per missed day -- thousands for a protocol running since 2020
+    # with no bound, at most ~15 (CATCH_UP_WINDOW_DAYS + 1) with the fix.
+    assert r.text.count('data-action="log-dose"') <= 16

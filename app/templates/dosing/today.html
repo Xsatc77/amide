@@ -10,6 +10,16 @@
   </div>
 </div>
 
+{% if empty_vial %}
+<div class="alert" role="alert" data-empty-vial-banner>
+  <span>{{ empty_vial.item_name }}'s vial is now empty.</span>
+  <form method="post" action="/active-vials/{{ empty_vial.id }}/discard" class="inline">
+    <button type="submit" class="btn btn-ghost">Discard</button>
+  </form>
+  <button type="button" class="btn btn-ghost" data-action="dismiss-empty-vial">Dismiss</button>
+</div>
+{% endif %}
+
 {% if not due %}
 <div class="empty"><p><strong>Nothing due today.</strong></p></div>
 {% else %}

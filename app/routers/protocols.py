@@ -1,8 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import current_user_id
@@ -20,6 +20,10 @@ from app.protocols.status import Status, current_step, current_week, day_number,
 from app.templating import templates
 
 router = APIRouter()
+
+# How far back the Protocol page's catch-up ("recent Missed items") list looks, regardless of how
+# long ago the protocol's start_date was -- see edit_protocol.
+CATCH_UP_WINDOW_DAYS = 14
 
 
 def get_today() -> date:
@@ -200,12 +204,35 @@ def _find_or_create_peptide(session: Session, name: str) -> Peptide:
 
 
 def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Protocol:
-    """Write validated builder values onto `p`, replacing its goals, peptides and titration steps."""
+    """Write validated builder values onto `p`, replacing its goals, peptides and titration steps.
+
+    Every edit clears and rebuilds all ProtocolItem rows below (simplest way to reconcile arbitrary
+    add/remove/reorder from the builder form) -- but DoseLog.protocol_item_id has
+    ondelete="SET NULL", so without special handling every previously-logged dose would go orphaned
+    on ANY edit, even a no-op rename: Calendar's adherence, the Protocol page's catch-up list, and
+    Today's already-logged-today filter all match exclusively on protocol_item_id, so a NULLed row
+    would silently look unlogged again. Before the old items are deleted, each one's DoseLog rows
+    are re-pointed to whichever NEW item is its best match -- identified by (peptide_id,
+    time_of_day), the stable "what this represents" identity across an edit even when dose,
+    frequency or route changed. NULL is still correct when nothing in the edited protocol matches
+    that identity any more (e.g. the peptide was removed)."""
     p.name = parsed.name
     p.start_date = parsed.start_date
     p.end_date = parsed.end_date
     p.notes = parsed.notes
     p.titration_enabled = parsed.titration_enabled
+
+    logs_by_old_key: dict[tuple[int, TimeOfDay], list[int]] = {}
+    if p.id is not None:
+        old_key_by_item_id = {it.id: (it.peptide_id, it.time_of_day) for it in p.items}
+        if old_key_by_item_id:
+            old_logs = session.scalars(
+                select(DoseLog).where(DoseLog.protocol_id == p.id,
+                                      DoseLog.protocol_item_id.in_(list(old_key_by_item_id)))).all()
+            for log in old_logs:
+                key = old_key_by_item_id[log.protocol_item_id]
+                logs_by_old_key.setdefault(key, []).append(log.id)
+
     if p.id is None:
         session.add(p)
     else:
@@ -215,14 +242,33 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
         session.flush()
 
     p.goals = [ProtocolGoal(goal=g) for g in parsed.goals]
+    new_items = []
     for position, it in enumerate(parsed.items):
         peptide_id = it.peptide_id if it.peptide_id is not None else _find_or_create_peptide(session, it.new_name).id
-        p.items.append(ProtocolItem(
+        new_item = ProtocolItem(
             peptide_id=peptide_id, position=position, dose=it.dose, dose_unit=it.dose_unit,
             frequency=it.frequency, every_n_days=it.every_n_days, weekdays=it.weekdays,
             time_of_day=it.time_of_day, route=it.route, inventory_item_id=it.inventory_item_id, notes=it.notes,
             steps=[TitrationStep(start_week=s.start_week, end_week=s.end_week, dose=s.dose) for s in it.steps],
-        ))
+        )
+        p.items.append(new_item)
+        new_items.append(new_item)
+
+    if logs_by_old_key:
+        session.flush()  # new_items need real, persisted ids before DoseLog rows can point at them
+        new_item_id_by_key: dict[tuple[int, TimeOfDay], int] = {}
+        for new_item in new_items:
+            new_item_id_by_key.setdefault((new_item.peptide_id, new_item.time_of_day), new_item.id)
+        for key, log_ids in logs_by_old_key.items():
+            new_item_id = new_item_id_by_key.get(key)  # None is correct: nothing left in the protocol matches
+            # A bulk UPDATE, not session.get()-then-set: the DELETE above already triggered the DB's
+            # own ondelete="SET NULL" for these rows at the database level, but any of them still
+            # cached in this session's identity map from the old_logs query above wouldn't reflect
+            # that -- if the new value happens to equal what was already in memory (e.g. an id SQLite
+            # reused), the ORM would see "no change" and silently skip writing it, leaving the
+            # database's NULL in place despite the object looking correct in memory.
+            session.execute(update(DoseLog).where(DoseLog.id.in_(log_ids)).values(protocol_item_id=new_item_id))
+
     session.commit()
     return p
 
@@ -261,7 +307,13 @@ def edit_protocol(protocol_id: int, request: Request, session: Session = Depends
     p = _get_protocol(session, protocol_id, uid)
     dose_history = session.scalars(
         select(DoseLog).where(DoseLog.protocol_id == p.id).order_by(DoseLog.scheduled_date.desc())).all()
-    occs = occurrences([p], p.start_date, today)
+    # The catch-up list is meant to be "recent Missed items" (the spec's own wording), not one row
+    # per missed day since the protocol started -- bound the occurrences window used to compute it
+    # to the last CATCH_UP_WINDOW_DAYS, regardless of how far in the past start_date is. This only
+    # affects `missed`; dose_history above is unrelated (queries DoseLog directly) and must keep
+    # showing full history.
+    catch_up_start = max(p.start_date, today - timedelta(days=CATCH_UP_WINDOW_DAYS))
+    occs = occurrences([p], catch_up_start, today)
     logged = {(dl.protocol_item_id, dl.scheduled_date) for dl in dose_history if dl.protocol_item_id is not None}
     missed = missed_items(occs, logged, today)
     return _render_builder(request, session, state_from_protocol(p), protocol=p, today=today,

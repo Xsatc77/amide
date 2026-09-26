@@ -39,3 +39,20 @@
   dialog.querySelectorAll('[data-action="close-site"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
   dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
 })();
+
+// Today view: dismiss the empty-vial banner (shown after a dose emptied its vial) without
+// discarding it -- just drop the query param and hide the banner, same "no reload needed" pattern
+// the Inventory page's expiry-prompt flow uses for its own query param.
+(() => {
+  const banner = document.querySelector("[data-empty-vial-banner]");
+  if (!banner) return;
+  const dismissBtn = banner.querySelector('[data-action="dismiss-empty-vial"]');
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      banner.remove();
+      if (window.location.search.includes("empty_vial")) {
+        window.history.replaceState({}, "", "/today");
+      }
+    });
+  }
+})();

@@ -273,6 +273,8 @@ form.inline { display: inline; }
 .error { color: var(--danger); }
 .alert { margin: 16px 20px 0; padding: 10px 12px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-weight: 500; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.checkbox-field { flex-direction: row; align-items: center; gap: 8px; }
+.checkbox-field input[type="checkbox"] { width: auto; }
 .coa-existing { display: flex; flex-direction: column; gap: 4px; }
 .coa-existing[hidden] { display: none; }
 .coa-preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); align-self: flex-start; }
@@ -625,6 +627,33 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .adherence-late { background: #f9a825; }
 .adherence-missed { background: #c62828; }
 .adherence-upcoming { background: #90a4ae; }
+
+/* ---------- dose status tags (Protocol page dose-history table) ---------- */
+.status-on_time { background: var(--ribbon); color: var(--ribbon-text); }
+.status-late { background: var(--ribbon-soft); color: var(--ribbon-strong); }
+.status-skipped { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.status-missed { background: var(--danger-soft); color: var(--danger); }
+
+/* ---------- injection-site picker (Today view) ---------- */
+.body-silhouette { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.body-silhouette circle[data-site] { cursor: pointer; }
+
+/* Shared base for both the SVG's per-site <circle>s (painted by app/static/js/dosing.js) and the
+   dialog's own <i class="site-dot ..."> legend swatches -- a <circle> already has its own size via
+   its r attribute, so width/height here only matter for the legend's <i> elements. */
+.site-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+
+.site-dot-last { fill: #c62828; background: #c62828; }
+.site-dot-available { fill: #2e7d32; background: #2e7d32; }
+.site-dot-recommended { fill: #2e7d32; background: #2e7d32; animation: site-dot-pulse 1.4s ease-in-out infinite; }
+@keyframes site-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.site-dot-ineligible { fill: #90a4ae; background: #90a4ae; opacity: 0.35; pointer-events: none; }
+
+.site-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 12px 20px; font-size: 0.85rem; color: var(--muted); }
+.site-legend span { display: inline-flex; align-items: center; gap: 6px; }
 
 /* ---------- reconstitution calculator ---------- */
 .calc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
