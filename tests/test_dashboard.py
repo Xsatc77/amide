@@ -176,3 +176,9 @@ def test_revoked_share_removes_viewer_option(client, db, me):
         with SessionLocal() as s:
             s.query(InventoryItem).filter_by(owner_id=other_id, name="RevokedLowStock").delete()
             s.commit()
+
+
+def test_non_numeric_viewer_id_falls_back_to_self_instead_of_500(client, db):
+    r = client.get("/dashboard?viewer_id=abc")
+    assert r.status_code == 200
+    assert "Weight" in html.unescape(r.text)  # placeholder card confirms a normal self-render

@@ -114,8 +114,14 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
              uid: int = Depends(current_user_id), viewer_id: str | None = Query(None)):
     # A plain HTML <select> submits its empty "You" option as `viewer_id=` (empty string), which
     # `int | None` query typing would reject with a 422 -- parse manually so both "absent" and
-    # "present but empty" mean "no override, view yourself."
-    viewer_id_int = int(viewer_id) if viewer_id else None
+    # "present but empty" mean "no override, view yourself." A garbled, non-numeric value (never
+    # produced by our own dropdown, but possible from a hand-typed URL) is treated the same way
+    # rather than raising -- consistent with _resolve_viewer's own silent-fallback-to-self
+    # philosophy for any other invalid/stale viewer_id.
+    try:
+        viewer_id_int = int(viewer_id) if viewer_id else None
+    except ValueError:
+        viewer_id_int = None
     effective_uid, categories = _resolve_viewer(session, uid, viewer_id_int)
 
     schedule = None
