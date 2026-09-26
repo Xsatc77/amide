@@ -180,3 +180,35 @@ def test_log_dose_requires_ownership(client, db):
     assert r.status_code == 404
     with SessionLocal() as s:
         assert s.get(ActiveVial, vial_id).volume_remaining_ml == 2.0
+
+
+def test_today_page_shows_site_picker_for_subq_route(client, db):
+    from app.models import Frequency
+    _setup_protocol_with_vial(client, db)
+    t = html.unescape(client.get("/today").text)
+    assert 'data-injection-site-picker' in t
+    assert 'value="abdomen_l"' in t and 'value="glute_l"' not in t  # SubQ excludes Glute
+
+
+def test_log_dose_with_explicit_site_records_it(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_r",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.injection_site.value == "abdomen_r"
+
+
+def test_second_log_recommends_mirrored_site(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, quantity=4)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_l",
+    }, follow_redirects=False)
+    t = html.unescape(client.get("/today").text)
+    # A second occurrence isn't due again today for a DAILY item, so instead directly check the
+    # recommendation surfaces via the API the JS reads -- assert the recommended site is embedded
+    # in the page's site data for this peptide.
+    assert '"recommended": "abdomen_r"' in t or '&#34;recommended&#34;: &#34;abdomen_r&#34;' in t

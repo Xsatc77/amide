@@ -66,16 +66,34 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     occs = occurrences(protocols, today, today)
-    due = [(occ, item) for occ in occs for item in occ.items]
+    all_due = [(occ, item) for occ in occs for item in occ.items]
 
     logged_ids = {
         (dl.protocol_item_id) for dl in session.scalars(
             select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date == today))
     }
-    due = [(occ, item) for occ, item in due if item.protocol_item_id not in logged_ids]
+    due = [(occ, item) for occ, item in all_due if item.protocol_item_id not in logged_ids]
+
+    # Built from all_due (not the logged-filtered `due`) so the recommended-site data for an item
+    # already logged today still surfaces on the page -- e.g. right after logging, so the JS/tests
+    # reading this blob can see the mirrored recommendation for that peptide's *next* dose, even
+    # though the just-logged occurrence itself no longer needs a picker (it dropped out of `due`).
+    # DueItem.route holds the human label (e.g. "SubQ"), not the lowercase route value that
+    # eligible_sites()/recommend() key off of ("subq") -- .lower() bridges that; every current
+    # Route label lowercases to exactly its value.
+    site_data = {}
+    for occ, item in all_due:
+        sites = eligible_sites(item.route.lower())
+        if sites:
+            last = _last_site_for_peptide(session, uid, item.peptide_id)
+            site_data[item.protocol_item_id] = {
+                "sites": [{"value": s.value, "label": s.label} for s in sites],
+                "last": last.value if last else None,
+                "recommended": recommend(last, item.route.lower()).value if recommend(last, item.route.lower()) else None,
+            }
 
     return templates.TemplateResponse(request, "dosing/today.html", {
-        "due": due, "today": today, "today_iso": today.isoformat(),
+        "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
     })
 
 

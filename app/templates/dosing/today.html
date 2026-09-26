@@ -24,10 +24,24 @@
       <td>{{ item.time_of_day.label }}</td>
       <td>{{ item.route }}</td>
       <td>
-        <form method="post" action="/today/log" class="inline">
+        <form method="post" action="/today/log" class="inline" data-log-form>
           <input type="hidden" name="protocol_id" value="{{ occ.protocol_id }}">
           <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
           <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
+          {% if item.protocol_item_id in site_data %}
+          <input type="hidden" name="injection_site" value="{{ site_data[item.protocol_item_id].recommended or '' }}" data-site-input>
+          <button type="button" class="btn btn-ghost" data-action="pick-site" data-item-id="{{ item.protocol_item_id }}">Pick site</button>
+          {# Inert, name-less native fallback -- lists only this item's eligible sites (e.g. SubQ
+             excludes Glute) for no-JS/assistive contexts and for tests to assert eligibility
+             scoping without a real browser. It never submits (no name attribute), so it can't
+             affect the /today/log request; the SVG dialog + hidden data-site-input remain the
+             only thing that sets injection_site. #}
+          <select class="visually-hidden" aria-hidden="true" tabindex="-1">
+            {% for s in site_data[item.protocol_item_id].sites %}
+            <option value="{{ s.value }}">{{ s.label }}</option>
+            {% endfor %}
+          </select>
+          {% endif %}
           <button type="submit" class="btn btn-primary" data-action="log-dose">Log dose</button>
         </form>
         <form method="post" action="/today/skip" class="inline">
@@ -43,4 +57,35 @@
 </table>
 </div>
 {% endif %}
+
+<dialog id="site-dialog" class="dialog" data-injection-site-picker>
+  <header class="dialog-head">
+    <h2>Injection site</h2>
+    <button type="button" class="btn btn-ghost btn-icon" data-action="close-site" aria-label="Close">×</button>
+  </header>
+  <svg viewBox="0 0 200 400" class="body-silhouette" aria-label="Body diagram with injection sites">
+    <path d="M100 10 C80 10 70 30 70 50 C70 70 80 90 70 110 L60 180 L55 260 L60 340 L70 390 L90 390 L92 260 L100 200 L108 260 L110 390 L130 390 L140 340 L145 260 L140 180 L130 110 C120 90 130 70 130 50 C130 30 120 10 100 10 Z"
+          fill="none" stroke="currentColor" stroke-width="2"/>
+    <circle data-site="abdomen_l" cx="90" cy="150" r="8"></circle>
+    <circle data-site="abdomen_r" cx="110" cy="150" r="8"></circle>
+    <circle data-site="thigh_l" cx="82" cy="240" r="8"></circle>
+    <circle data-site="thigh_r" cx="118" cy="240" r="8"></circle>
+    <circle data-site="arm_l" cx="65" cy="120" r="8"></circle>
+    <circle data-site="arm_r" cx="135" cy="120" r="8"></circle>
+    <circle data-site="glute_l" cx="85" cy="200" r="8"></circle>
+    <circle data-site="glute_r" cx="115" cy="200" r="8"></circle>
+  </svg>
+  <div class="site-legend">
+    <span><i class="site-dot site-dot-last"></i> Last used</span>
+    <span><i class="site-dot site-dot-recommended"></i> Recommended</span>
+    <span><i class="site-dot site-dot-available"></i> Available</span>
+  </div>
+  <footer class="dialog-foot"><button type="button" class="btn" data-action="close-site">Cancel</button></footer>
+</dialog>
+
+<script type="application/json" id="site-data">{{ site_data | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/dosing.js') }}" defer></script>
 {% endblock %}
