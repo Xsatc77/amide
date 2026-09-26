@@ -457,3 +457,35 @@ def test_0016_adds_vendor_management(tmp_path):
         vendor_cols = {r[1] for r in c.execute("pragma table_info(vendors)")}
         assert "contact_info" in vendor_cols
         assert "supplier" not in vendor_cols
+
+
+def test_0017_adds_weight_measurements(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0016")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-28')")
+        uid = c.execute("select id from users where username='A'").fetchone()[0]
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        user_cols = {r[1] for r in c.execute("pragma table_info(users)")}
+        assert {"sex", "birth_date", "height_in", "activity_level", "macro_goal", "diet_preset",
+               "custom_protein_pct", "custom_carb_pct", "custom_fat_pct", "water_goal_oz"} <= user_cols
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "body_measurements" in tables
+        body_cols = {r[1] for r in c.execute("pragma table_info(body_measurements)")}
+        assert {"owner_id", "measured_at", "weight_lbs", "systolic", "diastolic", "neck_in",
+               "waist_in", "hips_in", "biceps_l_in", "biceps_r_in", "forearm_l_in", "forearm_r_in",
+               "quad_l_in", "quad_r_in", "calf_l_in", "calf_r_in"} <= body_cols
+        c.execute("insert into body_measurements(owner_id, measured_at, weight_lbs, created_at) "
+                  "values (?, '2026-09-28', 180.5, '2026-09-28')", (uid,))
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into body_measurements(owner_id, measured_at, weight_lbs, created_at) "
+                      "values (?, '2026-09-28', -5, '2026-09-28')", (uid,))
+    command.downgrade(cfg, "0016")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "body_measurements" not in tables
+        user_cols = {r[1] for r in c.execute("pragma table_info(users)")}
+        assert "sex" not in user_cols
