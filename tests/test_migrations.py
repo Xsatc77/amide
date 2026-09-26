@@ -344,6 +344,43 @@ def test_0013_splits_orders_into_order_items(tmp_path):
         rows = c.execute("select quantity, received_quantity, cost_cents from order_items "
                          "order by quantity desc").fetchall()
         assert rows == [(10, 10, 8400), (5, None, None)]
+
+
+def test_0014_adds_dose_logging(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0013")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-25')")
+        c.execute("insert into inventory_items(name,count,vial_size_unit,category,created_at,"
+                  "updated_at,owner_id) values ('Retatrutide',0,'mg','Medicine','2026-09-25',"
+                  "'2026-09-25',1)")
+        item_id = c.execute("select id from inventory_items where name='Retatrutide'").fetchone()[0]
+        c.execute("insert into active_vials(owner_id,inventory_item_id,concentration_mg_ml,water_ml,"
+                  "dose_value,dose_unit,doses_total,date_mixed,discard_by,created_at) values "
+                  "(1,?,5.0,2.0,2.0,'mg',5,'2026-09-01','2026-09-29','2026-09-01')", (item_id,))
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(dose_logs)")}
+        assert {"owner_id", "protocol_id", "protocol_item_id", "active_vial_id", "peptide_id",
+               "peptide_name", "dose_value", "dose_unit", "route", "scheduled_date",
+               "scheduled_time_of_day", "status", "logged_at", "injection_site", "volume_ml"} <= cols
+        vial_cols = {r[1] for r in c.execute("pragma table_info(active_vials)")}
+        assert {"dispensing_method", "volume_remaining_ml"} <= vial_cols
+        method, remaining = c.execute(
+            "select dispensing_method, volume_remaining_ml from active_vials").fetchone()
+        assert method == "syringe" and remaining == 2.0  # backfilled from water_ml
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into dose_logs(owner_id,protocol_id,peptide_id,peptide_name,dose_unit,"
+                      "route,scheduled_date,scheduled_time_of_day,status,volume_ml) values "
+                      "(1,1,1,'X','mg','subq','2026-09-25','am','skipped',-1)")
+    command.downgrade(cfg, "0013")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "dose_logs" not in tables
+        vial_cols = {r[1] for r in c.execute("pragma table_info(active_vials)")}
+        assert "dispensing_method" not in vial_cols and "volume_remaining_ml" not in vial_cols
         with pytest.raises(sqlite3.IntegrityError):
             c.execute("insert into order_items(order_id,inventory_item_id,quantity,received_quantity) "
                       "values (1,?,5,6)", (item_id,))  # received > ordered

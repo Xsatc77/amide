@@ -1,13 +1,14 @@
 import html
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import ActiveVial, InventoryItem, User
+from app.models import ActiveVial, InventoryItem, TimeOfDay, User
 
 
 def text(r) -> str:
@@ -371,3 +372,65 @@ def test_bac_water_item_never_reconstitutable(client, db, me):
         "discard_by": "2026-12-31",
     })
     assert r.status_code == 404
+
+
+def test_active_vial_volume_remaining_defaults_and_depletes(db, me):
+    from app.models import ActiveVial, Category, DispensingMethod, DoseUnit, Medium
+
+    item = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                         medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    db.add(item)
+    db.flush()
+    vial = ActiveVial(owner_id=me, inventory_item_id=item.id, concentration_mg_ml=5.0, water_ml=2.0,
+                      dose_value=2.0, dose_unit=DoseUnit.MG, doses_total=5,
+                      date_mixed=date(2026, 9, 1), discard_by=date(2026, 9, 29),
+                      volume_remaining_ml=2.0)
+    db.add(vial)
+    db.commit()
+    assert vial.dispensing_method == DispensingMethod.SYRINGE  # default
+    vial.volume_remaining_ml -= 0.4
+    db.commit()
+    db.refresh(vial)
+    assert vial.volume_remaining_ml == 1.6
+
+
+def test_dose_log_model_constraints_and_denormalization(db, me):
+    from app.models import (
+        DoseLog, DoseStatus, DoseUnit, InjectionSite, Peptide, Protocol, ProtocolItem, Route,
+    )
+
+    peptide = Peptide(name="Retatrutide DoseLog Test")  # distinct from the seeded card peptide of the
+    # same real-world name, to avoid colliding with the unique, case-insensitive Peptide.name index
+    db.add(peptide)
+    db.flush()
+    protocol = Protocol(name="Fat Loss", start_date=date(2026, 9, 1), owner_id=me)
+    db.add(protocol)
+    db.flush()
+    item = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                        route=Route.SUBQ)
+    db.add(item)
+    db.commit()
+
+    log = DoseLog(
+        owner_id=me, protocol_id=protocol.id, protocol_item_id=item.id, peptide_id=peptide.id,
+        peptide_name="Retatrutide", dose_value=2.0, dose_unit=DoseUnit.MG, route="subq",
+        scheduled_date=date(2026, 9, 25), scheduled_time_of_day=TimeOfDay.AM, status=DoseStatus.ON_TIME,
+        logged_at=datetime.now(timezone.utc), injection_site=InjectionSite.ABDOMEN_L, volume_ml=0.4,
+    )
+    db.add(log)
+    db.commit()
+    assert log.peptide_name == "Retatrutide"  # denormalized, doesn't depend on peptide relationship
+
+    # Deleting the ProtocolItem (as save_protocol does on every edit) must not delete the log.
+    db.delete(item)
+    db.commit()
+    db.refresh(log)
+    assert log.protocol_item_id is None  # SET NULL, not cascaded
+    assert log.peptide_name == "Retatrutide"  # history intact
+
+    with pytest.raises(IntegrityError):
+        db.add(DoseLog(owner_id=me, protocol_id=protocol.id, peptide_id=peptide.id, peptide_name="X",
+                       dose_unit=DoseUnit.MG, route="subq", scheduled_date=date(2026, 9, 25),
+                       scheduled_time_of_day=TimeOfDay.AM, status=DoseStatus.SKIPPED, volume_ml=-1))
+        db.flush()
+    db.rollback()

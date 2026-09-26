@@ -34,6 +34,30 @@ class DoseUnit(LabeledEnum):
     IU = ("IU", "IU")
 
 
+class DispensingMethod(LabeledEnum):
+    SYRINGE = ("syringe", "Syringe")
+    PEN = ("pen", "Peptide pen")
+
+
+class InjectionSite(LabeledEnum):
+    ABDOMEN_L = ("abdomen_l", "Left abdomen")
+    ABDOMEN_R = ("abdomen_r", "Right abdomen")
+    THIGH_L = ("thigh_l", "Left thigh")
+    THIGH_R = ("thigh_r", "Right thigh")
+    ARM_L = ("arm_l", "Left upper arm")
+    ARM_R = ("arm_r", "Right upper arm")
+    GLUTE_L = ("glute_l", "Left glute")
+    GLUTE_R = ("glute_r", "Right glute")
+
+
+class DoseStatus(LabeledEnum):
+    ON_TIME = ("on_time", "On time")
+    LATE = ("late", "Logged late")
+    MISSED = ("missed", "Missed")  # never written to the DB -- inferred at read time; kept here so
+                                   # DoseLog.status and a computed "missed" display value share one type
+    SKIPPED = ("skipped", "Skipped")
+
+
 class Medium(str, enum.Enum):
     LYOPHILIZED = "Lyophilized"
     LIQUID = "Liquid"
@@ -318,6 +342,8 @@ class ActiveVial(Base):
     dose_value: Mapped[float] = mapped_column(Float)
     dose_unit: Mapped[DoseUnit] = mapped_column(_enum_column(DoseUnit))
     doses_total: Mapped[int] = mapped_column(Integer)
+    dispensing_method: Mapped[DispensingMethod] = mapped_column(_enum_column(DispensingMethod), default=DispensingMethod.SYRINGE)
+    volume_remaining_ml: Mapped[float] = mapped_column(Float)
     date_mixed: Mapped[date] = mapped_column(Date)
     discard_by: Mapped[date] = mapped_column(Date)
     discarded_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -364,6 +390,42 @@ class PeptideSource(LabeledEnum):
 # Weekday letters used in ProtocolItem.weekdays, Monday first (R = Thursday, U = Sunday).
 WEEKDAY_LETTERS = "MTWRFSU"
 WEEKDAY_NAMES = dict(zip(WEEKDAY_LETTERS, ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")))
+
+
+class DoseLog(Base):
+    """One due-item-on-one-date outcome: logged (on time or late) or skipped. A day that passes
+    with nothing logged is "missed" -- inferred at read time by diffing occurrences() against
+    existing rows here, never written as its own row (see app.calendar.schedule.missed_items).
+    Denormalizes peptide/dose/route/time_of_day at log time rather than trusting
+    protocol_item_id to keep meaning -- editing a saved Protocol clears and rebuilds all its
+    ProtocolItem rows (see app.protocols' save_protocol), so a hard FK there would silently lose
+    history on every edit. protocol_item_id is kept as a nullable, best-effort deep link only."""
+
+    __tablename__ = "dose_logs"
+    __table_args__ = (
+        CheckConstraint("dose_value IS NULL OR dose_value > 0", name="ck_dose_log_dose_pos"),
+        CheckConstraint("volume_ml IS NULL OR volume_ml > 0", name="ck_dose_log_volume_pos"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    protocol_id: Mapped[int] = mapped_column(ForeignKey("protocols.id", ondelete="CASCADE"), index=True)
+    protocol_item_id: Mapped[int | None] = mapped_column(ForeignKey("protocol_items.id", ondelete="SET NULL"))
+    active_vial_id: Mapped[int | None] = mapped_column(ForeignKey("active_vials.id", ondelete="SET NULL"))
+    peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="RESTRICT"))
+    peptide_name: Mapped[str] = mapped_column(String(120))
+    dose_value: Mapped[float | None] = mapped_column(Float)
+    dose_unit: Mapped[DoseUnit] = mapped_column(_enum_column(DoseUnit))
+    route: Mapped[str] = mapped_column(String(20))
+    scheduled_date: Mapped[date] = mapped_column(Date)
+    scheduled_time_of_day: Mapped[TimeOfDay] = mapped_column(_enum_column(TimeOfDay))
+    status: Mapped[DoseStatus] = mapped_column(_enum_column(DoseStatus))
+    logged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    injection_site: Mapped[InjectionSite | None] = mapped_column(_enum_column(InjectionSite))
+    volume_ml: Mapped[float | None] = mapped_column(Float)
+
+    protocol: Mapped["Protocol"] = relationship()
+    active_vial: Mapped["ActiveVial | None"] = relationship()
 
 
 class Peptide(Base):
