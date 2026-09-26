@@ -1,10 +1,11 @@
 """The Dashboard: the app's homepage -- today's schedule, alerts, cost/adherence snapshots, and
 placeholders for not-yet-built widgets. Read-only; every widget reuses an existing query shape."""
 
+import types
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
@@ -66,14 +67,29 @@ def _todays_schedule(session: Session, uid: int, today: date) -> list[dict]:
 
 
 def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
-    since = today - timedelta(days=30)
+    """Percentage of every dose actually DUE in the last 30 days (today inclusive) that was logged
+    on time or late. The denominator is every due item from occurrences() in the window -- not just
+    the ones that happen to have a DoseLog row -- since DoseStatus.MISSED is never persisted (see
+    app.models.DoseStatus's own docstring); a silently-missed dose must still count against
+    adherence, the same way the Calendar's missed_items() surfaces it as a red dot. 29-day lookback
+    (today - 29) plus today itself = a 30-day window, matching the "last 30 days" label exactly
+    (today - 30 would make it 31 days inclusive)."""
+    since = today - timedelta(days=29)
+    protocols = session.scalars(
+        select(Protocol).where(Protocol.owner_id == uid).options(
+            selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
+            selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+            selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
+        )).all()
+    occs = occurrences(protocols, since, today)
+    total_due = sum(len(occ.items) for occ in occs)
+    if total_due == 0:
+        return None
     logs = session.scalars(
         select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date >= since,
                               DoseLog.scheduled_date <= today)).all()
-    if not logs:
-        return None
     on_time_or_late = sum(1 for l in logs if l.status in (DoseStatus.ON_TIME, DoseStatus.LATE))
-    return round(100 * on_time_or_late / len(logs))
+    return round(100 * on_time_or_late / total_due)
 
 
 def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:
@@ -120,7 +136,13 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     # philosophy for any other invalid/stale viewer_id.
     try:
         viewer_id_int = int(viewer_id) if viewer_id else None
-    except ValueError:
+        # A huge numeric string (e.g. from a hand-typed URL) parses fine as a Python int -- ints
+        # are unbounded -- but then overflows when SQLAlchemy binds it against SQLite's integer
+        # column. Bound-check against a normal signed 64-bit range and fall back to self, same as
+        # the non-numeric case just below.
+        if viewer_id_int is not None and abs(viewer_id_int) > 2**63 - 1:
+            viewer_id_int = None
+    except (ValueError, OverflowError):
         viewer_id_int = None
     effective_uid, categories = _resolve_viewer(session, uid, viewer_id_int)
 
@@ -132,6 +154,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
 
     alerts = None
     cost_snapshot = None
+    show_cost_snapshot = False
     if ShareCategory.INVENTORY in categories:
         threshold_items = session.scalars(
             select(InventoryItem).where(InventoryItem.owner_id == effective_uid,
@@ -151,12 +174,35 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             .where(InventoryItem.owner_id == effective_uid))}
         orders = session.scalars(select(Order).where(Order.id.in_(order_ids))).all() if order_ids else []
 
+        # Sealed-stock expiration: InventoryItem.expiration_date is dead -- nothing in the app
+        # writes it (see app/routers/inventory.py's ITEM_FIELDS). The real per-lot expiration lives
+        # on OrderItem, filled in at order creation and still meaningful once the order arrives.
+        # Build a small stand-in per item with the earliest arrived-line expiration date, so
+        # expiration_alerts() (a pure function that expects `.expiration_date` on each item) keeps
+        # working unchanged -- only an arrived line counts, an in-transit line's date isn't real
+        # stock yet.
+        expiration_items = []
+        for item in threshold_items:
+            earliest = session.scalar(
+                select(func.min(OrderItem.expiration_date)).join(Order, OrderItem.order_id == Order.id)
+                .where(OrderItem.inventory_item_id == item.id, Order.arrival_date.is_not(None),
+                      OrderItem.expiration_date.is_not(None)))
+            expiration_items.append(types.SimpleNamespace(
+                id=item.id, name=item.name, available_count=item.available_count, expiration_date=earliest))
+
         alerts = {
             "low_stock": low_stock_alerts(threshold_items, default_threshold),
-            "expiration": expiration_alerts(vials=vials, items=threshold_items, today=today),
+            "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
         }
-        cost_snapshot = _cost_snapshot(session, effective_uid, today)
+        # Cost snapshot enumerates the viewer's *active protocols* (which peptides they're
+        # currently running) -- that's PERSONAL_DATA information, not INVENTORY, even though the
+        # widget lives in the Inventory-gated section. An Inventory-only grantee must not be able
+        # to infer it. Self-view is exempt: you always have full access to your own data regardless
+        # of any share, so INVENTORY alone (this block's own gate) stays sufficient there.
+        show_cost_snapshot = effective_uid == uid or ShareCategory.PERSONAL_DATA in categories
+        if show_cost_snapshot:
+            cost_snapshot = _cost_snapshot(session, effective_uid, today)
 
     return templates.TemplateResponse(request, "dashboard/index.html", {
         "schedule": schedule,
@@ -173,4 +219,8 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # doses logged yet.
         "show_personal_data": ShareCategory.PERSONAL_DATA in categories,
         "show_inventory": ShareCategory.INVENTORY in categories,
+        # Alerts stays gated on INVENTORY alone (`show_inventory`, above); Cost snapshot needs the
+        # additional PERSONAL_DATA requirement when viewing someone else -- see the privacy note
+        # by `show_cost_snapshot`'s computation above.
+        "show_cost_snapshot": show_cost_snapshot,
     })

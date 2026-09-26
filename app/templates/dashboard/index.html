@@ -56,7 +56,9 @@
   </ul>
   {% endif %}
 </section>
+{% endif %}
 
+{% if show_cost_snapshot %}
 <section aria-labelledby="cost-heading">
   <h2 id="cost-heading" class="section-title">Cost snapshot</h2>
   {% if not cost_snapshot %}
