@@ -153,7 +153,7 @@
   {% if item.order_items %}
   <div class="table-wrap">
   <table class="inv-table">
-    <thead><tr><th>Quantity</th><th>Received</th><th>Ordered</th><th>Shipped</th><th>Arrived</th><th>Expiration</th><th>Tracking</th><th>Vendor</th><th>Lot #</th><th>Cost</th><th>Tax</th><th>Shipping</th><th>COA</th>{% if is_owner %}<th></th>{% endif %}</tr></thead>
+    <thead><tr><th>Quantity</th><th>Received</th><th>Ordered</th><th>Shipped</th><th>Arrived</th><th>Expiration</th><th>Tracking</th><th>Vendor</th><th>Lot #</th><th>Cost</th><th>Tax</th><th>Shipping</th><th>Total cost</th><th>COA</th>{% if is_owner %}<th></th>{% endif %}</tr></thead>
     <tbody>
       {% for li in item.order_items %}
       {% set siblings = li.order.items | rejectattr('id', 'equalto', li.id) | list %}
@@ -177,6 +177,7 @@
         <td>{{ li.cost | money or '—' }}</td>
         <td>{{ li.order.tax | money or '—' }}</td>
         <td>{{ li.order.shipping | money or '—' }}</td>
+        <td>{{ li.total_cost | money or '—' }}</td>
         <td>{% if li.coa_filename %}<a href="/inventory/{{ item.id }}/orders/{{ li.id }}/coa" target="_blank" rel="noopener">View</a>{% else %}—{% endif %}</td>
         {% if is_owner %}
         <td>

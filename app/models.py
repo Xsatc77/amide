@@ -189,6 +189,34 @@ class Order(Base):
         return None if self.shipping_cents is None else self.shipping_cents / 100
 
 
+def _allocate_across_lines(total_cents: int | None, lines: list["OrderItem"]) -> dict[int, int]:
+    """Splits `total_cents` across `lines` weighted by each line's own cost_cents, using largest-remainder
+    rounding so the parts sum exactly back to `total_cents` -- no dropped or invented cent. Lines with no
+    cost_cents (None or 0), or when total_weight is 0, get 0. Keyed by each line's persisted `id` (these
+    are always already-committed rows when this runs, since allocation is computed at display time, never
+    during the same transaction that creates them)."""
+    if not total_cents or not lines:
+        return {li.id: 0 for li in lines}
+    weights = [(li, li.cost_cents or 0) for li in lines]
+    total_weight = sum(w for _, w in weights)
+    if total_weight == 0:
+        return {li.id: 0 for li in lines}
+    shares: dict[int, int] = {}
+    remainders: list[tuple[float, "OrderItem"]] = []
+    allocated = 0
+    for li, w in weights:
+        exact = total_cents * w / total_weight
+        floor = int(exact)
+        shares[li.id] = floor
+        allocated += floor
+        remainders.append((exact - floor, li))
+    leftover = total_cents - allocated
+    remainders.sort(key=lambda r: r[0], reverse=True)
+    for i in range(leftover):
+        shares[remainders[i][1].id] += 1
+    return shares
+
+
 class OrderItem(Base):
     """One line of an Order: a quantity of one InventoryItem, with its own cost/lot/expiration/COA
     (different peptides, different lots of the same peptide, and BAC Water can each carry their
@@ -228,6 +256,23 @@ class OrderItem(Base):
     @property
     def cost(self) -> float | None:
         return None if self.cost_cents is None else self.cost_cents / 100
+
+    @property
+    def allocated_shipping_cents(self) -> int:
+        return _allocate_across_lines(self.order.shipping_cents, self.order.items).get(self.id, 0)
+
+    @property
+    def allocated_tax_cents(self) -> int:
+        return _allocate_across_lines(self.order.tax_cents, self.order.items).get(self.id, 0)
+
+    @property
+    def total_cost(self) -> float | None:
+        """This line's own cost plus its share of the order's shipping/tax, for a per-vial cost
+        that accounts for what the whole shipment actually cost -- None if this line has no cost
+        at all (nothing to allocate onto)."""
+        if self.cost_cents is None:
+            return None
+        return (self.cost_cents + self.allocated_shipping_cents + self.allocated_tax_cents) / 100
 
 
 class Sale(Base):

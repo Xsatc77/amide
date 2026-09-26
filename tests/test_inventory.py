@@ -1463,3 +1463,57 @@ def test_new_order_validation_error_reopens_dialog(client, db):
     assert "data-open-on-load" in t
     assert 'id="new-order-dialog"' in t
     assert "Add at least one item" in t
+
+
+# ---------------------------------------------------------------- Multi-item orders: Task 11 (cost allocation)
+
+
+def test_shipping_allocation_sums_exactly_to_the_order_total(db, me):
+    from app.models import OrderItem
+
+    med = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                        medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    bac = InventoryItem(owner_id=me, name="Bacteriostatic Water", category=Category.BAC_WATER)
+    db.add_all([med, bac])
+    db.flush()
+    order = Order(order_date=date(2026, 9, 1), shipping_cents=1000)  # $10.00, split three ways
+    db.add(order)
+    db.flush()
+    li1 = OrderItem(inventory_item_id=med.id, quantity=1, cost_cents=6667)
+    li2 = OrderItem(inventory_item_id=bac.id, quantity=1, cost_cents=3333)
+    li3 = OrderItem(inventory_item_id=med.id, quantity=1, cost_cents=1)
+    order.items.extend([li1, li2, li3])
+    db.commit()
+    db.refresh(order)
+    total_allocated = li1.allocated_shipping_cents + li2.allocated_shipping_cents + li3.allocated_shipping_cents
+    assert total_allocated == 1000  # no dropped or invented cent from rounding
+
+
+def test_shipping_allocation_is_zero_when_order_has_no_shipping_cost(db, me):
+    from app.models import OrderItem
+
+    med = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
+                        medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    db.add(med)
+    db.flush()
+    order = Order(order_date=date(2026, 9, 1))  # no shipping_cents set
+    db.add(order)
+    db.flush()
+    li = OrderItem(inventory_item_id=med.id, quantity=1, cost_cents=8000)
+    order.items.append(li)
+    db.commit()
+    db.refresh(order)
+    assert li.allocated_shipping_cents == 0
+    assert li.total_cost == 80.0
+
+
+def test_item_detail_shows_total_cost_column(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "cost": "80.00", "shipping": "10.00",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert "Total cost" in t
+    assert "$90.00" in t  # $80 cost + all $10 shipping, since it's the only line on this order
