@@ -712,14 +712,14 @@ def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
     return round(100 * on_time_or_late / len(logs))
 
 
-def _cost_snapshot(session: Session, uid: int) -> list[dict]:
+def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid).options(
             selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     active_items = [
-        it for p in protocols if protocol_status(p, date.today()) is Status.ACTIVE
+        it for p in protocols if protocol_status(p, today) is Status.ACTIVE
         for it in p.items if it.inventory_item_id is not None
     ]
     rows = []
@@ -774,7 +774,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     return templates.TemplateResponse(request, "dashboard/index.html", {
         "schedule": _todays_schedule(session, uid, today),
         "alerts": alerts,
-        "cost_snapshot": _cost_snapshot(session, uid),
+        "cost_snapshot": _cost_snapshot(session, uid, today),
         "adherence_pct": _adherence_pct(session, uid, today),
         "today": today,
     })
@@ -1005,7 +1005,7 @@ Gate which widgets are computed at all by `categories`:
     cost_snapshot = None
     if ShareCategory.INVENTORY in categories:
         alerts = {...}  # existing block, using effective_uid
-        cost_snapshot = _cost_snapshot(session, effective_uid)
+        cost_snapshot = _cost_snapshot(session, effective_uid, today)
 ```
 
 Pass `viewer_id=effective_uid`, `shared_with_me=_shared_with_me(session, uid)` (always the REAL
