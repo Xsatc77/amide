@@ -84,9 +84,24 @@
 </section>
 {% endif %}
 
+{% if show_quick_capture %}
+<section aria-labelledby="quick-capture-heading">
+  <h2 id="quick-capture-heading" class="section-title">Journal</h2>
+  <div class="card">
+    <form method="post" action="/journal/quick-note" class="quick-capture-form">
+      <label class="field">
+        <span class="sr-only">Quick note</span>
+        <input name="text" type="text" maxlength="500" placeholder="Quick note (e.g. how you're feeling right now)">
+      </label>
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+    <a href="/measurements?tab=journal" class="btn btn-ghost">View Journal</a>
+  </div>
+</section>
+{% endif %}
+
 <section class="dashboard-placeholders">
   <div class="card"><h3>Weight & Measurements</h3><p class="muted">Coming in a future update.</p></div>
-  <div class="card"><h3>Journal</h3><p class="muted">Coming in a future update.</p></div>
   <div class="card"><h3>Health app integrations</h3><p class="muted">Coming in a future update.</p></div>
 </section>
 {% endblock %}

@@ -400,7 +400,16 @@
               —
             {%- endif -%}
           </td>
-          <td data-label="Notes">{{ e.notes or '—' }}</td>
+          <td data-label="Notes">
+            {{ e.notes or '—' }}
+            {% if e.quick_notes %}
+            <ul class="quick-notes">
+              {% for qn in e.quick_notes %}
+              <li><span class="muted">{{ qn.noted_at.strftime('%H:%M') }}</span> {{ qn.text }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </td>
           <td data-label="Shared by">{{ e.owner_name or '—' }}</td>
         </tr>
         {% endfor %}

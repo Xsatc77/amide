@@ -223,4 +223,8 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # additional PERSONAL_DATA requirement when viewing someone else -- see the privacy note
         # by `show_cost_snapshot`'s computation above.
         "show_cost_snapshot": show_cost_snapshot,
+        # Quick-capture always writes as the signed-in user (uid), never the effective_uid being
+        # viewed -- only show it when you're looking at your own dashboard, so it's never mistaken
+        # for adding a note to someone else's journal.
+        "show_quick_capture": effective_uid == uid,
     })

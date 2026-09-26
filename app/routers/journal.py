@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import JournalEntry, JournalEntrySideEffect, JournalSideEffect, Share, ShareCategory, User
+from app.models import (
+    JournalEntry, JournalEntrySideEffect, JournalQuickNote, JournalSideEffect, Share, ShareCategory, User,
+)
 
 router = APIRouter()
 
@@ -50,6 +52,7 @@ def _entry_view(entry: JournalEntry, owner_name: str | None = None) -> dict:
         "side_effects_other": entry.side_effects_other,
         "notes": entry.notes,
         "owner_name": owner_name,
+        "quick_notes": [{"noted_at": qn.noted_at, "text": qn.text} for qn in entry.quick_notes],
     }
 
 
@@ -115,3 +118,17 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
 
     session.commit()
     return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
+@router.post("/journal/quick-note")
+async def add_quick_note(request: Request, session: Session = Depends(get_session),
+                         uid: int = Depends(current_user_id)):
+    form = await request.form()
+    text = str(form.get("text", "")).strip()
+    if not text:
+        raise HTTPException(422, "Quick note text is required.")
+
+    entry = get_or_create_entry(session, uid, date.today())
+    session.add(JournalQuickNote(entry_id=entry.id, text=text))
+    session.commit()
+    return RedirectResponse("/dashboard", status_code=303)

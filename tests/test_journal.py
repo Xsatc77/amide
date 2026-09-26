@@ -111,3 +111,71 @@ def test_journal_tab_loads_with_empty_state(client, db):
     r = client.get("/measurements?tab=journal")
     assert r.status_code == 200
     assert "No journal entries yet" in r.text or "New Entry" in r.text
+
+
+def test_quick_note_creates_todays_entry_if_none_exists(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/journal/quick-note", data={"text": "felt a bit foggy after lunch"},
+                        follow_redirects=False)
+        assert r.status_code == 303
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [entry] = s.scalars(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)).all()
+            assert entry.mood is None  # auto-created, ratings left blank
+            [note] = entry.quick_notes
+            assert note.text == "felt a bit foggy after lunch"
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_quick_note_appends_to_todays_existing_entry(client, db):
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={"mood": "4", "notes": "good day"})
+        client.post("/journal/quick-note", data={"text": "quick note one"})
+        client.post("/journal/quick-note", data={"text": "quick note two"})
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [entry] = s.scalars(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)).all()
+            assert entry.mood == 4  # unaffected
+            assert [n.text for n in entry.quick_notes] == ["quick note one", "quick note two"]
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_empty_quick_note_is_a_noop(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/journal/quick-note", data={"text": "   "})
+        assert r.status_code in (303, 422)  # implementer's choice of status, but no row must be created
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            assert s.scalar(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)) is None
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_quick_notes_never_overwrite_the_notes_field(client, db):
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={"notes": "the real daily entry"})
+        client.post("/journal/quick-note", data={"text": "a quick aside"})
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [entry] = s.scalars(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)).all()
+            assert entry.notes == "the real daily entry"
+            assert [n.text for n in entry.quick_notes] == ["a quick aside"]
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_journal_tab_shows_quick_notes_under_the_main_entry(client, db):
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={"notes": "main entry text"})
+        client.post("/journal/quick-note", data={"text": "2pm quick note"})
+        t = client.get("/measurements?tab=journal").text
+        assert "main entry text" in t and "2pm quick note" in t
+    finally:
+        _clear_journal_entries(me)
