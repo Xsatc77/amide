@@ -17,7 +17,7 @@
     <div class="cal-bar c{{ b.color }}" style="grid-column: {{ b.col_start + 2 }} / {{ b.col_end + 3 }}; grid-row: {{ b.lane + 2 }}; --days: {{ b.dates | length }}">
       <span class="cal-bar-title">{{ b.name }}</span>
       {% for d in b.dates %}<button type="button" class="cal-bar-day" data-key="{{ b.protocol_id }}|{{ d.isoformat() }}"
-        aria-label="{{ b.name }}, {{ d.strftime('%B') }} {{ d.day }}"></button>{% endfor %}
+        aria-label="{{ b.name }}, {{ d.strftime('%B') }} {{ d.day }}"><span class="adherence-dot adherence-{{ adherence.get((b.protocol_id | string) ~ '|' ~ d.isoformat(), 'upcoming') }}"></span></button>{% endfor %}
     </div>
     {% endfor %}
     {% for col, n in row.more.items() %}

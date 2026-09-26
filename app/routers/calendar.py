@@ -10,7 +10,7 @@ from app.auth.deps import current_user_id
 from app.calendar.layout import month_rows, month_weeks
 from app.calendar.schedule import DueItem, Occurrence, as_needed, occurrences, week_number, week_start
 from app.db import get_session
-from app.models import Protocol, ProtocolItem, TimeOfDay
+from app.models import DoseLog, DoseStatus, Protocol, ProtocolItem, TimeOfDay
 from app.routers.protocols import get_today
 from app.templating import templates
 
@@ -60,6 +60,33 @@ def _by_slot(occ: Occurrence, slot: TimeOfDay) -> list[DueItem]:
     return [i for i in occ.items if i.time_of_day is slot]
 
 
+def _adherence(session: Session, uid: int, occs: list[Occurrence], today: date) -> dict[str, str]:
+    """One of 'on_time' | 'late' | 'missed' | 'upcoming' per '{protocol_id}|{date}' key -- an
+    aggregate across every item due that occurrence, per the spec's calendar-color rules."""
+    protocol_ids = {o.protocol_id for o in occs}
+    if not protocol_ids:
+        return {}
+    logs = session.scalars(
+        select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.protocol_id.in_(protocol_ids))).all()
+    by_key: dict[tuple[int, date], list[DoseLog]] = {}
+    for log in logs:
+        by_key.setdefault((log.protocol_id, log.scheduled_date), []).append(log)
+
+    result = {}
+    for occ in occs:
+        key = (occ.protocol_id, occ.date)
+        day_logs = by_key.get(key, [])
+        if not day_logs:
+            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "missed" if occ.date < today else "upcoming"
+        elif any(l.status == DoseStatus.MISSED or l.status == DoseStatus.SKIPPED for l in day_logs):
+            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "missed"
+        elif any(l.status == DoseStatus.LATE for l in day_logs):
+            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "late"
+        else:
+            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "on_time"
+    return result
+
+
 @router.get("/calendar")
 def calendar_page(request: Request, view: str = "month", date_param: str | None = Query(None, alias="date"),
                   session: Session = Depends(get_session), today: date = Depends(get_today),
@@ -97,8 +124,10 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
         title = f"{anchor:%A, %B} {anchor.day}, {anchor.year}"
 
     occs = occurrences(protocols, first, last)
+    adherence = _adherence(session, uid, occs, today)
     ctx |= {"title": title, "prev_url": _url(view, prev), "next_url": _url(view, nxt),
-            "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors)}}
+            "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors)},
+            "adherence": adherence}
 
     if view == "month":
         ctx["rows"] = month_rows(weeks, occs, colors)

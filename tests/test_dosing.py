@@ -1,5 +1,5 @@
 import html
-from datetime import date
+from datetime import date, timedelta
 
 from app.calendar.schedule import DueItem, Occurrence, missed_items
 from app.dosing.site import eligible_sites, recommend
@@ -254,3 +254,40 @@ def test_protocol_page_shows_catch_up_for_missed_dose(client, db):
         protocol_id = protocol.id
     t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
     assert 'data-action="log-dose"' in t  # a catch-up log action for a long-overdue day appears
+
+
+# ---------------------------------------------------------------- Calendar adherence color dots
+
+def test_calendar_shows_on_time_adherence_dot(client, db):
+    from app.models import Frequency
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    r = client.get("/calendar")
+    assert r.status_code == 200
+    assert "adherence-on_time" in r.text or '"on_time"' in r.text
+
+
+def test_calendar_shows_missed_adherence_for_past_unlogged_day(client, db):
+    from app.models import Frequency
+    with SessionLocal() as s:
+        # migrations/versions/0003_protocols.py already seeds a "Retatrutide" Peptide row (and
+        # Peptide.name is unique) -- reuse it instead of colliding with a duplicate insert, same
+        # as _setup_protocol_with_vial above.
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name="Fat Loss", start_date=date(2020, 1, 1), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        s.add(ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                           frequency=Frequency.DAILY, route=Route.SUBQ))
+        s.commit()
+    r = client.get(f"/calendar?view=day&date={(date.today() - timedelta(days=1)).isoformat()}")
+    assert r.status_code == 200
+    assert "adherence-missed" in r.text or '"missed"' in r.text

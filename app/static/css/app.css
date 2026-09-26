@@ -620,6 +620,11 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-due-list { list-style: none; margin: 0; padding: 12px 20px; display: flex; flex-direction: column; gap: 10px; }
 .cal-due-list li { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); }
 .cal-due-dose { font-weight: 600; }
+.adherence-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.adherence-on_time { background: #2e7d32; }
+.adherence-late { background: #f9a825; }
+.adherence-missed { background: #c62828; }
+.adherence-upcoming { background: #90a4ae; }
 
 /* ---------- reconstitution calculator ---------- */
 .calc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }

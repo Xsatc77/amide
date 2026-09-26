@@ -13,7 +13,7 @@
     <div class="cal-slot-label">{{ slot.label }}</div>
     {% for entries in cells[key] %}
     <div class="cal-week-cell {{ 'cal-today' if days[loop.index0] == today }}">
-      {% for occ, items in entries %}<button type="button" class="cal-block c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"><strong>{{ occ.protocol_name }}</strong><span>{{ items | length }} dose{{ '' if items | length == 1 else 's' }}</span></button>{% endfor %}
+      {% for occ, items in entries %}<button type="button" class="cal-block c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"><span class="adherence-dot adherence-{{ adherence.get((occ.protocol_id | string) ~ '|' ~ occ.date.isoformat(), 'upcoming') }}"></span><strong>{{ occ.protocol_name }}</strong><span>{{ items | length }} dose{{ '' if items | length == 1 else 's' }}</span></button>{% endfor %}
     </div>
     {% endfor %}
   </div>
