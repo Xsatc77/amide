@@ -31,6 +31,56 @@
   {% endif %}
 </div>
 
+{% if protocol %}
+<section aria-labelledby="dose-history-heading">
+  <h2 id="dose-history-heading" class="section-title">Dose history</h2>
+  {% if missed %}
+  <div class="table-wrap">
+  <table class="inv-table">
+    <thead><tr><th>Date</th><th>Peptide</th><th>Dose</th><th></th></tr></thead>
+    <tbody>
+      {% for occ, item in missed %}
+      <tr>
+        <td>{{ occ.date.strftime('%b') }} {{ occ.date.day }}</td>
+        <td>{{ item.peptide }}</td>
+        <td>{{ item.dose }} {{ item.unit }}</td>
+        <td>
+          <form method="post" action="/today/log" class="inline">
+            <input type="hidden" name="protocol_id" value="{{ protocol.id }}">
+            <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
+            <input type="hidden" name="scheduled_date" value="{{ occ.date.isoformat() }}">
+            <button type="submit" class="btn btn-ghost" data-action="log-dose">Log now (late)</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  {% if dose_history %}
+  <div class="table-wrap">
+  <table class="inv-table">
+    <thead><tr><th>Date</th><th>Peptide</th><th>Dose</th><th>Status</th><th>Site</th></tr></thead>
+    <tbody>
+      {% for log in dose_history %}
+      <tr>
+        <td>{{ log.scheduled_date.strftime('%b') }} {{ log.scheduled_date.day }}, {{ log.scheduled_date.year }}</td>
+        <td>{{ log.peptide_name }}</td>
+        <td>{{ log.dose_value }} {{ log.dose_unit.value if log.dose_value is not none else '' }}</td>
+        <td><span class="tag status-{{ log.status.value }}">{{ log.status.label }}</span></td>
+        <td>{{ log.injection_site.label if log.injection_site else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No doses logged yet.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 <form id="builder-form" method="post" action="{{ action }}" novalidate>
   {% if errors %}<div class="alert builder-alert" role="alert">Please fix the highlighted fields.</div>{% endif %}
 

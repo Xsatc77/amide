@@ -216,3 +216,41 @@ def test_second_log_recommends_mirrored_site(client, db):
     # recommendation surfaces via the API the JS reads -- assert the recommended site is embedded
     # in the page's site data for this peptide.
     assert '"recommended": "abdomen_r"' in t or '&#34;recommended&#34;: &#34;abdomen_r&#34;' in t
+
+
+# ---------------------------------------------------------------- Protocol page dose history + catch-up
+
+def test_protocol_page_shows_dose_history(client, db):
+    from app.models import Frequency
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
+    assert "Dose history" in t
+    assert "On time" in t
+
+
+def test_protocol_page_shows_catch_up_for_missed_dose(client, db):
+    from app.models import Frequency
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        # migrations/versions/0003_protocols.py already seeds a "Retatrutide" Peptide row (and
+        # Peptide.name is unique) -- reuse it instead of colliding with a duplicate insert, same
+        # as _setup_protocol_with_vial above.
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name="Fat Loss", start_date=date(2020, 1, 1), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.DAILY, route=Route.SUBQ)
+        s.add(pitem)
+        s.commit()
+        protocol_id = protocol.id
+    t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
+    assert 'data-action="log-dose"' in t  # a catch-up log action for a long-overdue day appears

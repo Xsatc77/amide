@@ -6,10 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import current_user_id
+from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.models import (
-    WEEKDAY_LETTERS, WEEKDAY_NAMES, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
+    WEEKDAY_LETTERS, WEEKDAY_NAMES, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
     Protocol, ProtocolGoal, ProtocolItem, Route, Share, ShareCategory, TimeOfDay, TitrationStep, User,
 )
 from app.protocols.forms import (
@@ -161,7 +162,8 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
 
 def _render_builder(request: Request, session: Session, state: dict, *, errors: dict | None = None,
                     protocol: Protocol | None = None, repeat_of: Protocol | None = None,
-                    today: date, status_code: int = 200):
+                    today: date, status_code: int = 200,
+                    dose_history: list | None = None, missed: list | None = None):
     is_new = protocol is None
     return templates.TemplateResponse(
         request,
@@ -174,6 +176,8 @@ def _render_builder(request: Request, session: Session, state: dict, *, errors: 
             "status": protocol_status(protocol, today) if protocol else None,
             "action": "/protocols" if is_new else f"/protocols/{protocol.id}",
             "builder_data": _builder_data(session, state, errors or {}, is_new=is_new, uid=request.state.user.id),
+            "dose_history": dose_history or [],
+            "missed": missed or [],
         },
         status_code=status_code,
     )
@@ -255,7 +259,13 @@ def edit_protocol(protocol_id: int, request: Request, session: Session = Depends
                   today: date = Depends(get_today),
         uid: int = Depends(current_user_id)):
     p = _get_protocol(session, protocol_id, uid)
-    return _render_builder(request, session, state_from_protocol(p), protocol=p, today=today)
+    dose_history = session.scalars(
+        select(DoseLog).where(DoseLog.protocol_id == p.id).order_by(DoseLog.scheduled_date.desc())).all()
+    occs = occurrences([p], p.start_date, today)
+    logged = {(dl.protocol_item_id, dl.scheduled_date) for dl in dose_history if dl.protocol_item_id is not None}
+    missed = missed_items(occs, logged, today)
+    return _render_builder(request, session, state_from_protocol(p), protocol=p, today=today,
+                           dose_history=dose_history, missed=missed)
 
 
 @router.post("/protocols/{protocol_id}")
