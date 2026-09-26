@@ -78,23 +78,36 @@ def _shared_measurement_query(uid: int):
     return select(BodyMeasurement).where(BodyMeasurement.owner_id.in_(shared_owner_ids))
 
 
-def _field_current_and_delta(entries: list[BodyMeasurement], field: str) -> tuple[float | None, float | None]:
-    """`entries` is most-recent-first. Returns (current value, delta) for `field`, where delta is
-    against whichever earlier entry most recently had a non-null value for that same field -- not
-    necessarily the immediately-previous row, since a row may have skipped this field entirely."""
+def _field_current_and_delta(
+    entries: list[BodyMeasurement], field: str,
+) -> tuple[float | None, float | None, date | None]:
+    """`entries` is most-recent-first. Returns (current value, delta, as_of) for `field`. `current`
+    is the most recent NON-NULL value for this field -- not necessarily from entries[0], since a
+    later entry may have skipped this field entirely (e.g. a weigh-in-only day after a full
+    tape-measure session). `delta` is against whichever still-earlier entry most recently had a
+    non-null value. `as_of` is the date `current` actually came from, but only when that isn't
+    entries[0]'s own date -- i.e. only when the "current" value is stale relative to the most
+    recent entry, so the template can flag it; None when current is already up to date."""
     if not entries:
-        return None, None
-    current = getattr(entries[0], field)
+        return None, None, None
+    current = current_date = None
+    current_idx = None
+    for i, entry in enumerate(entries):
+        value = getattr(entry, field)
+        if value is not None:
+            current, current_date, current_idx = value, entry.measured_at, i
+            break
     if current is None:
-        return None, None
+        return None, None, None
     prior = None
-    for entry in entries[1:]:
+    for entry in entries[current_idx + 1:]:
         value = getattr(entry, field)
         if value is not None:
             prior = value
             break
     delta = None if prior is None else round(current - prior, 2)
-    return current, delta
+    as_of = current_date if current_idx != 0 else None
+    return current, delta, as_of
 
 
 def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
@@ -108,26 +121,32 @@ def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
 
     points: dict[str, dict] = {}
     for key, left_field, right_field, label in BILATERAL_LOCATIONS:
-        left_val, left_delta = _field_current_and_delta(entries, left_field)
-        right_val, right_delta = _field_current_and_delta(entries, right_field)
+        left_val, left_delta, left_as_of = _field_current_and_delta(entries, left_field)
+        right_val, right_delta, right_as_of = _field_current_and_delta(entries, right_field)
         if left_val is not None and right_val is not None:
             deltas = [d for d in (left_delta, right_delta) if d is not None]
+            # If either side's value came from an older entry than the most recent one, flag the
+            # averaged value with that (earlier, more conservative) date.
+            as_of_candidates = [d for d in (left_as_of, right_as_of) if d is not None]
             points[key] = {
                 "label": label,
                 "value": round((left_val + right_val) / 2, 2),
                 "delta": round(sum(deltas) / len(deltas), 2) if deltas else None,
                 "side": None,
+                "as_of": min(as_of_candidates) if as_of_candidates else None,
             }
         elif left_val is not None:
-            points[key] = {"label": label, "value": left_val, "delta": left_delta, "side": "L"}
+            points[key] = {"label": label, "value": left_val, "delta": left_delta, "side": "L",
+                          "as_of": left_as_of}
         elif right_val is not None:
-            points[key] = {"label": label, "value": right_val, "delta": right_delta, "side": "R"}
+            points[key] = {"label": label, "value": right_val, "delta": right_delta, "side": "R",
+                          "as_of": right_as_of}
         else:
-            points[key] = {"label": label, "value": None, "delta": None, "side": None}
+            points[key] = {"label": label, "value": None, "delta": None, "side": None, "as_of": None}
 
     for field, label in UNILATERAL_LOCATIONS:
-        value, delta = _field_current_and_delta(entries, field)
-        points[field] = {"label": label, "value": value, "delta": delta, "side": None}
+        value, delta, as_of = _field_current_and_delta(entries, field)
+        points[field] = {"label": label, "value": value, "delta": delta, "side": None, "as_of": as_of}
 
     return points
 
@@ -202,39 +221,53 @@ def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, f
            "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
 
 
-def _charts_context(windowed_rows: list[BodyMeasurement], own_windowed: list[BodyMeasurement],
-                    user: User | None, range_key: str) -> dict:
-    """Chart data for every tracked series. Raw measurement/weight series (and blood pressure)
-    draw from `windowed_rows` -- the signed-in user's own entries plus anyone sharing Personal
-    Data with them, per Task 4's sharing helpers. BMI and body-fat % are derived series that need
-    the *viewer's own* height/sex, which we don't have for a sharing partner, so those two only
-    ever plot the viewer's own windowed entries (`own_windowed`)."""
+def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, range_key: str) -> dict:
+    """Chart data for every tracked series. ALL series -- weight, blood pressure, every
+    measurement field, and the derived BMI/body-fat % -- draw only from the viewer's own windowed
+    entries (`own_windowed`), never a sharing partner's: mixing two people's raw numbers into one
+    line would zigzag between their different values and look like a real trend when it isn't. A
+    sharing partner's data stays visible only in the separate "Shared with you" table, never in
+    these charts. (BMI/body-fat % additionally need the viewer's own height/sex, which is a
+    second, independent reason they could never have used a partner's rows.)"""
     series = [{"key": field, "label": label,
-              "chart": _chart([(r.measured_at, getattr(r, field)) for r in windowed_rows
+              "chart": _chart([(r.measured_at, getattr(r, field)) for r in own_windowed
                                if getattr(r, field) is not None])}
              for field, label in CHART_FIELDS]
 
-    bp_a = [(r.measured_at, r.systolic) for r in windowed_rows if r.systolic is not None]
-    bp_b = [(r.measured_at, r.diastolic) for r in windowed_rows if r.diastolic is not None]
+    bp_a = [(r.measured_at, r.systolic) for r in own_windowed if r.systolic is not None]
+    bp_b = [(r.measured_at, r.diastolic) for r in own_windowed if r.diastolic is not None]
     bp_chart = _dual_chart(bp_a, bp_b)
 
     bmi_chart = bf_chart = None
+    bf_status = None
     if user is not None and user.height_in is not None:
-        bmi_points = [(r.measured_at, bmi(r.weight_lbs, user.height_in)) for r in own_windowed
-                     if r.weight_lbs is not None]
+        bmi_points = []
+        for r in own_windowed:
+            if r.weight_lbs is None:
+                continue
+            value = bmi(r.weight_lbs, user.height_in)
+            if value is not None:
+                bmi_points.append((r.measured_at, value))
         bmi_chart = _chart(bmi_points)
         if user.sex is not None:
             bf_points = []
+            has_candidate_rows = False
             for r in own_windowed:
                 if r.neck_in is None or r.waist_in is None:
                     continue
+                has_candidate_rows = True
                 pct = body_fat_pct(user.sex, user.height_in, r.neck_in, r.waist_in, r.hips_in)
                 if pct is not None:
                     bf_points.append((r.measured_at, pct))
             bf_chart = _chart(bf_points)
+            # Rows existed with the fields body_fat_pct() needs, but every one of them came back
+            # None (invalid measurement, or missing hips for a female row) -- an explicit "not
+            # enough data" status, not a silently-empty chart with no explanation.
+            if has_candidate_rows and not bf_points:
+                bf_status = "insufficient"
 
     return {"range": range_key, "range_options": RANGES, "range_labels": RANGE_LABELS,
-           "series": series, "bp": bp_chart, "bmi": bmi_chart, "bf": bf_chart}
+           "series": series, "bp": bp_chart, "bmi": bmi_chart, "bf": bf_chart, "bf_status": bf_status}
 
 
 def _macros_context(user: User, latest_weight: float | None) -> dict:
@@ -305,11 +338,14 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     tab = tab if tab in TABS else "measurements"
 
     me_user = session.get(User, uid)
-    latest_weight = own_entries[0].weight_lbs if own_entries else None
+    # Most recent NON-NULL weight across all history, not just entries[0] -- a tape-measurement-only
+    # follow-up entry (no weight) must not blank the water goal or the Macros tab's calorie calc
+    # when an earlier entry actually logged a weight (Review Focus item 3).
+    latest_weight, _, latest_weight_as_of = _field_current_and_delta(own_entries, "weight_lbs")
     water = None
     if latest_weight is not None:
         goal_oz = water_goal_oz(latest_weight, me_user.water_goal_oz if me_user else None)
-        water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz)}
+        water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": latest_weight_as_of}
 
     return templates.TemplateResponse(request, "measurements/index.html", {
         "entries": own_windowed,
@@ -321,7 +357,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "silhouette": _silhouette_points(own_entries),
         "water": water,
         "macros": _macros_context(me_user, latest_weight) if me_user else {"status": "missing_profile", "missing_fields": []},
-        "charts": _charts_context(own_windowed + shared_windowed, own_windowed, me_user, range_key),
+        "charts": _charts_context(own_windowed, me_user, range_key),
         "as_of": as_of.isoformat(),
     }, status_code=status_code)
 

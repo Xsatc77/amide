@@ -264,6 +264,26 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
     custom_carb_pct = _parse_int("custom_carb_pct")
     custom_fat_pct = _parse_int("custom_fat_pct")
 
+    # Mirror the positivity-check convention used elsewhere in this file (e.g.
+    # change_discard_window/change_dashboard_thresholds): optional numeric fields must be > 0 when
+    # present, never silently accepted as 0/negative and left to crash a later BMI/body-fat
+    # calculation (Review Focus item 1) or display as a nonsensical "-5 oz/day" (item 4).
+    if height_in is not None and height_in <= 0 and "height_in" not in errors:
+        errors["height_in"] = "Enter a number greater than 0."
+    if water_goal_oz is not None and water_goal_oz <= 0 and "water_goal_oz" not in errors:
+        errors["water_goal_oz"] = "Enter a whole number greater than 0."
+
+    # Each custom macro percentage must independently be a valid percentage -- the sum-to-100
+    # check below doesn't catch e.g. 150/-30/-20 (sums to 100 but negative carb/fat grams).
+    for field, value in (("custom_protein_pct", custom_protein_pct),
+                         ("custom_carb_pct", custom_carb_pct),
+                         ("custom_fat_pct", custom_fat_pct)):
+        if value is not None and not (0 <= value <= 100) and field not in errors:
+            errors[field] = "Enter a percentage between 0 and 100."
+
+    if birth_date is not None and birth_date > date.today() and "birth_date" not in errors:
+        errors["birth_date"] = "Birth date can't be in the future."
+
     # Reuse Task 2's macros_for_preset validation (custom pcts required + must sum to 100) instead
     # of re-implementing the same rule here -- the dummy calorie value is discarded, only the
     # ValueError matters.

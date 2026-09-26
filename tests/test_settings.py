@@ -1,4 +1,5 @@
 import html
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -533,3 +534,54 @@ def test_body_profile_custom_diet_requires_percentages_summing_to_100(client, db
 def test_body_profile_fields_are_all_optional(client, db):
     r = client.post("/settings/body-profile", data={}, follow_redirects=False)
     assert r.status_code == 303
+
+
+def test_body_profile_rejects_non_positive_height(client, db, me):
+    try:
+        r = client.post("/settings/body-profile", data={"height_in": "0"})
+        assert r.status_code == 422
+        assert _current(me).height_in is None
+    finally:
+        _restore_body_profile_defaults()
+
+
+def test_body_profile_rejects_negative_water_goal(client, db, me):
+    try:
+        r = client.post("/settings/body-profile", data={"water_goal_oz": "-5"})
+        assert r.status_code == 422
+        assert _current(me).water_goal_oz is None
+    finally:
+        _restore_body_profile_defaults()
+
+
+def test_body_profile_rejects_out_of_range_custom_pct_even_when_trio_sums_to_100(client, db, me):
+    # 150/-30/-20 sums to 100 (passes the existing sum-to-100 check) but is nonsensical: a
+    # percentage must independently be within 0-100.
+    try:
+        r = client.post("/settings/body-profile", data={
+            "diet_preset": "custom", "custom_protein_pct": "150",
+            "custom_carb_pct": "-30", "custom_fat_pct": "-20",
+        })
+        assert r.status_code == 422
+        assert _current(me).custom_protein_pct is None
+    finally:
+        _restore_body_profile_defaults()
+
+
+def test_body_profile_rejects_future_birth_date(client, db, me):
+    try:
+        future = date.today() + timedelta(days=1)
+        r = client.post("/settings/body-profile", data={"birth_date": future.isoformat()})
+        assert r.status_code == 422
+        assert _current(me).birth_date is None
+    finally:
+        _restore_body_profile_defaults()
+
+
+def _restore_body_profile_defaults() -> None:
+    with SessionLocal() as s:
+        u = s.scalar(select(User).where(User.username_key == "tester"))
+        u.sex = u.birth_date = u.height_in = u.activity_level = None
+        u.macro_goal = u.diet_preset = u.water_goal_oz = None
+        u.custom_protein_pct = u.custom_carb_pct = u.custom_fat_pct = None
+        s.commit()

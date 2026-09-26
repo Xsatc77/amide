@@ -67,19 +67,31 @@ def water_pace(goal_oz: int, awake_hours: int = 16) -> dict:
     }
 
 
-def bmi(weight_lbs: float, height_in: float) -> float:
+def bmi(weight_lbs: float, height_in: float | None) -> float | None:
+    """Returns None when height is missing or non-positive -- there is no valid BMI without a
+    real height, never divide by zero/negative and crash the caller."""
+    if height_in is None or height_in <= 0:
+        return None
     return 703 * weight_lbs / (height_in ** 2)
 
 
 def body_fat_pct(sex: BiologicalSex, height_in: float, neck_in: float, waist_in: float,
                  hips_in: float | None = None) -> float | None:
     """US Navy circumference method. Returns None for a female measurement missing hips_in --
-    there is no valid formula without it, never guess with a zero."""
+    there is no valid formula without it, never guess with a zero. Also returns None (rather than
+    raising) whenever the log10 argument would be <= 0 -- e.g. waist == neck, or a badly-entered
+    measurement -- since math.log10 of a non-positive number is undefined, not just imprecise."""
     if sex == BiologicalSex.MALE:
-        denom = 1.0324 - 0.19077 * math.log10(waist_in - neck_in) + 0.15456 * math.log10(height_in)
+        log_arg = waist_in - neck_in
+        if log_arg <= 0:
+            return None
+        denom = 1.0324 - 0.19077 * math.log10(log_arg) + 0.15456 * math.log10(height_in)
     else:
         if hips_in is None:
             return None
-        denom = (1.29579 - 0.35004 * math.log10(waist_in + hips_in - neck_in)
+        log_arg = waist_in + hips_in - neck_in
+        if log_arg <= 0:
+            return None
+        denom = (1.29579 - 0.35004 * math.log10(log_arg)
                 + 0.22100 * math.log10(height_in))
     return 495 / denom - 450

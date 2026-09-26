@@ -93,3 +93,21 @@ def test_body_fat_pct_female_requires_hips():
 def test_body_fat_pct_female_with_hips():
     value = body_fat_pct(BiologicalSex.FEMALE, height_in=65, neck_in=13, waist_in=28, hips_in=38)
     assert value is not None and value == pytest.approx(2.93, abs=0.1)
+
+
+def test_body_fat_pct_male_returns_none_instead_of_raising_when_waist_not_greater_than_neck():
+    # waist == neck -> log10(0) would raise ValueError; must return None instead of crashing.
+    assert body_fat_pct(BiologicalSex.MALE, height_in=70, neck_in=15, waist_in=15) is None
+    # waist < neck is even worse (negative log10 argument) -- still must not raise.
+    assert body_fat_pct(BiologicalSex.MALE, height_in=70, neck_in=15, waist_in=10) is None
+
+
+def test_body_fat_pct_female_returns_none_instead_of_raising_when_waist_plus_hips_not_greater_than_neck():
+    assert body_fat_pct(BiologicalSex.FEMALE, height_in=65, neck_in=40, waist_in=20,
+                        hips_in=20) is None
+
+
+def test_bmi_returns_none_for_missing_or_non_positive_height():
+    assert bmi(180, None) is None
+    assert bmi(180, 0) is None
+    assert bmi(180, -5) is None
