@@ -546,6 +546,43 @@ def test_log_dose_uses_titrated_step_dose_not_base_dose(client, db):
         assert vial.volume_remaining_ml == pytest.approx(2.0 - 2.5 / 5.0)
 
 
+def test_skip_dose_uses_titrated_step_dose_not_base_dose(client, db):
+    """skip_dose must store the same titration-adjusted dose_value that log_dose would have --
+    otherwise a skipped dose on a titrated protocol permanently records (and displays, in the
+    Protocol page's dose-history table) the untitrated base dose."""
+    from app.models import TitrationStep
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        # start_date far enough back that "today" falls in titration week 3+, well past the
+        # step-1 window, so the effective dose (2.5mg) clearly differs from the base dose (1mg).
+        protocol = Protocol(name="Titrated Skip", start_date=date.today() - timedelta(days=30),
+                            owner_id=uid, titration_enabled=True)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=1.0, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.DAILY, route=Route.SUBQ,
+                             steps=[TitrationStep(start_week=1, end_week=2, dose=1.0),
+                                   TitrationStep(start_week=3, end_week=None, dose=2.5)])
+        s.add(pitem)
+        s.commit()
+        protocol_id, pitem_id = protocol.id, pitem.id
+
+    r = client.post("/today/skip", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.status == DoseStatus.SKIPPED
+        assert log.dose_value == pytest.approx(2.5)  # the step's dose, not the base 1mg
+
+
 # ---------------------------------------------------------------- Fix 5: injection site persists without a vial
 
 def test_log_dose_with_no_vial_still_records_explicit_site(client, db):

@@ -248,11 +248,15 @@ async def skip_dose(request: Request, session: Session = Depends(get_session), u
     if _existing_log(session, uid, item.id, scheduled_date) is not None:
         return RedirectResponse("/today", status_code=303)
 
+    # _own_protocol_item already confirmed this protocol exists and is owned by uid.
+    protocol = session.get(Protocol, protocol_id)
+    effective_dose, _step_no = _effective_dose(item, protocol, scheduled_date)
+
     session.add(DoseLog(
         owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, peptide_id=item.peptide_id,
-        peptide_name=item.peptide.name, dose_value=item.dose, dose_unit=item.dose_unit, route=item.route.value,
-        scheduled_date=scheduled_date, scheduled_time_of_day=item.time_of_day, status=DoseStatus.SKIPPED,
-        logged_at=datetime.now(timezone.utc),
+        peptide_name=item.peptide.name, dose_value=effective_dose, dose_unit=item.dose_unit,
+        route=item.route.value, scheduled_date=scheduled_date, scheduled_time_of_day=item.time_of_day,
+        status=DoseStatus.SKIPPED, logged_at=datetime.now(timezone.utc),
     ))
     session.commit()
     return RedirectResponse("/today", status_code=303)
