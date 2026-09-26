@@ -6,8 +6,10 @@ from app.models import DoseUnit, Frequency, Route, TimeOfDay
 
 
 def item(name="BPC-157", freq=Frequency.DAILY, dose=250.0, unit=DoseUnit.MCG, every_n=None, weekdays=None,
-         tod=TimeOfDay.AM, steps=(), inventory=None, pid=1):
-    return NS(peptide=NS(id=pid, name=name), peptide_id=pid, dose=dose, dose_unit=unit, frequency=freq,
+         tod=TimeOfDay.AM, steps=(), inventory=None, pid=1, item_id=None):
+    if item_id is None:
+        item_id = pid
+    return NS(id=item_id, peptide=NS(id=pid, name=name), peptide_id=pid, dose=dose, dose_unit=unit, frequency=freq,
               every_n_days=every_n, weekdays=weekdays, time_of_day=tod, route=Route.SUBQ,
               inventory_item=NS(name=inventory) if inventory else None, steps=list(steps))
 

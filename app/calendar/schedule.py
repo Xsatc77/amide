@@ -14,6 +14,7 @@ from app.protocols.status import current_step, current_week
 class DueItem:
     peptide: str
     peptide_id: int
+    protocol_item_id: int
     dose: float | None
     unit: str
     step: int | None  # titration step number, when one applies
@@ -64,7 +65,8 @@ def _due_item(p, item, day: date) -> DueItem:
         if step is not None:
             dose, step_no = step.dose, item.steps.index(step) + 1
     return DueItem(
-        peptide=item.peptide.name, peptide_id=item.peptide_id, dose=dose, unit=item.dose_unit.value, step=step_no,
+        peptide=item.peptide.name, peptide_id=item.peptide_id, protocol_item_id=item.id, dose=dose,
+        unit=item.dose_unit.value, step=step_no,
         time_of_day=item.time_of_day, route=item.route.label if hasattr(item.route, "label") else str(item.route),
         inventory=item.inventory_item.name if item.inventory_item else None,
     )
@@ -118,3 +120,18 @@ def week_number(day: date) -> int:
     year = saturday.year  # a week that reaches into January belongs to the new year
     week1_start = week_start(date(year, 1, 1))
     return (sunday - week1_start).days // 7 + 1
+
+
+def missed_items(occs: list[Occurrence], logged: set[tuple[int, date]], today: date) -> list[tuple[Occurrence, DueItem]]:
+    """Every (occurrence, item) pair whose scheduled date has fully passed with nothing logged for
+    it. `logged` is the set of (protocol_item_id, scheduled_date) pairs that already have a DoseLog
+    row (any status) -- callers build this from the database; this function itself never touches
+    one."""
+    out: list[tuple[Occurrence, DueItem]] = []
+    for occ in occs:
+        if occ.date >= today:
+            continue
+        for item in occ.items:
+            if (item.protocol_item_id, occ.date) not in logged:
+                out.append((occ, item))
+    return out
