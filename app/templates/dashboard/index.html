@@ -5,6 +5,21 @@
 {% block content %}
 <div class="page-head"><h1>Dashboard</h1></div>
 
+{% if shared_with_me %}
+<form method="get" action="/dashboard" class="dashboard-viewer">
+  <label>
+    <span class="small muted">Viewing</span>
+    <select name="viewer_id" onchange="this.form.submit()">
+      <option value="">You</option>
+      {% for u in shared_with_me %}
+      <option value="{{ u.id }}" {{ 'selected' if viewer_id == u.id }}>{{ u.username }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+{% endif %}
+
+{% if show_personal_data %}
 <section aria-labelledby="schedule-heading">
   <h2 id="schedule-heading" class="section-title">Today's Schedule</h2>
   {% if not schedule %}
@@ -19,7 +34,9 @@
   {% endif %}
   <a href="/today" class="btn btn-ghost">View full Today page</a>
 </section>
+{% endif %}
 
+{% if show_inventory %}
 <section aria-labelledby="alerts-heading">
   <h2 id="alerts-heading" class="section-title">Alerts</h2>
   {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment %}
@@ -56,11 +73,14 @@
   </table>
   {% endif %}
 </section>
+{% endif %}
 
+{% if show_personal_data %}
 <section aria-labelledby="adherence-heading">
   <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
   <p>{{ (adherence_pct | string) + '%' if adherence_pct is not none else 'No doses logged yet.' }}</p>
 </section>
+{% endif %}
 
 <section class="dashboard-placeholders">
   <div class="card"><h3>Weight & Measurements</h3><p class="muted">Coming in a future update.</p></div>
