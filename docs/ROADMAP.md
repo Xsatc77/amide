@@ -6,7 +6,17 @@ Each phase is a usable release on its own. Phases are ordered by **data dependen
 
 ---
 
-## Where we are: v0.5 — Inventory + Protocols + Library + Daily Dosing + Dashboard ✅
+## Where we are: v0.5 — Inventory + Protocols + Library + Daily Dosing + Dashboard + Vendor Management ✅
+
+**Vendor Management (v0.6, shipped ahead of schedule)**
+- A full `/vendors` page: structured contact/payment methods (built-in types get clickable links,
+  custom types are user-addable and reusable), recommend/don't-recommend, per-user favorites,
+  sortable list, a price-list attachment with a staleness prompt on reorder, and Purchase History
+  scoped the same way every other page in this app is (your own data, plus anyone who's shared
+  Inventory with you)
+- The New Order flow now asks "new vendor or existing?" up front, and prefills each line's price
+  from your own last order with that vendor for the same item — derived from existing order
+  history, no separate price list to maintain
 
 **Daily Dosing (v0.4)**
 - **Today view** (`/today`): every dose due today, Log (draws the oldest-open Active Vial, deducts the volume, records time) or Skip, with a body-silhouette **injection-site picker** that highlights the last-used site and pulses the recommended mirrored side
@@ -105,13 +115,14 @@ Firm up the base before anything depends on it.
 - **Reminders:** browser push notifications and/or [ntfy](https://ntfy.sh) / email
 - **Installable phone app (PWA)** so Amide opens from your home screen like a native app
 
-## Phase 5 — v0.6: Orders & Distributor Contacts
+## Phase 5 — v0.6: Orders & Distributor Contacts ✅ (core scope)
 
 - ✅ *Order tracking shipped, ahead of schedule, alongside the v0.7 Inventory work*: multi-item `Order`/`OrderItem` model — order/shipped/arrival dates, tracking site + number, vendor, per-line quantity/cost/lot/expiration/COA, shipping & tax allocated across lines for a true per-vial cost.
 - ✅ *Receiving an order creates inventory automatically, shipped alongside the above*: filling in an order's arrival date is the "checked in" action; each line's `received_quantity` (editable down for anything short or damaged) is what counts toward `InventoryItem.available_count`, with COA carried over per line.
-- ✅ *Vendors as their own table shipped in v0.7* (see Phase 1) — name, website, contact info, notes, pick-or-create from the Order/Inventory forms.
-- **Still open:** a standalone Vendor management page (edit a vendor's info, see everything ordered from them, rating field) — this is the actual "Personal Distributor Contacts" screen Phase 1 deferred here.
-- **Cost analytics:** cost per mg, cost per dose, monthly spend per peptide — not started.
+- ✅ *Vendors as their own table shipped in v0.7* (see Phase 1) — name, website, notes, pick-or-create from the Order/Inventory forms.
+- ✅ *Personal Distributor Contacts (standalone Vendor management) shipped in v0.6* — a full `/vendors` page: structured, extensible contact methods (Email/WhatsApp/Telegram/Phone + user-addable custom types; built-ins render as clickable `mailto:`/`tel:`/`wa.me`/`t.me` links) and payment methods (Credit Card/Cash/Crypto/Alibaba + user-addable), a recommend/don't-recommend flag (the "rating field" from the older wishlist line, kept simple per an explicit decision), a per-user **Favorite** that pins to the top of the list, sortable alphabetically or by most-recent-*visible*-order-date, a reference price-list attachment (file — now including `.doc`/`.docx` — or a URL) with a "still current?" staleness prompt shown when starting a new order from that vendor, and a **Purchase History** on each vendor's page scoped like every other page in this app (your own orders, plus anyone who's shared their Inventory with you — never a global cross-user view). The New Order flow itself now asks "is this a new vendor?" up front: yes gives blank fields for a full profile entered inline; no gives a dropdown of every existing vendor and prefills each line's price from the last time you (or someone who's shared with you) ordered that same item from that same vendor — no separate price list to maintain, it's derived straight from order history.
+  - **Known follow-up (non-blocking, narrow):** editing a vendor's other fields (name, notes, etc.) through the edit form can incorrectly bump a URL-based price list's "last verified" date even when the URL itself wasn't touched, because the form pre-fills the field with its current value and the save path doesn't compare against what was there before. Doesn't affect file-based price lists or the order-flow's own staleness check; just means the edit-page date can occasionally look fresher than it really is. Small, well-understood fix (compare the posted value against what was already stored, only bump the date when it actually changed).
+- **Cost analytics:** cost per mg, cost per dose, monthly spend per peptide — not started (a different, peptide-scoped slice of this phase; out of scope for the Vendor page above).
 
 ## Phase 6 — v0.7: Body & Health Tracking
 
