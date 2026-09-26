@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% set active_nav = "vendors" %}
+{% block title %}{{ vendor.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="muted small"><a href="/vendors">&larr; Vendors</a></p>
+    <h1>{{ vendor.name }}</h1>
+  </div>
+  <form method="post" action="/vendors/{{ vendor.id }}/{{ 'unfavorite' if is_favorite else 'favorite' }}" class="inline">
+    <input type="hidden" name="next" value="/vendors/{{ vendor.id }}">
+    <button type="submit" class="btn btn-ghost">{{ 'Unfavorite' if is_favorite else '★ Favorite' }}</button>
+  </form>
+</div>
+
+<section aria-labelledby="profile-heading">
+  <h2 id="profile-heading" class="section-title">Profile</h2>
+  <dl class="kv">
+    <dt>Website</dt><dd>{% if vendor.website %}<a href="{{ vendor.website }}" target="_blank" rel="noopener">{{ vendor.website }}</a>{% else %}&mdash;{% endif %}</dd>
+    <dt>Supplier</dt><dd>{{ vendor.supplier or '—' }}</dd>
+    <dt>Contact name</dt><dd>{{ vendor.contact_name or '—' }}</dd>
+    <dt>Recommendation</dt>
+    <dd>
+      {% if vendor.recommended is true %}<span class="tag">Recommended</span>
+      {% elif vendor.recommended is false %}<span class="tag">Don't recommend</span>
+      {% else %}No opinion{% endif %}
+    </dd>
+    <dt>Notes</dt><dd>{{ vendor.notes or '—' }}</dd>
+  </dl>
+
+  <h3 class="section-title">Contact methods</h3>
+  {% if contacts %}
+  <ul class="kv-list">
+    {% for c in contacts %}
+    <li>
+      <strong>{{ c.method_type_name }}:</strong>
+      {% if c.link %}<a href="{{ c.link }}">{{ c.value }}</a>{% else %}{{ c.value }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No contact methods on file.</p>
+  {% endif %}
+
+  <h3 class="section-title">Payment methods accepted</h3>
+  {% if vendor.payment_methods %}
+  <div class="chips">
+    {% for pm in vendor.payment_methods %}<span class="tag">{{ pm.method_type.name }}</span>{% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">None on file.</p>
+  {% endif %}
+
+  <h3 class="section-title">Price list</h3>
+  <p>
+    {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
+    {% elif vendor.price_list_filename %}{{ vendor.price_list_filename }}
+    {% else %}<span class="muted">No price list on file.</span>{% endif %}
+    {% if vendor.price_list_updated_at %}
+    <span class="muted small">(Updated {{ vendor.price_list_updated_at | shortdate }}, {{ (today - vendor.price_list_updated_at).days }} day{{ '' if (today - vendor.price_list_updated_at).days == 1 else 's' }} ago)</span>
+    {% endif %}
+  </p>
+
+  <button type="button" class="btn btn-ghost" data-action="edit-vendor">Edit</button>
+</section>
+
+{% set ef = form or edit_data %}
+{% macro verr(field) %}{% if errors and errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
+{% macro vcls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if errors and errors[field] }}"{% endmacro %}
+<dialog id="vendor-edit-dialog" class="dialog" {% if form %}data-open-on-load{% endif %}>
+  <form method="post" action="/vendors/{{ vendor.id }}" class="item-form" novalidate>
+    <header class="dialog-head">
+      <h2 data-title>Edit vendor</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-vendor-edit" aria-label="Close">&times;</button>
+    </header>
+
+    {% if errors %}
+    <div class="alert" role="alert">Please fix the highlighted fields.</div>
+    {% endif %}
+
+    <div class="grid">
+      <label {{ vcls('name', 'span-2') }}>
+        <span>Vendor name <em>*</em></span>
+        <input name="name" required maxlength="200" value="{{ ef.name }}">
+        {{ verr('name') }}
+      </label>
+      <label {{ vcls('website') }}>
+        <span>Website</span>
+        <input name="website" type="url" maxlength="300" placeholder="https://..." value="{{ ef.website }}">
+        {{ verr('website') }}
+      </label>
+      <label class="field">
+        <span>Supplier</span>
+        <input name="supplier" maxlength="200" value="{{ ef.supplier }}">
+      </label>
+      <label class="field">
+        <span>Contact name</span>
+        <input name="contact_name" maxlength="120" value="{{ ef.contact_name }}">
+      </label>
+      <label class="field span-2">
+        <span>Notes</span>
+        <textarea name="notes" rows="2">{{ ef.notes }}</textarea>
+      </label>
+    </div>
+
+    <fieldset class="form-section">
+      <legend>Recommendation</legend>
+      <div class="chips" role="radiogroup" aria-label="Recommendation">
+        <label class="chip-radio"><input type="radio" name="recommended" value="" {{ 'checked' if ef.recommended in (None, '') }}> No opinion</label>
+        <label class="chip-radio"><input type="radio" name="recommended" value="yes" {{ 'checked' if ef.recommended == 'yes' }}> Recommend</label>
+        <label class="chip-radio"><input type="radio" name="recommended" value="no" {{ 'checked' if ef.recommended == 'no' }}> Don't recommend</label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Contact methods</legend>
+      <div data-contact-rows>
+        {% for c in contacts %}
+        <div class="grid" data-contact-row>
+          <label class="field">
+            <span>Method</span>
+            <select name="contacts-{{ loop.index0 }}-method_type_id">
+              <option value="">&mdash; Select &mdash;</option>
+              {% for t in contact_types %}
+              <option value="{{ t.id }}" {{ 'selected' if t.id == c.method_type_id }}>{{ t.name }}</option>
+              {% endfor %}
+              <option value="__new__">+ New type&hellip;</option>
+            </select>
+          </label>
+          <label class="field" data-new-method-type hidden>
+            <span>New type name</span>
+            <input name="contacts-{{ loop.index0 }}-new_method_type" maxlength="60">
+          </label>
+          <label class="field">
+            <span>Value</span>
+            <input name="contacts-{{ loop.index0 }}-value" value="{{ c.value }}">
+          </label>
+          <button type="button" class="btn btn-ghost btn-danger" data-action="remove-contact-row">Remove</button>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn btn-ghost" data-action="add-contact-row">+ Add another contact method</button>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Payment methods accepted</legend>
+      <div class="chips">
+        {% for t in payment_types %}
+        <label class="chip-checkbox">
+          <input type="checkbox" name="payment_type_ids" value="{{ t.id }}" {{ 'checked' if t.id in checked_payment_type_ids }}>
+          {{ t.name }}
+        </label>
+        {% endfor %}
+      </div>
+      <label class="field">
+        <span>Add a new payment type</span>
+        <input name="new_payment_type" maxlength="60">
+      </label>
+    </fieldset>
+
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-vendor-edit">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </footer>
+  </form>
+</dialog>
+
+<template id="contact-row-template">
+  <div class="grid" data-contact-row>
+    <label class="field">
+      <span>Method</span>
+      <select name="contacts-__I__-method_type_id">
+        <option value="">&mdash; Select &mdash;</option>
+        {% for t in contact_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+        <option value="__new__">+ New type&hellip;</option>
+      </select>
+    </label>
+    <label class="field" data-new-method-type hidden>
+      <span>New type name</span>
+      <input name="contacts-__I__-new_method_type" maxlength="60">
+    </label>
+    <label class="field">
+      <span>Value</span>
+      <input name="contacts-__I__-value">
+    </label>
+    <button type="button" class="btn btn-ghost btn-danger" data-action="remove-contact-row">Remove</button>
+  </div>
+</template>
+
+<section aria-labelledby="purchase-history-heading">
+  <h2 id="purchase-history-heading" class="section-title">Purchase History</h2>
+  {% if order_lines %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead>
+        <tr><th>Item</th><th class="num">Quantity</th><th>Order date</th><th class="num">Cost</th></tr>
+      </thead>
+      <tbody>
+        {% for li in order_lines %}
+        <tr>
+          <td data-label="Item">
+            <a href="/inventory/{{ li.inventory_item_id }}">{{ li.inventory_item.name }}</a>
+            {% if li.inventory_item.owner_id != viewer_id %}
+            <div class="muted small">Shared by {{ owner_names[li.inventory_item.owner_id] }}</div>
+            {% endif %}
+          </td>
+          <td data-label="Quantity" class="num">{{ li.quantity }}</td>
+          <td data-label="Order date">{{ li.order.order_date | shortdate }}</td>
+          <td data-label="Cost" class="num">{{ li.cost | money or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No purchase history yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/vendors.js') }}" defer></script>
+{% endblock %}

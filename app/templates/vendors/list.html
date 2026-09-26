@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% set active_nav = "vendors" %}
+{% block title %}Vendors{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Vendors</h1>
+    <p class="muted">{{ vendors | length }} vendor{{ '' if vendors | length == 1 else 's' }}</p>
+  </div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Sort vendors">
+  <a href="/vendors?sort=alpha" class="tab {{ 'active' if sort != 'recent' }}" role="tab" aria-selected="{{ 'true' if sort != 'recent' else 'false' }}">Alphabetical</a>
+  <a href="/vendors?sort=recent" class="tab {{ 'active' if sort == 'recent' }}" role="tab" aria-selected="{{ 'true' if sort == 'recent' else 'false' }}">Most recent order</a>
+</div>
+
+{% if not vendors %}
+<div class="empty">
+  <p><strong>No vendors yet.</strong></p>
+  <p class="muted">Vendors are created automatically the first time you buy from one.</p>
+</div>
+{% else %}
+<div class="table-wrap">
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th>Vendor</th>
+        <th>Recommended</th>
+        <th>Most recent order</th>
+        <th><span class="sr-only">Favorite</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vendors %}
+      <tr>
+        <td data-label="Vendor" class="item-name">
+          <a href="/vendors/{{ v.id }}">{{ v.name }}</a>
+          {% if v.id in favorite_ids %}<span class="tag" title="Favorite">&#9733; Favorite</span>{% endif %}
+        </td>
+        <td data-label="Recommended">
+          {% if v.recommended is true %}<span class="tag">Recommended</span>
+          {% elif v.recommended is false %}<span class="tag">Don't recommend</span>
+          {% else %}&mdash;{% endif %}
+        </td>
+        <td data-label="Most recent order">{{ recent_dates.get(v.id) | shortdate or '—' }}</td>
+        <td class="actions">
+          {% if v.id in favorite_ids %}
+          <form method="post" action="/vendors/{{ v.id }}/unfavorite" class="inline">
+            <input type="hidden" name="next" value="/vendors?sort={{ sort }}">
+            <button type="submit" class="btn btn-ghost">Unfavorite</button>
+          </form>
+          {% else %}
+          <form method="post" action="/vendors/{{ v.id }}/favorite" class="inline">
+            <input type="hidden" name="next" value="/vendors?sort={{ sort }}">
+            <button type="submit" class="btn btn-ghost">Favorite</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,273 @@
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.auth.deps import current_user_id
+from app.db import get_session
+from app.models import (
+    ContactMethodType, InventoryItem, Order, OrderItem, PaymentMethodType, Share, ShareCategory,
+    User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod,
+)
+from app.templating import templates
+from app.vendors.links import contact_link
+from app.vendors.resolve import resolve_contact_method_type, resolve_payment_method_type
+
+router = APIRouter()
+
+
+# ---------------------------------------------------------------- list page
+
+def _favorited_vendor_ids(session: Session, uid: int) -> set[int]:
+    """This user's own VendorFavorite rows, and only this user's -- a favorite is strictly
+    per-user, never a global "is this favorited by anyone" flag (Review Focus item 1)."""
+    return set(session.scalars(select(VendorFavorite.vendor_id).where(VendorFavorite.user_id == uid)))
+
+
+def _vendor_recent_order_dates(session: Session) -> dict[int, date]:
+    """Each vendor's own most recent Order.order_date, across every user -- the Vendors list is a
+    global list (Vendor is shared like the peptide library, per app/models.py's own docstring), and
+    only a bare date is exposed here, never whose order it was, so this needs no Inventory-share
+    scoping the way Purchase History does."""
+    rows = session.execute(
+        select(Order.vendor_id, func.max(Order.order_date)).where(Order.vendor_id.is_not(None))
+        .group_by(Order.vendor_id)
+    ).all()
+    return dict(rows)
+
+
+def _sorted_vendors(vendors: list[Vendor], favorite_ids: set[int], recent_dates: dict[int, date],
+                    sort: str) -> list[Vendor]:
+    """Favorites always pin to the top (of either sort mode); within each group, alphabetical by
+    name, or by most-recent-order-date descending with no-orders-yet vendors sorted last."""
+    if sort == "recent":
+        def key(v: Vendor):
+            recent = recent_dates.get(v.id)
+            return (v.id not in favorite_ids, recent is None, recent.toordinal() * -1 if recent else 0,
+                    v.name.lower())
+    else:
+        def key(v: Vendor):
+            return (v.id not in favorite_ids, v.name.lower())
+    return sorted(vendors, key=key)
+
+
+@router.get("/vendors")
+def list_vendors(request: Request, sort: str = "alpha", session: Session = Depends(get_session),
+                 uid: int = Depends(current_user_id)):
+    sort = "recent" if sort == "recent" else "alpha"
+    vendors = session.scalars(select(Vendor)).all()
+    favorite_ids = _favorited_vendor_ids(session, uid)
+    recent_dates = _vendor_recent_order_dates(session)
+    vendors = _sorted_vendors(vendors, favorite_ids, recent_dates, sort)
+    return templates.TemplateResponse(request, "vendors/list.html", {
+        "vendors": vendors,
+        "favorite_ids": favorite_ids,
+        "recent_dates": recent_dates,
+        "sort": sort,
+    })
+
+
+# ---------------------------------------------------------------- favorite toggle
+
+@router.post("/vendors/{vendor_id}/favorite")
+def favorite_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
+                    uid: int = Depends(current_user_id)):
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None:
+        raise HTTPException(404, "Vendor not found")
+    existing = session.scalar(select(VendorFavorite).where(
+        VendorFavorite.user_id == uid, VendorFavorite.vendor_id == vendor_id))
+    if existing is None:
+        session.add(VendorFavorite(user_id=uid, vendor_id=vendor_id))
+        session.commit()
+    return RedirectResponse(next, status_code=303)
+
+
+@router.post("/vendors/{vendor_id}/unfavorite")
+def unfavorite_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
+                      uid: int = Depends(current_user_id)):
+    session.query(VendorFavorite).filter_by(user_id=uid, vendor_id=vendor_id).delete()
+    session.commit()
+    return RedirectResponse(next, status_code=303)
+
+
+# ---------------------------------------------------------------- detail page / Purchase History
+
+def _visible_order_lines_for_vendor(session: Session, vendor_id: int, uid: int):
+    """This user's own order lines placed with this vendor, plus order lines belonging to anyone
+    who granted them Inventory sharing -- the exact blend-and-tag-by-owner-name shape as
+    inventory._visible_items/_visible_active_vials (Review Focus item 2 in the design spec): never
+    a global cross-user view, never blended without attribution."""
+    shared_owner_ids = select(Share.owner_id).where(
+        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    lines = session.scalars(
+        select(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
+        .where(Order.vendor_id == vendor_id,
+              (InventoryItem.owner_id == uid) | (InventoryItem.owner_id.in_(shared_owner_ids)))
+        .order_by(Order.order_date.desc())
+    ).all()
+    other_owner_ids = {li.inventory_item.owner_id for li in lines if li.inventory_item.owner_id != uid}
+    owner_names = {}
+    if other_owner_ids:
+        owner_names = dict(session.execute(
+            select(User.id, User.username).where(User.id.in_(other_owner_ids))).all())
+    return lines, owner_names
+
+
+def _contact_method_types(session: Session):
+    return session.scalars(select(ContactMethodType).order_by(ContactMethodType.name.collate("NOCASE"))).all()
+
+
+def _payment_method_types(session: Session):
+    return session.scalars(select(PaymentMethodType).order_by(PaymentMethodType.name.collate("NOCASE"))).all()
+
+
+def _contact_view(vendor: Vendor) -> list[dict]:
+    """Each contact entry with its clickable link (or None -- rendered as plain text), used by both
+    the read-only display and to prefill the edit form's repeatable rows."""
+    return [
+        {"id": c.id, "method_type_id": c.method_type_id, "method_type_name": c.method_type.name,
+        "value": c.value, "link": contact_link(c.method_type.name, c.value)}
+        for c in vendor.contacts
+    ]
+
+
+def _form_values(vendor: Vendor) -> dict:
+    return {
+        "name": vendor.name,
+        "website": vendor.website or "",
+        "supplier": vendor.supplier or "",
+        "contact_name": vendor.contact_name or "",
+        "notes": vendor.notes or "",
+        "recommended": "" if vendor.recommended is None else ("yes" if vendor.recommended else "no"),
+    }
+
+
+def _detail_context(session: Session, vendor: Vendor, uid: int) -> dict:
+    order_lines, owner_names = _visible_order_lines_for_vendor(session, vendor.id, uid)
+    is_favorite = session.scalar(select(VendorFavorite).where(
+        VendorFavorite.user_id == uid, VendorFavorite.vendor_id == vendor.id)) is not None
+    return {
+        "vendor": vendor,
+        "viewer_id": uid,
+        "is_favorite": is_favorite,
+        "contacts": _contact_view(vendor),
+        "contact_types": _contact_method_types(session),
+        "payment_types": _payment_method_types(session),
+        "checked_payment_type_ids": {pm.method_type_id for pm in vendor.payment_methods},
+        "order_lines": order_lines,
+        "owner_names": owner_names,
+        "today": date.today(),
+        "edit_data": _form_values(vendor),
+    }
+
+
+@router.get("/vendors/{vendor_id}")
+def vendor_detail(vendor_id: int, request: Request, session: Session = Depends(get_session),
+                  uid: int = Depends(current_user_id)):
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None:
+        raise HTTPException(404, "Vendor not found")
+    return templates.TemplateResponse(request, "vendors/detail.html", _detail_context(session, vendor, uid))
+
+
+# ---------------------------------------------------------------- edit
+
+async def _read_edit_form(request: Request) -> tuple[dict[str, str], dict[int, dict[str, str]], list[str]]:
+    """Returns (profile fields, contact rows grouped by index -- mirrors inventory.py's
+    `_group_lines`'s 'lines-{i}-field' convention but for 'contacts-{i}-field', payment_type_ids)."""
+    form = await request.form()
+    raw = {
+        "name": str(form.get("name") or "").strip(),
+        "website": str(form.get("website") or "").strip(),
+        "supplier": str(form.get("supplier") or "").strip(),
+        "contact_name": str(form.get("contact_name") or "").strip(),
+        "notes": str(form.get("notes") or "").strip(),
+        "recommended": str(form.get("recommended") or "").strip(),
+        "new_payment_type": str(form.get("new_payment_type") or "").strip(),
+    }
+    contact_rows: dict[int, dict[str, str]] = {}
+    for key in form.keys():
+        if not key.startswith("contacts-"):
+            continue
+        rest = key[len("contacts-"):]
+        idx_str, _, field = rest.partition("-")
+        if not idx_str.isdigit() or not field:
+            continue
+        contact_rows.setdefault(int(idx_str), {})[field] = str(form.get(key) or "").strip()
+    payment_type_ids = [v.strip() for v in form.getlist("payment_type_ids")]
+    return raw, dict(sorted(contact_rows.items())), payment_type_ids
+
+
+@router.post("/vendors/{vendor_id}")
+async def update_vendor(vendor_id: int, request: Request, session: Session = Depends(get_session),
+                        uid: int = Depends(current_user_id)):
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None:
+        raise HTTPException(404, "Vendor not found")
+
+    raw, contact_rows, payment_type_ids = await _read_edit_form(request)
+    errors: dict[str, str] = {}
+    if not raw["name"]:
+        errors["name"] = "Vendor name is required."
+    if raw["website"] and not raw["website"].lower().startswith(("http://", "https://")):
+        errors["website"] = "Website must be a valid http(s) URL."
+    if raw["name"] and not errors.get("name"):
+        clash = session.scalar(select(Vendor).where(Vendor.name == raw["name"], Vendor.id != vendor.id))
+        if clash is not None:
+            errors["name"] = "Another vendor already has this name."
+
+    if errors:
+        return templates.TemplateResponse(request, "vendors/detail.html", {
+            **_detail_context(session, vendor, uid),
+            "form": raw,
+            "errors": errors,
+        }, status_code=422)
+
+    recommended = None
+    if raw["recommended"] == "yes":
+        recommended = True
+    elif raw["recommended"] == "no":
+        recommended = False
+
+    vendor.name = raw["name"]
+    vendor.website = raw["website"] or None
+    vendor.supplier = raw["supplier"] or None
+    vendor.contact_name = raw["contact_name"] or None
+    vendor.notes = raw["notes"] or None
+    vendor.recommended = recommended
+
+    vendor.contacts.clear()
+    session.flush()  # the deletes must land before the unique/insert side below, mirroring
+                     # protocols.save_protocol's items.clear()-then-rebuild convention
+    for row in contact_rows.values():
+        value = row.get("value", "")
+        if not value:
+            continue
+        method_type_id = row.get("method_type_id", "")
+        new_name = row.get("new_method_type", "")
+        method_type = None
+        if method_type_id == "__new__" or (not method_type_id and new_name):
+            method_type = resolve_contact_method_type(session, new_name)
+        elif method_type_id.isdigit():
+            method_type = session.get(ContactMethodType, int(method_type_id))
+        if method_type is None:
+            continue
+        vendor.contacts.append(VendorContact(method_type_id=method_type.id, value=value))
+
+    vendor.payment_methods.clear()
+    session.flush()
+    type_ids: set[int] = {int(v) for v in payment_type_ids if v.isdigit()}
+    if raw["new_payment_type"]:
+        new_type = resolve_payment_method_type(session, raw["new_payment_type"])
+        if new_type is not None:
+            type_ids.add(new_type.id)
+    for type_id in type_ids:
+        vendor.payment_methods.append(VendorPaymentMethod(method_type_id=type_id))
+
+    session.commit()
+    return RedirectResponse(f"/vendors/{vendor.id}", status_code=303)
