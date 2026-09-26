@@ -311,8 +311,103 @@
 </section>
 
 {% elif active_tab == 'journal' %}
-<section class="dashboard-placeholders">
-  <div class="card"><h3>Journal</h3><p class="muted">Coming in a future update.</p></div>
+<section aria-labelledby="journal-heading">
+  <h2 id="journal-heading" class="section-title">Journal</h2>
+  <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
+</section>
+
+<dialog id="journal-dialog" class="dialog">
+  <form method="post" action="/journal/entries" class="settings-form" novalidate>
+    <header class="dialog-head">
+      <h2>Today's entry</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
+    </header>
+
+    <div class="grid">
+      <label class="field">
+        <span>Mood (1-5)</span>
+        <input name="mood" type="number" min="1" max="5" step="1" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span>Energy (1-5)</span>
+        <input name="energy" type="number" min="1" max="5" step="1" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span>Sleep quality (1-5)</span>
+        <input name="sleep_quality" type="number" min="1" max="5" step="1" inputmode="numeric">
+      </label>
+    </div>
+
+    <fieldset class="form-section">
+      <legend>Side effects</legend>
+      <div class="chips">
+        {% for se in journal_side_effects %}
+        <label class="chip-checkbox">
+          <input type="checkbox" name="side_effects" value="{{ se.value }}"> {{ se.value }}
+        </label>
+        {% endfor %}
+      </div>
+      <label class="field">
+        <span>Other</span>
+        <input name="side_effects_other" maxlength="500" placeholder="Anything not listed above">
+      </label>
+    </fieldset>
+
+    <label class="field">
+      <span>Notes</span>
+      <textarea name="notes" rows="4" data-autogrow placeholder="How was today?"></textarea>
+    </label>
+
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save entry</button>
+    </footer>
+  </form>
+</dialog>
+
+<section aria-labelledby="journal-entries-heading">
+  <h2 id="journal-entries-heading" class="section-title">Entries</h2>
+  {% if not entries %}
+  <div class="empty">
+    <p><strong>No journal entries yet.</strong></p>
+    <p class="muted">Log a New Entry above to start tracking your mood, energy, sleep, and side effects.</p>
+  </div>
+  {% else %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Mood</th>
+          <th>Energy</th>
+          <th>Sleep</th>
+          <th>Side effects</th>
+          <th>Notes</th>
+          <th>Shared by</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td data-label="Date">{{ e.date.strftime('%b') }} {{ e.date.day }}, {{ e.date.year }}</td>
+          <td data-label="Mood">{{ e.mood if e.mood is not none else '—' }}</td>
+          <td data-label="Energy">{{ e.energy if e.energy is not none else '—' }}</td>
+          <td data-label="Sleep">{{ e.sleep_quality if e.sleep_quality is not none else '—' }}</td>
+          <td data-label="Side effects">
+            {%- if e.side_effects or e.side_effects_other -%}
+              {{ (e.side_effects + ([e.side_effects_other] if e.side_effects_other else [])) | join(', ') }}
+            {%- else -%}
+              —
+            {%- endif -%}
+          </td>
+          <td data-label="Notes">{{ e.notes or '—' }}</td>
+          <td data-label="Shared by">{{ e.owner_name or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </section>
 
 {% elif active_tab == 'labs' %}
@@ -320,4 +415,8 @@
   <div class="card"><h3>Labs</h3><p class="muted">Coming in a future update.</p></div>
 </section>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/journal.js') }}" defer></script>
 {% endblock %}

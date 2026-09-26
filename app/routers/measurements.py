@@ -10,6 +10,7 @@ from app.db import get_session
 from app.measurements.calculations import (bmi, bmr, body_fat_pct, macros_for_preset,
                                            target_calories, tdee, water_goal_oz, water_pace)
 from app.models import BodyMeasurement, DietPreset, MacroGoal, Share, ShareCategory, User
+from app.routers import journal
 from app.templating import templates
 
 router = APIRouter()
@@ -347,7 +348,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         goal_oz = water_goal_oz(latest_weight, me_user.water_goal_oz if me_user else None)
         water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": latest_weight_as_of}
 
-    return templates.TemplateResponse(request, "measurements/index.html", {
+    context = {
         "entries": own_windowed,
         "shared_views": shared_views,
         "form": form or {},
@@ -359,7 +360,11 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "macros": _macros_context(me_user, latest_weight) if me_user else {"status": "missing_profile", "missing_fields": []},
         "charts": _charts_context(own_windowed, me_user, range_key),
         "as_of": as_of.isoformat(),
-    }, status_code=status_code)
+    }
+    if tab == "journal":
+        context.update(journal.journal_tab_context(session, uid))
+
+    return templates.TemplateResponse(request, "measurements/index.html", context, status_code=status_code)
 
 
 @router.get("/measurements")
