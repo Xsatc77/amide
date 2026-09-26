@@ -27,7 +27,7 @@ def client():
     with TestClient(app) as c:  # runs startup: creates dirs + migrates
         assert c.post("/notice", data={"understand": "1"}).status_code == 200
         r = c.post("/register", data={"username": TEST_USER, "password": TEST_PASSWORD, "confirm": TEST_PASSWORD})
-        assert r.status_code == 200 and r.url.path == "/protocols", r.text
+        assert r.status_code == 200 and r.url.path == "/dashboard", r.text
         yield c
     shutil.rmtree(_TMP, ignore_errors=True)
 

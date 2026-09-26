@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% set active_nav = "dashboard" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head"><h1>Dashboard</h1></div>
+
+<section aria-labelledby="schedule-heading">
+  <h2 id="schedule-heading" class="section-title">Today's Schedule</h2>
+  {% if not schedule %}
+  <p class="muted">Nothing scheduled today.</p>
+  {% else %}
+  <ul class="dose-list">
+    {% for row in schedule %}
+    <li><strong>{{ row.peptide }}</strong> — {{ row.dose }} {{ row.unit }} · {{ row.time_of_day.label }}
+      <span class="tag">{{ row.status }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <a href="/today" class="btn btn-ghost">View full Today page</a>
+</section>
+
+<section aria-labelledby="alerts-heading">
+  <h2 id="alerts-heading" class="section-title">Alerts</h2>
+  {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment %}
+  {% if not has_alerts %}
+  <p class="muted">Nothing needs attention.</p>
+  {% else %}
+  <ul class="dose-list">
+    {% for a in alerts.low_stock %}
+    <li><a href="/inventory">{{ a.name }}</a> — low stock ({{ a.available_count }} left, threshold {{ a.threshold }})</li>
+    {% endfor %}
+    {% for a in alerts.expiration %}
+    <li><a href="/inventory#active-vials">{{ a.name }}</a> — {{ 'expired' if a.severity == 'expired' else 'expiring soon' }}</li>
+    {% endfor %}
+    {% for a in alerts.shipment %}
+    <li>Order from {{ a.vendor or 'vendor' }} — {{ a.days }} days, no arrival yet</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section aria-labelledby="cost-heading">
+  <h2 id="cost-heading" class="section-title">Cost snapshot</h2>
+  {% if not cost_snapshot %}
+  <p class="muted">No cost data yet.</p>
+  {% else %}
+  <table class="inv-table">
+    <thead><tr><th>Peptide</th><th>Cost / vial</th><th>Cost / dose</th></tr></thead>
+    <tbody>
+      {% for row in cost_snapshot %}
+      <tr><td>{{ row.peptide }}</td><td>{{ row.cost_per_vial | money }}</td>
+        <td>{{ row.cost_per_dose | money if row.cost_per_dose is not none else '—' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section aria-labelledby="adherence-heading">
+  <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
+  <p>{{ (adherence_pct | string) + '%' if adherence_pct is not none else 'No doses logged yet.' }}</p>
+</section>
+
+<section class="dashboard-placeholders">
+  <div class="card"><h3>Weight & Measurements</h3><p class="muted">Coming in a future update.</p></div>
+  <div class="card"><h3>Journal</h3><p class="muted">Coming in a future update.</p></div>
+  <div class="card"><h3>Health app integrations</h3><p class="muted">Coming in a future update.</p></div>
+</section>
+{% endblock %}

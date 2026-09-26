@@ -13,7 +13,7 @@ from app.templating import templates
 
 router = APIRouter()
 
-HOME = "/protocols"  # the front page for now
+HOME = "/dashboard"  # the front page
 BANNER_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                 ".webp": "image/webp"}
 

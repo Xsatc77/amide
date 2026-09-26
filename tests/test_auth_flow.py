@@ -109,7 +109,7 @@ def test_register_username_case_insensitive(fresh):
 def test_register_signs_in_and_shows_user_menu(fresh):
     accept(fresh)
     r = register(fresh, "Menu.User")
-    assert r.headers["location"] == "/protocols"
+    assert r.headers["location"] == "/dashboard"
     t = text(fresh.get("/protocols"))
     assert 'class="avatar"' in t and ">M<" in t and "Menu.User" in t and "Log out" in t
 
@@ -136,7 +136,7 @@ def test_login_and_wrong_password(fresh):
     r = fresh.post("/login", data={"username": "loginuser", "password": "wrong"})
     assert r.status_code == 422 and "incorrect" in text(r)
     r = fresh.post("/login", data={"username": "LOGINUSER", "password": PW})  # username not case sensitive
-    assert r.status_code == 303 and r.headers["location"] == "/protocols"
+    assert r.status_code == 303 and r.headers["location"] == "/dashboard"
     assert fresh.get("/protocols").status_code == 200
 
 
@@ -198,7 +198,7 @@ def test_register_with_2fa_goes_to_setup_then_login_requires_code(fresh):
     assert fresh.get("/protocols").headers["location"].endswith("/login/2fa")  # gate holds you here
     assert fresh.post("/login/2fa", data={"code": "123456"}).status_code == 422
     r = fresh.post("/login/2fa", data={"code": next_code(secret)})
-    assert r.headers["location"] == "/protocols"
+    assert r.headers["location"] == "/dashboard"
     assert fresh.get("/protocols").status_code == 200
 
 
