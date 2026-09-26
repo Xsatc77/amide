@@ -401,3 +401,58 @@
 
   if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
 })();
+
+// ---------------------------------------------------------------- inventory list: New Order dialog
+(() => {
+  const dialog = document.getElementById("new-order-dialog");
+  if (!dialog) return;  // Only the Inventory list page has this dialog
+  const form = dialog.querySelector("form");
+  const linesContainer = dialog.querySelector("[data-lines-container]");
+  const template = document.getElementById("new-order-line-template");
+  let lineCount = 0;
+
+  function addLine() {
+    const index = lineCount++;
+    const fragment = template.content.cloneNode(true);
+    fragment.querySelectorAll("[name]").forEach((el) => {
+      el.name = el.name.replace("__I__", String(index));
+    });
+    const fieldset = fragment.querySelector("[data-line]");
+    syncLineMode(fieldset);
+    fieldset.querySelectorAll('[data-line-mode]').forEach((radio) =>
+      radio.addEventListener("change", () => syncLineMode(fieldset)));
+    fieldset.querySelector('[data-action="remove-line"]').addEventListener("click", () => fieldset.remove());
+    linesContainer.appendChild(fragment);
+  }
+
+  function syncLineMode(fieldset) {
+    const mode = fieldset.querySelector('[data-line-mode]:checked')?.value || "existing";
+    fieldset.querySelector('[data-line-group="existing"]').hidden = mode !== "existing";
+    fieldset.querySelector('[data-line-group="new"]').hidden = mode !== "new";
+  }
+
+  document.querySelectorAll('[data-action="new-order"]').forEach((btn) => btn.addEventListener("click", () => {
+    form.reset();
+    linesContainer.innerHTML = "";
+    lineCount = 0;
+    addLine();
+    dialog.showModal();
+  }));
+  dialog.querySelectorAll('[data-action="close-new-order"]').forEach((btn) =>
+    btn.addEventListener("click", () => dialog.close()));
+  dialog.querySelector('[data-action="add-line"]').addEventListener("click", addLine);
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  // Server re-rendered the page after a validation error: reopen with at least one line so the
+  // dialog isn't blank (the server doesn't thread posted line values back into new lines here --
+  // a known simplification carried over from Task 7/8; the error banner and field-level messages
+  // still show via new_order_errors, they just don't re-populate what was typed).
+  if (dialog.hasAttribute("data-open-on-load")) {
+    linesContainer.innerHTML = "";
+    lineCount = 0;
+    addLine();
+    dialog.showModal();
+  }
+})();
