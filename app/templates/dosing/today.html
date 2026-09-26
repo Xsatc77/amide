@@ -31,16 +31,6 @@
           {% if item.protocol_item_id in site_data %}
           <input type="hidden" name="injection_site" value="{{ site_data[item.protocol_item_id].recommended or '' }}" data-site-input>
           <button type="button" class="btn btn-ghost" data-action="pick-site" data-item-id="{{ item.protocol_item_id }}">Pick site</button>
-          {# Inert, name-less native fallback -- lists only this item's eligible sites (e.g. SubQ
-             excludes Glute) for no-JS/assistive contexts and for tests to assert eligibility
-             scoping without a real browser. It never submits (no name attribute), so it can't
-             affect the /today/log request; the SVG dialog + hidden data-site-input remain the
-             only thing that sets injection_site. #}
-          <select class="visually-hidden" aria-hidden="true" tabindex="-1">
-            {% for s in site_data[item.protocol_item_id].sites %}
-            <option value="{{ s.value }}">{{ s.label }}</option>
-            {% endfor %}
-          </select>
           {% endif %}
           <button type="submit" class="btn btn-primary" data-action="log-dose">Log dose</button>
         </form>

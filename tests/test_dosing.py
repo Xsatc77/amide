@@ -187,7 +187,11 @@ def test_today_page_shows_site_picker_for_subq_route(client, db):
     _setup_protocol_with_vial(client, db)
     t = html.unescape(client.get("/today").text)
     assert 'data-injection-site-picker' in t
-    assert 'value="abdomen_l"' in t and 'value="glute_l"' not in t  # SubQ excludes Glute
+    # The SVG dialog is one shared, static element with all 8 sites always present as
+    # data-site circles (JS paints eligibility at runtime) -- eligibility itself is only
+    # expressed in the per-item site_data JSON blob, so assert there instead of on markup.
+    assert '"value": "abdomen_l"' in t or '&#34;value&#34;: &#34;abdomen_l&#34;' in t
+    assert '"value": "glute_l"' not in t and '&#34;value&#34;: &#34;glute_l&#34;' not in t  # SubQ excludes Glute
 
 
 def test_log_dose_with_explicit_site_records_it(client, db):
