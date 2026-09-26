@@ -344,6 +344,14 @@ def test_0013_splits_orders_into_order_items(tmp_path):
         rows = c.execute("select quantity, received_quantity, cost_cents from order_items "
                          "order by quantity desc").fetchall()
         assert rows == [(10, 10, 8400), (5, None, None)]
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into order_items(order_id,inventory_item_id,quantity,received_quantity) "
+                      "values (1,?,5,6)", (item_id,))  # received > ordered
+    command.downgrade(cfg, "0012")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "order_items" not in tables
+        assert "inventory_item_id" in {r[1] for r in c.execute("pragma table_info(orders)")}
 
 
 def test_0014_adds_dose_logging(tmp_path):
@@ -381,11 +389,3 @@ def test_0014_adds_dose_logging(tmp_path):
         assert "dose_logs" not in tables
         vial_cols = {r[1] for r in c.execute("pragma table_info(active_vials)")}
         assert "dispensing_method" not in vial_cols and "volume_remaining_ml" not in vial_cols
-        with pytest.raises(sqlite3.IntegrityError):
-            c.execute("insert into order_items(order_id,inventory_item_id,quantity,received_quantity) "
-                      "values (1,?,5,6)", (item_id,))  # received > ordered
-    command.downgrade(cfg, "0012")
-    with sqlite3.connect(db) as c:
-        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
-        assert "order_items" not in tables
-        assert "inventory_item_id" in {r[1] for r in c.execute("pragma table_info(orders)")}
