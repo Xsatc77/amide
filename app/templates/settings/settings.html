@@ -103,6 +103,25 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
 
+      <form method="post" action="/settings/dashboard-thresholds" class="settings-form" novalidate>
+        <h3 class="small muted">Dashboard alert defaults</h3>
+        <p class="small muted">Used when an item doesn't have its own low-stock number set, and for
+          flagging a shipment that's taking longer than usual.</p>
+        <label class="field {{ 'has-error' if errors.low_stock_default }}">
+          <span>Low stock default (vials)</span>
+          <input name="low_stock_default" type="number" min="1" step="1" inputmode="numeric"
+                value="{{ me.low_stock_default or 5 }}">
+          {{ err('low_stock_default') }}
+        </label>
+        <label class="field {{ 'has-error' if errors.shipment_delay_days }}">
+          <span>Flag a shipment after (days)</span>
+          <input name="shipment_delay_days" type="number" min="1" step="1" inputmode="numeric"
+                value="{{ me.shipment_delay_days or 21 }}">
+          {{ err('shipment_delay_days') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+
       <div class="settings-form">
         <h3 class="small muted">Backup &amp; restore</h3>
         <p class="small muted">Download or restore your inventory and protocols.</p>

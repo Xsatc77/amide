@@ -174,6 +174,32 @@ async def change_discard_window(request: Request, session: Session = Depends(get
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/dashboard-thresholds")
+async def change_dashboard_thresholds(request: Request, session: Session = Depends(get_session),
+                                      uid: int = Depends(current_user_id)):
+    form = await request.form()
+    errors: dict[str, str] = {}
+    parsed: dict[str, int] = {}
+    for field in ("low_stock_default", "shipment_delay_days"):
+        raw = str(form.get(field, "")).strip()
+        try:
+            value = int(raw)
+            if value <= 0:
+                raise ValueError
+            parsed[field] = value
+        except ValueError:
+            errors[field] = "Enter a whole number of days, greater than 0."
+
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+
+    me = _me(session, uid)
+    me.low_stock_default = parsed["low_stock_default"]
+    me.shipment_delay_days = parsed["shipment_delay_days"]
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)
+
+
 @router.post("/settings/display")
 async def change_display(request: Request, session: Session = Depends(get_session),
                          uid: int = Depends(current_user_id)):

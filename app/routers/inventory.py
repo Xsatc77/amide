@@ -21,7 +21,7 @@ router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "medium",
-              "volume_ml", "units_per_package", "storage", "cost", "vendor", "notes")
+              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_HEADER_FIELDS + ORDER_LINE_FIELDS + ("received_quantity",)))
@@ -108,6 +108,18 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         errors["name"] = "Item name is required."
     values["storage"] = _parse_choice(StorageLocation, raw["storage"], None, "storage", errors)
     values["notes"] = raw["notes"] or None
+
+    # Blank means "use the app/user default" (None); an explicit "0" is a real threshold and must
+    # round-trip as 0, never be coerced to None.
+    raw_threshold = raw.get("low_stock_threshold", "")
+    values["low_stock_threshold"] = None
+    if raw_threshold:
+        try:
+            values["low_stock_threshold"] = int(raw_threshold)
+            if values["low_stock_threshold"] < 0:
+                errors["low_stock_threshold"] = "Low stock threshold can't be negative."
+        except ValueError:
+            errors["low_stock_threshold"] = "Low stock threshold must be a whole number."
 
     if category == Category.SUPPLY:
         try:
@@ -269,6 +281,7 @@ def _form_values(item: InventoryItem) -> dict:
         "volume_ml": num(item.volume_ml),
         "units_per_package": "" if item.units_per_package is None else str(item.units_per_package),
         "storage": item.storage.value if item.storage else "",
+        "low_stock_threshold": "" if item.low_stock_threshold is None else str(item.low_stock_threshold),
         "cost": "" if item.cost is None else f"{item.cost:.2f}",
         "vendor": item.vendor or "",
         "notes": item.notes or "",

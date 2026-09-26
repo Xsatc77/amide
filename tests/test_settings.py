@@ -474,3 +474,28 @@ def test_discard_window_rejects_non_positive(client, db, me):
     r = client.post("/settings/discard-window", data={"default_discard_days": "not-a-number"})
     assert r.status_code == 422
     assert _current(me).default_discard_days is None
+
+
+def test_dashboard_thresholds_saved(client, db, me):
+    try:
+        r = client.post("/settings/dashboard-thresholds", data={
+            "low_stock_default": "3", "shipment_delay_days": "14",
+        }, follow_redirects=False)
+        assert r.status_code == 303
+        assert _current(me).low_stock_default == 3
+        assert _current(me).shipment_delay_days == 14
+    finally:
+        with SessionLocal() as s:
+            u = s.get(User, me)
+            u.low_stock_default = None
+            u.shipment_delay_days = None
+            s.commit()
+
+
+def test_dashboard_thresholds_rejects_non_positive(client, db, me):
+    r = client.post("/settings/dashboard-thresholds", data={
+        "low_stock_default": "0", "shipment_delay_days": "14",
+    })
+    assert r.status_code == 422
+    assert _current(me).low_stock_default is None
+    assert _current(me).shipment_delay_days is None

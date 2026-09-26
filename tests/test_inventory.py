@@ -388,6 +388,28 @@ def test_add_bac_water_item_has_no_medium_fields(client, db):
         assert item.category == Category.BAC_WATER and item.medium is None
 
 
+def test_low_stock_threshold_saved_including_zero(client, db):
+    r = client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01", "low_stock_threshold": "0",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Retatrutide"))
+        assert item.low_stock_threshold == 0  # explicit 0 must round-trip, not become None
+
+
+def test_low_stock_threshold_defaults_to_none_when_blank(client, db):
+    r = client.post("/inventory", data={
+        "name": "Semaglutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "5",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Semaglutide"))
+        assert item.low_stock_threshold is None
+
+
 def test_add_medicine_item_requires_quantity(client, db):
     r = client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",

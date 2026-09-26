@@ -228,6 +228,13 @@
           </select>
           {{ err('storage') }}
         </label>
+
+        <label {{ cls('low_stock_threshold') }}>
+          <span>Low stock threshold (vials)</span>
+          <input name="low_stock_threshold" type="number" min="0" step="1" inputmode="numeric"
+                value="{{ f.low_stock_threshold }}" placeholder="Uses your default">
+          {{ err('low_stock_threshold') }}
+        </label>
       </div>
     </fieldset>
 
