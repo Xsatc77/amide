@@ -291,3 +291,76 @@ def test_calendar_shows_missed_adherence_for_past_unlogged_day(client, db):
     r = client.get(f"/calendar?view=day&date={(date.today() - timedelta(days=1)).isoformat()}")
     assert r.status_code == 200
     assert "adherence-missed" in r.text or '"missed"' in r.text
+
+
+def test_calendar_shows_week_view_missed_adherence_for_past_unlogged_day(client, db):
+    from app.models import Frequency
+    with SessionLocal() as s:
+        # Same reuse pattern as test_calendar_shows_missed_adherence_for_past_unlogged_day above --
+        # migrations/versions/0003_protocols.py already seeds a "Retatrutide" Peptide row (and
+        # Peptide.name is unique), so reuse it instead of colliding with a duplicate insert.
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name="Fat Loss", start_date=date(2020, 1, 1), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        s.add(ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                           frequency=Frequency.DAILY, route=Route.SUBQ))
+        s.commit()
+    r = client.get(f"/calendar?view=week&date={(date.today() - timedelta(days=1)).isoformat()}")
+    assert r.status_code == 200
+    assert "adherence-missed" in r.text or '"missed"' in r.text
+
+
+def test_calendar_adherence_is_missed_when_one_of_two_daily_items_unlogged(client, db):
+    """A protocol with two DAILY items due the same past day, one logged on time and the other
+    never logged, must show 'missed' for that occurrence -- not 'on_time' just because *a* log
+    exists for the day. Regression test for a review-caught bug where _adherence() grouped
+    DoseLog rows by (protocol_id, scheduled_date) instead of (protocol_item_id, scheduled_date),
+    letting one logged item mask a sibling item that was silently missed."""
+    from app.models import Frequency
+    yesterday = date.today() - timedelta(days=1)
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        # Reuse the seeded peptides from migrations/versions/0003_protocols.py -- Peptide.name is
+        # unique, so fetch existing rows instead of inserting duplicates (same pattern used
+        # throughout this file).
+        peptide_a = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide_a is None:
+            peptide_a = Peptide(name="Retatrutide")
+            s.add(peptide_a)
+            s.flush()
+        peptide_b = s.scalar(select(Peptide).where(Peptide.name == "Tirzepatide"))
+        if peptide_b is None:
+            peptide_b = Peptide(name="Tirzepatide")
+            s.add(peptide_b)
+            s.flush()
+        protocol = Protocol(name="Fat Loss", start_date=date(2020, 1, 1), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        item_a = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide_a.id, dose=2.0, dose_unit=DoseUnit.MG,
+                              frequency=Frequency.DAILY, route=Route.SUBQ)
+        item_b = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide_b.id, dose=5.0, dose_unit=DoseUnit.MG,
+                              frequency=Frequency.DAILY, route=Route.SUBQ)
+        s.add_all([item_a, item_b])
+        s.commit()
+        protocol_id, item_a_id = protocol.id, item_a.id
+
+    # Only item_a gets logged, and logged on time; item_b is never logged for yesterday.
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide_a = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        s.add(DoseLog(owner_id=uid, protocol_id=protocol_id, protocol_item_id=item_a_id,
+                      peptide_id=peptide_a.id, peptide_name="Retatrutide", dose_value=2.0,
+                      dose_unit=DoseUnit.MG, route="subq", scheduled_date=yesterday,
+                      scheduled_time_of_day=TimeOfDay.ANY, status=DoseStatus.ON_TIME))
+        s.commit()
+
+    r = client.get(f"/calendar?view=day&date={yesterday.isoformat()}")
+    assert r.status_code == 200
+    assert "adherence-missed" in r.text or '"missed"' in r.text
+    assert "adherence-on_time" not in r.text and '"on_time"' not in r.text

@@ -60,9 +60,30 @@ def _by_slot(occ: Occurrence, slot: TimeOfDay) -> list[DueItem]:
     return [i for i in occ.items if i.time_of_day is slot]
 
 
+def _item_status(item_logs: list[DoseLog], occ_date: date, today: date) -> str:
+    """The effective status of a single due item for one occurrence date: 'missed' | 'late' |
+    'upcoming' | 'on_time'. Mirrors missed_items()' logged/unlogged distinction, but per item
+    rather than per occurrence -- a day is only 'on_time' when *every* item due that day was
+    logged on time (see the spec's "all logged on-time -> on_time" rule)."""
+    if not item_logs:
+        return "missed" if occ_date < today else "upcoming"
+    if any(l.status == DoseStatus.MISSED or l.status == DoseStatus.SKIPPED for l in item_logs):
+        return "missed"
+    if any(l.status == DoseStatus.LATE for l in item_logs):
+        return "late"
+    return "on_time"
+
+
 def _adherence(session: Session, uid: int, occs: list[Occurrence], today: date) -> dict[str, str]:
     """One of 'on_time' | 'late' | 'missed' | 'upcoming' per '{protocol_id}|{date}' key -- an
-    aggregate across every item due that occurrence, per the spec's calendar-color rules."""
+    aggregate across every item due that occurrence, per the spec's calendar-color rules.
+
+    Logs are grouped by (protocol_item_id, scheduled_date) rather than (protocol_id,
+    scheduled_date): grouping by protocol alone would let one logged item on a multi-item day mask
+    a sibling item that was never logged (a real display bug found in review -- e.g. an AM item
+    logged on time and a PM item silently missed would otherwise show a green dot). Every DoseLog
+    created via /today/log always sets protocol_item_id, never None, so this key is reliable.
+    """
     protocol_ids = {o.protocol_id for o in occs}
     if not protocol_ids:
         return {}
@@ -70,20 +91,18 @@ def _adherence(session: Session, uid: int, occs: list[Occurrence], today: date) 
         select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.protocol_id.in_(protocol_ids))).all()
     by_key: dict[tuple[int, date], list[DoseLog]] = {}
     for log in logs:
-        by_key.setdefault((log.protocol_id, log.scheduled_date), []).append(log)
+        by_key.setdefault((log.protocol_item_id, log.scheduled_date), []).append(log)
 
+    precedence = {"missed": 0, "late": 1, "upcoming": 2, "on_time": 3}
     result = {}
     for occ in occs:
-        key = (occ.protocol_id, occ.date)
-        day_logs = by_key.get(key, [])
-        if not day_logs:
-            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "missed" if occ.date < today else "upcoming"
-        elif any(l.status == DoseStatus.MISSED or l.status == DoseStatus.SKIPPED for l in day_logs):
-            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "missed"
-        elif any(l.status == DoseStatus.LATE for l in day_logs):
-            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "late"
-        else:
-            result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = "on_time"
+        item_statuses = [
+            _item_status(by_key.get((item.protocol_item_id, occ.date), []), occ.date, today)
+            for item in occ.items
+        ]
+        status = min(item_statuses, key=lambda s: precedence[s]) if item_statuses else \
+            ("missed" if occ.date < today else "upcoming")
+        result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = status
     return result
 
 
