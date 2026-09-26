@@ -1,3 +1,4 @@
+import html
 from datetime import date
 
 from app.calendar.schedule import DueItem, Occurrence, missed_items
@@ -54,3 +55,128 @@ def test_recommend_never_crosses_body_parts():
     # Even though Glute isn't eligible for subq, recommend() must never suggest a DIFFERENT body
     # part just because the mirrored one isn't available -- it returns None in that case, not a guess.
     assert recommend(InjectionSite.GLUTE_L, "subq") is None
+
+
+# ---------------------------------------------------------------- Today view + log/skip routes
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.db import SessionLocal
+from app.main import app
+from app.models import ActiveVial, Category, DoseLog, DoseStatus, DoseUnit, Frequency, InventoryItem, Medium, Peptide, Protocol, ProtocolItem, Route, TimeOfDay, User
+
+
+def _setup_protocol_with_vial(client, db, dose=2.0, quantity=2):
+    """Module-level helper -- `Frequency` etc. must be imported at this file's top level (above),
+    not just inside the test functions that call it; a callee doesn't see a caller's local
+    imports."""
+    with SessionLocal() as s:
+        # A bare select(User.id) picks whichever user row the DB returns first, which is only ever
+        # "Tester" when this file runs in isolation -- other test modules register additional users
+        # (e.g. test_active_vials.py's "AVShared") that are never cleaned up (conftest's `clean`
+        # fixture doesn't delete User rows), so in the full suite this must be pinned to the actual
+        # signed-in test user, matching conftest.py's own `me` fixture lookup.
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        # migrations/versions/0003_protocols.py seeds a "Retatrutide" Peptide row already (part of
+        # the built-in peptide list), and Peptide.name is unique -- reuse it instead of colliding
+        # with a duplicate insert (see tests/test_active_vials.py's `Retatrutide DoseLog Test` for
+        # the sibling workaround of using a distinct name; here we keep the brief's exact name
+        # "Retatrutide" for its assertions by fetching the existing row instead).
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        item = InventoryItem(owner_id=uid, name="Retatrutide", category=Category.MEDICINE,
+                             medium=Medium.LYOPHILIZED, vial_size_mg=10)
+        s.add(item)
+        s.flush()
+        vial = ActiveVial(owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=5.0, water_ml=2.0,
+                          dose_value=2.0, dose_unit=DoseUnit.MG, doses_total=5, date_mixed=date.today(),
+                          discard_by=date(2099, 1, 1), volume_remaining_ml=2.0)
+        s.add(vial)
+        protocol = Protocol(name="Fat Loss", start_date=date.today(), owner_id=uid)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=dose, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.DAILY, route=Route.SUBQ, inventory_item_id=item.id)
+        s.add(pitem)
+        s.commit()
+        return protocol.id, pitem.id, vial.id
+
+
+def test_today_page_lists_due_items(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    t = html.unescape(client.get("/today").text)
+    assert "Retatrutide" in t
+    assert 'data-action="log-dose"' in t
+    assert 'data-action="skip-dose"' in t
+
+
+def test_log_dose_depletes_vial_and_creates_dose_log(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+    r = client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        vial = s.get(ActiveVial, vial_id)
+        assert vial.volume_remaining_ml == pytest.approx(2.0 - 0.4)  # 2mg dose / 5mg/mL concentration = 0.4mL
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.status == DoseStatus.ON_TIME and log.peptide_name == "Retatrutide"
+        assert log.volume_ml == pytest.approx(0.4)
+        assert log.active_vial_id == vial_id
+
+
+def test_skip_dose_creates_skipped_log_no_vial_change(client, db):
+    from app.models import Frequency
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    r = client.post("/today/skip", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == 2.0  # untouched
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.status == DoseStatus.SKIPPED and log.volume_ml is None
+
+
+def test_log_dose_picks_oldest_open_vial_when_two_exist(client, db):
+    from app.models import Frequency
+    protocol_id, pitem_id, old_vial_id = _setup_protocol_with_vial(client, db)
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        newer_vial = ActiveVial(owner_id=uid, inventory_item_id=item_id, concentration_mg_ml=5.0, water_ml=2.0,
+                                dose_value=2.0, dose_unit=DoseUnit.MG, doses_total=5, date_mixed=date.today(),
+                                discard_by=date(2099, 6, 1), volume_remaining_ml=2.0)  # later discard_by
+        s.add(newer_vial)
+        s.commit()
+        newer_vial_id = newer_vial.id
+
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, old_vial_id).volume_remaining_ml < 2.0  # the older-discard_by one was drawn from
+        assert s.get(ActiveVial, newer_vial_id).volume_remaining_ml == 2.0  # untouched
+
+
+def test_log_dose_requires_ownership(client, db):
+    from app.models import Frequency
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "DosingOther", "password": "DosingOther1!", "confirm": "DosingOther1!"})
+    r = other.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    })
+    assert r.status_code == 404
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == 2.0

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% set active_nav = "today" %}
+{% block title %}Today{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Today</h1>
+    <p class="muted">{{ today.strftime('%A, %B') }} {{ today.day }}, {{ today.year }}</p>
+  </div>
+</div>
+
+{% if not due %}
+<div class="empty"><p><strong>Nothing due today.</strong></p></div>
+{% else %}
+<div class="table-wrap">
+<table class="inv-table">
+  <thead><tr><th>Peptide</th><th>Dose</th><th>Time</th><th>Route</th><th></th></tr></thead>
+  <tbody>
+    {% for occ, item in due %}
+    <tr>
+      <td>{{ item.peptide }}{% if item.step %} <span class="tag">Step {{ item.step }}</span>{% endif %}</td>
+      <td>{{ item.dose }} {{ item.unit }}</td>
+      <td>{{ item.time_of_day.label }}</td>
+      <td>{{ item.route }}</td>
+      <td>
+        <form method="post" action="/today/log" class="inline">
+          <input type="hidden" name="protocol_id" value="{{ occ.protocol_id }}">
+          <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
+          <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
+          <button type="submit" class="btn btn-primary" data-action="log-dose">Log dose</button>
+        </form>
+        <form method="post" action="/today/skip" class="inline">
+          <input type="hidden" name="protocol_id" value="{{ occ.protocol_id }}">
+          <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
+          <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
+          <button type="submit" class="btn btn-ghost" data-action="skip-dose">Skip</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}
