@@ -1,10 +1,11 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
@@ -185,6 +186,23 @@ def vendor_detail(vendor_id: int, request: Request, session: Session = Depends(g
     if vendor is None:
         raise HTTPException(404, "Vendor not found")
     return templates.TemplateResponse(request, "vendors/detail.html", _detail_context(session, vendor, uid))
+
+
+@router.get("/vendors/{vendor_id}/price-list")
+def get_vendor_price_list(vendor_id: int, session: Session = Depends(get_session),
+                          uid: int = Depends(current_user_id)):
+    """Serves an uploaded vendor price-list file. Vendor is a global/shared row (unlike a
+    per-owner InventoryItem/Order), so this only needs an existence check -- no ownership check,
+    mirroring get_order_coa in app/routers/inventory.py exactly otherwise."""
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None or not vendor.price_list_filename:
+        raise HTTPException(404, "No price list on file")
+    path = uploads.price_list_path(vendor.price_list_filename)
+    if not path.exists():
+        raise HTTPException(404, "Price list file is missing from disk")
+    return FileResponse(path, media_type=uploads.price_list_media_type(vendor.price_list_filename),
+                        headers={"X-Content-Type-Options": "nosniff"},
+                        content_disposition_type="inline")
 
 
 # ---------------------------------------------------------------- edit

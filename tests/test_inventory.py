@@ -1708,3 +1708,258 @@ def test_deleting_one_item_of_a_shared_order_keeps_the_other_line_and_order(clie
         assert s.get(InventoryItem, bac_id) is not None
         assert s.get(Order, order_id) is not None  # order header remains -- bac line still uses it
         assert s.get(OrderItem, bac_li_id) is not None
+
+
+# ---------------------------------------------------------------- Task 5: New Order vendor branch,
+# staleness prompt, per-line price recall
+
+
+def _price_recall_blob(client) -> dict:
+    import json
+    import re
+    t = client.get("/inventory").text
+    m = re.search(r'id="price-recall-data">(.*?)</script>', t, re.S)
+    return json.loads(m.group(1))
+
+
+def test_new_order_new_vendor_branch_creates_vendor_with_full_profile(client, db):
+    from app.models import ContactMethodType, Vendor
+
+    email_type_id = db.scalar(select(ContactMethodType.id).where(ContactMethodType.name == "Email"))
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "is_new_vendor": "yes",
+        "name": "Brand New Vendor Co",
+        "website": "https://newvendor.example",
+        "supplier": "Acme Supplier",
+        "contact_name": "Jane Doe",
+        "contacts-0-method_type_id": str(email_type_id),
+        "contacts-0-value": "sales@newvendor.example",
+        "new_payment_type": "Gift Card",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "80.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vendors = s.scalars(select(Vendor).where(Vendor.name == "Brand New Vendor Co")).all()
+        assert len(vendors) == 1  # exactly one new Vendor row
+        vendor = vendors[0]
+        assert vendor.website == "https://newvendor.example"
+        assert vendor.supplier == "Acme Supplier"
+        assert vendor.contact_name == "Jane Doe"
+        [contact] = vendor.contacts
+        assert contact.value == "sales@newvendor.example"
+        assert contact.method_type_id == email_type_id
+        assert "Gift Card" in {pm.method_type.name for pm in vendor.payment_methods}
+
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Retatrutide"))
+        assert item.order_items[0].order.vendor_id == vendor.id
+
+
+def test_new_order_existing_vendor_branch_populates_from_dropdown(client, db):
+    with SessionLocal() as s:
+        vendor = Vendor(name="Existing Dropdown Vendor")
+        s.add(vendor)
+        s.commit()
+        vendor_id = vendor.id
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "is_new_vendor": "no",
+        "vendor_id": str(vendor_id),
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Semaglutide",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "5", "lines-0-quantity": "3",
+        "lines-0-cost": "60.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Semaglutide"))
+        assert item.order_items[0].order.vendor_id == vendor_id
+        assert s.query(Vendor).count() == 1  # no duplicate Vendor row created
+
+
+def test_new_order_price_recall_prefills_from_last_order_same_vendor_same_item(client, db):
+    with SessionLocal() as s:
+        vendor = Vendor(name="Price Recall Vendor")
+        s.add(vendor)
+        s.commit()
+        vendor_id = vendor.id
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-08-01", "is_new_vendor": "no", "vendor_id": str(vendor_id),
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "84.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    blob = _price_recall_blob(client)
+    assert blob[str(vendor_id)]["retatrutide"] == 84.0
+
+
+def test_new_order_price_recall_blank_when_never_ordered_from_this_vendor(client, db):
+    with SessionLocal() as s:
+        vendor = Vendor(name="No History Vendor")
+        s.add(vendor)
+        s.commit()
+        vendor_id = vendor.id
+
+    blob = _price_recall_blob(client)
+    assert str(vendor_id) not in blob
+
+
+def test_new_order_price_recall_does_not_leak_across_vendors(client, db):
+    with SessionLocal() as s:
+        vendor_x = Vendor(name="Price Recall Vendor X")
+        vendor_y = Vendor(name="Price Recall Vendor Y")
+        s.add_all([vendor_x, vendor_y])
+        s.commit()
+        x_id, y_id = vendor_x.id, vendor_y.id
+
+    client.post("/inventory/orders", data={
+        "order_date": "2026-08-01", "is_new_vendor": "no", "vendor_id": str(x_id),
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Same Name Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "84.00",
+    }, follow_redirects=False)
+    client.post("/inventory/orders", data={
+        "order_date": "2026-08-02", "is_new_vendor": "no", "vendor_id": str(y_id),
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Same Name Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "50.00",
+    }, follow_redirects=False)
+
+    blob = _price_recall_blob(client)
+    assert blob[str(x_id)]["same name item"] == 84.0
+    assert blob[str(y_id)]["same name item"] == 50.0
+
+
+def test_new_order_price_recall_respects_inventory_sharing(client, db, me):
+    from app.models import Share, ShareCategory
+
+    with SessionLocal() as s:
+        vendor = Vendor(name="Sharing Price Recall Vendor")
+        s.add(vendor)
+        s.commit()
+        vendor_id = vendor.id
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={
+        "username": "PriceRecallOther", "password": "PriceRecallOther1!", "confirm": "PriceRecallOther1!",
+    })
+    other.post("/inventory/orders", data={
+        "order_date": "2026-08-01", "is_new_vendor": "no", "vendor_id": str(vendor_id),
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Shared History Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "99.00",
+    })
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "pricerecallother"))
+
+    # Before any Share exists, the other user's order history must not leak into "tester"'s recall data.
+    blob_before = _price_recall_blob(client)
+    assert str(vendor_id) not in blob_before
+
+    try:
+        with SessionLocal() as s:
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+            s.commit()
+        blob_after = _price_recall_blob(client)
+        assert blob_after[str(vendor_id)]["shared history item"] == 99.0
+    finally:
+        with SessionLocal() as s:
+            s.query(Share).filter_by(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY).delete()
+            s.commit()
+
+
+def test_staleness_prompt_replace_only_updates_the_one_vendor(client, db):
+    with SessionLocal() as s:
+        vendor_x = Vendor(name="Staleness Vendor X", price_list_filename="old-x.pdf",
+                          price_list_updated_at=date(2026, 1, 1))
+        vendor_y = Vendor(name="Staleness Vendor Y", price_list_url="https://old-y.example/list",
+                          price_list_updated_at=date(2026, 1, 1))
+        s.add_all([vendor_x, vendor_y])
+        s.commit()
+        x_id, y_id = vendor_x.id, vendor_y.id
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "no", "vendor_id": str(x_id),
+        "price_list_current": "no", "price_list_replace_url": "https://new-x.example/list",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Staleness Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "10.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vx = s.get(Vendor, x_id)
+        vy = s.get(Vendor, y_id)
+        assert vx.price_list_url == "https://new-x.example/list"
+        assert vx.price_list_filename is None
+        assert vx.price_list_updated_at == date.today()
+        # Vendor Y is completely untouched.
+        assert vy.price_list_url == "https://old-y.example/list"
+        assert vy.price_list_filename is None
+        assert vy.price_list_updated_at == date(2026, 1, 1)
+
+
+def test_new_order_page_has_vendor_branch_and_staleness_prompt_markup(client, db):
+    t = html.unescape(client.get("/inventory").text)
+    assert 'name="is_new_vendor"' in t
+    assert 'data-vendor-select' in t
+    assert 'data-staleness-prompt' in t
+    assert 'name="price_list_current"' in t
+    assert 'id="new-vendor-contact-row-template"' in t
+
+
+def test_new_order_new_vendor_name_clashing_with_existing_vendor_is_422(client, db):
+    with SessionLocal() as s:
+        s.add(Vendor(name="Clashing Vendor Name"))
+        s.commit()
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "yes", "name": "Clashing Vendor Name",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Some Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.query(Vendor).filter_by(name="Clashing Vendor Name").count() == 1  # not duplicated
+
+
+def test_new_order_validation_error_elsewhere_does_not_create_orphaned_new_vendor(client, db):
+    # Review Focus item 5: a validation error anywhere else in the form must not leave behind a
+    # new Vendor row created before the rest of the form was known to be valid.
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "yes", "name": "Orphan Check Vendor",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-quantity": "5",  # no medium -- Medicine requires it, so this line 422s
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.query(Vendor).filter_by(name="Orphan Check Vendor").count() == 0
+
+
+def test_new_order_validation_error_does_not_create_orphaned_contact_or_payment_method_type(client, db):
+    # Same Review Focus item 5 concern, one level deeper: a "+ New type..." contact/payment method
+    # name must not resolve into a brand-new global ContactMethodType/PaymentMethodType row either,
+    # for a submission that ends up 422ing on an unrelated field.
+    from app.models import ContactMethodType, PaymentMethodType
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "yes", "name": "Orphan Type Check Vendor",
+        "contacts-0-method_type_id": "__new__", "contacts-0-new_method_type": "Orphan Carrier Pigeon",
+        "contacts-0-value": "coop-1",
+        "new_payment_type": "Orphan Gift Card",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-quantity": "5",  # no medium -- Medicine requires it, so this line 422s
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.query(ContactMethodType).filter_by(name="Orphan Carrier Pigeon").count() == 0
+        assert s.query(PaymentMethodType).filter_by(name="Orphan Gift Card").count() == 0

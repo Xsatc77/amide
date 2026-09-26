@@ -55,7 +55,7 @@
   <h3 class="section-title">Price list</h3>
   <p>
     {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
-    {% elif vendor.price_list_filename %}{{ vendor.price_list_filename }}
+    {% elif vendor.price_list_filename %}<a href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>
     {% else %}<span class="muted">No price list on file.</span>{% endif %}
     {% if vendor.price_list_updated_at %}
     <span class="muted small">(Updated {{ vendor.price_list_updated_at | shortdate }}, {{ (today - vendor.price_list_updated_at).days }} day{{ '' if (today - vendor.price_list_updated_at).days == 1 else 's' }} ago)</span>

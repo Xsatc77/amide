@@ -14,8 +14,13 @@ from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import ActiveVial, Category, DispensingMethod, DoseUnit, InventoryItem, Medium, Order, OrderItem, Sale, Share, ShareCategory, StorageLocation, User
-from app.templating import templates
+from app.models import (
+    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseUnit, InventoryItem, Medium,
+    Order, OrderItem, PaymentMethodType, Sale, Share, ShareCategory, StorageLocation, User, Vendor,
+    VendorContact, VendorPaymentMethod,
+)
+from app.templating import shortdate, templates
+from app.vendors.resolve import resolve_contact_method_type, resolve_payment_method_type
 
 router = APIRouter()
 
@@ -27,6 +32,7 @@ ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_v
 FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_HEADER_FIELDS + ORDER_LINE_FIELDS + ("received_quantity",)))
 
 _LINE_KEY = re.compile(r"^lines-(\d+)-(\w+)$")
+_CONTACT_KEY = re.compile(r"^contacts-(\d+)-(\w+)$")
 
 
 def _group_lines(form: dict[str, list[str]]) -> dict[int, dict[str, str]]:
@@ -39,6 +45,19 @@ def _group_lines(form: dict[str, list[str]]) -> dict[int, dict[str, str]]:
             i, field = int(m.group(1)), m.group(2)
             lines.setdefault(i, {})[field] = values[0] if values else ""
     return dict(sorted(lines.items()))
+
+
+def _group_contacts(form: dict[str, list[str]]) -> dict[int, dict[str, str]]:
+    """Groups the New Order form's new-vendor 'contacts-{i}-field' keys by index -- the same
+    convention as `_group_lines`, and as app/routers/vendors.py's `_read_edit_form` uses for the
+    Vendor edit form's own contact rows."""
+    contacts: dict[int, dict[str, str]] = {}
+    for key, values in form.items():
+        m = _CONTACT_KEY.match(key)
+        if m:
+            i, field = int(m.group(1)), m.group(2)
+            contacts.setdefault(i, {})[field] = values[0] if values else ""
+    return dict(sorted(contacts.items()))
 
 
 _NEW_LINE_ITEM_FIELDS = ("mode", "item_id", "name", "category", "medium", "vial_size_mg",
@@ -233,6 +252,189 @@ def _parse_order_line_fields(raw: dict[str, str], *, prefix: str = "") -> tuple[
     return values, errors
 
 
+# ---------------------------------------------------------------- New Order: vendor branch (Task 5)
+
+def _all_vendors(session: Session):
+    return session.scalars(select(Vendor).order_by(Vendor.name.collate("NOCASE"))).all()
+
+
+def _contact_method_types(session: Session):
+    """Same query as app/routers/vendors.py's identically named helper -- small enough to keep
+    local rather than import a private helper across routers."""
+    return session.scalars(select(ContactMethodType).order_by(ContactMethodType.name.collate("NOCASE"))).all()
+
+
+def _payment_method_types(session: Session):
+    return session.scalars(select(PaymentMethodType).order_by(PaymentMethodType.name.collate("NOCASE"))).all()
+
+
+def _vendor_price_list_map(session: Session) -> dict[int, dict]:
+    """Every vendor that has a price list on file, keyed by id -- feeds the New Order dialog's
+    JS-driven staleness prompt ("Price list from <date> still current?") once a vendor is picked
+    from the dropdown."""
+    vendors = session.scalars(
+        select(Vendor).where((Vendor.price_list_filename.is_not(None)) | (Vendor.price_list_url.is_not(None)))
+    ).all()
+    return {
+        v.id: {"updated_at": shortdate(v.price_list_updated_at) if v.price_list_updated_at else None}
+        for v in vendors
+    }
+
+
+def _price_recall_map(session: Session, uid: int) -> dict[int, dict[str, float]]:
+    """Most recent cost per (vendor, item name lowercased), scoped to order lines this user may
+    see -- their own orders, plus orders belonging to anyone who granted them Inventory sharing.
+    Same shared_owner_ids/InventoryItem.owner_id join shape as _visible_items/
+    _visible_order_lines_for_vendor (Review Focus item 2): never a global cross-user price lookup.
+    Feeds the New Order dialog's per-line price recall -- prefilling a line's cost from the last
+    time this vendor was ordered from for an item of the same name, never a new stored price
+    table."""
+    shared_owner_ids = select(Share.owner_id).where(
+        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    rows = session.execute(
+        select(Order.vendor_id, InventoryItem.name, OrderItem.cost_cents)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
+        .where(Order.vendor_id.is_not(None), OrderItem.cost_cents.is_not(None),
+              (InventoryItem.owner_id == uid) | (InventoryItem.owner_id.in_(shared_owner_ids)))
+        .order_by(Order.order_date.desc(), OrderItem.id.desc())
+    ).all()
+    result: dict[int, dict[str, float]] = {}
+    for vendor_id, item_name, cost_cents in rows:
+        by_name = result.setdefault(vendor_id, {})
+        key = item_name.strip().lower()
+        if key not in by_name:  # first hit per (vendor, name) wins -- rows are already newest-first
+            by_name[key] = cost_cents / 100
+    return result
+
+
+def _parse_new_order_header_fields(form: dict[str, list[str]], session: Session, uid: int,
+                                   errors: dict) -> tuple[dict, bool, dict | None, dict | None]:
+    """New Order's own header parsing -- deliberately separate from `_parse_order_header_fields`
+    (still used, unchanged, by the single-item Add Order dialog on the item detail page). Handles
+    the is_new_vendor branch: either an inline full vendor profile (name/website/supplier/
+    contact_name/notes plus contact entries and payment methods, reusing Task 2's resolve helpers),
+    or an existing vendor selected by id from a dropdown -- never a free-text vendor field.
+
+    Returns (values, is_new_vendor, new_vendor_values-or-None, price_list_update-or-None). Nothing
+    at all is written to the database here -- new_vendor_values carries the still-raw posted
+    contact rows/payment type selections; resolving a "+ New type..." name to a (possibly newly
+    created) ContactMethodType/PaymentMethodType row, and creating the Vendor/VendorContact/
+    VendorPaymentMethod rows themselves, is deferred to the caller until after `errors` is
+    confirmed empty (mirroring update_vendor's own identical deferral in app/routers/vendors.py,
+    and this task's own Vendor-row version of the same rule -- Review Focus item 5)."""
+    def one(f: str) -> str:
+        return ((form.get(f) or [""])[0] or "").strip()
+
+    values: dict = {}
+    values["order_date"] = _parse_date(one("order_date"), "order_date", errors)
+    if values["order_date"] is None and "order_date" not in errors:
+        errors["order_date"] = "Order date is required."
+    values["shipped_date"] = _parse_date(one("shipped_date"), "shipped_date", errors)
+    if (values["shipped_date"] and values["order_date"] and "order_date" not in errors
+            and "shipped_date" not in errors and values["shipped_date"] < values["order_date"]):
+        errors["shipped_date"] = "Shipped date can't be before the order date."
+
+    values["tracking_site"] = one("tracking_site") or None
+    if values["tracking_site"] and not values["tracking_site"].lower().startswith(("http://", "https://")):
+        errors["tracking_site"] = "Tracking site must be a valid http(s) URL."
+    values["tracking_number"] = one("tracking_number") or None
+
+    values["tax_cents"] = _parse_money(one("tax"), "tax", "Tax", errors)
+    values["shipping_cents"] = _parse_money(one("shipping"), "shipping", "Shipping", errors)
+
+    is_new_vendor = one("is_new_vendor") == "yes"
+    new_vendor_values: dict | None = None
+    price_list_update: dict | None = None
+
+    if is_new_vendor:
+        name = one("name")
+        if not name:
+            errors["name"] = "Vendor name is required."
+        website = one("website")
+        if website and not website.lower().startswith(("http://", "https://")):
+            errors["website"] = "Website must be a valid http(s) URL."
+        if name and "name" not in errors:
+            clash = session.scalar(select(Vendor).where(Vendor.name == name))
+            if clash is not None:
+                errors["name"] = "A vendor with this name already exists -- select it from the list instead."
+
+        new_vendor_values = {
+            "name": name, "website": website or None,
+            "supplier": one("supplier") or None,
+            "contact_name": one("contact_name") or None,
+            "notes": one("notes") or None,
+            # Still raw/unresolved -- see _create_new_vendor below, called only once `errors` is
+            # confirmed empty, so a "+ New type..." name never resolves (creating a global
+            # ContactMethodType/PaymentMethodType row) for a submission that ends up 422ing anyway.
+            "raw_contacts": _group_contacts(form),
+            "raw_payment_type_ids": [v for v in (form.get("payment_type_ids") or []) if v.isdigit()],
+            "raw_new_payment_type": one("new_payment_type"),
+        }
+        values["vendor_id"] = None  # filled in by the caller once the Vendor row is created
+        values["vendor"] = name or None
+    else:
+        vendor_id_raw = one("vendor_id")
+        vendor = None
+        if vendor_id_raw:
+            if vendor_id_raw.isdigit():
+                vendor = session.get(Vendor, int(vendor_id_raw))
+            if vendor is None:
+                errors["vendor_id"] = "Select a vendor from the list."
+        values["vendor_id"] = vendor.id if vendor else None
+        values["vendor"] = vendor.name if vendor else None
+
+        if vendor is not None and (vendor.price_list_filename or vendor.price_list_url):
+            if one("price_list_current") == "no":
+                price_list_update = {"vendor_id": vendor.id, "replace_url": one("price_list_replace_url") or None}
+
+    return values, is_new_vendor, new_vendor_values, price_list_update
+
+
+def _create_new_vendor(session: Session, uid: int, new_vendor_values: dict) -> Vendor:
+    """Creates the Vendor row (plus its VendorContact/VendorPaymentMethod rows) from
+    `_parse_new_order_header_fields`'s still-raw new_vendor_values -- called by the caller only
+    once `errors` is confirmed empty. Resolving a "+ New type..." name to a (possibly newly
+    created) ContactMethodType/PaymentMethodType row happens here, not during parsing, for the
+    same reason: never create a reusable global row for a submission that never actually saves."""
+    vendor = Vendor(
+        created_by_id=uid,
+        name=new_vendor_values["name"],
+        website=new_vendor_values["website"],
+        supplier=new_vendor_values["supplier"],
+        contact_name=new_vendor_values["contact_name"],
+        notes=new_vendor_values["notes"],
+    )
+    session.add(vendor)
+    session.flush()
+
+    for row in new_vendor_values["raw_contacts"].values():
+        value = row.get("value", "")
+        if not value:
+            continue
+        method_type_id = row.get("method_type_id", "")
+        new_method_name = row.get("new_method_type", "")
+        method_type = None
+        if method_type_id == "__new__" or (not method_type_id and new_method_name):
+            method_type = resolve_contact_method_type(session, new_method_name)
+        elif method_type_id.isdigit():
+            method_type = session.get(ContactMethodType, int(method_type_id))
+        if method_type is None:
+            continue
+        vendor.contacts.append(VendorContact(method_type_id=method_type.id, value=value))
+
+    payment_type_ids: set[int] = {int(v) for v in new_vendor_values["raw_payment_type_ids"]}
+    new_payment_type_name = new_vendor_values["raw_new_payment_type"]
+    if new_payment_type_name:
+        new_type = resolve_payment_method_type(session, new_payment_type_name)
+        if new_type is not None:
+            payment_type_ids.add(new_type.id)
+    for type_id in payment_type_ids:
+        vendor.payment_methods.append(VendorPaymentMethod(method_type_id=type_id))
+
+    return vendor
+
+
 def _parse_sale_fields(raw: dict[str, str], prefix: str, label: str, max_quantity: int,
                        errors: dict) -> dict:
     """Parses one item's portion of a sale (quantity/price), keyed by `prefix` ('' for the item
@@ -420,7 +622,7 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200,
                  new_order_form: dict | None = None, new_order_errors=None,
-                 new_order_line_groups: dict | None = None):
+                 new_order_line_groups: dict | None = None, new_order_contact_groups: dict | None = None):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
     medicine_items = [i for i in items if i.category == Category.MEDICINE]
@@ -478,6 +680,12 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "new_order_form": new_order_form,
             "new_order_errors": new_order_errors or {},
             "new_order_line_groups": new_order_line_groups or {},
+            "new_order_contact_groups": new_order_contact_groups or {},
+            "vendors": _all_vendors(session),
+            "contact_types": _contact_method_types(session),
+            "payment_types": _payment_method_types(session),
+            "vendor_price_list_map": _vendor_price_list_map(session),
+            "price_recall_map": _price_recall_map(session, uid),
         },
         status_code=status_code,
     )
@@ -544,10 +752,15 @@ async def create_item(request: Request, session: Session = Depends(get_session),
     return RedirectResponse("/inventory", status_code=303)
 
 
-async def _read_new_order_form(request: Request) -> tuple[dict[str, list[str]], dict[int, UploadFile]]:
+async def _read_new_order_form(
+    request: Request,
+) -> tuple[dict[str, list[str]], dict[int, UploadFile], UploadFile | None]:
+    """Returns (text fields incl. repeated 'lines-*'/'contacts-*' keys, per-line COA uploads keyed
+    by line index, and the header-level price-list replacement upload if any)."""
     form = await request.form()
     text_form: dict[str, list[str]] = {}
     coa_files: dict[int, UploadFile] = {}
+    price_list_file: UploadFile | None = None
     for key in form.keys():
         m = _LINE_KEY.match(key)
         if m and m.group(2) == "coa":
@@ -555,17 +768,35 @@ async def _read_new_order_form(request: Request) -> tuple[dict[str, list[str]], 
             if isinstance(f, UploadFile) and f.filename:
                 coa_files[int(m.group(1))] = f
             continue
+        if key == "price_list_replace_file":
+            f = form.get(key)
+            if isinstance(f, UploadFile) and f.filename:
+                price_list_file = f
+            continue
         text_form[key] = [str(v) for v in form.getlist(key)]
-    return text_form, coa_files
+    return text_form, coa_files, price_list_file
+
+
+# Fields the New Order dialog's header re-renders as plain text on a validation error -- everything
+# else (contacts, payment_type_ids, line groups) travels through its own JSON error blob instead,
+# matching new_order_line_groups' existing convention.
+_NEW_ORDER_HEADER_TEXT_FIELDS = (
+    "order_date", "shipped_date", "tracking_site", "tracking_number", "tax", "shipping",
+    "is_new_vendor", "vendor_id", "name", "website", "supplier", "contact_name", "notes",
+    "new_payment_type", "price_list_current", "price_list_replace_url",
+)
 
 
 @router.post("/inventory/orders")
 async def create_multi_item_order(request: Request, session: Session = Depends(get_session),
                                   uid: int = Depends(current_user_id)):
-    form, coa_files = await _read_new_order_form(request)
-    header_raw = {f: (form.get(f) or [""])[0] for f in ORDER_HEADER_FIELDS}
+    form, coa_files, price_list_file = await _read_new_order_form(request)
+    header_raw = {f: (form.get(f) or [""])[0] for f in _NEW_ORDER_HEADER_TEXT_FIELDS}
+    header_raw["payment_type_ids"] = [v for v in (form.get("payment_type_ids") or []) if v]
     errors: dict[str, str] = {}
-    header_values = _parse_order_header_fields(header_raw, session, uid, errors)
+    header_values, is_new_vendor, new_vendor_values, price_list_update = \
+        _parse_new_order_header_fields(form, session, uid, errors)
+    contact_groups = _group_contacts(form)
 
     line_groups = _group_lines(form)
     if not line_groups:
@@ -615,9 +846,41 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
             else:
                 coa_filenames[line["index"]] = None
 
+    price_list_replace_filename = None
+    if not errors and price_list_update is not None and price_list_file is not None:
+        try:
+            price_list_replace_filename = await uploads.save_price_list(price_list_file)
+        except uploads.UploadError as e:
+            errors["price_list_replace_file"] = str(e)
+
     if errors:
         return _render_list(request, session, new_order_form=header_raw, new_order_errors=errors,
-                            new_order_line_groups=line_groups, status_code=422)
+                            new_order_line_groups=line_groups, new_order_contact_groups=contact_groups,
+                            status_code=422)
+
+    # Deferred writes below only run once validation has fully passed (mirroring the gate above and
+    # every other route's own "if not errors:"/"if errors: return" pattern) -- a validation error
+    # anywhere else in the form must never leave behind an orphaned new Vendor row (Review Focus
+    # item 5).
+    if is_new_vendor and new_vendor_values is not None:
+        vendor = _create_new_vendor(session, uid, new_vendor_values)
+        header_values["vendor_id"] = vendor.id
+        header_values["vendor"] = vendor.name
+
+    if price_list_update is not None:
+        vendor = session.get(Vendor, price_list_update["vendor_id"])
+        # Touches only this ONE vendor's price-list fields -- never any other vendor's (this was
+        # the exact class of bug a prior task's own fix round caught elsewhere in this feature).
+        if vendor is not None and (price_list_replace_filename or price_list_update["replace_url"]):
+            if price_list_replace_filename:
+                uploads.delete_price_list(vendor.price_list_filename)
+                vendor.price_list_filename = price_list_replace_filename
+                vendor.price_list_url = None
+            else:
+                vendor.price_list_url = price_list_update["replace_url"]
+                uploads.delete_price_list(vendor.price_list_filename)
+                vendor.price_list_filename = None
+            vendor.price_list_updated_at = date.today()
 
     order = Order(**header_values)
     session.add(order)

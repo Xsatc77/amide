@@ -436,6 +436,111 @@
   const template = document.getElementById("new-order-line-template");
   let lineCount = 0;
 
+  // ---- vendor branch: is this a new vendor, or an existing one from the dropdown? ----
+  const vendorGroupExisting = dialog.querySelector('[data-vendor-group="existing"]');
+  const vendorGroupNew = dialog.querySelector('[data-vendor-group="new"]');
+  const vendorSelect = form.elements.vendor_id;
+  const stalenessPrompt = dialog.querySelector("[data-staleness-prompt]");
+  const stalenessDateEl = dialog.querySelector("[data-staleness-date]");
+  const priceListReplaceGroup = dialog.querySelector("[data-price-list-replace]");
+  const priceRecallData = JSON.parse(document.getElementById("price-recall-data").textContent);
+
+  function syncVendorMode() {
+    const mode = form.querySelector('[data-vendor-is-new-radio]:checked')?.value || "no";
+    vendorGroupExisting.hidden = mode !== "no";
+    vendorGroupNew.hidden = mode !== "yes";
+  }
+  form.querySelectorAll('[data-vendor-is-new-radio]').forEach((r) => r.addEventListener("change", syncVendorMode));
+
+  function syncPriceListReplaceGroup() {
+    const current = form.querySelector('[data-price-list-current-radio]:checked')?.value || "yes";
+    priceListReplaceGroup.hidden = current !== "no";
+  }
+  form.querySelectorAll('[data-price-list-current-radio]').forEach((r) =>
+    r.addEventListener("change", syncPriceListReplaceGroup));
+
+  // The "still current?" prompt only makes sense once an existing vendor with a price list on
+  // file is picked -- driven by data-has-price-list/data-price-list-date on that <option>, set
+  // server-side from vendor_price_list_map (Step 4).
+  function syncStalenessPrompt() {
+    const opt = vendorSelect.selectedOptions[0];
+    const hasPriceList = !!(opt && opt.dataset.hasPriceList === "1");
+    stalenessPrompt.hidden = !hasPriceList;
+    stalenessDateEl.textContent = hasPriceList && opt.dataset.priceListDate
+      ? ` (from ${opt.dataset.priceListDate})` : "";
+    syncPriceListReplaceGroup();
+  }
+
+  // ---- per-line price recall: prefill a line's cost from the last time THIS vendor was ordered
+  // from for an item of the same name (Step 5). priceRecallData is keyed by vendor id (as a
+  // string, since it travels through JSON) -> lowercased item name -> dollars. Scoped server-side
+  // to this viewer's own visible order history -- see _price_recall_map in inventory.py. ----
+  function priceRecallCost(vendorId, itemName) {
+    if (!vendorId || !itemName) return null;
+    const forVendor = priceRecallData[String(vendorId)];
+    if (!forVendor) return null;
+    const cost = forVendor[itemName.trim().toLowerCase()];
+    return cost === undefined ? null : cost;
+  }
+
+  function applyPriceRecall(fieldset) {
+    const costInput = fieldset.querySelector('[name$="-cost"]');
+    if (!costInput || costInput.value) return;  // never clobber a value already entered
+    const mode = fieldset.querySelector('[data-line-mode]:checked')?.value || "existing";
+    let itemName = null;
+    if (mode === "existing") {
+      const sel = fieldset.querySelector("[data-line-item-select]");
+      itemName = sel?.selectedOptions[0]?.dataset.name || null;
+    } else {
+      itemName = fieldset.querySelector("[data-line-item-name]")?.value || null;
+    }
+    const cost = priceRecallCost(vendorSelect.value, itemName);
+    if (cost != null) costInput.value = cost.toFixed(2);
+  }
+
+  function applyPriceRecallToAllLines() {
+    linesContainer.querySelectorAll("[data-line]").forEach(applyPriceRecall);
+  }
+
+  vendorSelect.addEventListener("change", () => {
+    syncStalenessPrompt();
+    applyPriceRecallToAllLines();
+  });
+
+  // ---- new vendor branch: repeatable contact-method rows, mirroring vendors.js's identical
+  // pattern for the Vendor edit dialog exactly (add/remove rows, toggle the "new type" field). ----
+  const contactRowsContainer = dialog.querySelector("[data-new-vendor-contact-rows]");
+  const contactRowTemplate = document.getElementById("new-vendor-contact-row-template");
+  let vendorContactRowCount = contactRowsContainer.querySelectorAll("[data-new-vendor-contact-row]").length;
+
+  function syncNewMethodType(row) {
+    const select = row.querySelector('select[name$="-method_type_id"]');
+    const newField = row.querySelector("[data-new-method-type]");
+    newField.hidden = select.value !== "__new__";
+  }
+
+  function wireContactRow(row) {
+    const select = row.querySelector('select[name$="-method_type_id"]');
+    select.addEventListener("change", () => syncNewMethodType(row));
+    syncNewMethodType(row);
+    row.querySelector('[data-action="remove-vendor-contact-row"]').addEventListener("click", () => row.remove());
+  }
+  contactRowsContainer.querySelectorAll("[data-new-vendor-contact-row]").forEach(wireContactRow);
+
+  function addContactRow() {
+    const index = vendorContactRowCount++;
+    const fragment = contactRowTemplate.content.cloneNode(true);
+    fragment.querySelectorAll("[name]").forEach((el) => {
+      el.name = el.name.replace("__I__", String(index));
+    });
+    const row = fragment.querySelector("[data-new-vendor-contact-row]");
+    contactRowsContainer.appendChild(fragment);
+    wireContactRow(row);
+  }
+  dialog.querySelector('[data-action="add-vendor-contact-row"]').addEventListener("click", addContactRow);
+
+  // ---- order lines (unchanged from before Task 5, plus price-recall wiring per line) ----
+
   function addLine() {
     const index = lineCount++;
     const fragment = template.content.cloneNode(true);
@@ -447,6 +552,8 @@
     fieldset.querySelectorAll('[data-line-mode]').forEach((radio) =>
       radio.addEventListener("change", () => syncLineMode(fieldset)));
     fieldset.querySelector('[data-action="remove-line"]').addEventListener("click", () => fieldset.remove());
+    fieldset.querySelector("[data-line-item-select]").addEventListener("change", () => applyPriceRecall(fieldset));
+    fieldset.querySelector("[data-line-item-name]").addEventListener("blur", () => applyPriceRecall(fieldset));
     linesContainer.appendChild(fragment);
   }
 
@@ -460,7 +567,11 @@
     form.reset();
     linesContainer.innerHTML = "";
     lineCount = 0;
+    contactRowsContainer.innerHTML = "";
+    vendorContactRowCount = 0;
     addLine();
+    syncVendorMode();
+    syncStalenessPrompt();
     dialog.showModal();
   }));
   dialog.querySelectorAll('[data-action="close-new-order"]').forEach((btn) =>
@@ -471,8 +582,13 @@
   });
 
   // Server re-rendered the page after a validation error: reopen with the posted lines restored
-  // (from the new-order-error-data JSON blob) and per-line field errors shown.
+  // (from the new-order-error-data JSON blob) and per-line field errors shown. The header's own
+  // fields (is_new_vendor/vendor_id/new-vendor profile/contact rows) are already server-rendered
+  // correctly via `nof`/`new_order_contact_groups` -- just sync the JS-driven show/hide state.
   if (dialog.hasAttribute("data-open-on-load")) {
+    syncVendorMode();
+    syncStalenessPrompt();
+
     const errorData = JSON.parse(document.getElementById("new-order-error-data").textContent);
     linesContainer.innerHTML = "";
     lineCount = 0;

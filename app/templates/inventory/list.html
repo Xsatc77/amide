@@ -372,6 +372,7 @@
 
 {# ---------- New Order dialog (multi-item) ---------- #}
 {% set nof = new_order_form or {} %}
+{% set posted_payment_type_ids = nof.payment_type_ids if nof.payment_type_ids is defined else [] %}
 {% macro noerr(field) %}{% if new_order_errors[field] %}<small class="error">{{ new_order_errors[field] }}</small>{% endif %}{% endmacro %}
 {% macro nocls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if new_order_errors[field] }}"{% endmacro %}
 <dialog id="new-order-dialog" class="dialog" {% if new_order_errors %}data-open-on-load{% endif %}>
@@ -393,10 +394,97 @@
         <label {{ nocls('shipped_date') }}><span>Shipped date</span><input name="shipped_date" type="date" value="{{ nof.shipped_date }}">{{ noerr('shipped_date') }}</label>
         <label {{ nocls('tracking_site') }}><span>Tracking site (URL)</span><input name="tracking_site" type="url" value="{{ nof.tracking_site }}">{{ noerr('tracking_site') }}</label>
         <label {{ nocls('tracking_number') }}><span>Tracking number</span><input name="tracking_number" value="{{ nof.tracking_number }}">{{ noerr('tracking_number') }}</label>
-        <label {{ nocls('vendor') }}><span>Vendor</span><input name="vendor" value="{{ nof.vendor }}">{{ noerr('vendor') }}</label>
         <label {{ nocls('tax') }}><span>Tax ($)</span><input name="tax" type="number" min="0" step="0.01" value="{{ nof.tax }}">{{ noerr('tax') }}</label>
         <label {{ nocls('shipping') }}><span>Shipping ($)</span><input name="shipping" type="number" min="0" step="0.01" value="{{ nof.shipping }}">{{ noerr('shipping') }}</label>
       </div>
+
+      <div class="chips" role="radiogroup" aria-label="Is this a new vendor?">
+        <label class="chip-radio"><input type="radio" name="is_new_vendor" value="no" {{ 'checked' if nof.is_new_vendor != 'yes' }} data-vendor-is-new-radio> Existing vendor</label>
+        <label class="chip-radio"><input type="radio" name="is_new_vendor" value="yes" {{ 'checked' if nof.is_new_vendor == 'yes' }} data-vendor-is-new-radio> New vendor</label>
+      </div>
+
+      <div data-vendor-group="existing" hidden>
+        <label {{ nocls('vendor_id', 'span-2') }}>
+          <span>Vendor</span>
+          <select name="vendor_id" data-vendor-select>
+            <option value="">&mdash; Select &mdash;</option>
+            {% for v in vendors %}
+            <option value="{{ v.id }}" data-name="{{ v.name }}"
+                    {% if v.id in vendor_price_list_map %}data-has-price-list="1"{% endif %}
+                    {% if v.id in vendor_price_list_map and vendor_price_list_map[v.id].updated_at %}data-price-list-date="{{ vendor_price_list_map[v.id].updated_at }}"{% endif %}
+                    {{ 'selected' if nof.vendor_id == v.id | string }}>{{ v.name }}</option>
+            {% endfor %}
+          </select>
+          {{ noerr('vendor_id') }}
+        </label>
+
+        <fieldset class="form-section" data-staleness-prompt hidden>
+          <legend>Price list still current?<span data-staleness-date></span></legend>
+          <div class="chips" role="radiogroup" aria-label="Price list still current">
+            <label class="chip-radio"><input type="radio" name="price_list_current" value="yes" {{ 'checked' if nof.price_list_current != 'no' }} data-price-list-current-radio> Yes</label>
+            <label class="chip-radio"><input type="radio" name="price_list_current" value="no" {{ 'checked' if nof.price_list_current == 'no' }} data-price-list-current-radio> No, replace it</label>
+          </div>
+          <div class="grid" data-price-list-replace hidden>
+            <label class="field"><span>New price list link</span><input name="price_list_replace_url" type="url" placeholder="https://..." value="{{ nof.price_list_replace_url }}"></label>
+            <label class="field"><span>Or upload a new file</span><input name="price_list_replace_file" type="file" accept="image/*,.heic,.heif,application/pdf,.doc,.docx"></label>
+            {{ noerr('price_list_replace_file') }}
+          </div>
+        </fieldset>
+      </div>
+
+      <fieldset class="form-section" data-vendor-group="new" hidden>
+        <legend>New vendor profile</legend>
+        <div class="grid">
+          <label {{ nocls('name', 'span-2') }}><span>Vendor name <em>*</em></span><input name="name" maxlength="200" value="{{ nof.name }}">{{ noerr('name') }}</label>
+          <label {{ nocls('website') }}><span>Website</span><input name="website" type="url" maxlength="300" placeholder="https://..." value="{{ nof.website }}">{{ noerr('website') }}</label>
+          <label class="field"><span>Supplier</span><input name="supplier" maxlength="200" value="{{ nof.supplier }}"></label>
+          <label class="field"><span>Contact name</span><input name="contact_name" maxlength="120" value="{{ nof.contact_name }}"></label>
+          <label class="field span-2"><span>Notes</span><textarea name="notes" rows="2">{{ nof.notes }}</textarea></label>
+        </div>
+
+        <div data-new-vendor-contact-rows>
+          {% for i, row in new_order_contact_groups.items() %}
+          <div class="grid" data-new-vendor-contact-row>
+            <label class="field">
+              <span>Method</span>
+              <select name="contacts-{{ i }}-method_type_id">
+                <option value="">&mdash; Select &mdash;</option>
+                {% for t in contact_types %}
+                <option value="{{ t.id }}" {{ 'selected' if row.method_type_id == t.id | string }}>{{ t.name }}</option>
+                {% endfor %}
+                <option value="__new__" {{ 'selected' if row.method_type_id == '__new__' }}>+ New type&hellip;</option>
+              </select>
+            </label>
+            <label class="field" data-new-method-type hidden>
+              <span>New type name</span>
+              <input name="contacts-{{ i }}-new_method_type" maxlength="60" value="{{ row.new_method_type or '' }}">
+            </label>
+            <label class="field">
+              <span>Value</span>
+              <input name="contacts-{{ i }}-value" value="{{ row.value or '' }}">
+            </label>
+            <button type="button" class="btn btn-ghost btn-danger" data-action="remove-vendor-contact-row">Remove</button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn btn-ghost" data-action="add-vendor-contact-row">+ Add another contact method</button>
+
+        <fieldset class="form-section">
+          <legend>Payment methods accepted</legend>
+          <div class="chips">
+            {% for t in payment_types %}
+            <label class="chip-checkbox">
+              <input type="checkbox" name="payment_type_ids" value="{{ t.id }}" {{ 'checked' if t.id | string in posted_payment_type_ids }}>
+              {{ t.name }}
+            </label>
+            {% endfor %}
+          </div>
+          <label class="field">
+            <span>Add a new payment type</span>
+            <input name="new_payment_type" maxlength="60" value="{{ nof.new_payment_type }}">
+          </label>
+        </fieldset>
+      </fieldset>
     </fieldset>
 
     <div data-lines-container></div>
@@ -409,7 +497,31 @@
   </form>
 </dialog>
 
-<script type="application/json" id="new-order-error-data">{{ {"line_groups": new_order_line_groups, "errors": new_order_errors} | tojson }}</script>
+<template id="new-vendor-contact-row-template">
+  <div class="grid" data-new-vendor-contact-row>
+    <label class="field">
+      <span>Method</span>
+      <select name="contacts-__I__-method_type_id">
+        <option value="">&mdash; Select &mdash;</option>
+        {% for t in contact_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+        <option value="__new__">+ New type&hellip;</option>
+      </select>
+    </label>
+    <label class="field" data-new-method-type hidden>
+      <span>New type name</span>
+      <input name="contacts-__I__-new_method_type" maxlength="60">
+    </label>
+    <label class="field">
+      <span>Value</span>
+      <input name="contacts-__I__-value">
+    </label>
+    <button type="button" class="btn btn-ghost btn-danger" data-action="remove-vendor-contact-row">Remove</button>
+  </div>
+</template>
+
+<script type="application/json" id="new-order-error-data">{{ {"line_groups": new_order_line_groups, "contact_groups": new_order_contact_groups, "errors": new_order_errors} | tojson }}</script>
+<script type="application/json" id="price-recall-data">{{ price_recall_map | tojson }}</script>
+<script type="application/json" id="vendor-price-list-data">{{ vendor_price_list_map | tojson }}</script>
 
 <template id="new-order-line-template">
   <fieldset class="form-section" data-line>
@@ -422,10 +534,10 @@
     <div class="grid" data-line-group="existing">
       <label class="field span-2">
         <span>Item</span>
-        <select name="lines-__I__-item_id">
+        <select name="lines-__I__-item_id" data-line-item-select>
           <option value="">— Select —</option>
           {% for i in (medicine_items + bac_water_items) | selectattr('owner_id', 'equalto', viewer_id) %}
-          <option value="{{ i.id }}">{{ i.name }} ({{ i.category.value }})</option>
+          <option value="{{ i.id }}" data-name="{{ i.name }}">{{ i.name }} ({{ i.category.value }})</option>
           {% endfor %}
         </select>
       </label>
@@ -436,7 +548,7 @@
         <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="Medicine" checked> Medicine</label>
         <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="BAC Water"> BAC Water</label>
       </div>
-      <label class="field span-2"><span>Item name</span><input name="lines-__I__-name" maxlength="200"></label>
+      <label class="field span-2"><span>Item name</span><input name="lines-__I__-name" maxlength="200" data-line-item-name></label>
       <label class="field" data-new-field="medium"><span>Medium</span>
         <select name="lines-__I__-medium">
           <option value="">— Select —</option>

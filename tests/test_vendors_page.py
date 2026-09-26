@@ -267,6 +267,61 @@ def test_recommend_toggle_round_trips_via_edit_form(client, db):
 
 # ---------------------------------------------------------------- payment methods
 
+# ---------------------------------------------------------------- price list file serving
+
+def test_get_price_list_serves_uploaded_file(client, db):
+    vendor_id = _make_vendor("Price List File Vendor")
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        vendor.price_list_filename = "test-price-list.pdf"
+        s.commit()
+    from app import config
+    config.ensure_dirs()
+    pdf_bytes = b"%PDF-1.7\n" + b"\x00" * 32
+    (config.PRICE_LIST_DIR / "test-price-list.pdf").write_bytes(pdf_bytes)
+    try:
+        r = client.get(f"/vendors/{vendor_id}/price-list")
+        assert r.status_code == 200
+        assert r.content == pdf_bytes
+        assert r.headers["content-type"] == "application/pdf"
+        assert r.headers["x-content-type-options"] == "nosniff"
+    finally:
+        (config.PRICE_LIST_DIR / "test-price-list.pdf").unlink(missing_ok=True)
+
+
+def test_get_price_list_404s_when_no_file_on_vendor(client, db):
+    vendor_id = _make_vendor("Price List No File Vendor")
+    r = client.get(f"/vendors/{vendor_id}/price-list")
+    assert r.status_code == 404
+
+
+def test_get_price_list_404s_when_file_missing_from_disk(client, db):
+    vendor_id = _make_vendor("Price List Missing Vendor")
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        vendor.price_list_filename = "does-not-exist-on-disk.pdf"
+        s.commit()
+    r = client.get(f"/vendors/{vendor_id}/price-list")
+    assert r.status_code == 404
+
+
+def test_get_price_list_404s_for_nonexistent_vendor(client, db):
+    with SessionLocal() as s:
+        bogus_id = (s.scalar(select(Vendor.id).order_by(Vendor.id.desc())) or 0) + 1000
+    r = client.get(f"/vendors/{bogus_id}/price-list")
+    assert r.status_code == 404
+
+
+def test_vendor_detail_links_to_price_list_download_route(client, db):
+    vendor_id = _make_vendor("Price List Link Vendor")
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        vendor.price_list_filename = "linked-price-list.pdf"
+        s.commit()
+    t = _text(client.get(f"/vendors/{vendor_id}"))
+    assert f'href="/vendors/{vendor_id}/price-list"' in t
+
+
 def test_payment_method_checkboxes_and_new_payment_type_persist(client, db):
     vendor_id = _make_vendor("Payment Method Vendor")
     r = client.post(f"/vendors/{vendor_id}", data={
