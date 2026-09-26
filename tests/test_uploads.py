@@ -80,3 +80,10 @@ def test_save_price_list_rejects_content_mismatch():
     with pytest.raises(UploadError):
         _save("fake.pdf", b"<script>" + b"\x00" * 32)
     assert list(config.PRICE_LIST_DIR.iterdir()) == []
+
+
+def test_save_price_list_rejects_oversized_file():
+    oversized = PDF + b"\x00" * config.MAX_UPLOAD_BYTES
+    with pytest.raises(UploadError):
+        _save("big.pdf", oversized)
+    assert list(config.PRICE_LIST_DIR.iterdir()) == []
