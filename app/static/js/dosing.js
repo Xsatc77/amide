@@ -37,7 +37,12 @@
   }));
 
   dialog.querySelectorAll('[data-action="close-site"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
-  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+  // Close only when BOTH the press and release land on the backdrop itself -- a `click` event's
+  // target is the dialog element whenever the mouseup lands on the backdrop, even if the mousedown
+  // that started a text-selection drag began inside the dialog.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
+  dialog.addEventListener("click", (e) => { if (mousedownOnBackdrop && e.target === dialog) dialog.close(); });
 })();
 
 // Today view: dismiss the empty-vial banner (shown after a dose emptied its vial) without

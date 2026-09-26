@@ -38,8 +38,14 @@
     btn.addEventListener("click", () => dialog.showModal()));
   dialog.querySelectorAll('[data-action="close-vendor-edit"]').forEach((btn) =>
     btn.addEventListener("click", () => dialog.close()));
+  // Close only when BOTH the press and release land on the backdrop itself -- a `click` event's
+  // target is the dialog element whenever the mouseup lands on the backdrop, even if the mousedown
+  // that started a text-selection drag began inside a field. Checking mousedown too means a drag
+  // that starts inside the form and ends outside it no longer closes the dialog.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 
   // Server re-rendered the page after a validation error: values are already server-rendered from

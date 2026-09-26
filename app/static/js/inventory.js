@@ -114,9 +114,14 @@
     }
   });
 
-  // Close when clicking the backdrop.
+  // Close only when BOTH the press and release land on the backdrop itself -- a `click` event's
+  // target is the dialog element whenever the mouseup lands on the backdrop, even if the mousedown
+  // that started a text-selection drag began inside a field. Checking mousedown too means a drag
+  // that starts inside the form and ends outside it no longer closes the dialog.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 
   coaInput.addEventListener("change", () => {
@@ -245,8 +250,11 @@
   }));
   dialog.querySelectorAll('[data-action="close-item-edit"]').forEach((btn) =>
     btn.addEventListener("click", () => dialog.close()));
+  // See item-dialog's own backdrop-close comment above for why mousedown is tracked too.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 
   // Server re-rendered the page after a validation error: values are already server-rendered
@@ -334,8 +342,11 @@
   }));
   dialog.querySelectorAll('[data-action="close-checkin"]').forEach((btn) =>
     btn.addEventListener("click", () => dialog.close()));
+  // See item-dialog's own backdrop-close comment above for why mousedown is tracked too.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 
   // Server re-rendered the page after a check-in validation error: rebuild this order's rows from
@@ -409,8 +420,11 @@
     dialog.showModal();
   }));
   dialog.querySelectorAll('[data-action="close-sale"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
+  // See item-dialog's own backdrop-close comment above for why mousedown is tracked too.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 
   if (bacCheckbox) bacCheckbox.addEventListener("change", syncBacGroup);
@@ -621,8 +635,11 @@
   dialog.querySelectorAll('[data-action="close-new-order"]').forEach((btn) =>
     btn.addEventListener("click", () => dialog.close()));
   dialog.querySelector('[data-action="add-line"]').addEventListener("click", addLine);
+  // See item-dialog's own backdrop-close comment above for why mousedown is tracked too.
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 
   // Server re-rendered the page after a validation error: reopen with the posted lines restored

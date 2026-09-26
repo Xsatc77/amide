@@ -68,7 +68,7 @@
 {% set ef = form or edit_data %}
 {% macro verr(field) %}{% if errors and errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 {% macro vcls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if errors and errors[field] }}"{% endmacro %}
-<dialog id="vendor-edit-dialog" class="dialog" {% if form %}data-open-on-load{% endif %}>
+<dialog id="vendor-edit-dialog" class="dialog dialog-wide" {% if form %}data-open-on-load{% endif %}>
   <form method="post" action="/vendors/{{ vendor.id }}" class="item-form" enctype="multipart/form-data" novalidate>
     <header class="dialog-head">
       <h2 data-title>Edit vendor</h2>
@@ -120,8 +120,9 @@
           {{ verr('price_list_url') }}
         </label>
         <label {{ vcls('price_list_file') }}>
-          <span>Replace with a file (PDF, image, or Word doc)</span>
+          <span>Replace with a file</span>
           <input name="price_list_file" type="file">
+          <small class="muted">PDF, image, or Word doc</small>
           {{ verr('price_list_file') }}
         </label>
       </div>

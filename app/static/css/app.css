@@ -242,6 +242,7 @@ form.inline { display: inline; }
   color: var(--text);
   box-shadow: var(--shadow);
 }
+.dialog-wide { width: min(760px, calc(100vw - 32px)); }
 .dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .dialog-head, .dialog-foot { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; }
 .dialog-head { border-bottom: 1px solid var(--border); }

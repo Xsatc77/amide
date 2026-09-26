@@ -30,9 +30,15 @@
     dialog.showModal();
   }
 
+  // Close-on-backdrop only fires when BOTH the press and release land on the backdrop itself -- a
+  // `click` event's target is the dialog element whenever the mouseup lands on the backdrop, even
+  // if the mousedown that started a text-selection drag (e.g. copying a peptide name) began inside
+  // the dialog's content.
+  let mousedownOnBackdrop = false;
+  document.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-key]");
     if (el) show(el.dataset.key);
-    if (e.target.closest("[data-close]") || e.target === dialog) dialog.close();
+    if (e.target.closest("[data-close]") || (mousedownOnBackdrop && e.target === dialog)) dialog.close();
   });
 })();
