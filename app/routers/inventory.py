@@ -405,7 +405,9 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
 
 
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
-                 editing: InventoryItem | None = None, status_code: int = 200):
+                 editing: InventoryItem | None = None, status_code: int = 200,
+                 new_order_form: dict | None = None, new_order_errors=None,
+                 new_order_line_groups: dict | None = None):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
     medicine_items = [i for i in items if i.category == Category.MEDICINE]
@@ -460,6 +462,9 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "form": form,
             "errors": errors or {},
             "editing": editing,
+            "new_order_form": new_order_form,
+            "new_order_errors": new_order_errors or {},
+            "new_order_line_groups": new_order_line_groups or {},
         },
         status_code=status_code,
     )
@@ -597,7 +602,8 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
                 coa_filenames[line["index"]] = None
 
     if errors:
-        return _render_list(request, session, form=header_raw, errors=errors, status_code=422)
+        return _render_list(request, session, new_order_form=header_raw, new_order_errors=errors,
+                            new_order_line_groups=line_groups, status_code=422)
 
     order = Order(**header_values)
     session.add(order)

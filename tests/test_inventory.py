@@ -1447,3 +1447,19 @@ def test_new_order_rejects_existing_item_not_owned_by_caller(client, db):
         "lines-0-mode": "existing", "lines-0-item_id": str(their_item_id), "lines-0-quantity": "5",
     })
     assert r.status_code == 422
+
+
+def test_inventory_page_has_new_order_button_and_dialog(client, db):
+    t = html.unescape(client.get("/inventory").text)
+    assert 'data-action="new-order"' in t
+    assert 'id="new-order-dialog"' in t
+    assert 'data-action="add-line"' in t
+
+
+def test_new_order_validation_error_reopens_dialog(client, db):
+    r = client.post("/inventory/orders", data={"order_date": "2026-09-01"})
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert "data-open-on-load" in t
+    assert 'id="new-order-dialog"' in t
+    assert "Add at least one item" in t

@@ -11,6 +11,7 @@
   <button type="button" class="btn btn-primary btn-add" data-action="add" aria-label="Add inventory item">
     <span aria-hidden="true">+</span> Add item
   </button>
+  <button type="button" class="btn btn-ghost" data-action="new-order">New order</button>
 </div>
 
 {% if not items %}
@@ -356,6 +357,101 @@
     </footer>
   </form>
 </dialog>
+
+{# ---------- New Order dialog (multi-item) ---------- #}
+{% set nof = new_order_form or {} %}
+{% macro noerr(field) %}{% if new_order_errors[field] %}<small class="error">{{ new_order_errors[field] }}</small>{% endif %}{% endmacro %}
+{% macro nocls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if new_order_errors[field] }}"{% endmacro %}
+<dialog id="new-order-dialog" class="dialog" {% if new_order_errors %}data-open-on-load{% endif %}>
+  <form method="post" enctype="multipart/form-data" class="item-form" action="/inventory/orders" novalidate>
+    <header class="dialog-head">
+      <h2 data-title>New order</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-new-order" aria-label="Close">×</button>
+    </header>
+
+    {% if new_order_errors %}
+    <div class="alert" role="alert">Please fix the highlighted fields.</div>
+    {% endif %}
+    {{ noerr('lines') }}
+
+    <fieldset class="form-section">
+      <legend>Order details</legend>
+      <div class="grid">
+        <label {{ nocls('order_date') }}><span>Order date</span><input name="order_date" type="date" value="{{ nof.order_date or today_iso }}">{{ noerr('order_date') }}</label>
+        <label {{ nocls('shipped_date') }}><span>Shipped date</span><input name="shipped_date" type="date" value="{{ nof.shipped_date }}">{{ noerr('shipped_date') }}</label>
+        <label {{ nocls('tracking_site') }}><span>Tracking site (URL)</span><input name="tracking_site" type="url" value="{{ nof.tracking_site }}">{{ noerr('tracking_site') }}</label>
+        <label {{ nocls('tracking_number') }}><span>Tracking number</span><input name="tracking_number" value="{{ nof.tracking_number }}">{{ noerr('tracking_number') }}</label>
+        <label {{ nocls('vendor') }}><span>Vendor</span><input name="vendor" value="{{ nof.vendor }}">{{ noerr('vendor') }}</label>
+        <label {{ nocls('tax') }}><span>Tax ($)</span><input name="tax" type="number" min="0" step="0.01" value="{{ nof.tax }}">{{ noerr('tax') }}</label>
+        <label {{ nocls('shipping') }}><span>Shipping ($)</span><input name="shipping" type="number" min="0" step="0.01" value="{{ nof.shipping }}">{{ noerr('shipping') }}</label>
+      </div>
+    </fieldset>
+
+    <div data-lines-container></div>
+    <button type="button" class="btn btn-ghost" data-action="add-line">+ Add another item</button>
+
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-new-order">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save order</button>
+    </footer>
+  </form>
+</dialog>
+
+<template id="new-order-line-template">
+  <fieldset class="form-section" data-line>
+    <legend>Item</legend>
+    <div class="chips" role="radiogroup" aria-label="Item source">
+      <label class="chip-radio"><input type="radio" name="lines-__I__-mode" value="existing" checked data-line-mode> Restock existing item</label>
+      <label class="chip-radio"><input type="radio" name="lines-__I__-mode" value="new" data-line-mode> New item</label>
+    </div>
+
+    <div class="grid" data-line-group="existing">
+      <label class="field span-2">
+        <span>Item</span>
+        <select name="lines-__I__-item_id">
+          <option value="">— Select —</option>
+          {% for i in medicine_items + bac_water_items %}
+          <option value="{{ i.id }}">{{ i.name }} ({{ i.category.value }})</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="grid" data-line-group="new" hidden>
+      <div class="chips" role="radiogroup" aria-label="Category">
+        <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="Medicine" checked> Medicine</label>
+        <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="BAC Water"> BAC Water</label>
+      </div>
+      <label class="field span-2"><span>Item name</span><input name="lines-__I__-name" maxlength="200"></label>
+      <label class="field" data-new-field="medium"><span>Medium</span>
+        <select name="lines-__I__-medium">
+          <option value="">— Select —</option>
+          {% for m in mediums %}<option value="{{ m.value }}">{{ m.value }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="field" data-new-field="vial_size_mg">
+        <span>Amount</span>
+        <div class="inline-inputs">
+          <input name="lines-__I__-vial_size_mg" type="number" min="0" step="any">
+          <select name="lines-__I__-vial_size_unit">
+            {% for u in dose_units %}<option value="{{ u.value }}">{{ u.label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <label class="field"><span>Quantity</span><input name="lines-__I__-quantity" type="number" min="1" step="1" value="1"></label>
+      <label class="field"><span>Cost ($)</span><input name="lines-__I__-cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
+      <label class="field"><span>Lot / Batch #</span><input name="lines-__I__-lot_number"></label>
+      <label class="field"><span>Expiration date</span><input name="lines-__I__-expiration_date" type="date"></label>
+      <label class="field span-2"><span>COA (photo or PDF)</span><input name="lines-__I__-coa" type="file" accept="image/*,.heic,.heif,application/pdf"></label>
+      <label class="field"><span>Lab vial size (mg)</span><input name="lines-__I__-coa_vial_size_mg" type="number" min="0" step="any"></label>
+      <label class="field"><span>Lab purity (%)</span><input name="lines-__I__-coa_purity_pct" type="number" min="0" max="100" step="any"></label>
+    </div>
+    <button type="button" class="btn btn-ghost btn-danger" data-action="remove-line">Remove item</button>
+  </fieldset>
+</template>
 
 <script type="application/json" id="inv-rules">{{ medium_rules | tojson }}</script>
 
