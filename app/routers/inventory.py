@@ -1,3 +1,4 @@
+import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -24,6 +25,26 @@ ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "m
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_HEADER_FIELDS + ORDER_LINE_FIELDS + ("received_quantity",)))
+
+_LINE_KEY = re.compile(r"^lines-(\d+)-(\w+)$")
+
+
+def _group_lines(form: dict[str, list[str]]) -> dict[int, dict[str, str]]:
+    """Groups a New Order form's repeated 'lines-{i}-field' keys by index, mirroring
+    app/protocols/forms.py's identical 'items-{i}-field' convention."""
+    lines: dict[int, dict[str, str]] = {}
+    for key, values in form.items():
+        m = _LINE_KEY.match(key)
+        if m:
+            i, field = int(m.group(1)), m.group(2)
+            lines.setdefault(i, {})[field] = values[0] if values else ""
+    return dict(sorted(lines.items()))
+
+
+_NEW_LINE_ITEM_FIELDS = ("mode", "item_id", "name", "category", "medium", "vial_size_mg",
+                        "vial_size_unit", "volume_ml", "units_per_package", "storage", "notes",
+                        "quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg",
+                        "coa_purity_pct")
 
 
 # ---------------------------------------------------------------- form parsing
@@ -500,6 +521,100 @@ async def create_item(request: Request, session: Session = Depends(get_session),
         item.order_items.append(li)
         order.items.append(li)
     session.add(item)
+    session.commit()
+    return RedirectResponse("/inventory", status_code=303)
+
+
+async def _read_new_order_form(request: Request) -> tuple[dict[str, list[str]], dict[int, UploadFile]]:
+    form = await request.form()
+    text_form: dict[str, list[str]] = {}
+    coa_files: dict[int, UploadFile] = {}
+    for key in form.keys():
+        m = _LINE_KEY.match(key)
+        if m and m.group(2) == "coa":
+            f = form.get(key)
+            if isinstance(f, UploadFile) and f.filename:
+                coa_files[int(m.group(1))] = f
+            continue
+        text_form[key] = [str(v) for v in form.getlist(key)]
+    return text_form, coa_files
+
+
+@router.post("/inventory/orders")
+async def create_multi_item_order(request: Request, session: Session = Depends(get_session),
+                                  uid: int = Depends(current_user_id)):
+    form, coa_files = await _read_new_order_form(request)
+    header_raw = {f: (form.get(f) or [""])[0] for f in ORDER_HEADER_FIELDS}
+    errors: dict[str, str] = {}
+    header_values = _parse_order_header_fields(header_raw, session, uid, errors)
+
+    line_groups = _group_lines(form)
+    if not line_groups:
+        errors["lines"] = "Add at least one item."
+
+    parsed_lines = []
+    for i, raw_group in line_groups.items():
+        line_raw = {f: raw_group.get(f, "") for f in _NEW_LINE_ITEM_FIELDS}
+        prefix = f"lines-{i}-"
+        line_errors: dict[str, str] = {}
+        existing_item = None
+        new_item_values = None
+
+        if line_raw["mode"] == "existing":
+            existing_item = None
+            if line_raw["item_id"].isdigit():
+                existing_item = _own_item(session, int(line_raw["item_id"]), uid)
+            if existing_item is None or existing_item.category == Category.SUPPLY:
+                line_errors[f"{prefix}item_id"] = "Select an item you already track."
+        else:
+            category = _parse_choice(Category, line_raw["category"], Category.MEDICINE, f"{prefix}category", line_errors)
+            if category == Category.SUPPLY:
+                line_errors[f"{prefix}category"] = "New order lines can only be Medicine or BAC Water."
+            else:
+                new_item_values, item_errs = _parse_item_fields(line_raw, session, uid, category)
+                if category == Category.MEDICINE and new_item_values.get("medium") is None and "medium" not in item_errs:
+                    item_errs["medium"] = "Medium is required."
+                for f, msg in item_errs.items():
+                    line_errors[f"{prefix}{f}"] = msg
+
+        line_values, line_val_errors = _parse_order_line_fields(line_raw, prefix=prefix)
+        line_errors.update(line_val_errors)
+
+        errors.update(line_errors)
+        parsed_lines.append({"index": i, "existing_item": existing_item,
+                             "new_item_values": new_item_values, "line_values": line_values})
+
+    coa_filenames: dict[int, str | None] = {}
+    if not errors:
+        for line in parsed_lines:
+            coa = coa_files.get(line["index"])
+            if coa is not None:
+                try:
+                    coa_filenames[line["index"]] = await uploads.save_coa(coa)
+                except uploads.UploadError as e:
+                    errors[f"lines-{line['index']}-coa"] = str(e)
+            else:
+                coa_filenames[line["index"]] = None
+
+    if errors:
+        return _render_list(request, session, form=header_raw, errors=errors, status_code=422)
+
+    order = Order(**header_values)
+    session.add(order)
+    # As in add_order: an already-persistent existing_item's not-yet-loaded order_items collection
+    # triggers a premature autoflush on the first of these two appends -- before the *other* side
+    # of the association is wired up in memory -- violating order_items' order_id/inventory_item_id
+    # NOT NULL constraints. no_autoflush defers that flush until both sides are set, right before
+    # the explicit commit below.
+    with session.no_autoflush:
+        for line in parsed_lines:
+            item = line["existing_item"]
+            if item is None:
+                item = InventoryItem(**line["new_item_values"], owner_id=uid)
+                session.add(item)
+            li = OrderItem(**line["line_values"], coa_filename=coa_filenames[line["index"]])
+            item.order_items.append(li)
+            order.items.append(li)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
 

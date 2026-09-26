@@ -1357,3 +1357,93 @@ def test_in_transit_groups_multiple_items_from_one_order(client, db):
     assert "SHARED123" in t
     assert t.count("SHARED123") == 1  # one row for the whole order, not one per line
     assert "Retatrutide" in t and "Bacteriostatic Water" in t
+
+
+# ---------------------------------------------------------------- Multi-item orders: Task 7 (New Order route)
+
+
+def test_new_order_creates_one_order_with_two_new_item_lines(client, db):
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "tracking_number": "MULTI1", "shipping": "10.00", "tax": "5.00",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-0-cost": "80.00",
+        "lines-1-mode": "new", "lines-1-category": "BAC Water", "lines-1-name": "Bacteriostatic Water",
+        "lines-1-quantity": "10", "lines-1-cost": "15.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        med = s.scalar(select(InventoryItem).where(InventoryItem.name == "Retatrutide"))
+        bac = s.scalar(select(InventoryItem).where(InventoryItem.name == "Bacteriostatic Water"))
+        assert med.order_items[0].order_id == bac.order_items[0].order_id  # same shared order
+        assert med.order_items[0].order.tracking_number == "MULTI1"
+        assert med.order_items[0].quantity == 5 and bac.order_items[0].quantity == 10
+
+
+def test_new_order_can_restock_an_existing_item_alongside_a_new_one(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "5", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "lines-0-mode": "existing", "lines-0-item_id": str(item_id), "lines-0-quantity": "5", "lines-0-cost": "80.00",
+        "lines-1-mode": "new", "lines-1-category": "BAC Water", "lines-1-name": "Bacteriostatic Water",
+        "lines-1-quantity": "10", "lines-1-cost": "15.00",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert len(item.order_items) == 2  # the original solo order, plus this new shared one
+
+
+def test_new_order_requires_at_least_one_line(client, db):
+    from app.models import Order
+    with SessionLocal() as s:
+        orders_before = s.query(Order).count()
+
+    r = client.post("/inventory/orders", data={"order_date": "2026-09-01"})
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.query(Order).count() == orders_before  # no new Order created
+
+
+def test_new_order_new_item_line_validates_category_fields(client, db):
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-quantity": "5",  # no medium -- Medicine requires it
+    })
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.query(InventoryItem).count() == 0
+
+
+def test_new_order_rejects_supply_category_for_new_lines(client, db):
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "lines-0-mode": "new", "lines-0-category": "Supply", "lines-0-name": "Syringes",
+        "lines-0-quantity": "5",
+    })
+    assert r.status_code == 422
+
+
+def test_new_order_rejects_existing_item_not_owned_by_caller(client, db):
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "NewOrderOther", "password": "NewOrderOther1!", "confirm": "NewOrderOther1!"})
+    other.post("/inventory", data={
+        "name": "Not Yours", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "5", "order_date": "2026-08-01",
+    })
+    with SessionLocal() as s:
+        their_item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Not Yours"))
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "lines-0-mode": "existing", "lines-0-item_id": str(their_item_id), "lines-0-quantity": "5",
+    })
+    assert r.status_code == 422
