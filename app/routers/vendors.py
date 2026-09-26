@@ -26,13 +26,22 @@ def _favorited_vendor_ids(session: Session, uid: int) -> set[int]:
     return set(session.scalars(select(VendorFavorite.vendor_id).where(VendorFavorite.user_id == uid)))
 
 
-def _vendor_recent_order_dates(session: Session) -> dict[int, date]:
-    """Each vendor's own most recent Order.order_date, across every user -- the Vendors list is a
-    global list (Vendor is shared like the peptide library, per app/models.py's own docstring), and
-    only a bare date is exposed here, never whose order it was, so this needs no Inventory-share
-    scoping the way Purchase History does."""
+def _vendor_recent_order_dates(session: Session, uid: int) -> dict[int, date]:
+    """Each vendor's own most recent Order.order_date, scoped to what this viewer may see -- the
+    signed-in user's own orders, plus orders belonging to anyone who granted them Inventory sharing.
+    Vendor itself is a global/shared row (like the peptide library), but Order/OrderItem are
+    private-by-default activity logs: even a bare date, with no other detail attached, is still an
+    aggregate over another user's private order history, and a vendor visibly jumping to the top of
+    this sort is itself a signal about who ordered from it. Same shared_owner_ids/InventoryItem.owner_id
+    join shape as _visible_order_lines_for_vendor -- never a global cross-user aggregate."""
+    shared_owner_ids = select(Share.owner_id).where(
+        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
     rows = session.execute(
-        select(Order.vendor_id, func.max(Order.order_date)).where(Order.vendor_id.is_not(None))
+        select(Order.vendor_id, func.max(Order.order_date))
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
+        .where(Order.vendor_id.is_not(None),
+              (InventoryItem.owner_id == uid) | (InventoryItem.owner_id.in_(shared_owner_ids)))
         .group_by(Order.vendor_id)
     ).all()
     return dict(rows)
@@ -59,7 +68,7 @@ def list_vendors(request: Request, sort: str = "alpha", session: Session = Depen
     sort = "recent" if sort == "recent" else "alpha"
     vendors = session.scalars(select(Vendor)).all()
     favorite_ids = _favorited_vendor_ids(session, uid)
-    recent_dates = _vendor_recent_order_dates(session)
+    recent_dates = _vendor_recent_order_dates(session, uid)
     vendors = _sorted_vendors(vendors, favorite_ids, recent_dates, sort)
     return templates.TemplateResponse(request, "vendors/list.html", {
         "vendors": vendors,
@@ -88,6 +97,9 @@ def favorite_vendor(vendor_id: int, next: str = "/vendors", session: Session = D
 @router.post("/vendors/{vendor_id}/unfavorite")
 def unfavorite_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
                       uid: int = Depends(current_user_id)):
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None:
+        raise HTTPException(404, "Vendor not found")
     session.query(VendorFavorite).filter_by(user_id=uid, vendor_id=vendor_id).delete()
     session.commit()
     return RedirectResponse(next, status_code=303)

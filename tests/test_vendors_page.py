@@ -92,6 +92,25 @@ def test_list_vendors_sort_recent_orders_by_most_recent_order_date(client, db, m
     assert t_recent.index("Zulu Chemicals Recent Sort") < t_recent.index("Alpha Aromatics Recent Sort")
 
 
+def test_sort_recent_ignores_another_users_unshared_order(client, db):
+    # Privacy fix: Order/OrderItem are private-by-default activity logs, so `?sort=recent`'s
+    # recency aggregate must be scoped exactly like Purchase History (own orders + Inventory-shared
+    # orders only) -- a vendor must not visibly jump up the sort just because a DIFFERENT,
+    # unrelated user ordered from it recently, with no Share established.
+    quiet_id = _make_vendor("Quiet Vendor No Visible Orders")
+    loud_id = _make_vendor("Zzz Vendor Other Users Recent Order")
+    other_id = _register_other("VendorSortPrivacyOther")
+    # Another user's very recent order with this vendor -- no Share exists between them and "tester".
+    _order_for_vendor(other_id, loud_id, date(2026, 1, 1), "Other User's Private Order Item")
+
+    t_recent = _text(client.get("/vendors?sort=recent"))
+    # Neither vendor has any order visible to the signed-in user, so this falls back to the
+    # no-orders-yet tie-break (alphabetical) rather than the other user's order date winning.
+    assert t_recent.index("Quiet Vendor No Visible Orders") < t_recent.index("Zzz Vendor Other Users Recent Order")
+    # And the item itself must never leak into the (unrelated) Vendors list page at all.
+    assert "Other User's Private Order Item" not in t_recent
+
+
 def test_favoriting_pins_vendor_first_regardless_of_sort_and_not_for_other_users(client, db):
     alpha_id = _make_vendor("Alpha Favorite Sort")
     beta_id = _make_vendor("Beta Favorite Sort")
@@ -113,6 +132,15 @@ def test_favoriting_pins_vendor_first_regardless_of_sort_and_not_for_other_users
         with SessionLocal() as s:
             s.query(VendorFavorite).filter_by(vendor_id=beta_id).delete()
             s.commit()
+
+
+def test_unfavorite_nonexistent_vendor_404s(client, db):
+    # Consistency fix: favorite_vendor already 404s for a nonexistent vendor_id; unfavorite_vendor
+    # must match instead of silently no-op'ing a delete against nothing.
+    with SessionLocal() as s:
+        bogus_id = (s.scalar(select(Vendor.id).order_by(Vendor.id.desc())) or 0) + 1000
+    r = client.post(f"/vendors/{bogus_id}/unfavorite", follow_redirects=False)
+    assert r.status_code == 404
 
 
 # ---------------------------------------------------------------- detail page: contacts
