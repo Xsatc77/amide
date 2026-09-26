@@ -5,7 +5,9 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import BodyMeasurement, Share, ShareCategory, User
+from app.measurements.calculations import bmr, macros_for_preset, target_calories, tdee
+from app.models import (ActivityLevel, BiologicalSex, BodyMeasurement, DietPreset, MacroGoal,
+                         Share, ShareCategory, User)
 
 
 def _logged_in_client(username: str, password: str = "Other1!") -> TestClient:
@@ -105,3 +107,129 @@ def test_measurements_page_respects_personal_data_sharing(client, db, me):
                                      category=ShareCategory.PERSONAL_DATA).delete()
             s.commit()
         _clear_measurements(me, other_id)
+
+
+def _tester_id() -> int:
+    with SessionLocal() as s:
+        return s.scalar(select(User.id).where(User.username_key == "tester"))
+
+
+def _clear_body_profile() -> None:
+    with SessionLocal() as s:
+        u = s.scalar(select(User).where(User.username_key == "tester"))
+        u.sex = u.birth_date = u.height_in = u.activity_level = None
+        u.macro_goal = u.diet_preset = u.water_goal_oz = None
+        u.custom_protein_pct = u.custom_carb_pct = u.custom_fat_pct = None
+        s.commit()
+
+
+def test_silhouette_shows_average_of_bilateral_measurement(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={
+            "measured_at": "2026-09-20", "biceps_l_in": "16", "biceps_r_in": "16",
+        })
+        client.post("/measurements", data={
+            "measured_at": "2026-09-27", "biceps_l_in": "16", "biceps_r_in": "16.3",
+        })
+        t = html.unescape(client.get("/measurements").text)
+        assert "16.15" in t  # average of the most recent entry's two sides
+    finally:
+        _clear_measurements(tester)
+
+
+def test_silhouette_shows_change_since_previous_entry(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-20", "waist_in": "34"})
+        client.post("/measurements", data={"measured_at": "2026-09-27", "waist_in": "33.5"})
+        t = html.unescape(client.get("/measurements").text)
+        assert "-0.5" in t or "−0.5" in t
+    finally:
+        _clear_measurements(tester)
+
+
+def test_silhouette_shows_single_side_when_other_side_missing(client, db):
+    """Review Focus item 1: a bilateral measurement missing one side must show that one side
+    alone, clearly labeled -- never averaged with None/zero."""
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-27", "quad_l_in": "22"})
+        t = html.unescape(client.get("/measurements").text)
+        assert "22.0" in t or "22" in t
+        # It must not silently render as if it were a full average (e.g. 11.0 = (22+0)/2).
+        assert "11.0" not in t
+    finally:
+        _clear_measurements(tester)
+
+
+def test_macros_tab_shows_prompt_when_profile_incomplete(client, db):
+    tester = _tester_id()
+    try:
+        t = client.get("/measurements?tab=macros").text
+        assert "profile" in t.lower() or "add your" in t.lower()
+    finally:
+        _clear_measurements(tester)
+
+
+def test_macros_tab_computes_from_stored_profile_and_latest_weight(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/settings/body-profile", data={
+            "sex": "Male", "birth_date": "1996-01-01", "height_in": "70",
+            "activity_level": "1.55", "macro_goal": "0", "diet_preset": "balanced",
+        })
+        client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "180"})
+        r = client.get("/measurements?tab=macros")
+        assert r.status_code == 200
+
+        with SessionLocal() as s:
+            user = s.scalar(select(User).where(User.username_key == "tester"))
+            birth_date = user.birth_date
+        today = __import__("datetime").date.today()
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+        bmr_value = bmr(180.0, 70.0, age, BiologicalSex.MALE)
+        tdee_value = tdee(bmr_value, ActivityLevel.MODERATELY_ACTIVE)
+        calories, floored = target_calories(tdee_value, MacroGoal.MAINTAIN, BiologicalSex.MALE)
+        protein_g, carb_g, fat_g = macros_for_preset(calories, DietPreset.BALANCED)
+
+        t = html.unescape(r.text)
+        assert str(round(calories)) in t
+        assert str(round(protein_g)) in t
+        assert str(round(carb_g)) in t
+        assert str(round(fat_g)) in t
+        if floored:
+            assert "adjust" in t.lower()
+    finally:
+        _clear_measurements(tester)
+        _clear_body_profile()
+
+
+def test_macros_tab_shows_floor_notice_when_calories_floored(client, db):
+    """Review Focus item 2: when target_calories() floors the number, the UI must show a
+    visible 'adjusted' notice."""
+    tester = _tester_id()
+    try:
+        client.post("/settings/body-profile", data={
+            "sex": "Female", "birth_date": "2000-01-01", "height_in": "60",
+            "activity_level": "1.2", "macro_goal": "-1000", "diet_preset": "balanced",
+        })
+        client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "100"})
+        r = client.get("/measurements?tab=macros")
+        assert r.status_code == 200
+        t = html.unescape(r.text)
+        assert "adjust" in t.lower()
+    finally:
+        _clear_measurements(tester)
+        _clear_body_profile()
+
+
+def test_water_goal_and_pace_shown_on_measurements_tab(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "200"})
+        t = client.get("/measurements").text
+        assert "100" in t  # default water goal: 200/2
+    finally:
+        _clear_measurements(tester)

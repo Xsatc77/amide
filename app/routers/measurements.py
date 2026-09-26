@@ -7,12 +7,28 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import BodyMeasurement, Share, ShareCategory, User
+from app.measurements.calculations import (bmr, macros_for_preset, target_calories, tdee,
+                                           water_goal_oz, water_pace)
+from app.models import BodyMeasurement, DietPreset, MacroGoal, Share, ShareCategory, User
 from app.templating import templates
 
 router = APIRouter()
 
 TABS = ("measurements", "macros", "journal", "labs")
+
+# Bilateral silhouette locations: (key, left column, right column, display label).
+BILATERAL_LOCATIONS = (
+    ("biceps", "biceps_l_in", "biceps_r_in", "Biceps"),
+    ("forearm", "forearm_l_in", "forearm_r_in", "Forearms"),
+    ("quad", "quad_l_in", "quad_r_in", "Quads"),
+    ("calf", "calf_l_in", "calf_r_in", "Calves"),
+)
+# Single-sided silhouette locations: (key/column, display label).
+UNILATERAL_LOCATIONS = (
+    ("neck_in", "Neck"),
+    ("waist_in", "Waist"),
+    ("hips_in", "Hips"),
+)
 
 # Float fields, validated the same way (optional, must be > 0 when present) as the other numeric
 # fields this app validates -- see app/routers/settings.py's change_body_profile.
@@ -36,6 +52,104 @@ def _shared_measurement_query(uid: int):
     return select(BodyMeasurement).where(BodyMeasurement.owner_id.in_(shared_owner_ids))
 
 
+def _field_current_and_delta(entries: list[BodyMeasurement], field: str) -> tuple[float | None, float | None]:
+    """`entries` is most-recent-first. Returns (current value, delta) for `field`, where delta is
+    against whichever earlier entry most recently had a non-null value for that same field -- not
+    necessarily the immediately-previous row, since a row may have skipped this field entirely."""
+    if not entries:
+        return None, None
+    current = getattr(entries[0], field)
+    if current is None:
+        return None, None
+    prior = None
+    for entry in entries[1:]:
+        value = getattr(entry, field)
+        if value is not None:
+            prior = value
+            break
+    delta = None if prior is None else round(current - prior, 2)
+    return current, delta
+
+
+def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
+    """One entry per silhouette location for the most recent BodyMeasurement row: its current
+    value (averaged across both sides for a bilateral location when both sides are present) and
+    its delta since the most recent prior entry with a non-null value for that field. A bilateral
+    location missing one side shows that side alone, clearly labeled -- never averaged with
+    None/zero (Review Focus item 1)."""
+    if not entries:
+        return None
+
+    points: dict[str, dict] = {}
+    for key, left_field, right_field, label in BILATERAL_LOCATIONS:
+        left_val, left_delta = _field_current_and_delta(entries, left_field)
+        right_val, right_delta = _field_current_and_delta(entries, right_field)
+        if left_val is not None and right_val is not None:
+            deltas = [d for d in (left_delta, right_delta) if d is not None]
+            points[key] = {
+                "label": label,
+                "value": round((left_val + right_val) / 2, 2),
+                "delta": round(sum(deltas) / len(deltas), 2) if deltas else None,
+                "side": None,
+            }
+        elif left_val is not None:
+            points[key] = {"label": label, "value": left_val, "delta": left_delta, "side": "L"}
+        elif right_val is not None:
+            points[key] = {"label": label, "value": right_val, "delta": right_delta, "side": "R"}
+        else:
+            points[key] = {"label": label, "value": None, "delta": None, "side": None}
+
+    for field, label in UNILATERAL_LOCATIONS:
+        value, delta = _field_current_and_delta(entries, field)
+        points[field] = {"label": label, "value": value, "delta": delta, "side": None}
+
+    return points
+
+
+def _macros_context(user: User, latest_weight: float | None) -> dict:
+    """Never raises -- a missing required profile field or missing weight yields a `status` the
+    template turns into a plain prompt instead of computing anything (Review Focus item 5)."""
+    required = {
+        "sex": user.sex, "birth_date": user.birth_date,
+        "height_in": user.height_in, "activity_level": user.activity_level,
+    }
+    missing = [name for name, value in required.items() if value is None]
+    if missing:
+        return {"status": "missing_profile", "missing_fields": missing}
+    if latest_weight is None:
+        return {"status": "missing_weight"}
+
+    today = date.today()
+    birth_date = user.birth_date
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+    goal = user.macro_goal or MacroGoal.MAINTAIN
+    preset = user.diet_preset or DietPreset.BALANCED
+    custom = None
+    if preset == DietPreset.CUSTOM:
+        if None in (user.custom_protein_pct, user.custom_carb_pct, user.custom_fat_pct):
+            return {"status": "missing_custom_macros"}
+        custom = (user.custom_protein_pct, user.custom_carb_pct, user.custom_fat_pct)
+
+    bmr_value = bmr(latest_weight, user.height_in, age, user.sex)
+    tdee_value = tdee(bmr_value, user.activity_level)
+    calories, floored = target_calories(tdee_value, goal, user.sex)
+    try:
+        protein_g, carb_g, fat_g = macros_for_preset(calories, preset, custom)
+    except ValueError as exc:
+        return {"status": "error", "message": str(exc)}
+
+    return {
+        "status": "ok",
+        "age": age,
+        "calories": round(calories),
+        "floored": floored,
+        "protein_g": round(protein_g),
+        "carb_g": round(carb_g),
+        "fat_g": round(fat_g),
+    }
+
+
 def _render(request: Request, session: Session, uid: int, *, tab: str = "measurements",
            form: dict | None = None, errors: dict | None = None, status_code: int = 200):
     own_entries = session.scalars(
@@ -52,6 +166,13 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
 
     tab = tab if tab in TABS else "measurements"
 
+    me_user = session.get(User, uid)
+    latest_weight = own_entries[0].weight_lbs if own_entries else None
+    water = None
+    if latest_weight is not None:
+        goal_oz = water_goal_oz(latest_weight, me_user.water_goal_oz if me_user else None)
+        water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz)}
+
     return templates.TemplateResponse(request, "measurements/index.html", {
         "entries": own_entries,
         "shared_views": shared_views,
@@ -59,6 +180,9 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "errors": errors or {},
         "today": date.today().isoformat(),
         "active_tab": tab,
+        "silhouette": _silhouette_points(own_entries),
+        "water": water,
+        "macros": _macros_context(me_user, latest_weight) if me_user else {"status": "missing_profile", "missing_fields": []},
     }, status_code=status_code)
 
 

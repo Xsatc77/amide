@@ -17,6 +17,56 @@
 </div>
 
 {% if active_tab == 'measurements' %}
+{% if silhouette %}
+<section aria-labelledby="silhouette-heading">
+  <h2 id="silhouette-heading" class="section-title">Body silhouette</h2>
+  <div class="silhouette-wrap">
+    <svg viewBox="0 0 200 400" class="body-silhouette" aria-label="Body measurement diagram">
+      <path d="M100 10 C80 10 70 30 70 50 C70 70 80 90 70 110 L60 180 L55 260 L60 340 L70 390 L90 390 L92 260 L100 200 L108 260 L110 390 L130 390 L140 340 L145 260 L140 180 L130 110 C120 90 130 70 130 50 C130 30 120 10 100 10 Z"
+            fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle data-point="neck_in" cx="100" cy="40" r="6"></circle>
+      <circle data-point="biceps" cx="65" cy="120" r="6"></circle>
+      <circle data-point="biceps" cx="135" cy="120" r="6"></circle>
+      <circle data-point="forearm" cx="55" cy="170" r="6"></circle>
+      <circle data-point="forearm" cx="145" cy="170" r="6"></circle>
+      <circle data-point="waist_in" cx="100" cy="180" r="6"></circle>
+      <circle data-point="hips_in" cx="100" cy="210" r="6"></circle>
+      <circle data-point="quad" cx="82" cy="260" r="6"></circle>
+      <circle data-point="quad" cx="118" cy="260" r="6"></circle>
+      <circle data-point="calf" cx="85" cy="330" r="6"></circle>
+      <circle data-point="calf" cx="115" cy="330" r="6"></circle>
+    </svg>
+    <ul class="silhouette-legend">
+      {% for key, pt in silhouette.items() %}
+      <li>
+        <strong>{{ pt.label }}:</strong>
+        {% if pt.value is none %}
+          <span class="muted">No data</span>
+        {% elif pt.side %}
+          {{ pt.side }} only: {{ pt.value }} in
+        {% else %}
+          {{ pt.value }} in
+        {% endif %}
+        {% if pt.delta is not none %}
+          <span class="{{ 'delta-down' if pt.delta < 0 else 'delta-up' }}">({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }})</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+{% if water %}
+<section aria-labelledby="water-heading">
+  <h2 id="water-heading" class="section-title">Water goal</h2>
+  <p>
+    <strong>{{ water.goal_oz }} oz/day</strong>
+    <span class="muted">(about {{ '%.1f'|format(water.pace.cups_per_hour) }} cups/hour to pace it over 16 waking hours)</span>
+  </p>
+</section>
+{% endif %}
+
 <section aria-labelledby="entry-heading">
   <h2 id="entry-heading" class="section-title">Log a measurement</h2>
   <form method="post" action="/measurements" class="settings-form" novalidate>
@@ -161,8 +211,40 @@
 {% endif %}
 
 {% elif active_tab == 'macros' %}
-<section class="dashboard-placeholders">
-  <div class="card"><h3>Macros</h3><p class="muted">Coming in a future update.</p></div>
+<section aria-labelledby="macros-heading">
+  <h2 id="macros-heading" class="section-title">Macros</h2>
+  {% if macros.status == 'missing_profile' %}
+  <div class="empty">
+    <p><strong>Add your body profile to see your macros.</strong></p>
+    <p class="muted">We need your sex, birth date, height, and activity level to calculate your calorie and macro targets.</p>
+    <p><a href="/settings">Go to Settings</a></p>
+  </div>
+  {% elif macros.status == 'missing_weight' %}
+  <div class="empty">
+    <p><strong>Log a weight entry to see your macros.</strong></p>
+    <p class="muted">Add a weight on the Measurements tab first.</p>
+  </div>
+  {% elif macros.status == 'missing_custom_macros' %}
+  <div class="empty">
+    <p><strong>Add your custom macro percentages in Settings.</strong></p>
+    <p class="muted">Your diet preset is set to Custom, but the protein/carb/fat percentages aren't filled in yet.</p>
+    <p><a href="/settings">Go to Settings</a></p>
+  </div>
+  {% elif macros.status == 'error' %}
+  <div class="empty"><p>{{ macros.message }}</p></div>
+  {% else %}
+  <div class="card">
+    {% if macros.floored %}
+    <p class="alert" role="alert">Adjusted: your calculated target was below a safe minimum, so it was raised to a safe floor.</p>
+    {% endif %}
+    <p class="stat-big">{{ macros.calories }} kcal/day</p>
+    <ul>
+      <li>Protein: {{ macros.protein_g }} g</li>
+      <li>Carbs: {{ macros.carb_g }} g</li>
+      <li>Fat: {{ macros.fat_g }} g</li>
+    </ul>
+  </div>
+  {% endif %}
 </section>
 
 {% elif active_tab == 'journal' %}
