@@ -97,6 +97,37 @@ class ShareCategory(LabeledEnum):
     PERSONAL_DATA = ("personal_data", "Personal data")
 
 
+class BiologicalSex(str, enum.Enum):
+    MALE = "Male"
+    FEMALE = "Female"
+
+
+class ActivityLevel(LabeledEnum):
+    SEDENTARY = ("1.2", "Sedentary — little or no exercise")
+    LIGHTLY_ACTIVE = ("1.375", "Lightly active — 1-3 days/week")
+    MODERATELY_ACTIVE = ("1.55", "Moderately active — 3-5 days/week")
+    VERY_ACTIVE = ("1.725", "Very active — 6-7 days/week")
+    EXTRA_ACTIVE = ("1.9", "Extra active — physical job or 2x/day training")
+
+
+class MacroGoal(LabeledEnum):
+    AGGRESSIVE_LOSS = ("-1000", "Aggressive fat loss")
+    MODERATE_LOSS = ("-500", "Moderate fat loss")
+    SLOW_LOSS = ("-250", "Slow fat loss")
+    MAINTAIN = ("0", "Maintain current weight")
+    SLOW_GAIN = ("250", "Slow muscle gain")
+    MODERATE_GAIN = ("500", "Moderate muscle gain")
+    AGGRESSIVE_GAIN = ("1000", "Aggressive muscle gain")
+
+
+class DietPreset(LabeledEnum):
+    BALANCED = ("balanced", "Balanced (30/40/30)")
+    HIGH_PROTEIN = ("high_protein", "High protein (40/30/30)")
+    LOW_CARB = ("low_carb", "Low carb (40/15/45)")
+    KETO = ("keto", "Ketogenic (20/5/75)")
+    CUSTOM = ("custom", "Custom ratio")
+
+
 class Vendor(Base):
     """A supplier. Shared across all users (like the peptide library), not scoped per owner --
     what a user says they bought from a vendor stays private per Inventory sharing; the vendor
@@ -628,6 +659,16 @@ class User(Base):
     default_discard_days: Mapped[int | None] = mapped_column(Integer)
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
+    sex: Mapped[BiologicalSex | None] = mapped_column(_enum_column(BiologicalSex))
+    birth_date: Mapped[date | None] = mapped_column(Date)
+    height_in: Mapped[float | None] = mapped_column(Float)
+    activity_level: Mapped[ActivityLevel | None] = mapped_column(_enum_column(ActivityLevel))
+    macro_goal: Mapped[MacroGoal | None] = mapped_column(_enum_column(MacroGoal))
+    diet_preset: Mapped[DietPreset | None] = mapped_column(_enum_column(DietPreset))
+    custom_protein_pct: Mapped[int | None] = mapped_column(Integer)
+    custom_carb_pct: Mapped[int | None] = mapped_column(Integer)
+    custom_fat_pct: Mapped[int | None] = mapped_column(Integer)
+    water_goal_oz: Mapped[int | None] = mapped_column(Integer)
 
     @property
     def initial(self) -> str:
@@ -662,3 +703,44 @@ class LoginSession(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime)
 
     user: Mapped[User | None] = relationship()
+
+
+class BodyMeasurement(Base):
+    """One weigh-in/measurement session. Every field nullable -- log just weight some days, a full
+    tape-measure session on others. Bilateral parts store both sides; the silhouette/charts show
+    their average (Task 5), the entry's own detail view shows both raw numbers."""
+    __tablename__ = "body_measurements"
+    __table_args__ = (
+        CheckConstraint("weight_lbs IS NULL OR weight_lbs > 0", name="ck_body_measurement_weight_pos"),
+        CheckConstraint("systolic IS NULL OR systolic > 0", name="ck_body_measurement_systolic_pos"),
+        CheckConstraint("diastolic IS NULL OR diastolic > 0", name="ck_body_measurement_diastolic_pos"),
+        CheckConstraint("neck_in IS NULL OR neck_in > 0", name="ck_body_measurement_neck_pos"),
+        CheckConstraint("waist_in IS NULL OR waist_in > 0", name="ck_body_measurement_waist_pos"),
+        CheckConstraint("hips_in IS NULL OR hips_in > 0", name="ck_body_measurement_hips_pos"),
+        CheckConstraint("biceps_l_in IS NULL OR biceps_l_in > 0", name="ck_body_measurement_biceps_l_pos"),
+        CheckConstraint("biceps_r_in IS NULL OR biceps_r_in > 0", name="ck_body_measurement_biceps_r_pos"),
+        CheckConstraint("forearm_l_in IS NULL OR forearm_l_in > 0", name="ck_body_measurement_forearm_l_pos"),
+        CheckConstraint("forearm_r_in IS NULL OR forearm_r_in > 0", name="ck_body_measurement_forearm_r_pos"),
+        CheckConstraint("quad_l_in IS NULL OR quad_l_in > 0", name="ck_body_measurement_quad_l_pos"),
+        CheckConstraint("quad_r_in IS NULL OR quad_r_in > 0", name="ck_body_measurement_quad_r_pos"),
+        CheckConstraint("calf_l_in IS NULL OR calf_l_in > 0", name="ck_body_measurement_calf_l_pos"),
+        CheckConstraint("calf_r_in IS NULL OR calf_r_in > 0", name="ck_body_measurement_calf_r_pos"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    measured_at: Mapped[date] = mapped_column(Date, index=True)
+    weight_lbs: Mapped[float | None] = mapped_column(Float)
+    systolic: Mapped[int | None] = mapped_column(Integer)
+    diastolic: Mapped[int | None] = mapped_column(Integer)
+    neck_in: Mapped[float | None] = mapped_column(Float)
+    waist_in: Mapped[float | None] = mapped_column(Float)
+    hips_in: Mapped[float | None] = mapped_column(Float)
+    biceps_l_in: Mapped[float | None] = mapped_column(Float)
+    biceps_r_in: Mapped[float | None] = mapped_column(Float)
+    forearm_l_in: Mapped[float | None] = mapped_column(Float)
+    forearm_r_in: Mapped[float | None] = mapped_column(Float)
+    quad_l_in: Mapped[float | None] = mapped_column(Float)
+    quad_r_in: Mapped[float | None] = mapped_column(Float)
+    calf_l_in: Mapped[float | None] = mapped_column(Float)
+    calf_r_in: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

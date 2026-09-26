@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% set active_nav = "measurements" %}
+{% block title %}Weight & Measurements{% endblock %}
+
+{% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Weight & Measurements</h1>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Weight & Measurements sections">
+  <a href="/measurements?tab=measurements" class="tab {{ 'active' if active_tab == 'measurements' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'measurements' else 'false' }}">Measurements</a>
+  <a href="/measurements?tab=macros" class="tab {{ 'active' if active_tab == 'macros' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'macros' else 'false' }}">Macros</a>
+  <a href="/measurements?tab=journal" class="tab {{ 'active' if active_tab == 'journal' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'journal' else 'false' }}">Journal</a>
+  <a href="/measurements?tab=labs" class="tab {{ 'active' if active_tab == 'labs' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'labs' else 'false' }}">Labs</a>
+</div>
+
+{% if active_tab == 'measurements' %}
+{% if silhouette %}
+<section aria-labelledby="silhouette-heading">
+  <h2 id="silhouette-heading" class="section-title">Body silhouette</h2>
+  <div class="silhouette-wrap">
+    <svg viewBox="0 0 200 400" class="body-silhouette" aria-label="Body measurement diagram">
+      <path d="M100 10 C80 10 70 30 70 50 C70 70 80 90 70 110 L60 180 L55 260 L60 340 L70 390 L90 390 L92 260 L100 200 L108 260 L110 390 L130 390 L140 340 L145 260 L140 180 L130 110 C120 90 130 70 130 50 C130 30 120 10 100 10 Z"
+            fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle data-point="neck_in" cx="100" cy="40" r="6"></circle>
+      <circle data-point="biceps" cx="65" cy="120" r="6"></circle>
+      <circle data-point="biceps" cx="135" cy="120" r="6"></circle>
+      <circle data-point="forearm" cx="55" cy="170" r="6"></circle>
+      <circle data-point="forearm" cx="145" cy="170" r="6"></circle>
+      <circle data-point="waist_in" cx="100" cy="180" r="6"></circle>
+      <circle data-point="hips_in" cx="100" cy="210" r="6"></circle>
+      <circle data-point="quad" cx="82" cy="260" r="6"></circle>
+      <circle data-point="quad" cx="118" cy="260" r="6"></circle>
+      <circle data-point="calf" cx="85" cy="330" r="6"></circle>
+      <circle data-point="calf" cx="115" cy="330" r="6"></circle>
+    </svg>
+    <ul class="silhouette-legend">
+      {% for key, pt in silhouette.items() %}
+      <li>
+        <strong>{{ pt.label }}:</strong>
+        {% if pt.value is none %}
+          <span class="muted">No data</span>
+        {% elif pt.side %}
+          {{ pt.side }} only: {{ pt.value }} in
+        {% else %}
+          {{ pt.value }} in
+        {% endif %}
+        {% if pt.delta is not none %}
+          <span class="{{ 'delta-down' if pt.delta < 0 else 'delta-up' }}">({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }})</span>
+        {% endif %}
+        {% if pt.as_of %}
+          <span class="muted">(as of {{ pt.as_of.strftime('%b') }} {{ pt.as_of.day }}, {{ pt.as_of.year }})</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+{% if charts %}
+<section aria-labelledby="charts-heading">
+  <h2 id="charts-heading" class="section-title">Charts</h2>
+  <div class="tabs" role="tablist" aria-label="Chart range">
+    {% for opt in charts.range_options %}
+    <a href="/measurements?tab=measurements&range={{ opt }}" class="tab {{ 'active' if charts.range == opt }}" role="tab" aria-selected="{{ 'true' if charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
+    {% endfor %}
+  </div>
+
+  {% macro line_chart(chart, label, stroke='currentColor') %}
+  {% if chart %}
+  <div class="card">
+    <h3>{{ label }}</h3>
+    <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
+      <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
+      {% for cx, cy in chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}"></circle>{% endfor %}
+    </svg>
+    <p class="muted">{{ chart.min_d.strftime('%b') }} {{ chart.min_d.day }}, {{ chart.min_d.year }} – {{ chart.max_d.strftime('%b') }} {{ chart.max_d.day }}, {{ chart.max_d.year }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
+  </div>
+  {% endif %}
+  {% endmacro %}
+
+  <div class="dashboard-placeholders">
+    {% for s in charts.series %}
+      {{ line_chart(s.chart, s.label) }}
+    {% endfor %}
+
+    {% if charts.bp %}
+    <div class="card">
+      <h3>Blood pressure</h3>
+      <svg viewBox="0 0 {{ charts.bp.width }} {{ charts.bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
+        <polyline points="{{ charts.bp.poly_a }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+        {% for cx, cy in charts.bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+        <polyline points="{{ charts.bp.poly_b }}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"></polyline>
+        {% for cx, cy in charts.bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+      </svg>
+      <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ charts.bp.min_d.strftime('%b') }} {{ charts.bp.min_d.day }}, {{ charts.bp.min_d.year }} – {{ charts.bp.max_d.strftime('%b') }} {{ charts.bp.max_d.day }}, {{ charts.bp.max_d.year }}</p>
+    </div>
+    {% endif %}
+
+    {{ line_chart(charts.bmi, 'BMI') }}
+    {% if charts.bf %}
+      {{ line_chart(charts.bf, 'Body fat %') }}
+    {% elif charts.bf_status == 'insufficient' %}
+    <div class="card">
+      <h3>Body fat %</h3>
+      <p class="muted">Not enough data to calculate body fat % -- check that waist is greater than neck (and, for a female profile, that hips are logged too).</p>
+    </div>
+    {% endif %}
+
+    {% if not charts.series|selectattr('chart')|list and not charts.bp and not charts.bmi and not charts.bf and not charts.bf_status %}
+    <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if water %}
+<section aria-labelledby="water-heading">
+  <h2 id="water-heading" class="section-title">Water goal</h2>
+  <p>
+    <strong>{{ water.goal_oz }} oz/day</strong>
+    <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups per hour, or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles per hour, to pace it over 16 waking hours)</span>
+    {% if water.weight_as_of %}
+    <span class="muted">(based on your weight as of {{ water.weight_as_of.strftime('%b') }} {{ water.weight_as_of.day }}, {{ water.weight_as_of.year }})</span>
+    {% endif %}
+  </p>
+</section>
+{% endif %}
+
+<section aria-labelledby="entry-heading">
+  <h2 id="entry-heading" class="section-title">Log a measurement</h2>
+  <form method="post" action="/measurements" class="settings-form" novalidate>
+    <div class="grid">
+      <label class="field {{ 'has-error' if errors.measured_at }}">
+        <span>Date</span>
+        <input name="measured_at" type="date" value="{{ form.measured_at or today }}">
+        {{ err('measured_at') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.weight_lbs }}">
+        <span>Weight (lbs) <span class="muted" title="Best to weigh within 1 hour of waking, at least once a week, no clothing.">ⓘ</span></span>
+        <input name="weight_lbs" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.weight_lbs or '' }}">
+        {{ err('weight_lbs') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.systolic }}">
+        <span>Systolic</span>
+        <input name="systolic" type="number" step="1" min="0" inputmode="numeric" value="{{ form.systolic or '' }}">
+        {{ err('systolic') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.diastolic }}">
+        <span>Diastolic</span>
+        <input name="diastolic" type="number" step="1" min="0" inputmode="numeric" value="{{ form.diastolic or '' }}">
+        {{ err('diastolic') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.neck_in }}">
+        <span>Neck (in)</span>
+        <input name="neck_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.neck_in or '' }}">
+        {{ err('neck_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.waist_in }}">
+        <span>Waist (in)</span>
+        <input name="waist_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.waist_in or '' }}">
+        {{ err('waist_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.hips_in }}">
+        <span>Hips (in)</span>
+        <input name="hips_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.hips_in or '' }}">
+        {{ err('hips_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.biceps_l_in }}">
+        <span>Biceps L (in)</span>
+        <input name="biceps_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.biceps_l_in or '' }}">
+        {{ err('biceps_l_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.biceps_r_in }}">
+        <span>Biceps R (in)</span>
+        <input name="biceps_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.biceps_r_in or '' }}">
+        {{ err('biceps_r_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.forearm_l_in }}">
+        <span>Forearm L (in)</span>
+        <input name="forearm_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.forearm_l_in or '' }}">
+        {{ err('forearm_l_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.forearm_r_in }}">
+        <span>Forearm R (in)</span>
+        <input name="forearm_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.forearm_r_in or '' }}">
+        {{ err('forearm_r_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.quad_l_in }}">
+        <span>Quad L (in)</span>
+        <input name="quad_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.quad_l_in or '' }}">
+        {{ err('quad_l_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.quad_r_in }}">
+        <span>Quad R (in)</span>
+        <input name="quad_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.quad_r_in or '' }}">
+        {{ err('quad_r_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.calf_l_in }}">
+        <span>Calf L (in)</span>
+        <input name="calf_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.calf_l_in or '' }}">
+        {{ err('calf_l_in') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.calf_r_in }}">
+        <span>Calf R (in)</span>
+        <input name="calf_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.calf_r_in or '' }}">
+        {{ err('calf_r_in') }}
+      </label>
+    </div>
+    <button type="submit">Log a measurement</button>
+  </form>
+</section>
+
+<section aria-labelledby="entries-heading">
+  <h2 id="entries-heading" class="section-title">Recent entries</h2>
+  {% if not entries %}
+  <div class="empty">
+    <p><strong>No measurements logged yet.</strong></p>
+    <p class="muted">Log a measurement above to start tracking your weight and body measurements.</p>
+  </div>
+  {% else %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Weight (lbs)</th>
+          <th>Waist (in)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in entries %}
+        <tr>
+          <td data-label="Date">{{ m.measured_at.strftime('%b') }} {{ m.measured_at.day }}, {{ m.measured_at.year }}</td>
+          <td data-label="Weight (lbs)">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
+          <td data-label="Waist (in)">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+{% if shared_views %}
+<section aria-labelledby="shared-heading">
+  <h2 id="shared-heading" class="section-title">Shared with you</h2>
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Weight (lbs)</th>
+          <th>Waist (in)</th>
+          <th>Shared by</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in shared_views %}
+        <tr>
+          <td data-label="Date">{{ v.m.measured_at.strftime('%b') }} {{ v.m.measured_at.day }}, {{ v.m.measured_at.year }}</td>
+          <td data-label="Weight (lbs)">{{ v.m.weight_lbs if v.m.weight_lbs is not none else '—' }}</td>
+          <td data-label="Waist (in)">{{ v.m.waist_in if v.m.waist_in is not none else '—' }}</td>
+          <td data-label="Shared by">{{ v.owner_name }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% elif active_tab == 'macros' %}
+<section aria-labelledby="macros-heading">
+  <h2 id="macros-heading" class="section-title">Macros</h2>
+  {% if macros.status == 'missing_profile' %}
+  <div class="empty">
+    <p><strong>Add your body profile to see your macros.</strong></p>
+    <p class="muted">We need your sex, birth date, height, and activity level to calculate your calorie and macro targets.</p>
+    <p><a href="/settings">Go to Settings</a></p>
+  </div>
+  {% elif macros.status == 'missing_weight' %}
+  <div class="empty">
+    <p><strong>Log a weight entry to see your macros.</strong></p>
+    <p class="muted">Add a weight on the Measurements tab first.</p>
+  </div>
+  {% elif macros.status == 'missing_custom_macros' %}
+  <div class="empty">
+    <p><strong>Add your custom macro percentages in Settings.</strong></p>
+    <p class="muted">Your diet preset is set to Custom, but the protein/carb/fat percentages aren't filled in yet.</p>
+    <p><a href="/settings">Go to Settings</a></p>
+  </div>
+  {% elif macros.status == 'error' %}
+  <div class="empty"><p>{{ macros.message }}</p></div>
+  {% else %}
+  <div class="card">
+    {% if macros.floored %}
+    <p class="alert" role="alert">Adjusted: your calculated target was below a safe minimum, so it was raised to a safe floor.</p>
+    {% endif %}
+    <p class="stat-big">{{ macros.calories }} kcal/day</p>
+    <ul>
+      <li>Protein: {{ macros.protein_g }} g</li>
+      <li>Carbs: {{ macros.carb_g }} g</li>
+      <li>Fat: {{ macros.fat_g }} g</li>
+    </ul>
+  </div>
+  {% endif %}
+</section>
+
+{% elif active_tab == 'journal' %}
+<section class="dashboard-placeholders">
+  <div class="card"><h3>Journal</h3><p class="muted">Coming in a future update.</p></div>
+</section>
+
+{% elif active_tab == 'labs' %}
+<section class="dashboard-placeholders">
+  <div class="card"><h3>Labs</h3><p class="muted">Coming in a future update.</p></div>
+</section>
+{% endif %}
+{% endblock %}
