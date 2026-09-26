@@ -141,6 +141,7 @@ class InventoryItem(Base):
     # Autoinjector: doses/clicks per pen. Pill: pills per bottle.
     units_per_package: Mapped[int | None] = mapped_column(Integer)
     expiration_date: Mapped[date | None] = mapped_column(Date)
+    low_stock_threshold: Mapped[int | None] = mapped_column(Integer)  # None -> User.low_stock_default
     storage: Mapped[StorageLocation | None] = mapped_column(_enum_column(StorageLocation))
     # Money is stored as integer cents to avoid floating-point rounding.
     cost_cents: Mapped[int | None] = mapped_column(Integer)
@@ -567,6 +568,8 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(64))
     colorway: Mapped[Colorway | None] = mapped_column(_enum_column(Colorway))
     default_discard_days: Mapped[int | None] = mapped_column(Integer)
+    low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
+    shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
 
     @property
     def initial(self) -> str:

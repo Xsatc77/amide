@@ -389,3 +389,33 @@ def test_0014_adds_dose_logging(tmp_path):
         assert "dose_logs" not in tables
         vial_cols = {r[1] for r in c.execute("pragma table_info(active_vials)")}
         assert "dispensing_method" not in vial_cols and "volume_remaining_ml" not in vial_cols
+
+
+def test_0015_adds_dashboard_thresholds(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0014")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-25')")
+        c.execute("insert into inventory_items(name,count,vial_size_unit,category,created_at,"
+                  "updated_at,owner_id) values ('Retatrutide',0,'mg','Medicine','2026-09-25',"
+                  "'2026-09-25',1)")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        user_cols = {r[1] for r in c.execute("pragma table_info(users)")}
+        assert {"low_stock_default", "shipment_delay_days"} <= user_cols
+        item_cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+        assert "low_stock_threshold" in item_cols
+        # All three must be nullable (None means "use the default") -- explicitly set 0 must
+        # round-trip as 0, never coerced to NULL or rejected.
+        c.execute("update inventory_items set low_stock_threshold = 0 where name = 'Retatrutide'")
+        value = c.execute(
+            "select low_stock_threshold from inventory_items where name = 'Retatrutide'").fetchone()[0]
+        assert value == 0
+    command.downgrade(cfg, "0014")
+    with sqlite3.connect(db) as c:
+        user_cols = {r[1] for r in c.execute("pragma table_info(users)")}
+        assert "low_stock_default" not in user_cols and "shipment_delay_days" not in user_cols
+        item_cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+        assert "low_stock_threshold" not in item_cols
