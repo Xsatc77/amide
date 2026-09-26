@@ -489,3 +489,39 @@ def test_0017_adds_weight_measurements(tmp_path):
         assert "body_measurements" not in tables
         user_cols = {r[1] for r in c.execute("pragma table_info(users)")}
         assert "sex" not in user_cols
+
+
+def test_0018_adds_journal(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0017")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-28')")
+        uid = c.execute("select id from users where username='A'").fetchone()[0]
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert {"journal_entries", "journal_entry_side_effects", "journal_quick_notes"} <= tables
+        entry_cols = {r[1] for r in c.execute("pragma table_info(journal_entries)")}
+        assert {"owner_id", "entry_date", "mood", "energy", "sleep_quality",
+               "side_effects_other", "notes", "created_at"} <= entry_cols
+        c.execute("insert into journal_entries(owner_id, entry_date, created_at) "
+                  "values (?, '2026-09-28', '2026-09-28')", (uid,))
+        entry_id = c.execute("select id from journal_entries where owner_id = ?", (uid,)).fetchone()[0]
+        # unique (owner_id, entry_date) enforced
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into journal_entries(owner_id, entry_date, created_at) "
+                      "values (?, '2026-09-28', '2026-09-28')", (uid,))
+        # mood range constraint enforced
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into journal_entries(owner_id, entry_date, mood, created_at) "
+                      "values (?, '2026-09-29', 6, '2026-09-28')", (uid,))
+        c.execute("insert into journal_entry_side_effects(entry_id, side_effect) values (?, 'Headache')",
+                  (entry_id,))
+        c.execute("insert into journal_quick_notes(entry_id, noted_at, text) values (?, '2026-09-28T14:00:00', 'felt foggy')",
+                  (entry_id,))
+    command.downgrade(cfg, "0017")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert not ({"journal_entries", "journal_entry_side_effects", "journal_quick_notes"} & tables)

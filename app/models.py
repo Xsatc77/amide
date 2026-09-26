@@ -25,7 +25,11 @@ class LabeledEnum(str, enum.Enum):
 
 
 def _enum_column(cls):
-    return Enum(cls, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
+    # Calculate length needed for the longest enum value
+    max_length = max(len(m.value) for m in cls)
+    # Use at least 20, but round up to handle future additions
+    length = max(20, max_length + 5)
+    return Enum(cls, native_enum=False, length=length, values_callable=lambda e: [m.value for m in e])
 
 
 class DoseUnit(LabeledEnum):
@@ -100,6 +104,19 @@ class ShareCategory(LabeledEnum):
 class BiologicalSex(str, enum.Enum):
     MALE = "Male"
     FEMALE = "Female"
+
+
+class JournalSideEffect(str, enum.Enum):
+    INJECTION_SITE_REACTION = "Injection site reaction"
+    HEADACHE = "Headache"
+    NAUSEA = "Nausea"
+    FATIGUE = "Fatigue"
+    BLOATING = "Bloating / water retention"
+    GI_UPSET = "GI upset"
+    JOINT_PAIN = "Joint pain"
+    INSOMNIA = "Insomnia"
+    APPETITE_CHANGE = "Appetite change"
+    FLUSHING_DIZZINESS = "Flushing / dizziness"
 
 
 class ActivityLevel(LabeledEnum):
@@ -744,3 +761,55 @@ class BodyMeasurement(Base):
     calf_l_in: Mapped[float | None] = mapped_column(Float)
     calf_r_in: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class JournalEntry(Base):
+    """One row per user per calendar day. Auto-created by the first quick note of the day if no
+    full entry exists yet (mood/energy/sleep_quality/side effects left null/empty); a full-form
+    save on a day that already has a row edits it in place rather than creating a duplicate."""
+    __tablename__ = "journal_entries"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "entry_date", name="uq_journal_entry_owner_date"),
+        CheckConstraint("mood IS NULL OR mood BETWEEN 1 AND 5", name="ck_journal_entry_mood_range"),
+        CheckConstraint("energy IS NULL OR energy BETWEEN 1 AND 5", name="ck_journal_entry_energy_range"),
+        CheckConstraint("sleep_quality IS NULL OR sleep_quality BETWEEN 1 AND 5", name="ck_journal_entry_sleep_range"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    entry_date: Mapped[date] = mapped_column(Date, index=True)
+    mood: Mapped[int | None] = mapped_column(Integer)
+    energy: Mapped[int | None] = mapped_column(Integer)
+    sleep_quality: Mapped[int | None] = mapped_column(Integer)
+    side_effects_other: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    side_effects: Mapped[list["JournalEntrySideEffect"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan")
+    quick_notes: Mapped[list["JournalQuickNote"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan", order_by="JournalQuickNote.noted_at")
+
+
+class JournalEntrySideEffect(Base):
+    """One flag row per checked side-effect tag -- a fixed enum, not a user-addable lookup table."""
+    __tablename__ = "journal_entry_side_effects"
+    __table_args__ = (
+        UniqueConstraint("entry_id", "side_effect", name="uq_journal_entry_side_effect"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("journal_entries.id", ondelete="CASCADE"), index=True)
+    side_effect: Mapped[JournalSideEffect] = mapped_column(_enum_column(JournalSideEffect))
+
+    entry: Mapped["JournalEntry"] = relationship(back_populates="side_effects")
+
+
+class JournalQuickNote(Base):
+    """A single dashboard quick-capture note, timestamped to when it was written. Displayed
+    underneath the day's main `notes` field, never merged into it."""
+    __tablename__ = "journal_quick_notes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("journal_entries.id", ondelete="CASCADE"), index=True)
+    noted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    text: Mapped[str] = mapped_column(Text)
+
+    entry: Mapped["JournalEntry"] = relationship(back_populates="quick_notes")
