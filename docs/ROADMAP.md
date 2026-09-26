@@ -95,11 +95,11 @@ Firm up the base before anything depends on it.
 ## Phase 4 — v0.5: Quick View Dashboard
 
 - ✅ *Calendar (month / week / day views of scheduled doses) shipped, now with adherence color-coding since Daily Dosing (v0.4).* Next: tick doses off directly from the calendar (today only the Today view and the Protocol page's catch-up list can log a dose).
-
-- Today's doses and what's already done
-- Low stock and "runs out on…" predictions (from protocol usage × inventory)
-- Vials nearing their discard date
-- Adherence streak, current titration step per protocol
+- 🚧 *Dashboard in progress (spec: `docs/superpowers/specs/2026-09-26-dashboard-design.md`)* — becomes the new homepage: Today's Schedule summary, Alerts (low stock, vial/BAC/stock expiration — both "soon" and already-expired, shipment running long), a Cost snapshot (cost per vial/dose from existing order data), an Adherence snapshot, and a single-person **viewer switcher** for anyone who's shared data with you (never blended). This covers the "today's doses," "low stock," "vials nearing discard," and "adherence streak" bullets below.
+  - **Deferred out of this build, for later:** per-widget show/hide toggles (ships as one fixed layout first; toggles are a fast-follow once it's been used for a while); per-vendor historical shipment-time averaging (needs Phase 5's still-open Vendor management page to store it — v1 uses a flat 21-day default instead); real Weight/Measurements, Journal, and Health-integration widgets stay **placeholder cards only** until Phases 6 and 9 actually build those features — the Dashboard just reserves their layout slot.
+- ~~Today's doses and what's already done~~ / ~~Low stock~~ / ~~Vials nearing their discard date~~ / ~~Adherence streak~~ — covered by the Dashboard above.
+- "Runs out on…" predictions (from protocol usage × inventory) — not part of the Dashboard v1 build; still open.
+- Current titration step per protocol on the Dashboard — not part of v1; still open (already visible on the Protocol page itself).
 - Subscribe to calendar on device (Apple, Google, Android, etc)
 - **Reminders:** browser push notifications and/or [ntfy](https://ntfy.sh) / email
 - **Installable phone app (PWA)** so Amide opens from your home screen like a native app
