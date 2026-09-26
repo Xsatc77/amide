@@ -1945,6 +1945,27 @@ def test_new_order_validation_error_elsewhere_does_not_create_orphaned_new_vendo
         assert s.query(Vendor).filter_by(name="Orphan Check Vendor").count() == 0
 
 
+def test_new_order_resubmit_after_validation_error_with_new_vendor_creates_exactly_one_row(client, db):
+    # Review Focus item 5's own full round-trip: the failing submission above must leave behind
+    # zero Vendor rows, and a second, corrected submission of that SAME form must then create
+    # EXACTLY ONE -- never a leftover from the first attempt plus a second from the retry.
+    bad_payload = {
+        "order_date": "2026-09-01", "is_new_vendor": "yes", "name": "Resubmit Check Vendor",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-quantity": "5",  # no medium -- Medicine requires it, so this line 422s
+    }
+    r1 = client.post("/inventory/orders", data=bad_payload, follow_redirects=False)
+    assert r1.status_code == 422
+    with SessionLocal() as s:
+        assert s.query(Vendor).filter_by(name="Resubmit Check Vendor").count() == 0
+
+    good_payload = {**bad_payload, "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10"}
+    r2 = client.post("/inventory/orders", data=good_payload, follow_redirects=False)
+    assert r2.status_code == 303
+    with SessionLocal() as s:
+        assert s.query(Vendor).filter_by(name="Resubmit Check Vendor").count() == 1  # not 0, not 2
+
+
 def test_new_order_validation_error_does_not_create_orphaned_contact_or_payment_method_type(client, db):
     # Same Review Focus item 5 concern, one level deeper: a "+ New type..." contact/payment method
     # name must not resolve into a brand-new global ContactMethodType/PaymentMethodType row either,
