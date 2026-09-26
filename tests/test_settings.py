@@ -499,3 +499,37 @@ def test_dashboard_thresholds_rejects_non_positive(client, db, me):
     assert r.status_code == 422
     assert _current(me).low_stock_default is None
     assert _current(me).shipment_delay_days is None
+
+
+def test_body_profile_saves_all_fields(client, db):
+    try:
+        r = client.post("/settings/body-profile", data={
+            "sex": "Male", "birth_date": "1990-01-15", "height_in": "70",
+            "activity_level": "1.55", "macro_goal": "-500", "diet_preset": "balanced",
+            "water_goal_oz": "100",
+        }, follow_redirects=False)
+        assert r.status_code == 303
+        with SessionLocal() as s:
+            me = s.scalar(select(User).where(User.username_key == "tester"))
+            assert me.sex.value == "Male" and me.height_in == 70.0
+            assert me.activity_level.value == "1.55" and me.macro_goal.value == "-500"
+            assert me.diet_preset.value == "balanced" and me.water_goal_oz == 100
+    finally:
+        with SessionLocal() as s:
+            u = s.scalar(select(User).where(User.username_key == "tester"))
+            u.sex = u.birth_date = u.height_in = u.activity_level = None
+            u.macro_goal = u.diet_preset = u.water_goal_oz = None
+            s.commit()
+
+
+def test_body_profile_custom_diet_requires_percentages_summing_to_100(client, db):
+    r = client.post("/settings/body-profile", data={
+        "diet_preset": "custom", "custom_protein_pct": "40", "custom_carb_pct": "40",
+        "custom_fat_pct": "10",
+    })
+    assert r.status_code == 422
+
+
+def test_body_profile_fields_are_all_optional(client, db):
+    r = client.post("/settings/body-profile", data={}, follow_redirects=False)
+    assert r.status_code == 303

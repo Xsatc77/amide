@@ -7,13 +7,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import zoneinfo
-from datetime import timezone
+from datetime import date, timezone
 
 from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import Colorway, InventoryItem, Order, Protocol, Share, ShareCategory, User, Vendor
+from app.measurements.calculations import macros_for_preset
+from app.models import (
+    ActivityLevel, BiologicalSex, Colorway, DietPreset, InventoryItem, MacroGoal, Order, Protocol,
+    Share, ShareCategory, User, Vendor,
+)
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
 from app.users import user_rows
@@ -46,6 +50,8 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
     context = {
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
         "other_users": other_users, "my_shares": my_shares,
+        "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
+        "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset),
     }
     if me.is_admin:
         users = user_rows(session)
@@ -198,6 +204,94 @@ async def change_dashboard_thresholds(request: Request, session: Session = Depen
     me.shipment_delay_days = parsed["shipment_delay_days"]
     session.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/body-profile")
+async def change_body_profile(request: Request, session: Session = Depends(get_session),
+                              uid: int = Depends(current_user_id)):
+    form = await request.form()
+    errors: dict[str, str] = {}
+
+    def _raw(field: str) -> str:
+        return str(form.get(field, "")).strip()
+
+    def _parse_enum(field: str, enum_cls):
+        raw = _raw(field)
+        if not raw:
+            return None
+        try:
+            return enum_cls(raw)
+        except ValueError:
+            errors[field] = "Pick a value from the list."
+            return None
+
+    def _parse_float(field: str):
+        raw = _raw(field)
+        if not raw:
+            return None
+        try:
+            return float(raw)
+        except ValueError:
+            errors[field] = "Enter a number."
+            return None
+
+    def _parse_int(field: str):
+        raw = _raw(field)
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            errors[field] = "Enter a whole number."
+            return None
+
+    sex = _parse_enum("sex", BiologicalSex)
+    activity_level = _parse_enum("activity_level", ActivityLevel)
+    macro_goal = _parse_enum("macro_goal", MacroGoal)
+    diet_preset = _parse_enum("diet_preset", DietPreset)
+
+    birth_date = None
+    raw_birth_date = _raw("birth_date")
+    if raw_birth_date:
+        try:
+            birth_date = date.fromisoformat(raw_birth_date)
+        except ValueError:
+            errors["birth_date"] = "Enter a valid date."
+
+    height_in = _parse_float("height_in")
+    water_goal_oz = _parse_int("water_goal_oz")
+    custom_protein_pct = _parse_int("custom_protein_pct")
+    custom_carb_pct = _parse_int("custom_carb_pct")
+    custom_fat_pct = _parse_int("custom_fat_pct")
+
+    # Reuse Task 2's macros_for_preset validation (custom pcts required + must sum to 100) instead
+    # of re-implementing the same rule here -- the dummy calorie value is discarded, only the
+    # ValueError matters.
+    if diet_preset == DietPreset.CUSTOM and not errors:
+        custom = None
+        if None not in (custom_protein_pct, custom_carb_pct, custom_fat_pct):
+            custom = (custom_protein_pct, custom_carb_pct, custom_fat_pct)
+        try:
+            macros_for_preset(2000, DietPreset.CUSTOM, custom)
+        except ValueError as e:
+            errors["diet_preset"] = str(e)
+
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+
+    me = _me(session, uid)
+    me.sex = sex
+    me.birth_date = birth_date
+    me.height_in = height_in
+    me.activity_level = activity_level
+    me.macro_goal = macro_goal
+    me.diet_preset = diet_preset
+    me.custom_protein_pct = custom_protein_pct
+    me.custom_carb_pct = custom_carb_pct
+    me.custom_fat_pct = custom_fat_pct
+    me.water_goal_oz = water_goal_oz
+    session.commit()
+    return RedirectResponse("/settings#user", status_code=303)
 
 
 @router.post("/settings/display")

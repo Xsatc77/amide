@@ -122,6 +122,89 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
 
+      <form method="post" action="/settings/body-profile" class="settings-form" novalidate>
+        <h3 class="small muted">Body profile</h3>
+        <p class="small muted">Used by the macro calculator to estimate your calorie and macro targets.</p>
+        <div class="grid">
+          <label class="field {{ 'has-error' if errors.sex }}">
+            <span>Sex</span>
+            <select name="sex">
+              <option value="">Not set</option>
+              {% for s in sexes %}
+              <option value="{{ s.value }}" {{ 'selected' if me.sex == s }}>{{ s.value }}</option>
+              {% endfor %}
+            </select>
+            {{ err('sex') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.birth_date }}">
+            <span>Birth date</span>
+            <input name="birth_date" type="date" value="{{ me.birth_date or '' }}">
+            {{ err('birth_date') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.height_in }}">
+            <span>Height (in)</span>
+            <input name="height_in" type="number" step="0.1" min="0"
+                  value="{{ me.height_in if me.height_in is not none else '' }}">
+            {{ err('height_in') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.activity_level }}">
+            <span>Activity level</span>
+            <select name="activity_level">
+              <option value="">Not set</option>
+              {% for a in activity_levels %}
+              <option value="{{ a.value }}" {{ 'selected' if me.activity_level == a }}>{{ a.label }}</option>
+              {% endfor %}
+            </select>
+            {{ err('activity_level') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.macro_goal }}">
+            <span>Goal</span>
+            <select name="macro_goal">
+              <option value="">Not set</option>
+              {% for g in macro_goals %}
+              <option value="{{ g.value }}" {{ 'selected' if me.macro_goal == g }}>{{ g.label }}</option>
+              {% endfor %}
+            </select>
+            {{ err('macro_goal') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.diet_preset }}">
+            <span>Diet preset</span>
+            <select name="diet_preset">
+              <option value="">Not set</option>
+              {% for d in diet_presets %}
+              <option value="{{ d.value }}" {{ 'selected' if me.diet_preset == d }}>{{ d.label }}</option>
+              {% endfor %}
+            </select>
+            {{ err('diet_preset') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.custom_protein_pct }}">
+            <span>Custom protein %</span>
+            <input name="custom_protein_pct" type="number" min="0" max="100" step="1"
+                  value="{{ me.custom_protein_pct if me.custom_protein_pct is not none else '' }}">
+            {{ err('custom_protein_pct') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.custom_carb_pct }}">
+            <span>Custom carb %</span>
+            <input name="custom_carb_pct" type="number" min="0" max="100" step="1"
+                  value="{{ me.custom_carb_pct if me.custom_carb_pct is not none else '' }}">
+            {{ err('custom_carb_pct') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.custom_fat_pct }}">
+            <span>Custom fat %</span>
+            <input name="custom_fat_pct" type="number" min="0" max="100" step="1"
+                  value="{{ me.custom_fat_pct if me.custom_fat_pct is not none else '' }}">
+            {{ err('custom_fat_pct') }}
+          </label>
+          <label class="field {{ 'has-error' if errors.water_goal_oz }}">
+            <span>Water goal override (oz)</span>
+            <input name="water_goal_oz" type="number" min="0" step="1"
+                  value="{{ me.water_goal_oz if me.water_goal_oz is not none else '' }}">
+            {{ err('water_goal_oz') }}
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save body profile</button>
+      </form>
+
       <div class="settings-form">
         <h3 class="small muted">Backup &amp; restore</h3>
         <p class="small muted">Download or restore your inventory and protocols.</p>
