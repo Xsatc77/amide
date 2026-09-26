@@ -6,7 +6,13 @@ Each phase is a usable release on its own. Phases are ordered by **data dependen
 
 ---
 
-## Where we are: v0.3 — Inventory + Protocols + Library ✅
+## Where we are: v0.4 — Inventory + Protocols + Library + Daily Dosing ✅
+
+**Daily Dosing (v0.4)**
+- **Today view** (`/today`): every dose due today, Log (draws the oldest-open Active Vial, deducts the volume, records time) or Skip, with a body-silhouette **injection-site picker** that highlights the last-used site and pulses the recommended mirrored side
+- **Missed/late handling:** a day only counts as missed once it's fully passed; a "catch up" list of recent missed doses lives on the Protocol page and logs them as Late
+- **Adherence history:** color-coded dots on the Calendar (month/week/day) and a full dose-history table on the Protocol page
+- **Peptide pens:** no separate entity — an Active Vial gains a `dispensing_method` flag, set at reconstitution or converted later, with dose-logging wording adjusted accordingly
 
 **Library (v0.3)**
 - All 100 peptide cards imported (text + card image) into a searchable Library with goal / "added by me" filters
@@ -79,16 +85,16 @@ Firm up the base before anything depends on it.
 - **"Reconstitute" action:** takes 1 from inventory count → creates an Active Vial with concentration, date mixed, and a discard-by date (configurable, e.g. 28 days).
 - Active vial list: remaining mg / doses, days until discard.
 
-## Phase 3 — v0.4: Daily Dosing *(the core loop)*
+## Phase 3 — v0.4: Daily Dosing *(the core loop)* ✅
 
 - ✅ *Protocols and titration steps shipped in v0.2.* Still to add: cycles like 5 on / 2 off, and **titration templates** (common schedules pre-filled when Titration is ticked).
-- **Today view:** doses due today. Tap to log → picks the active vial, deducts the amount, records time and **injection site** (with site rotation suggestions).
-- Skip / missed / late dose handling; adherence history.
-- **Peptide pen tracking:** pens are active vials measured in clicks or doses.
+- ✅ *Today view shipped in v0.4*: doses due today, tap to log → picks the oldest-open active vial, deducts the drawn amount, records time and **injection site** (with mirrored-side rotation suggestions via a body-silhouette picker); Skip action logged separately with no vial touched.
+- ✅ *Skip / missed / late dose handling and adherence history shipped in v0.4*: missed/late computed lazily (never stored as "missed"), a catch-up affordance on the Protocol page for recent missed doses, and color-coded adherence dots on the Calendar (month/week/day).
+- ✅ *Peptide pen tracking shipped in v0.4*: pens are the same Active Vials, flagged via a `dispensing_method` field (no separate pen entity); reconstitution asks whether to load into a pen, and any syringe vial can be converted later.
 
 ## Phase 4 — v0.5: Quick View Dashboard
 
-- ✅ *Calendar (month / week / day views of scheduled doses) shipped.* Next: tick doses off from the calendar once Daily Dosing exists.
+- ✅ *Calendar (month / week / day views of scheduled doses) shipped, now with adherence color-coding since Daily Dosing (v0.4).* Next: tick doses off directly from the calendar (today only the Today view and the Protocol page's catch-up list can log a dose).
 
 - Today's doses and what's already done
 - Low stock and "runs out on…" predictions (from protocol usage × inventory)
@@ -100,10 +106,11 @@ Firm up the base before anything depends on it.
 
 ## Phase 5 — v0.6: Orders & Distributor Contacts
 
-- **Vendor contacts:** name, website, contact methods, payment notes, rating, private notes
-- **Order tracking:** order date, vendor, line items, shipping/tracking #, status (ordered → shipped → received)
-- **Receiving an order creates inventory automatically**, with COA attached
-- **Cost analytics:** cost per mg, cost per dose, monthly spend per peptide
+- ✅ *Order tracking shipped, ahead of schedule, alongside the v0.7 Inventory work*: multi-item `Order`/`OrderItem` model — order/shipped/arrival dates, tracking site + number, vendor, per-line quantity/cost/lot/expiration/COA, shipping & tax allocated across lines for a true per-vial cost.
+- ✅ *Receiving an order creates inventory automatically, shipped alongside the above*: filling in an order's arrival date is the "checked in" action; each line's `received_quantity` (editable down for anything short or damaged) is what counts toward `InventoryItem.available_count`, with COA carried over per line.
+- ✅ *Vendors as their own table shipped in v0.7* (see Phase 1) — name, website, contact info, notes, pick-or-create from the Order/Inventory forms.
+- **Still open:** a standalone Vendor management page (edit a vendor's info, see everything ordered from them, rating field) — this is the actual "Personal Distributor Contacts" screen Phase 1 deferred here.
+- **Cost analytics:** cost per mg, cost per dose, monthly spend per peptide — not started.
 
 ## Phase 6 — v0.7: Body & Health Tracking
 
