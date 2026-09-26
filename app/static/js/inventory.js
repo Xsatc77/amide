@@ -277,24 +277,49 @@
     linesContainer.innerHTML = "";
     const lines = checkinData[orderId] || [];
     for (const line of lines) {
-      const row = document.createElement("div");
-      row.className = "grid";
       const posted = prefill && prefill.form ? prefill.form[`received_quantity_${line.id}`] : null;
       const postedNote = prefill && prefill.form ? prefill.form[`received_note_${line.id}`] : null;
       const err = prefill && prefill.errors ? prefill.errors[`received_quantity_${line.id}`] : null;
-      row.innerHTML = `
-        <div class="field span-2"><span>${line.item_name} (ordered ${line.quantity})</span></div>
-        <label class="field ${err ? "has-error" : ""}">
-          <span>Received</span>
-          <input name="received_quantity_${line.id}" type="number" min="0" max="${line.quantity}" step="1"
-                 value="${posted != null && posted !== "" ? posted : line.quantity}">
-          ${err ? `<small class="error">${err}</small>` : ""}
-        </label>
-        <label class="field">
-          <span>Note (if short or damaged)</span>
-          <input name="received_note_${line.id}" maxlength="300" value="${postedNote || ""}">
-        </label>
-      `;
+
+      const row = document.createElement("div");
+      row.className = "grid";
+
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "field span-2";
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = `${line.item_name} (ordered ${line.quantity})`;
+      nameDiv.appendChild(nameSpan);
+
+      const qtyLabel = document.createElement("label");
+      qtyLabel.className = `field ${err ? "has-error" : ""}`;
+      const qtySpan = document.createElement("span");
+      qtySpan.textContent = "Received";
+      const qtyInput = document.createElement("input");
+      qtyInput.name = `received_quantity_${line.id}`;
+      qtyInput.type = "number";
+      qtyInput.min = "0";
+      qtyInput.max = String(line.quantity);
+      qtyInput.step = "1";
+      qtyInput.value = posted != null && posted !== "" ? posted : String(line.quantity);
+      qtyLabel.append(qtySpan, qtyInput);
+      if (err) {
+        const small = document.createElement("small");
+        small.className = "error";
+        small.textContent = err;
+        qtyLabel.appendChild(small);
+      }
+
+      const noteLabel = document.createElement("label");
+      noteLabel.className = "field";
+      const noteSpan = document.createElement("span");
+      noteSpan.textContent = "Note (if short or damaged)";
+      const noteInput = document.createElement("input");
+      noteInput.name = `received_note_${line.id}`;
+      noteInput.maxLength = 300;
+      noteInput.value = postedNote || "";
+      noteLabel.append(noteSpan, noteInput);
+
+      row.append(nameDiv, qtyLabel, noteLabel);
       linesContainer.appendChild(row);
     }
   }
@@ -445,14 +470,46 @@
     if (e.target === dialog) dialog.close();
   });
 
-  // Server re-rendered the page after a validation error: reopen with at least one line so the
-  // dialog isn't blank (the server doesn't thread posted line values back into new lines here --
-  // a known simplification carried over from Task 7/8; the error banner and field-level messages
-  // still show via new_order_errors, they just don't re-populate what was typed).
+  // Server re-rendered the page after a validation error: reopen with the posted lines restored
+  // (from the new-order-error-data JSON blob) and per-line field errors shown.
   if (dialog.hasAttribute("data-open-on-load")) {
+    const errorData = JSON.parse(document.getElementById("new-order-error-data").textContent);
     linesContainer.innerHTML = "";
     lineCount = 0;
-    addLine();
+    const groups = errorData.line_groups || {};
+    const indices = Object.keys(groups).map(Number).sort((a, b) => a - b);
+    if (indices.length === 0) indices.push(0);
+    for (const i of indices) {
+      addLine();
+      const fieldset = linesContainer.lastElementChild;
+      const posted = groups[i] || {};
+      const mode = posted.mode || "existing";
+      const modeRadio = [...fieldset.querySelectorAll('[data-line-mode]')].find((r) => r.value === mode);
+      if (modeRadio) { modeRadio.checked = true; modeRadio.dispatchEvent(new Event("change", { bubbles: true })); }
+      for (const [field, value] of Object.entries(posted)) {
+        if (field === "mode") continue;
+        const el = fieldset.querySelector(`[name$="-${field}"]`);
+        if (!el) continue;
+        if (el.type === "radio") {
+          const match = fieldset.querySelector(`[name$="-${field}"][value="${value}"]`);
+          if (match) { match.checked = true; match.dispatchEvent(new Event("change", { bubbles: true })); }
+        } else {
+          el.value = value;
+        }
+      }
+      for (const [field, message] of Object.entries(errorData.errors || {})) {
+        const prefix = `lines-${i}-`;
+        if (!field.startsWith(prefix)) continue;
+        const fieldName = field.slice(prefix.length);
+        const el = fieldset.querySelector(`[name$="-${fieldName}"]`);
+        if (!el) continue;
+        el.closest("label")?.classList.add("has-error");
+        const small = document.createElement("small");
+        small.className = "error";
+        small.textContent = message;
+        el.insertAdjacentElement("afterend", small);
+      }
+    }
     dialog.showModal();
   }
 })();

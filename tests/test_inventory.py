@@ -1517,3 +1517,172 @@ def test_item_detail_shows_total_cost_column(client, db):
     t = html.unescape(client.get(f"/inventory/{item_id}").text)
     assert "Total cost" in t
     assert "$90.00" in t  # $80 cost + all $10 shipping, since it's the only line on this order
+
+
+# ---------------------------------------------------------------- Final review fixes
+
+
+def test_new_order_new_item_line_with_liquid_medium_succeeds(client, db):
+    # Fix 1: Liquid requires volume_ml (per required_fields_for), which the New Order "new item"
+    # field group didn't expose at all -- this used to 422 unconditionally.
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Liquid Test Item",
+        "lines-0-medium": "Liquid", "lines-0-vial_size_mg": "10", "lines-0-volume_ml": "2",
+        "lines-0-quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Liquid Test Item"))
+        assert item is not None
+        assert item.medium == Medium.LIQUID
+        assert item.volume_ml == 2
+
+
+def test_new_order_validation_error_shows_per_line_field_error(client, db):
+    # Fix 2: a validation error used to wipe all posted lines and never surface per-line messages.
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Retatrutide",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+        "lines-1-mode": "new", "lines-1-category": "BAC Water", "lines-1-name": "Bacteriostatic Water",
+        "lines-1-quantity": "",  # left blank on purpose -- line 1's real error
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    t = html.unescape(r.text)
+    assert "Quantity must be a whole number greater than 0." in t
+    assert 'id="new-order-error-data"' in t
+
+
+def test_received_note_shown_on_detail_page(client, db):
+    # Fix 3: received_note was write-only -- never rendered anywhere.
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "8",
+        f"received_note_{li_id}": "Two vials arrived shattered",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert "Two vials arrived shattered" in t
+
+
+def test_api_inventory_includes_received_note(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        order_id, li_id = li.order_id, li.id
+
+    client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "8",
+        f"received_note_{li_id}": "Short shipment",
+    }, follow_redirects=False)
+
+    data = client.get("/api/inventory").json()
+    item = next(i for i in data if i["name"] == "Retatrutide")
+    assert item["orders"][0]["received_note"] == "Short shipment"
+
+
+def test_order_history_sorted_newest_first(client, db):
+    # Fix 5: item.order_items has no order_by, so the table lost its newest-first sort.
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-01-01", "tracking_number": "OLDEST1",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+
+    r = client.post(f"/inventory/{item_id}/orders", data={
+        "quantity": "5", "order_date": "2026-09-20", "tracking_number": "NEWEST1",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    t = html.unescape(client.get(f"/inventory/{item_id}").text)
+    assert t.index("NEWEST1") < t.index("OLDEST1")
+
+
+def test_new_order_existing_item_dropdown_excludes_other_owners_shared_items(client, db):
+    # Fix 6: the New Order "restock existing item" dropdown offered items shared by other owners
+    # even though picking one always 422s server-side (_own_item rejects it).
+    client.post("/inventory", data={
+        "name": "Owner Only Item", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "5", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Owner Only Item"))
+
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "DropdownGrantee", "password": "DropdownGrantee1!", "confirm": "DropdownGrantee1!"})
+    with SessionLocal() as s:
+        grantee_id = s.scalar(select(User.id).where(User.username_key == "dropdowngrantee"))
+    try:
+        client.post(f"/settings/sharing/{grantee_id}/inventory")
+        t = html.unescape(other.get("/inventory").text)
+        assert "Owner Only Item" in t  # shared item still visible in the list itself
+        assert f'<option value="{item_id}">Owner Only Item (Medicine)</option>' not in t
+    finally:
+        client.post(f"/settings/sharing/{grantee_id}/inventory", data={"on": "0"})
+
+
+def test_editing_a_checked_in_line_lowering_quantity_below_received_is_422_not_500(client, db):
+    # Fix 8: lowering quantity below the already-checked-in received_quantity without also posting
+    # received_quantity used to slip past validation and 500 on the CHECK constraint at commit.
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)
+        li.received_quantity = 10
+        s.commit()
+
+    r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
+        "quantity": "5", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    assert "Must be between 0 and 5" in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].received_quantity == 10  # unchanged
+
+
+def test_deleting_one_item_of_a_shared_order_keeps_the_other_line_and_order(client, db, me):
+    # Fix 9 (Review Focus 4 coverage): deleting one item on a shared order must not delete the
+    # order header while another line still uses it.
+    from app.models import Order, OrderItem
+
+    med = InventoryItem(owner_id=me, name="Shared Med", category=Category.MEDICINE,
+                        medium=Medium.LYOPHILIZED, vial_size_mg=10)
+    bac = InventoryItem(owner_id=me, name="Shared BAC", category=Category.BAC_WATER)
+    db.add_all([med, bac])
+    db.flush()
+    order = Order(order_date=date(2026, 9, 1))
+    db.add(order)
+    db.flush()
+    li_med = OrderItem(inventory_item_id=med.id, quantity=1, cost_cents=100)
+    li_bac = OrderItem(inventory_item_id=bac.id, quantity=1, cost_cents=100)
+    order.items.extend([li_med, li_bac])
+    db.commit()
+    med_id, order_id, bac_li_id, bac_id = med.id, order.id, li_bac.id, bac.id
+
+    r = client.post(f"/inventory/{med_id}/delete", follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, med_id) is None
+        assert s.get(InventoryItem, bac_id) is not None
+        assert s.get(Order, order_id) is not None  # order header remains -- bac line still uses it
+        assert s.get(OrderItem, bac_li_id) is not None

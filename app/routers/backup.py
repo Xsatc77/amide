@@ -51,8 +51,10 @@ def _order_row(li) -> dict:
         "order_date": _iso(li.order.order_date), "shipped_date": _iso(li.order.shipped_date),
         "arrival_date": _iso(li.order.arrival_date), "tracking_site": li.order.tracking_site,
         "tracking_number": li.order.tracking_number, "vendor": li.order.vendor,
-        "lot_number": li.lot_number, "cost": li.cost, "tax": li.order.tax,
-        "shipping": li.order.shipping, "expiration_date": _iso(li.expiration_date),
+        "lot_number": li.lot_number, "cost": li.cost,
+        "tax": (li.allocated_tax_cents / 100) if li.allocated_tax_cents else None,
+        "shipping": (li.allocated_shipping_cents / 100) if li.allocated_shipping_cents else None,
+        "expiration_date": _iso(li.expiration_date),
         "coa_vial_size_mg": li.coa_vial_size_mg, "coa_purity_pct": li.coa_purity_pct,
     }
 
@@ -113,6 +115,10 @@ CSV_COLUMNS = [
     ("Vendor", "vendor"), ("Notes", "notes"),
     ("Reconstituted", "reconstituted_count"), ("Sold", "sold_count"),
 ]
+# Tax/Shipping here are each line's own allocated share of the order-level tax/shipping (see
+# OrderItem.allocated_tax_cents/allocated_shipping_cents), not the order's full amount -- a
+# multi-item order's total tax/shipping is split across its lines so re-importing doesn't
+# double-count it once per line.
 ORDER_CSV_COLUMNS = [
     ("Item", "item_name"), ("Quantity", "quantity"), ("Received", "received_quantity"), ("Order date", "order_date"),
     ("Shipped date", "shipped_date"), ("Arrival date", "arrival_date"), ("Tracking site", "tracking_site"),

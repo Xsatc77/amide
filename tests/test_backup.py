@@ -349,3 +349,29 @@ def test_csv_export_includes_sales_section(client, db):
     sale_lines = lines[blank_indices[1] + 1:]
     sale_rows = list(csv.DictReader(io.StringIO('\n'.join(sale_lines))))
     assert sale_rows[0]["Item"] == "Retatrutide" and sale_rows[0]["Quantity"] == "3" and sale_rows[0]["Price"] == "150.0"
+
+
+def test_json_export_allocates_shipping_and_tax_per_line_not_full_amount_repeated(client, db):
+    # Fix 4: _order_row used to export the FULL order-level tax/shipping on every line, so
+    # re-importing a multi-item order created one full-shipping-cost Order per line.
+    client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "shipping": "10.00", "tax": "4.00",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Multi Line A",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "1",
+        "lines-0-cost": "60.00",
+        "lines-1-mode": "new", "lines-1-category": "BAC Water", "lines-1-name": "Multi Line B",
+        "lines-1-quantity": "1", "lines-1-cost": "40.00",
+    }, follow_redirects=False)
+
+    payload = client.get("/backup/export.json").json()
+    item_a = next(i for i in payload["inventory"] if i["name"] == "Multi Line A")
+    item_b = next(i for i in payload["inventory"] if i["name"] == "Multi Line B")
+    tax_a, tax_b = item_a["orders"][0]["tax"], item_b["orders"][0]["tax"]
+    ship_a, ship_b = item_a["orders"][0]["shipping"], item_b["orders"][0]["shipping"]
+
+    # Neither line repeats the full order amount...
+    assert tax_a != 4.00 and tax_b != 4.00
+    assert ship_a != 10.00 and ship_b != 10.00
+    # ...but together they sum back to it exactly (no invented or dropped cent).
+    assert round(tax_a + tax_b, 2) == 4.00
+    assert round(ship_a + ship_b, 2) == 10.00

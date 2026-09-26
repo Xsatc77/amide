@@ -155,7 +155,7 @@
   <table class="inv-table">
     <thead><tr><th>Quantity</th><th>Received</th><th>Ordered</th><th>Shipped</th><th>Arrived</th><th>Expiration</th><th>Tracking</th><th>Vendor</th><th>Lot #</th><th>Cost</th><th>Tax</th><th>Shipping</th><th>Total cost</th><th>COA</th>{% if is_owner %}<th></th>{% endif %}</tr></thead>
     <tbody>
-      {% for li in item.order_items %}
+      {% for li in sorted_order_items %}
       {% set siblings = li.order.items | rejectattr('id', 'equalto', li.id) | list %}
       <tr>
         <td>
@@ -164,7 +164,7 @@
           <div class="muted small">+ {{ siblings | length }} other item{{ '' if siblings | length == 1 else 's' }} in this shipment</div>
           {% endif %}
         </td>
-        <td>{{ li.received_quantity if li.received_quantity is not none else '—' }}</td>
+        <td>{{ li.received_quantity if li.received_quantity is not none else '—' }}{% if li.received_note %} <span class="muted small" title="{{ li.received_note }}">({{ li.received_note }})</span>{% endif %}</td>
         <td>{{ li.order.order_date | shortdate }}</td>
         <td>{{ li.order.shipped_date | shortdate or '—' }}</td>
         <td>{{ li.order.arrival_date | shortdate or '—' }}</td>

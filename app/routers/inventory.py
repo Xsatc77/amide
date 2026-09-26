@@ -488,6 +488,7 @@ def item_detail(item_id: int, request: Request, session: Session = Depends(get_s
         "item": item,
         "is_owner": item.owner_id == uid,
         "arrived": arrived,
+        "sorted_order_items": sorted(item.order_items, key=lambda li: (li.order.order_date, li.id), reverse=True),
         **_detail_context(session, item, uid),
     })
 
@@ -640,6 +641,7 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         return templates.TemplateResponse(request, "inventory/detail.html", {
             "item": item, "is_owner": True, "arrived": arrived,
             "form": raw, "errors": errors, "editing": item,
+            "sorted_order_items": sorted(item.order_items, key=lambda li: (li.order.order_date, li.id), reverse=True),
             **_detail_context(session, item, uid),
         }, status_code=422)
 
@@ -734,6 +736,7 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
             {"item": item, "is_owner": True, "checkin_errors": errors, "checkin_form": raw,
             "checkin_order": order,
             "arrived": _arrived_quantity(item),
+            "sorted_order_items": sorted(item.order_items, key=lambda li: (li.order.order_date, li.id), reverse=True),
             **_detail_context(session, item, uid)},
             status_code=422)
 
@@ -771,6 +774,7 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
             request, "inventory/detail.html",
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
             "arrived": _arrived_quantity(item),
+            "sorted_order_items": sorted(item.order_items, key=lambda li: (li.order.order_date, li.id), reverse=True),
             **_detail_context(session, item, uid)},
             status_code=422)
 
@@ -827,6 +831,7 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
             request, "inventory/detail.html",
             {"item": item, "is_owner": True, "sale_errors": errors, "sale_form": raw,
             "arrived": _arrived_quantity(item),
+            "sorted_order_items": sorted(item.order_items, key=lambda li: (li.order.order_date, li.id), reverse=True),
             **_detail_context(session, item, uid)},
             status_code=422)
 
@@ -859,10 +864,12 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
         if raw_received:
             try:
                 received_quantity = int(raw_received)
-                if line_values["quantity"] is not None and not 0 <= received_quantity <= line_values["quantity"]:
-                    errors["received_quantity"] = f"Must be between 0 and {line_values['quantity']}."
             except ValueError:
                 errors["received_quantity"] = "Must be a whole number."
+        if ("received_quantity" not in errors and received_quantity is not None
+                and line_values["quantity"] is not None
+                and not 0 <= received_quantity <= line_values["quantity"]):
+            errors["received_quantity"] = f"Must be between 0 and {line_values['quantity']}."
 
     new_coa = None
     if not errors and coa:
@@ -878,6 +885,7 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
             {"item": item, "is_owner": True, "order_errors": errors, "order_form": raw,
             "editing_order": li,
             "arrived": _arrived_quantity(item),
+            "sorted_order_items": sorted(item.order_items, key=lambda li: (li.order.order_date, li.id), reverse=True),
             **_detail_context(session, item, uid)},
             status_code=422)
 
@@ -959,6 +967,7 @@ def _to_json(item: InventoryItem) -> dict:
         "notes": item.notes,
         "orders": [{
             "id": li.id, "quantity": li.quantity, "received_quantity": li.received_quantity,
+            "received_note": li.received_note,
             "order_date": _iso(li.order.order_date), "shipped_date": _iso(li.order.shipped_date),
             "arrival_date": _iso(li.order.arrival_date), "tracking_site": li.order.tracking_site,
             "tracking_number": li.order.tracking_number, "vendor": li.order.vendor,
