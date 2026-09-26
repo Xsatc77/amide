@@ -11,6 +11,7 @@ DATA_DIR = Path(os.environ.get("AMIDE_DATA_DIR", Path(__file__).resolve().parent
 DATABASE_URL = os.environ.get("AMIDE_DATABASE_URL", f"sqlite:///{(DATA_DIR / 'amide.db').as_posix()}")
 UPLOAD_DIR = DATA_DIR / "uploads"
 COA_DIR = UPLOAD_DIR / "coa"
+PRICE_LIST_DIR = UPLOAD_DIR / "price_lists"
 # Imported peptide cards (private): cards.json plus one image per card.
 LIBRARY_DIR = DATA_DIR / "library"
 CARDS_DIR = LIBRARY_DIR / "cards"
@@ -30,3 +31,4 @@ MAX_UPLOAD_BYTES = int(os.environ.get("AMIDE_MAX_UPLOAD_MB", "15")) * 1024 * 102
 
 def ensure_dirs() -> None:
     COA_DIR.mkdir(parents=True, exist_ok=True)
+    PRICE_LIST_DIR.mkdir(parents=True, exist_ok=True)

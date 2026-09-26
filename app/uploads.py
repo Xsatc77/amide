@@ -38,6 +38,24 @@ def _sniff_ok(ext: str, head: bytes) -> bool:
     return False
 
 
+# Same as ALLOWED_TYPES, plus Word documents -- price lists are often sent as .doc/.docx, which
+# COAs deliberately don't accept.
+PRICE_LIST_ALLOWED_TYPES = {
+    **ALLOWED_TYPES,
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+def _price_list_sniff_ok(ext: str, head: bytes) -> bool:
+    """Like `_sniff_ok`, extended with the two Word-document formats."""
+    if ext == ".docx":
+        return head.startswith(b"PK\x03\x04")
+    if ext == ".doc":
+        return head.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+    return _sniff_ok(ext, head)
+
+
 async def save_coa(upload: UploadFile) -> str:
     """Validate and store an uploaded COA. Returns the stored filename."""
     ext = Path(upload.filename or "").suffix.lower()
@@ -67,3 +85,34 @@ def delete_coa(filename: str | None) -> None:
 
 def media_type(filename: str) -> str:
     return ALLOWED_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
+
+
+async def save_price_list(upload: UploadFile) -> str:
+    """Validate and store an uploaded vendor price list. Returns the stored filename."""
+    ext = Path(upload.filename or "").suffix.lower()
+    if ext not in PRICE_LIST_ALLOWED_TYPES:
+        raise UploadError("Price list must be a photo (JPG, PNG, WEBP, HEIC), a PDF, or a Word document.")
+
+    data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        raise UploadError(f"Price list file is larger than {config.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+    if not _price_list_sniff_ok(ext, data[:16]):
+        raise UploadError("Price list file contents don't match its file type.")
+
+    config.ensure_dirs()
+    filename = f"{uuid.uuid4().hex}{ext}"
+    (config.PRICE_LIST_DIR / filename).write_bytes(data)
+    return filename
+
+
+def price_list_path(filename: str) -> Path:
+    return config.PRICE_LIST_DIR / filename
+
+
+def delete_price_list(filename: str | None) -> None:
+    if filename:
+        price_list_path(filename).unlink(missing_ok=True)
+
+
+def price_list_media_type(filename: str) -> str:
+    return PRICE_LIST_ALLOWED_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
