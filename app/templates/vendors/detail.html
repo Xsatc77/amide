@@ -69,7 +69,7 @@
 {% macro verr(field) %}{% if errors and errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 {% macro vcls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if errors and errors[field] }}"{% endmacro %}
 <dialog id="vendor-edit-dialog" class="dialog" {% if form %}data-open-on-load{% endif %}>
-  <form method="post" action="/vendors/{{ vendor.id }}" class="item-form" novalidate>
+  <form method="post" action="/vendors/{{ vendor.id }}" class="item-form" enctype="multipart/form-data" novalidate>
     <header class="dialog-head">
       <h2 data-title>Edit vendor</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-vendor-edit" aria-label="Close">&times;</button>
@@ -103,6 +103,35 @@
         <textarea name="notes" rows="2">{{ ef.notes }}</textarea>
       </label>
     </div>
+
+    <fieldset class="form-section">
+      <legend>Price list</legend>
+      {% if vendor.price_list_filename or vendor.price_list_url %}
+      <p class="muted small">
+        Currently on file:
+        {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">{{ vendor.price_list_url }}</a>
+        {% else %}<a href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>{% endif %}
+      </p>
+      {% endif %}
+      <div class="grid">
+        <label {{ vcls('price_list_url') }}>
+          <span>Price list link</span>
+          <input name="price_list_url" type="url" maxlength="500" placeholder="https://..." value="{{ ef.price_list_url }}">
+          {{ verr('price_list_url') }}
+        </label>
+        <label {{ vcls('price_list_file') }}>
+          <span>Replace with a file (PDF, image, or Word doc)</span>
+          <input name="price_list_file" type="file">
+          {{ verr('price_list_file') }}
+        </label>
+      </div>
+      {% if vendor.price_list_filename or vendor.price_list_url %}
+      <label class="chip-checkbox">
+        <input type="checkbox" name="remove_price_list" value="1">
+        Remove price list
+      </label>
+      {% endif %}
+    </fieldset>
 
     <fieldset class="form-section">
       <legend>Recommendation</legend>

@@ -449,6 +449,10 @@
     const mode = form.querySelector('[data-vendor-is-new-radio]:checked')?.value || "no";
     vendorGroupExisting.hidden = mode !== "no";
     vendorGroupNew.hidden = mode !== "yes";
+    // A brand-new vendor has no price history to recall from -- drop any auto-filled costs still
+    // carrying our own recall marker the moment the toggle switches to "new vendor" (Fix 3c). A
+    // value the user actually typed (no marker) is left alone.
+    if (mode === "yes") clearRecallForAllLines();
   }
   form.querySelectorAll('[data-vendor-is-new-radio]').forEach((r) => r.addEventListener("change", syncVendorMode));
 
@@ -483,9 +487,29 @@
     return cost === undefined ? null : cost;
   }
 
+  // A cost field the recall mechanism itself filled carries dataset.recalled="1" -- cleared the
+  // moment the user actually types into it (wireCostRecallInput below), so a value the user edited
+  // is never touched again by recall, while a still-marked value is free to be replaced or cleared
+  // as the vendor/item/mode selection changes underneath it (Fix 3).
+  function clearRecallMarker(input) {
+    delete input.dataset.recalled;
+  }
+
+  function markRecalled(input, value) {
+    input.value = value;
+    input.dataset.recalled = "1";
+  }
+
+  function wireCostRecallInput(costInput) {
+    costInput.addEventListener("input", () => clearRecallMarker(costInput));
+  }
+
   function applyPriceRecall(fieldset) {
     const costInput = fieldset.querySelector('[name$="-cost"]');
-    if (!costInput || costInput.value) return;  // never clobber a value already entered
+    if (!costInput) return;
+    // Only ever touch a field that's currently empty, or still carries our own recall marker --
+    // never a value the user actually typed into it.
+    if (costInput.value && costInput.dataset.recalled !== "1") return;
     const mode = fieldset.querySelector('[data-line-mode]:checked')?.value || "existing";
     let itemName = null;
     if (mode === "existing") {
@@ -495,11 +519,29 @@
       itemName = fieldset.querySelector("[data-line-item-name]")?.value || null;
     }
     const cost = priceRecallCost(vendorSelect.value, itemName);
-    if (cost != null) costInput.value = cost.toFixed(2);
+    if (cost != null) {
+      markRecalled(costInput, cost.toFixed(2));
+    } else if (costInput.dataset.recalled === "1") {
+      // Was auto-filled for a previous vendor/item selection that no longer applies (e.g. the
+      // vendor changed, or this line's item changed) and nothing matches the new one -- clear it
+      // rather than leave the stale recalled value in place.
+      costInput.value = "";
+      clearRecallMarker(costInput);
+    }
   }
 
   function applyPriceRecallToAllLines() {
     linesContainer.querySelectorAll("[data-line]").forEach(applyPriceRecall);
+  }
+
+  function clearRecallForAllLines() {
+    linesContainer.querySelectorAll("[data-line]").forEach((fieldset) => {
+      const costInput = fieldset.querySelector('[name$="-cost"]');
+      if (costInput && costInput.dataset.recalled === "1") {
+        costInput.value = "";
+        clearRecallMarker(costInput);
+      }
+    });
   }
 
   vendorSelect.addEventListener("change", () => {
@@ -550,10 +592,12 @@
     const fieldset = fragment.querySelector("[data-line]");
     syncLineMode(fieldset);
     fieldset.querySelectorAll('[data-line-mode]').forEach((radio) =>
-      radio.addEventListener("change", () => syncLineMode(fieldset)));
+      radio.addEventListener("change", () => { syncLineMode(fieldset); applyPriceRecall(fieldset); }));
     fieldset.querySelector('[data-action="remove-line"]').addEventListener("click", () => fieldset.remove());
     fieldset.querySelector("[data-line-item-select]").addEventListener("change", () => applyPriceRecall(fieldset));
     fieldset.querySelector("[data-line-item-name]").addEventListener("blur", () => applyPriceRecall(fieldset));
+    const costInput = fieldset.querySelector('[name$="-cost"]');
+    if (costInput) wireCostRecallInput(costInput);
     linesContainer.appendChild(fragment);
   }
 

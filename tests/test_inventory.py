@@ -1984,3 +1984,73 @@ def test_new_order_validation_error_does_not_create_orphaned_contact_or_payment_
     with SessionLocal() as s:
         assert s.query(ContactMethodType).filter_by(name="Orphan Carrier Pigeon").count() == 0
         assert s.query(PaymentMethodType).filter_by(name="Orphan Gift Card").count() == 0
+
+
+def test_new_order_new_vendor_with_nonexistent_payment_type_id_does_not_500(client, db):
+    # Fix 6: a tampered/stale payment_type_ids value posted alongside a brand-new vendor must be
+    # skipped, not crash with an unhandled foreign-key IntegrityError.
+    from app.models import PaymentMethodType
+
+    with SessionLocal() as s:
+        bogus_id = (s.scalar(select(PaymentMethodType.id).order_by(PaymentMethodType.id.desc())) or 0) + 1000
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "yes", "name": "Bad Payment Type New Vendor",
+        "payment_type_ids": str(bogus_id),
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Some Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        vendor = s.scalar(select(Vendor).where(Vendor.name == "Bad Payment Type New Vendor"))
+        assert vendor is not None
+        assert vendor.payment_methods == []
+
+
+def test_staleness_replace_rejects_javascript_url(client, db):
+    # Fix 2: price_list_replace_url must be validated as an http(s) URL exactly like the New
+    # Vendor branch's own `website` field already is -- Vendor is a global/shared row, so an
+    # unvalidated URL here would render as a raw href for every other user.
+    with SessionLocal() as s:
+        vendor = Vendor(name="JS URL Staleness Vendor", price_list_url="https://old.example/list",
+                        price_list_updated_at=date(2026, 1, 1))
+        s.add(vendor)
+        s.commit()
+        vendor_id = vendor.id
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "no", "vendor_id": str(vendor_id),
+        "price_list_current": "no", "price_list_replace_url": "javascript:alert(1)",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Staleness JS Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        v = s.get(Vendor, vendor_id)
+        assert v.price_list_url == "https://old.example/list"  # untouched
+
+
+def test_staleness_no_with_neither_file_nor_url_is_a_422(client, db):
+    # Fix 4: answering "No, not current" but supplying neither a replacement file nor URL must not
+    # silently save the order against the OLD price list -- it should 422 instead.
+    with SessionLocal() as s:
+        vendor = Vendor(name="Silent Noop Vendor", price_list_url="https://old.example/still-here",
+                        price_list_updated_at=date(2026, 1, 1))
+        s.add(vendor)
+        s.commit()
+        vendor_id = vendor.id
+
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "no", "vendor_id": str(vendor_id),
+        "price_list_current": "no",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Silent Noop Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+
+    with SessionLocal() as s:
+        v = s.get(Vendor, vendor_id)
+        # Neither the price list nor its date moved -- and no order got created either.
+        assert v.price_list_url == "https://old.example/still-here"
+        assert v.price_list_updated_at == date(2026, 1, 1)
+        assert s.query(InventoryItem).filter_by(name="Silent Noop Item").count() == 0

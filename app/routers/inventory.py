@@ -386,7 +386,13 @@ def _parse_new_order_header_fields(form: dict[str, list[str]], session: Session,
 
         if vendor is not None and (vendor.price_list_filename or vendor.price_list_url):
             if one("price_list_current") == "no":
-                price_list_update = {"vendor_id": vendor.id, "replace_url": one("price_list_replace_url") or None}
+                replace_url = one("price_list_replace_url") or None
+                if replace_url and not replace_url.lower().startswith(("http://", "https://")):
+                    errors["price_list_replace_url"] = "Price list link must be a valid http(s) URL."
+                price_list_update = {"vendor_id": vendor.id, "replace_url": replace_url}
+                # "No, not current" with neither a replacement file nor URL supplied must not
+                # silently no-op -- the caller only knows about price_list_file's own presence once
+                # _read_new_order_form has run, so that half of this check is completed there.
 
     return values, is_new_vendor, new_vendor_values, price_list_update
 
@@ -423,7 +429,10 @@ def _create_new_vendor(session: Session, uid: int, new_vendor_values: dict) -> V
             continue
         vendor.contacts.append(VendorContact(method_type_id=method_type.id, value=value))
 
-    payment_type_ids: set[int] = {int(v) for v in new_vendor_values["raw_payment_type_ids"]}
+    payment_type_ids: set[int] = {
+        int(v) for v in new_vendor_values["raw_payment_type_ids"]
+        if session.get(PaymentMethodType, int(v)) is not None
+    }
     new_payment_type_name = new_vendor_values["raw_new_payment_type"]
     if new_payment_type_name:
         new_type = resolve_payment_method_type(session, new_payment_type_name)
@@ -798,6 +807,15 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
         _parse_new_order_header_fields(form, session, uid, errors)
     contact_groups = _group_contacts(form)
 
+    # "No, not current" with neither a replacement file nor URL supplied must not silently proceed
+    # with the order saved against the OLD price list/date untouched -- surface it as a validation
+    # error instead (Fix 4). Only checked once the URL itself passed its own http(s) validation
+    # above, so this doesn't double up on that error.
+    if (price_list_update is not None and not price_list_update["replace_url"] and price_list_file is None
+            and "price_list_replace_url" not in errors):
+        errors["price_list_replace_url"] = (
+            "You said the price list isn't current -- provide a replacement file or link.")
+
     line_groups = _group_lines(form)
     if not line_groups:
         errors["lines"] = "Add at least one item."
@@ -867,19 +885,24 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
         header_values["vendor_id"] = vendor.id
         header_values["vendor"] = vendor.name
 
+    # The OLD file (if any) is held here and only actually deleted from disk after a successful
+    # commit below (Fix 5) -- deleting it up front would leave the DB referencing a file that's
+    # already gone from disk if something later in this same request fails before the commit lands.
+    old_price_list_filename_to_delete: str | None = None
     if price_list_update is not None:
         vendor = session.get(Vendor, price_list_update["vendor_id"])
         # Touches only this ONE vendor's price-list fields -- never any other vendor's (this was
         # the exact class of bug a prior task's own fix round caught elsewhere in this feature).
         if vendor is not None and (price_list_replace_filename or price_list_update["replace_url"]):
+            old_filename = vendor.price_list_filename
             if price_list_replace_filename:
-                uploads.delete_price_list(vendor.price_list_filename)
                 vendor.price_list_filename = price_list_replace_filename
                 vendor.price_list_url = None
             else:
                 vendor.price_list_url = price_list_update["replace_url"]
-                uploads.delete_price_list(vendor.price_list_filename)
                 vendor.price_list_filename = None
+            if old_filename and old_filename != vendor.price_list_filename:
+                old_price_list_filename_to_delete = old_filename
             vendor.price_list_updated_at = date.today()
 
     order = Order(**header_values)
@@ -899,6 +922,8 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
             item.order_items.append(li)
             order.items.append(li)
     session.commit()
+    if old_price_list_filename_to_delete:
+        uploads.delete_price_list(old_price_list_filename_to_delete)
     return RedirectResponse("/inventory", status_code=303)
 
 

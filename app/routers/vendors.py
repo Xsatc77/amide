@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile
 
 from app import uploads
 from app.auth.deps import current_user_id
@@ -157,6 +158,7 @@ def _form_values(vendor: Vendor) -> dict:
         "contact_name": vendor.contact_name or "",
         "notes": vendor.notes or "",
         "recommended": "" if vendor.recommended is None else ("yes" if vendor.recommended else "no"),
+        "price_list_url": vendor.price_list_url or "",
     }
 
 
@@ -207,9 +209,12 @@ def get_vendor_price_list(vendor_id: int, session: Session = Depends(get_session
 
 # ---------------------------------------------------------------- edit
 
-async def _read_edit_form(request: Request) -> tuple[dict[str, str], dict[int, dict[str, str]], list[str]]:
+async def _read_edit_form(
+    request: Request,
+) -> tuple[dict[str, str], dict[int, dict[str, str]], list[str], UploadFile | None, bool]:
     """Returns (profile fields, contact rows grouped by index -- mirrors inventory.py's
-    `_group_lines`'s 'lines-{i}-field' convention but for 'contacts-{i}-field', payment_type_ids)."""
+    `_group_lines`'s 'lines-{i}-field' convention but for 'contacts-{i}-field', payment_type_ids,
+    the uploaded price-list replacement file if any, and whether "remove price list" was checked)."""
     form = await request.form()
     raw = {
         "name": str(form.get("name") or "").strip(),
@@ -219,6 +224,7 @@ async def _read_edit_form(request: Request) -> tuple[dict[str, str], dict[int, d
         "notes": str(form.get("notes") or "").strip(),
         "recommended": str(form.get("recommended") or "").strip(),
         "new_payment_type": str(form.get("new_payment_type") or "").strip(),
+        "price_list_url": str(form.get("price_list_url") or "").strip(),
     }
     contact_rows: dict[int, dict[str, str]] = {}
     for key in form.keys():
@@ -230,7 +236,11 @@ async def _read_edit_form(request: Request) -> tuple[dict[str, str], dict[int, d
             continue
         contact_rows.setdefault(int(idx_str), {})[field] = str(form.get(key) or "").strip()
     payment_type_ids = [v.strip() for v in form.getlist("payment_type_ids")]
-    return raw, dict(sorted(contact_rows.items())), payment_type_ids
+    price_list_file_raw = form.get("price_list_file")
+    price_list_file = price_list_file_raw if (
+        isinstance(price_list_file_raw, UploadFile) and price_list_file_raw.filename) else None
+    remove_price_list = bool(form.get("remove_price_list"))
+    return raw, dict(sorted(contact_rows.items())), payment_type_ids, price_list_file, remove_price_list
 
 
 @router.post("/vendors/{vendor_id}")
@@ -240,16 +250,28 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     if vendor is None:
         raise HTTPException(404, "Vendor not found")
 
-    raw, contact_rows, payment_type_ids = await _read_edit_form(request)
+    raw, contact_rows, payment_type_ids, price_list_file, remove_price_list = await _read_edit_form(request)
     errors: dict[str, str] = {}
     if not raw["name"]:
         errors["name"] = "Vendor name is required."
     if raw["website"] and not raw["website"].lower().startswith(("http://", "https://")):
         errors["website"] = "Website must be a valid http(s) URL."
+    if raw["price_list_url"] and not raw["price_list_url"].lower().startswith(("http://", "https://")):
+        errors["price_list_url"] = "Price list link must be a valid http(s) URL."
     if raw["name"] and not errors.get("name"):
         clash = session.scalar(select(Vendor).where(Vendor.name == raw["name"], Vendor.id != vendor.id))
         if clash is not None:
             errors["name"] = "Another vendor already has this name."
+
+    # Uploads are validated (extension/size/sniff) only once the rest of the form is known-good --
+    # never store a file for a submission that ends up 422ing anyway, mirroring how the New Order
+    # flow's own price-list-replace upload is deferred past its own error gate.
+    price_list_filename_to_save = None
+    if not errors and price_list_file is not None:
+        try:
+            price_list_filename_to_save = await uploads.save_price_list(price_list_file)
+        except uploads.UploadError as e:
+            errors["price_list_file"] = str(e)
 
     if errors:
         return templates.TemplateResponse(request, "vendors/detail.html", {
@@ -271,6 +293,28 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     vendor.notes = raw["notes"] or None
     vendor.recommended = recommended
 
+    # Price list: either a file, a URL, or "remove" -- mutually exclusive, matching the New Order
+    # staleness-replace path's own pattern. Leaving all three untouched (no file, no URL typed, box
+    # unchecked) means "leave the existing price list alone" -- these three fields aren't touched at
+    # all in that case. The OLD file is only deleted from disk after a successful commit (Fix 5:
+    # never delete a file the DB still references in case the commit never lands).
+    old_price_list_filename = vendor.price_list_filename
+    price_list_changed = False
+    if price_list_filename_to_save is not None:
+        vendor.price_list_filename = price_list_filename_to_save
+        vendor.price_list_url = None
+        price_list_changed = True
+    elif raw["price_list_url"]:
+        vendor.price_list_url = raw["price_list_url"]
+        vendor.price_list_filename = None
+        price_list_changed = True
+    elif remove_price_list:
+        vendor.price_list_filename = None
+        vendor.price_list_url = None
+        price_list_changed = True
+    if price_list_changed:
+        vendor.price_list_updated_at = date.today()
+
     vendor.contacts.clear()
     session.flush()  # the deletes must land before the unique/insert side below, mirroring
                      # protocols.save_protocol's items.clear()-then-rebuild convention
@@ -291,7 +335,10 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
 
     vendor.payment_methods.clear()
     session.flush()
-    type_ids: set[int] = {int(v) for v in payment_type_ids if v.isdigit()}
+    type_ids: set[int] = set()
+    for v in payment_type_ids:
+        if v.isdigit() and session.get(PaymentMethodType, int(v)) is not None:
+            type_ids.add(int(v))
     if raw["new_payment_type"]:
         new_type = resolve_payment_method_type(session, raw["new_payment_type"])
         if new_type is not None:
@@ -300,4 +347,6 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         vendor.payment_methods.append(VendorPaymentMethod(method_type_id=type_id))
 
     session.commit()
+    if price_list_changed and old_price_list_filename and old_price_list_filename != vendor.price_list_filename:
+        uploads.delete_price_list(old_price_list_filename)
     return RedirectResponse(f"/vendors/{vendor.id}", status_code=303)

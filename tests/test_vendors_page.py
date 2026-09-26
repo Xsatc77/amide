@@ -337,3 +337,149 @@ def test_payment_method_checkboxes_and_new_payment_type_persist(client, db):
 
     t = client.get(f"/vendors/{vendor_id}").text
     assert "Gift Card" in t
+
+
+def test_update_vendor_with_nonexistent_payment_type_id_does_not_500(client, db):
+    # Fix 6: a tampered/stale payment_type_ids value must be skipped, never crash the request with
+    # an unhandled foreign-key IntegrityError.
+    vendor_id = _make_vendor("Bad Payment Type Vendor")
+    with SessionLocal() as s:
+        bogus_id = (s.scalar(select(PaymentMethodType.id).order_by(PaymentMethodType.id.desc())) or 0) + 1000
+
+    r = client.post(f"/vendors/{vendor_id}", data={
+        "name": "Bad Payment Type Vendor",
+        "payment_type_ids": str(bogus_id),
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor.payment_methods == []
+
+
+# ---------------------------------------------------------------- Fix 1: setting a vendor's FIRST price list
+
+
+def test_set_first_price_list_via_url_through_edit_form(client, db):
+    vendor_id = _make_vendor("First Price List Via URL Vendor")
+    r = client.post(f"/vendors/{vendor_id}", data={
+        "name": "First Price List Via URL Vendor",
+        "price_list_url": "https://vendor.example/prices",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor.price_list_url == "https://vendor.example/prices"
+        assert vendor.price_list_filename is None
+        assert vendor.price_list_updated_at == date.today()
+
+    t = _text(client.get(f"/vendors/{vendor_id}"))
+    assert "https://vendor.example/prices" in t
+    assert date.today().strftime("%Y-%m-%d") in t or "Updated" in t
+
+
+def test_set_first_price_list_via_file_upload_through_edit_form(client, db):
+    # Also proves the .docx support this feature added is actually reachable through a real route.
+    vendor_id = _make_vendor("First Price List Via File Vendor")
+    docx_bytes = b"PK\x03\x04" + b"\x00" * 32
+    r = client.post(f"/vendors/{vendor_id}", data={"name": "First Price List Via File Vendor"},
+                    files={"price_list_file": ("prices.docx", docx_bytes,
+                                               "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+                    follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor.price_list_filename is not None
+        assert vendor.price_list_url is None
+        assert vendor.price_list_updated_at == date.today()
+
+    r2 = client.get(f"/vendors/{vendor_id}/price-list")
+    assert r2.status_code == 200
+    assert r2.content == docx_bytes
+
+
+def test_remove_price_list_via_edit_form(client, db):
+    vendor_id = _make_vendor("Remove Price List Vendor")
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        vendor.price_list_url = "https://vendor.example/old-prices"
+        vendor.price_list_updated_at = date(2026, 1, 1)
+        s.commit()
+
+    r = client.post(f"/vendors/{vendor_id}", data={
+        "name": "Remove Price List Vendor",
+        "remove_price_list": "1",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor.price_list_url is None
+        assert vendor.price_list_filename is None
+
+
+def test_leaving_price_list_fields_blank_does_not_touch_existing_price_list(client, db):
+    vendor_id = _make_vendor("Leave Price List Alone Vendor")
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        vendor.price_list_url = "https://vendor.example/still-here"
+        vendor.price_list_updated_at = date(2026, 1, 1)
+        s.commit()
+
+    r = client.post(f"/vendors/{vendor_id}", data={
+        "name": "Leave Price List Alone Vendor",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor.price_list_url == "https://vendor.example/still-here"
+        assert vendor.price_list_updated_at == date(2026, 1, 1)  # untouched, not bumped to today
+
+
+def test_edit_form_rejects_javascript_url_for_price_list(client, db):
+    # Fix 2: price_list_url must be validated as an http(s) URL exactly like website already is,
+    # since Vendor is a global/shared row every user's browser would render this href for.
+    vendor_id = _make_vendor("JS URL Price List Vendor")
+    r = client.post(f"/vendors/{vendor_id}", data={
+        "name": "JS URL Price List Vendor",
+        "price_list_url": "javascript:alert(1)",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        vendor = s.get(Vendor, vendor_id)
+        assert vendor.price_list_url is None
+
+
+def test_cross_task_new_vendor_then_edit_price_list_then_staleness_prompt_appears(client, db):
+    # End-to-end reachability check for Fix 1: create a vendor through the New Order new-vendor
+    # branch (which never sets a price list), set its price list through the vendor edit form, then
+    # confirm a second New Order for the same vendor now shows the staleness prompt -- closing the
+    # exact gap the final review found.
+    r = client.post("/inventory/orders", data={
+        "order_date": "2026-09-01", "is_new_vendor": "yes", "name": "Cross Task Vendor",
+        "lines-0-mode": "new", "lines-0-category": "Medicine", "lines-0-name": "Cross Task Item",
+        "lines-0-medium": "Lyophilized", "lines-0-vial_size_mg": "10", "lines-0-quantity": "5",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        vendor = s.scalar(select(Vendor).where(Vendor.name == "Cross Task Vendor"))
+        assert vendor.price_list_filename is None and vendor.price_list_url is None
+        vendor_id = vendor.id
+
+    r2 = client.post(f"/vendors/{vendor_id}", data={
+        "name": "Cross Task Vendor",
+        "price_list_url": "https://cross-task.example/prices",
+    }, follow_redirects=False)
+    assert r2.status_code == 303
+
+    t = client.get("/inventory").text
+    assert f'value="{vendor_id}"' in t
+    assert f'data-has-price-list="1"' in t or 'data-has-price-list' in t
+    # The specific <option> for this vendor must carry the has-price-list flag now.
+    import re
+    m = re.search(rf'<option value="{vendor_id}"[^>]*>', t)
+    assert m is not None
+    assert 'data-has-price-list="1"' in m.group(0)
