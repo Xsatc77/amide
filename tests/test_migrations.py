@@ -419,3 +419,41 @@ def test_0015_adds_dashboard_thresholds(tmp_path):
         assert "low_stock_default" not in user_cols and "shipment_delay_days" not in user_cols
         item_cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
         assert "low_stock_threshold" not in item_cols
+
+
+def test_0016_adds_vendor_management(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0015")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-27')")
+        c.execute("insert into vendors(name,contact_info,notes,created_at) values "
+                  "('Acme Peptides','old-contact-info','existing notes','2026-09-27')")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        # New tables exist.
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert {"contact_method_types", "payment_method_types", "vendor_contacts",
+               "vendor_payment_methods", "vendor_favorites"} <= tables
+        # Seeded defaults present.
+        contact_names = {r[0] for r in c.execute("select name from contact_method_types")}
+        assert {"Email", "WhatsApp", "Telegram", "Phone"} <= contact_names
+        payment_names = {r[0] for r in c.execute("select name from payment_method_types")}
+        assert {"Credit Card", "Cash", "Crypto", "Alibaba"} <= payment_names
+        # Vendor gained the new columns and lost contact_info, with a backfill into notes.
+        vendor_cols = {r[1] for r in c.execute("pragma table_info(vendors)")}
+        assert {"supplier", "contact_name", "recommended", "price_list_filename",
+               "price_list_url", "price_list_updated_at"} <= vendor_cols
+        assert "contact_info" not in vendor_cols
+        name, notes = c.execute(
+            "select name, notes from vendors where name='Acme Peptides'").fetchone()
+        assert "old-contact-info" in notes and "existing notes" in notes
+    command.downgrade(cfg, "0015")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert not ({"contact_method_types", "payment_method_types", "vendor_contacts",
+                    "vendor_payment_methods", "vendor_favorites"} & tables)
+        vendor_cols = {r[1] for r in c.execute("pragma table_info(vendors)")}
+        assert "contact_info" in vendor_cols
+        assert "supplier" not in vendor_cols

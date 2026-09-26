@@ -109,9 +109,67 @@ class Vendor(Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(200, collation="NOCASE"))
     website: Mapped[str | None] = mapped_column(String(300))
-    contact_info: Mapped[str | None] = mapped_column(String(300))
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    supplier: Mapped[str | None] = mapped_column(String(200))
+    contact_name: Mapped[str | None] = mapped_column(String(120))
+    recommended: Mapped[bool | None] = mapped_column(Boolean)
+    price_list_filename: Mapped[str | None] = mapped_column(String(120))
+    price_list_url: Mapped[str | None] = mapped_column(String(500))
+    price_list_updated_at: Mapped[date | None] = mapped_column(Date)
+
+    contacts: Mapped[list["VendorContact"]] = relationship(back_populates="vendor", cascade="all, delete-orphan")
+    payment_methods: Mapped[list["VendorPaymentMethod"]] = relationship(back_populates="vendor", cascade="all, delete-orphan")
+
+
+class ContactMethodType(Base):
+    __tablename__ = "contact_method_types"
+    __table_args__ = (UniqueConstraint("name", name="uq_contact_method_type_name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(60, collation="NOCASE"))
+
+
+class PaymentMethodType(Base):
+    __tablename__ = "payment_method_types"
+    __table_args__ = (UniqueConstraint("name", name="uq_payment_method_type_name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(60, collation="NOCASE"))
+
+
+class VendorContact(Base):
+    """One contact entry for a vendor: a method type plus the actual handle/number/address. A
+    vendor can have several (two phone numbers, an email AND a Telegram handle, etc.)."""
+    __tablename__ = "vendor_contacts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="CASCADE"), index=True)
+    method_type_id: Mapped[int] = mapped_column(ForeignKey("contact_method_types.id", ondelete="RESTRICT"))
+    value: Mapped[str] = mapped_column(String(200))
+
+    vendor: Mapped["Vendor"] = relationship(back_populates="contacts")
+    method_type: Mapped["ContactMethodType"] = relationship()
+
+
+class VendorPaymentMethod(Base):
+    """A payment type this vendor accepts -- a flag row, no value (unlike VendorContact)."""
+    __tablename__ = "vendor_payment_methods"
+    __table_args__ = (UniqueConstraint("vendor_id", "method_type_id", name="uq_vendor_payment_method"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="CASCADE"), index=True)
+    method_type_id: Mapped[int] = mapped_column(ForeignKey("payment_method_types.id", ondelete="RESTRICT"))
+
+    vendor: Mapped["Vendor"] = relationship(back_populates="payment_methods")
+    method_type: Mapped["PaymentMethodType"] = relationship()
+
+
+class VendorFavorite(Base):
+    """Per-user favorite marker. Row exists = favorited -- insert/delete, no boolean to toggle,
+    mirroring Share's existence-is-the-grant pattern."""
+    __tablename__ = "vendor_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "vendor_id", name="uq_vendor_favorite"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="CASCADE"), index=True)
 
 
 class InventoryItem(Base):
