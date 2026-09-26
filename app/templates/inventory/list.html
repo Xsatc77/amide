@@ -43,6 +43,11 @@
         </div>
       </div>
       {% if is_mine %}
+      {% if v.dispensing_method.value == 'syringe' %}
+      <form method="post" action="/active-vials/{{ v.id }}/convert-to-pen" class="inline">
+        <button type="submit" class="btn btn-ghost">Convert to peptide pen</button>
+      </form>
+      {% endif %}
       <form method="post" action="/active-vials/{{ v.id }}/discard" class="inline"
             data-confirm="Discard this vial? This can't be undone.">
         <button type="submit" class="btn btn-ghost btn-danger">Discard</button>

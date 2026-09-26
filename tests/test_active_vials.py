@@ -394,6 +394,48 @@ def test_active_vial_volume_remaining_defaults_and_depletes(db, me):
     assert vial.volume_remaining_ml == 1.6
 
 
+def test_reconstitute_sets_volume_remaining_and_defaults_to_syringe(client, db, me):
+    item_id = _create_item("Retatrutide", category="Medicine", medium="Lyophilized", vial_size_mg=10,
+                           quantity=1, arrival_date=date(2026, 8, 10), uid=me)
+    r = client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "2", "dose_unit": "mg",
+        "discard_by": "2026-10-01",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        vial = s.scalar(select(ActiveVial).where(ActiveVial.inventory_item_id == item_id))
+        assert vial.volume_remaining_ml == 2.0
+        assert vial.dispensing_method.value == "syringe"
+
+
+def test_reconstitute_with_pen_question_answered_yes(client, db, me):
+    item_id = _create_item("Retatrutide", category="Medicine", medium="Lyophilized", vial_size_mg=10,
+                           quantity=1, arrival_date=date(2026, 8, 10), uid=me)
+    r = client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "2", "dose_unit": "mg",
+        "discard_by": "2026-10-01", "load_into_pen": "1",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        vial = s.scalar(select(ActiveVial).where(ActiveVial.inventory_item_id == item_id))
+        assert vial.dispensing_method.value == "pen"
+
+
+def test_convert_vial_to_pen_later(client, db, me):
+    item_id = _create_item("Retatrutide", category="Medicine", medium="Lyophilized", vial_size_mg=10,
+                           quantity=1, arrival_date=date(2026, 8, 10), uid=me)
+    client.post("/calculator/reconstitute", data={
+        "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "2", "dose_unit": "mg",
+        "discard_by": "2026-10-01",
+    })
+    with SessionLocal() as s:
+        vial_id = s.scalar(select(ActiveVial.id).where(ActiveVial.inventory_item_id == item_id))
+    r = client.post(f"/active-vials/{vial_id}/convert-to-pen", follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(ActiveVial, vial_id).dispensing_method.value == "pen"
+
+
 def test_dose_log_model_constraints_and_denormalization(db, me):
     from app.models import (
         DoseLog, DoseStatus, DoseUnit, InjectionSite, Peptide, Protocol, ProtocolItem, Route,

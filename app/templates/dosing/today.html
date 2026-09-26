@@ -20,7 +20,7 @@
     {% for occ, item in due %}
     <tr>
       <td>{{ item.peptide }}{% if item.step %} <span class="tag">Step {{ item.step }}</span>{% endif %}</td>
-      <td>{{ item.dose }} {{ item.unit }}</td>
+      <td>{{ item.dose }} {{ item.unit }}{% if item.protocol_item_id in volume_text %}<div class="muted small">{{ volume_text[item.protocol_item_id] }}</div>{% endif %}</td>
       <td>{{ item.time_of_day.label }}</td>
       <td>{{ item.route }}</td>
       <td>

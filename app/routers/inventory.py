@@ -14,7 +14,7 @@ from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
-from app.models import ActiveVial, Category, DoseUnit, InventoryItem, Medium, Order, OrderItem, Sale, Share, ShareCategory, StorageLocation, User
+from app.models import ActiveVial, Category, DispensingMethod, DoseUnit, InventoryItem, Medium, Order, OrderItem, Sale, Share, ShareCategory, StorageLocation, User
 from app.templating import templates
 
 router = APIRouter()
@@ -929,6 +929,16 @@ def discard_active_vial(vial_id: int, session: Session = Depends(get_session), u
     vial.discarded_at = now_utc()
     session.commit()
     return RedirectResponse(f"/inventory?just_discarded={vial.inventory_item_id}#active-vials", status_code=303)
+
+
+@router.post("/active-vials/{vial_id}/convert-to-pen")
+def convert_vial_to_pen(vial_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    vial = _own_active_vial(session, vial_id, uid)
+    if vial is None:
+        raise HTTPException(404)
+    vial.dispensing_method = DispensingMethod.PEN
+    session.commit()
+    return RedirectResponse("/inventory#active-vials", status_code=303)
 
 
 @router.post("/active-vials/{vial_id}/snooze-prompt")

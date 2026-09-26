@@ -92,8 +92,26 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
                 "recommended": recommend(last, item.route.lower()).value if recommend(last, item.route.lower()) else None,
             }
 
+    volume_text = {}
+    protocol_items_by_id = {
+        pi.id: pi for p in protocols for pi in p.items
+    }
+    for occ, item in due:
+        pi = protocol_items_by_id.get(item.protocol_item_id)
+        if pi is None or pi.inventory_item_id is None:
+            continue
+        vial = _open_vial_for_item(session, pi.inventory_item_id)
+        if vial is None:
+            continue
+        vol = _dose_volume_ml(pi.dose, pi.dose_unit, vial)
+        if vol is None:
+            continue
+        verb = "Dial the pen to" if vial.dispensing_method.value == "pen" else "Draw to"
+        volume_text[item.protocol_item_id] = f"{verb} {vol:.2f} mL"
+
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
+        "volume_text": volume_text,
     })
 
 
