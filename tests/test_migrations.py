@@ -248,7 +248,7 @@ def test_0011_adds_orders_and_categorizes_existing_items(tmp_path):
         c.execute("insert into inventory_items(name,count,vial_size_unit,medium,vendor,lot_number,"
                   "cost_cents,order_date,created_at,updated_at,owner_id) values ('Tirzepatide',0,'mg',"
                   "'Lyophilized','PeptideCo','LOT2',7000,'2026-07-01','2026-07-01','2026-07-01',1)")
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0011")
     with sqlite3.connect(db) as c:
         cols = {r[1] for r in c.execute("pragma table_info(orders)")}
         assert {"inventory_item_id", "quantity", "order_date", "shipped_date", "arrival_date",

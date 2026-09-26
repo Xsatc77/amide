@@ -84,7 +84,9 @@ def test_inventory_prefill_only_lyophilized_and_own(client, db):
     with SessionLocal() as s:
         for name in ("My Powder", "My Liquid"):
             item = s.scalar(select(InventoryItem).where(InventoryItem.name == name))
-            item.orders[0].arrival_date = date(2026, 8, 10)  # must have arrived to show up in the dropdown
+            li = item.order_items[0]
+            li.order.arrival_date = date(2026, 8, 10)  # must have arrived to show up in the dropdown
+            li.received_quantity = li.quantity
         s.commit()
     t = text(client.get("/calculator"))
     data = json.loads(t.split('id="calc-data">')[1].split("</script>")[0])

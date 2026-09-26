@@ -19,7 +19,7 @@ def _create_item(name: str, category: str = "Medicine", medium: str = None, vial
                  arrival_date: date = None, uid: int = None) -> int:
     """Create an inventory item directly in the database (bypassing the broken POST endpoint).
     Returns the item_id."""
-    from app.models import Category, Medium, DoseUnit, Order, InventoryItem
+    from app.models import Category, Medium, DoseUnit, Order, OrderItem, InventoryItem
     with SessionLocal() as s:
         if uid is None:
             uid = s.scalar(select(User.id))
@@ -40,11 +40,13 @@ def _create_item(name: str, category: str = "Medicine", medium: str = None, vial
 
         # Create an order for non-Supply items (only if quantity > 0, since DB constraint requires it)
         if cat != Category.SUPPLY and quantity > 0:
-            order = Order(
-                inventory_item_id=item.id, quantity=quantity, order_date=date.fromisoformat(order_date),
-                arrival_date=arrival_date
-            )
+            order = Order(order_date=date.fromisoformat(order_date), arrival_date=arrival_date)
             s.add(order)
+            s.flush()
+            order.items.append(OrderItem(
+                inventory_item_id=item.id, quantity=quantity,
+                received_quantity=quantity if arrival_date else None,
+            ))
         s.commit()
         return item.id
 

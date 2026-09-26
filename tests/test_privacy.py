@@ -270,7 +270,9 @@ def test_active_vial_not_visible_without_inventory_grant(client, other, me):
                                     "medium": "Lyophilized", "quantity": "1", "order_date": "2026-08-01"})
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "AV Privacy Item"))
-        s.get(InventoryItem, item_id).orders[0].arrival_date = date(2026, 8, 10)  # must have arrived to reconstitute
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)  # must have arrived to reconstitute
+        li.received_quantity = li.quantity
         s.commit()
     client.post("/calculator/reconstitute", data={
         "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",

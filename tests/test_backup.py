@@ -192,10 +192,13 @@ def test_json_export_import_round_trip_preserves_available_count(client, db):
     # round-trip export/import (reconstituted_count must survive the trip, or it "heals" back to 10).
     client.post("/inventory", data={
         "name": "Semaglutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
-        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+        "quantity": "10", "order_date": "2026-08-01",
     })
     with SessionLocal() as s:
         item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Semaglutide"))
+        li = item.order_items[0]
+        li.order.arrival_date = date(2026, 8, 5)
+        li.received_quantity = li.quantity
         item.reconstituted_count = 6
         s.commit()
         assert item.available_count == 4
@@ -236,10 +239,14 @@ def test_csv_export_includes_reconstituted_and_sold_columns(client, db):
 def test_json_export_includes_sale_history(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
-        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+        "quantity": "10", "order_date": "2026-08-01",
     })
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 5)
+        li.received_quantity = li.quantity
+        s.commit()
     client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
                follow_redirects=False)
     payload = client.get("/backup/export.json").json()
@@ -336,10 +343,14 @@ def test_json_import_tolerates_backup_with_no_received_quantity_key(client, db):
 def test_csv_export_includes_sales_section(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
-        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-05",
+        "quantity": "10", "order_date": "2026-08-01",
     })
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 5)
+        li.received_quantity = li.quantity
+        s.commit()
     client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
                follow_redirects=False)
     r = client.get("/backup/export/inventory.csv")
