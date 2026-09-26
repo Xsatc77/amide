@@ -1192,7 +1192,8 @@ def test_editing_a_checked_in_line_can_correct_received_quantity(client, db):
         s.commit()
 
     r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
-        "quantity": "10", "order_date": "2026-08-01", "received_quantity": "10",
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-10",
+        "received_quantity": "10",
     }, follow_redirects=False)
     assert r.status_code == 303
     with SessionLocal() as s:
@@ -1213,12 +1214,95 @@ def test_editing_a_checked_in_line_with_unparseable_quantity_is_a_422_not_a_cras
         s.commit()
 
     r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
-        "quantity": "not-a-number", "order_date": "2026-08-01", "received_quantity": "5",
+        "quantity": "not-a-number", "order_date": "2026-08-01", "arrival_date": "2026-08-10",
+        "received_quantity": "5",
     }, follow_redirects=False)
     assert r.status_code == 422
     assert "whole number" in r.text
     with SessionLocal() as s:
         assert s.get(InventoryItem, item_id).order_items[0].received_quantity == 9  # unchanged
+
+
+def test_editing_a_checked_in_line_can_correct_the_arrival_date(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)  # simulate a check-in with the wrong date
+        li.received_quantity = 10
+        s.commit()
+
+    r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-08-09",
+        "received_quantity": "10",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date == date(2026, 8, 9)
+
+
+def test_editing_a_checked_in_line_rejects_a_future_arrival_date(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)
+        li.received_quantity = 10
+        s.commit()
+
+    r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2099-01-01",
+        "received_quantity": "10",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    assert "can't be in the future" in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date == date(2026, 8, 10)  # unchanged
+
+
+def test_editing_a_checked_in_line_rejects_arrival_before_order_date(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        li.order.arrival_date = date(2026, 8, 10)
+        li.received_quantity = 10
+        s.commit()
+
+    r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
+        "quantity": "10", "order_date": "2026-08-01", "arrival_date": "2026-07-01",
+        "received_quantity": "10",
+    }, follow_redirects=False)
+    assert r.status_code == 422
+    assert "can't be before the order date" in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date == date(2026, 8, 10)  # unchanged
+
+
+def test_editing_an_unarrived_order_does_not_require_or_touch_arrival_date(client, db):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li_id = s.get(InventoryItem, item_id).order_items[0].id
+
+    r = client.post(f"/inventory/{item_id}/orders/{li_id}", data={
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date is None
 
 
 def test_deleting_sole_line_deletes_orphaned_order_header(client, db):

@@ -992,6 +992,25 @@ def _own_order_for_item(session: Session, item_id: int, order_id: int, uid: int)
     return order
 
 
+def _parse_arrival_date(order_date: date, shipped_date: date | None, raw_value: str,
+                        errors: dict) -> date | None:
+    """Shared by check-in and the post-arrival edit form: an arrival date is always required once
+    it's being set at all, and must fall between the order date and the shipped date (if any) and
+    today, inclusive. Callers pass the order/shipped dates as they'll stand AFTER this request's own
+    edits (check-in never edits them; the edit form validates against whatever it just parsed for
+    them in the same submission, not stale pre-edit values)."""
+    arrival_date = _parse_date(raw_value, "arrival_date", errors)
+    if arrival_date is None and "arrival_date" not in errors:
+        errors["arrival_date"] = "Arrival date is required."
+    elif arrival_date and arrival_date > date.today():
+        errors["arrival_date"] = "Arrival date can't be in the future."
+    elif arrival_date and shipped_date and arrival_date < shipped_date:
+        errors["arrival_date"] = "Arrival date can't be before the shipped date."
+    elif arrival_date and arrival_date < order_date:
+        errors["arrival_date"] = "Arrival date can't be before the order date."
+    return arrival_date
+
+
 @router.post("/inventory/{item_id}/orders/{order_id}/check-in")
 async def check_in_order(item_id: int, order_id: int, request: Request,
                          session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
@@ -1006,15 +1025,7 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
         raw[f"received_note_{li.id}"] = str(form.get(f"received_note_{li.id}") or "").strip()
 
     errors: dict[str, str] = {}
-    arrival_date = _parse_date(raw["arrival_date"], "arrival_date", errors)
-    if arrival_date is None and "arrival_date" not in errors:
-        errors["arrival_date"] = "Arrival date is required."
-    elif arrival_date and arrival_date > date.today():
-        errors["arrival_date"] = "Arrival date can't be in the future."
-    elif arrival_date and order.shipped_date and arrival_date < order.shipped_date:
-        errors["arrival_date"] = "Arrival date can't be before the shipped date."
-    elif arrival_date and arrival_date < order.order_date:
-        errors["arrival_date"] = "Arrival date can't be before the order date."
+    arrival_date = _parse_arrival_date(order.order_date, order.shipped_date, raw["arrival_date"], errors)
 
     received: dict[int, tuple[int, str | None]] = {}
     for li in order.items:
@@ -1159,6 +1170,13 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
     line_values, line_errors = _parse_order_line_fields(raw)
     errors.update(line_errors)
 
+    new_arrival_date = li.order.arrival_date
+    if li.order.arrival_date is not None:
+        raw_arrival = str((await request.form()).get("arrival_date") or "").strip()
+        new_arrival_date = _parse_arrival_date(
+            header_values["order_date"] or li.order.order_date,
+            header_values["shipped_date"], raw_arrival, errors)
+
     received_quantity = li.received_quantity
     if li.order.arrival_date is not None:
         raw_received = str((await request.form()).get("received_quantity") or "").strip()
@@ -1194,6 +1212,7 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
         setattr(li.order, key, value)
     for key, value in line_values.items():
         setattr(li, key, value)
+    li.order.arrival_date = new_arrival_date
     li.received_quantity = received_quantity
     if new_coa or remove_coa:
         uploads.delete_coa(li.coa_filename)

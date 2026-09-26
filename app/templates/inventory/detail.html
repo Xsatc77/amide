@@ -184,7 +184,7 @@
           {% if li.order.arrival_date is none %}
           <button type="button" class="btn btn-ghost" data-action="check-in" data-order-id="{{ li.order_id }}">Check in</button>
           {% endif %}
-          <button type="button" class="btn btn-ghost" data-action="edit-order" data-order-id="{{ li.id }}" data-order='{{ {"quantity": li.quantity, "order_date": li.order.order_date.isoformat() if li.order.order_date else "", "shipped_date": li.order.shipped_date.isoformat() if li.order.shipped_date else "", "tracking_site": li.order.tracking_site or "", "tracking_number": li.order.tracking_number or "", "vendor": li.order.vendor or "", "lot_number": li.lot_number or "", "cost": "" if li.cost is none else ("%.2f" % li.cost), "tax": "" if li.order.tax is none else ("%.2f" % li.order.tax), "shipping": "" if li.order.shipping is none else ("%.2f" % li.order.shipping), "expiration_date": li.expiration_date.isoformat() if li.expiration_date else "", "coa_vial_size_mg": "" if li.coa_vial_size_mg is none else ("%g" % li.coa_vial_size_mg), "coa_purity_pct": "" if li.coa_purity_pct is none else ("%g" % li.coa_purity_pct), "received_quantity": "" if li.received_quantity is none else li.received_quantity|string, "arrived": li.order.arrival_date is not none} | tojson }}'>Edit</button>
+          <button type="button" class="btn btn-ghost" data-action="edit-order" data-order-id="{{ li.id }}" data-order='{{ {"quantity": li.quantity, "order_date": li.order.order_date.isoformat() if li.order.order_date else "", "shipped_date": li.order.shipped_date.isoformat() if li.order.shipped_date else "", "tracking_site": li.order.tracking_site or "", "tracking_number": li.order.tracking_number or "", "vendor": li.order.vendor or "", "lot_number": li.lot_number or "", "cost": "" if li.cost is none else ("%.2f" % li.cost), "tax": "" if li.order.tax is none else ("%.2f" % li.order.tax), "shipping": "" if li.order.shipping is none else ("%.2f" % li.order.shipping), "expiration_date": li.expiration_date.isoformat() if li.expiration_date else "", "coa_vial_size_mg": "" if li.coa_vial_size_mg is none else ("%g" % li.coa_vial_size_mg), "coa_purity_pct": "" if li.coa_purity_pct is none else ("%g" % li.coa_purity_pct), "received_quantity": "" if li.received_quantity is none else li.received_quantity|string, "arrival_date": li.order.arrival_date.isoformat() if li.order.arrival_date else "", "arrived": li.order.arrival_date is not none} | tojson }}'>Edit</button>
         </td>
         {% endif %}
       </tr>
@@ -225,6 +225,11 @@
       <label {{ ocls('coa', 'span-2') }}><span>COA (photo or PDF)</span><input name="coa" type="file" accept="image/*,.heic,.heif,application/pdf">{{ oerr('coa') }}</label>
       <label {{ ocls('coa_vial_size_mg') }}><span>Lab vial size (mg)</span><input name="coa_vial_size_mg" type="number" min="0" step="any" value="{{ of.coa_vial_size_mg }}">{{ oerr('coa_vial_size_mg') }}</label>
       <label {{ ocls('coa_purity_pct') }}><span>Lab purity (%)</span><input name="coa_purity_pct" type="number" min="0" max="100" step="any" value="{{ of.coa_purity_pct }}">{{ oerr('coa_purity_pct') }}</label>
+      <label {{ ocls('arrival_date') }} data-field="arrival_date" {% if not of.arrived %}hidden{% endif %}>
+        <span>Arrival date</span>
+        <input name="arrival_date" type="date" value="{{ of.arrival_date }}">
+        {{ oerr('arrival_date') }}
+      </label>
       <label {{ ocls('received_quantity') }} data-field="received_quantity" {% if not of.arrived %}hidden{% endif %}>
         <span>Received quantity</span>
         <input name="received_quantity" type="number" min="0" step="1" value="{{ of.received_quantity }}">

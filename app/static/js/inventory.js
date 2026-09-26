@@ -219,6 +219,8 @@
     }
     const receivedGroup = form.querySelector('[data-field="received_quantity"]');
     if (receivedGroup) receivedGroup.hidden = !order.arrived;
+    const arrivalGroup = form.querySelector('[data-field="arrival_date"]');
+    if (arrivalGroup) arrivalGroup.hidden = !order.arrived;
     form.action = `${window.location.pathname}/orders/${btn.dataset.orderId}`;
     dialog.querySelector("[data-title]").textContent = "Edit order";
     dialog.showModal();
