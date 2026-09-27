@@ -331,3 +331,43 @@ def test_past_panel_shows_that_days_protocols_not_todays(client, db):
         assert "TodayOnlyLabPeptide" not in panels_section
     finally:
         _clear_lab_panels(me)
+
+
+def test_shared_panel_active_protocols_use_the_owners_doses_not_the_viewers(client, db):
+    """A shared panel's `active_protocols` must be built from the PANEL OWNER's own DoseLog rows on
+    that panel's `drawn_at` -- never the viewer's, even when the viewer happens to have logged a
+    dose of their own on that exact same date. Direct evidence via `labs_tab_context`, not just
+    code-reading: the viewer (tester) and the sharing partner each get their own DoseLog seeded on
+    the panel's draw date, and only the partner's peptide may appear on the partner's panel."""
+    me = _tester_id()
+    other = _logged_in_client("LabsProtocolSharePartner")
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "labsprotocolsharepartner"))
+    draw_date = date(2026, 9, 20)
+    _seed_dose_log(me, "ViewerOwnPeptide", draw_date)
+    _seed_dose_log(other_id, "PartnerPeptide", draw_date)
+    try:
+        r = other.post("/labs/panels", data={
+            "drawn_at": "2026-09-20",
+            "marker[]": ["TSH"], "value[]": ["3.1"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        }, follow_redirects=False)
+        assert r.status_code == 303
+
+        with SessionLocal() as s:
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.commit()
+
+        from app.routers.labs import labs_tab_context
+        with SessionLocal() as s:
+            ctx = labs_tab_context(s, me, "lifetime", None)
+            shared_panel = next(p for p in ctx["panels"] if p["owner_name"] == "LabsProtocolSharePartner")
+            peptide_names = {d["peptide_name"] for d in shared_panel["active_protocols"]}
+            assert peptide_names == {"PartnerPeptide"}
+            assert "ViewerOwnPeptide" not in peptide_names
+    finally:
+        with SessionLocal() as s:
+            s.query(Share).filter_by(owner_id=other_id, grantee_id=me,
+                                     category=ShareCategory.PERSONAL_DATA).delete()
+            s.commit()
+        _clear_lab_panels(me, other_id)
