@@ -119,6 +119,41 @@ class JournalSideEffect(str, enum.Enum):
     FLUSHING_DIZZINESS = "Flushing / dizziness"
 
 
+class LabMarker(str, enum.Enum):
+    TOTAL_TESTOSTERONE = "Total Testosterone"
+    FREE_TESTOSTERONE = "Free Testosterone"
+    ESTRADIOL = "Estradiol"
+    LH = "LH"
+    FSH = "FSH"
+    SHBG = "SHBG"
+    PROLACTIN = "Prolactin"
+    IGF_1 = "IGF-1"
+    CORTISOL = "Cortisol"
+    FASTING_GLUCOSE = "Fasting Glucose"
+    HBA1C = "HbA1c"
+    FASTING_INSULIN = "Fasting Insulin"
+    TOTAL_CHOLESTEROL = "Total Cholesterol"
+    LDL = "LDL"
+    HDL = "HDL"
+    TRIGLYCERIDES = "Triglycerides"
+    TSH = "TSH"
+    FREE_T3 = "Free T3"
+    FREE_T4 = "Free T4"
+    ALT = "ALT"
+    AST = "AST"
+    CREATININE = "Creatinine"
+    EGFR = "eGFR"
+    BUN = "BUN"
+    HEMOGLOBIN = "Hemoglobin"
+    HEMATOCRIT = "Hematocrit"
+    WBC = "WBC"
+    PLATELETS = "Platelets"
+    HS_CRP = "hs-CRP"
+    VITAMIN_D = "Vitamin D"
+    FERRITIN = "Ferritin"
+    OTHER = "Other"
+
+
 class ActivityLevel(LabeledEnum):
     SEDENTARY = ("1.2", "Sedentary — little or no exercise")
     LIGHTLY_ACTIVE = ("1.375", "Lightly active — 1-3 days/week")
@@ -813,3 +848,35 @@ class JournalQuickNote(Base):
     text: Mapped[str] = mapped_column(Text)
 
     entry: Mapped["JournalEntry"] = relationship(back_populates="quick_notes")
+
+
+class LabPanel(Base):
+    """One draw/visit's worth of results, optionally with the lab's own report attached."""
+    __tablename__ = "lab_panels"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    drawn_at: Mapped[date] = mapped_column(Date, index=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+    report_filename: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    results: Mapped[list["LabResult"]] = relationship(
+        back_populates="panel", cascade="all, delete-orphan")
+
+
+class LabResult(Base):
+    __tablename__ = "lab_results"
+    __table_args__ = (
+        CheckConstraint("range_low IS NULL OR range_high IS NULL OR range_low <= range_high",
+                        name="ck_lab_result_range_order"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    panel_id: Mapped[int] = mapped_column(ForeignKey("lab_panels.id", ondelete="CASCADE"), index=True)
+    marker: Mapped[LabMarker] = mapped_column(_enum_column(LabMarker))
+    marker_other: Mapped[str | None] = mapped_column(String(80))
+    value: Mapped[float] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(20))
+    range_low: Mapped[float | None] = mapped_column(Float)
+    range_high: Mapped[float | None] = mapped_column(Float)
+
+    panel: Mapped["LabPanel"] = relationship(back_populates="results")

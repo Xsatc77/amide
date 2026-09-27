@@ -116,3 +116,30 @@ def delete_price_list(filename: str | None) -> None:
 
 def price_list_media_type(filename: str) -> str:
     return PRICE_LIST_ALLOWED_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
+
+
+async def save_lab_report(upload: UploadFile) -> str:
+    """Validate and store an uploaded lab report. Returns the stored filename."""
+    ext = Path(upload.filename or "").suffix.lower()
+    if ext not in ALLOWED_TYPES:
+        raise UploadError("Lab report must be a photo (JPG, PNG, WEBP, HEIC) or a PDF.")
+
+    data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        raise UploadError(f"Lab report is larger than {config.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+    if not _sniff_ok(ext, data[:16]):
+        raise UploadError("Lab report file contents don't match its file type.")
+
+    config.ensure_dirs()
+    filename = f"{uuid.uuid4().hex}{ext}"
+    (config.LAB_REPORT_DIR / filename).write_bytes(data)
+    return filename
+
+
+def lab_report_path(filename: str) -> Path:
+    return config.LAB_REPORT_DIR / filename
+
+
+def delete_lab_report(filename: str | None) -> None:
+    if filename:
+        lab_report_path(filename).unlink(missing_ok=True)

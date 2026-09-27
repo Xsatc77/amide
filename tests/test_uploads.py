@@ -1,4 +1,4 @@
-"""Direct unit tests for app/uploads.py's price-list helpers (no HTTP route exists yet for
+"""Direct unit tests for app/uploads.py's price-list and lab-report helpers (no HTTP route exists yet for
 these -- Task 2 only adds the pure functions; a route consuming them lands in a later task).
 """
 
@@ -13,9 +13,13 @@ from app.uploads import (
     ALLOWED_TYPES,
     PRICE_LIST_ALLOWED_TYPES,
     UploadError,
+    delete_lab_report,
     delete_price_list,
+    lab_report_path,
+    media_type,
     price_list_media_type,
     price_list_path,
+    save_lab_report,
     save_price_list,
 )
 
@@ -87,3 +91,30 @@ def test_save_price_list_rejects_oversized_file():
     with pytest.raises(UploadError):
         _save("big.pdf", oversized)
     assert list(config.PRICE_LIST_DIR.iterdir()) == []
+
+
+# Lab report tests
+def _save_lab_report(filename: str, data: bytes) -> str:
+    return asyncio.run(save_lab_report(_upload(filename, data)))
+
+
+@pytest.fixture(autouse=True)
+def _clean_lab_report_dir():
+    config.ensure_dirs()
+    yield
+    for f in config.LAB_REPORT_DIR.glob("*"):
+        f.unlink()
+
+
+def test_save_lab_report_accepts_pdf():
+    filename = _save_lab_report("lab-report.pdf", PDF)
+    assert filename.endswith(".pdf")
+    assert lab_report_path(filename).read_bytes() == PDF
+    assert media_type(filename) == "application/pdf"
+    delete_lab_report(filename)
+    assert not lab_report_path(filename).exists()
+
+
+def test_save_lab_report_rejects_docx():
+    with pytest.raises(UploadError):
+        _save_lab_report("report.docx", DOCX)
