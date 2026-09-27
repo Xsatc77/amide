@@ -10,7 +10,7 @@ from app.db import get_session
 from app.measurements.calculations import (bmi, bmr, body_fat_pct, macros_for_preset,
                                            target_calories, tdee, water_goal_oz, water_pace)
 from app.models import BodyMeasurement, DietPreset, MacroGoal, Share, ShareCategory, User
-from app.routers import journal
+from app.routers import journal, labs
 from app.templating import templates
 
 router = APIRouter()
@@ -363,6 +363,8 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     }
     if tab == "journal":
         context.update(journal.journal_tab_context(session, uid))
+    elif tab == "labs":
+        context.update(labs.labs_tab_context(session, uid))
 
     return templates.TemplateResponse(request, "measurements/index.html", context, status_code=status_code)
 

@@ -461,12 +461,144 @@
 </section>
 
 {% elif active_tab == 'labs' %}
-<section class="dashboard-placeholders">
-  <div class="card"><h3>Labs</h3><p class="muted">Coming in a future update.</p></div>
+<section aria-labelledby="labs-heading">
+  <h2 id="labs-heading" class="section-title">Labs</h2>
+  <button type="button" class="btn btn-primary" data-action="open-lab-panel">New Panel</button>
+</section>
+
+{% if errors %}
+<p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
+{% endif %}
+
+<dialog id="lab-dialog" class="dialog"{{ ' open' if errors }}>
+  <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate>
+    <header class="dialog-head">
+      <h2>New lab panel</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
+    </header>
+
+    <div class="grid">
+      <label class="field {{ 'has-error' if errors.drawn_at }}">
+        <span>Draw date</span>
+        <input name="drawn_at" type="date" value="{{ today }}" required>
+        {{ err('drawn_at') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.report }}">
+        <span>Lab report (optional)</span>
+        <input name="report" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf">
+        {{ err('report') }}
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Notes</span>
+      <textarea name="notes" rows="3" data-autogrow placeholder="Anything worth noting about this draw"></textarea>
+    </label>
+
+    <fieldset class="form-section">
+      <legend>Results</legend>
+      {{ err('rows') }}
+      <div data-lab-rows-container></div>
+      <button type="button" class="btn" data-action="add-lab-row">Add another result</button>
+    </fieldset>
+
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save panel</button>
+    </footer>
+  </form>
+</dialog>
+
+<template id="lab-row-template">
+  <div class="grid" data-lab-row>
+    <label class="field">
+      <span>Marker</span>
+      <select name="marker[]" data-lab-marker-select>
+        {% for m in lab_markers %}
+        <option value="{{ m.name }}">{{ m.value }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field" data-lab-marker-other hidden>
+      <span>Other marker name</span>
+      <input name="marker_other[]" maxlength="80">
+    </label>
+    <label class="field">
+      <span>Value</span>
+      <input name="value[]" type="number" step="any" required>
+    </label>
+    <label class="field">
+      <span>Unit</span>
+      <input name="unit[]" maxlength="20">
+    </label>
+    <label class="field">
+      <span>Range low</span>
+      <input name="range_low[]" type="number" step="any">
+    </label>
+    <label class="field">
+      <span>Range high</span>
+      <input name="range_high[]" type="number" step="any">
+    </label>
+    <button type="button" class="btn btn-ghost" data-action="remove-lab-row">Remove</button>
+  </div>
+</template>
+
+<section aria-labelledby="labs-panels-heading">
+  <h2 id="labs-panels-heading" class="section-title">Panels</h2>
+  {% if not panels %}
+  <div class="empty">
+    <p><strong>No lab panels yet.</strong></p>
+    <p class="muted">Log a New Panel above to start tracking your lab results.</p>
+  </div>
+  {% else %}
+  {% for panel in panels %}
+  <div class="card">
+    <h3>{{ panel.drawn_at.strftime('%b') }} {{ panel.drawn_at.day }}, {{ panel.drawn_at.year }}</h3>
+    {% if panel.owner_name %}<p class="muted">Shared by {{ panel.owner_name }}</p>{% endif %}
+    {% if panel.notes %}<p>{{ panel.notes }}</p>{% endif %}
+    {% if panel.report_filename %}
+    <p><a href="/labs/panels/{{ panel.id }}/report" target="_blank" rel="noopener">View attached report</a></p>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th>Marker</th>
+            <th>Value</th>
+            <th>Unit</th>
+            <th>Range</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in panel.results %}
+          <tr class="{{ 'lab-out-of-range' if r.out_of_range }}">
+            <td data-label="Marker">{{ r.marker_label }}</td>
+            <td data-label="Value">{{ r.value }}</td>
+            <td data-label="Unit">{{ r.unit or '—' }}</td>
+            <td data-label="Range">
+              {%- if r.range_low is not none and r.range_high is not none -%}
+                {{ r.range_low }}–{{ r.range_high }}
+              {%- else -%}
+                —
+              {%- endif -%}
+            </td>
+            <td data-label="Flag">
+              {% if r.out_of_range %}<span class="tag out-of-range">Out of range</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
 </section>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ static_url('js/journal.js') }}" defer></script>
+<script src="{{ static_url('js/labs.js') }}" defer></script>
 {% endblock %}
