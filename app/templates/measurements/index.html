@@ -316,7 +316,7 @@
   <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
 </section>
 
-<dialog id="journal-dialog" class="dialog">
+<dialog id="journal-dialog" class="dialog"{{ ' open' if errors }}>
   <form method="post" action="/journal/entries" class="settings-form" novalidate>
     <header class="dialog-head">
       <h2>Today's entry</h2>
@@ -324,39 +324,53 @@
     </header>
 
     <div class="grid">
-      <label class="field">
+      <label class="field {{ 'has-error' if errors.mood }}">
         <span>Mood (1-5)</span>
-        <input name="mood" type="number" min="1" max="5" step="1" inputmode="numeric">
+        <input name="mood" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.mood if today_entry and today_entry.mood is not none else '' }}">
+        {{ err('mood') }}
       </label>
-      <label class="field">
+      <label class="field {{ 'has-error' if errors.energy }}">
         <span>Energy (1-5)</span>
-        <input name="energy" type="number" min="1" max="5" step="1" inputmode="numeric">
+        <input name="energy" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.energy if today_entry and today_entry.energy is not none else '' }}">
+        {{ err('energy') }}
       </label>
-      <label class="field">
+      <label class="field {{ 'has-error' if errors.sleep_quality }}">
         <span>Sleep quality (1-5)</span>
-        <input name="sleep_quality" type="number" min="1" max="5" step="1" inputmode="numeric">
+        <input name="sleep_quality" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.sleep_quality if today_entry and today_entry.sleep_quality is not none else '' }}">
+        {{ err('sleep_quality') }}
       </label>
     </div>
 
     <fieldset class="form-section">
       <legend>Side effects</legend>
+      {{ err('side_effects') }}
       <div class="chips">
         {% for se in journal_side_effects %}
         <label class="chip-checkbox">
-          <input type="checkbox" name="side_effects" value="{{ se.value }}"> {{ se.value }}
+          <input type="checkbox" name="side_effects" value="{{ se.value }}"{{ ' checked' if today_entry and se.value in today_entry.side_effects }}> {{ se.value }}
         </label>
         {% endfor %}
       </div>
       <label class="field">
         <span>Other</span>
-        <input name="side_effects_other" maxlength="500" placeholder="Anything not listed above">
+        <input name="side_effects_other" maxlength="500" placeholder="Anything not listed above" value="{{ today_entry.side_effects_other or '' if today_entry else '' }}">
       </label>
     </fieldset>
 
     <label class="field">
       <span>Notes</span>
-      <textarea name="notes" rows="4" data-autogrow placeholder="How was today?"></textarea>
+      <textarea name="notes" rows="4" data-autogrow placeholder="How was today?">{{ today_entry.notes or '' if today_entry else '' }}</textarea>
     </label>
+    {% if today_entry and today_entry.quick_notes %}
+    <div class="quick-notes-readonly">
+      <p class="muted">Today's quick notes so far:</p>
+      <ul class="quick-notes">
+        {% for qn in today_entry.quick_notes %}
+        <li><span class="muted">{{ qn.time_display }}</span> {{ qn.text }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
 
     <fieldset class="form-section">
       <legend>Today's doses</legend>
@@ -381,7 +395,7 @@
 
 <section aria-labelledby="journal-entries-heading">
   <h2 id="journal-entries-heading" class="section-title">Entries</h2>
-  {% if not entries %}
+  {% if not journal_entries %}
   <div class="empty">
     <p><strong>No journal entries yet.</strong></p>
     <p class="muted">Log a New Entry above to start tracking your mood, energy, sleep, and side effects.</p>
@@ -402,7 +416,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for e in entries %}
+        {% for e in journal_entries %}
         <tr>
           <td data-label="Date">{{ e.date.strftime('%b') }} {{ e.date.day }}, {{ e.date.year }}</td>
           <td data-label="Mood">{{ e.mood if e.mood is not none else '—' }}</td>
@@ -420,7 +434,7 @@
             {% if e.quick_notes %}
             <ul class="quick-notes">
               {% for qn in e.quick_notes %}
-              <li><span class="muted">{{ qn.noted_at.strftime('%H:%M') }}</span> {{ qn.text }}</li>
+              <li><span class="muted">{{ qn.time_display }}</span> {{ qn.text }}</li>
               {% endfor %}
             </ul>
             {% endif %}

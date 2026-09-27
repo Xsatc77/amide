@@ -5,8 +5,8 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import (
-    DoseLog, DoseStatus, DoseUnit, Frequency, JournalEntry, JournalSideEffect, Peptide, Protocol, ProtocolItem,
-    Route, Share, ShareCategory, TimeOfDay, User,
+    DoseLog, DoseStatus, DoseUnit, Frequency, JournalEntry, JournalQuickNote, JournalSideEffect, Peptide, Protocol,
+    ProtocolItem, Route, Share, ShareCategory, TimeOfDay, User,
 )
 
 from tests.test_measurements_page import _logged_in_client, _text
@@ -92,6 +92,28 @@ def test_rejects_out_of_range_mood(client, db):
     try:
         r = client.post("/journal/entries", data={"mood": "6"})
         assert r.status_code == 422
+        # It's a real re-rendered Journal tab page with a clear error next to the field, not a bare
+        # JSON error body -- follows this app's errors-dict-and-`err()`-macro convention (see
+        # app/routers/measurements.py's own entry form).
+        assert "must be between 1 and 5" in r.text
+        assert 'id="journal-dialog"' in r.text
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_invalid_mood_does_not_touch_todays_entry(client, db):
+    """A validation failure must not create or corrupt today's row -- the user just sees the form
+    again with the error, and can fix the field and resubmit."""
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={"mood": "4", "notes": "morning check-in"})
+        r = client.post("/journal/entries", data={"mood": "4", "energy": "not-a-number", "notes": "morning check-in"})
+        assert r.status_code == 422
+        assert "whole number between 1 and 5" in r.text
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [entry] = s.scalars(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)).all()
+            assert entry.mood == 4 and entry.notes == "morning check-in"
     finally:
         _clear_journal_entries(me)
 
@@ -179,8 +201,11 @@ def test_quick_note_appends_to_todays_existing_entry(client, db):
 def test_empty_quick_note_is_a_noop(client, db):
     me = _tester_id()
     try:
-        r = client.post("/journal/quick-note", data={"text": "   "})
-        assert r.status_code in (303, 422)  # implementer's choice of status, but no row must be created
+        r = client.post("/journal/quick-note", data={"text": "   "}, follow_redirects=False)
+        # A silent no-op redirect back to the Dashboard, same as a real quick note's success path --
+        # never a raw JSON 422 error page (spec's "Quick-capture box" section).
+        assert r.status_code == 303
+        assert r.headers["location"] == "/dashboard"
         with SessionLocal() as s:
             me_user = s.scalar(select(User).where(User.username_key == "tester"))
             assert s.scalar(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)) is None
@@ -221,6 +246,100 @@ def test_full_entry_form_shows_todays_doses(client, db):
         assert "TodayFormPeptide" in t
     finally:
         _clear_journal_entries(me)
+
+
+def _dialog_html(page_text: str) -> str:
+    """Scopes an assertion to just the "New Entry" dialog's markup, not the entries table below it
+    (both can legitimately contain the same values)."""
+    return page_text.split('id="journal-dialog"', 1)[1].split("</dialog>", 1)[0]
+
+
+def test_new_entry_dialog_prefills_todays_existing_entry(client, db):
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={
+            "mood": "4", "energy": "3", "sleep_quality": "2",
+            "side_effects": ["Headache", "Fatigue"], "side_effects_other": "mild nausea",
+            "notes": "Felt good overall today.",
+        })
+        dialog = _dialog_html(client.get("/measurements?tab=journal").text)
+        assert 'name="mood"' in dialog and 'value="4"' in dialog
+        assert 'value="3"' in dialog  # energy
+        assert 'value="2"' in dialog  # sleep_quality
+        assert 'value="Headache" checked' in dialog
+        assert 'value="Fatigue" checked' in dialog
+        # An unselected side effect must not come back checked.
+        assert 'value="Nausea" checked' not in dialog
+        assert 'value="mild nausea"' in dialog
+        assert "Felt good overall today." in dialog
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_resaving_prefilled_entry_does_not_wipe_it(client, db):
+    """Reproduces the critical bug: opening "New Entry" again and saving without touching a field
+    used to send that field as blank, silently wiping the morning's data. Now the dialog is
+    pre-filled, so a browser resubmitting the same (unedited) values must round-trip them intact."""
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={
+            "mood": "4", "energy": "3", "sleep_quality": "5",
+            "side_effects": ["Headache", "Fatigue"], "notes": "Felt good overall today.",
+        })
+        # Simulate re-submitting the pre-filled form to just add a line to notes.
+        client.post("/journal/entries", data={
+            "mood": "4", "energy": "3", "sleep_quality": "5",
+            "side_effects": ["Headache", "Fatigue"], "notes": "Felt good overall today. Update: still good.",
+        })
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [entry] = s.scalars(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)).all()
+            assert entry.mood == 4 and entry.energy == 3 and entry.sleep_quality == 5
+            assert {se.side_effect for se in entry.side_effects} == {
+                JournalSideEffect.HEADACHE, JournalSideEffect.FATIGUE}
+            assert entry.notes == "Felt good overall today. Update: still good."
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_new_entry_dialog_shows_todays_quick_notes_in_prefill_area(client, db):
+    me = _tester_id()
+    try:
+        client.post("/journal/entries", data={"mood": "4", "notes": "main entry"})
+        client.post("/journal/quick-note", data={"text": "a quick aside from this afternoon"})
+        dialog = _dialog_html(client.get("/measurements?tab=journal").text)
+        assert "a quick aside from this afternoon" in dialog
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_new_entry_dialog_blank_when_nothing_logged_today(client, db):
+    me = _tester_id()
+    try:
+        dialog = _dialog_html(client.get("/measurements?tab=journal").text)
+        assert 'name="mood" type="number" min="1" max="5" step="1" inputmode="numeric" value=""' in dialog
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_quick_note_time_displays_in_viewers_timezone_not_utc(client, db):
+    me = _tester_id()
+    try:
+        client.post("/settings/timezone", data={"mode": "manual", "timezone": "America/Chicago"})
+        client.post("/journal/entries", data={"notes": "tz test entry"})
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [entry] = s.scalars(select(JournalEntry).where(JournalEntry.owner_id == me_user.id)).all()
+            # 18:30 UTC is 13:30 in America/Chicago (CDT, UTC-5) -- must not display as raw UTC.
+            s.add(JournalQuickNote(entry_id=entry.id, text="afternoon note",
+                                   noted_at=datetime(2026, 6, 1, 18, 30, tzinfo=timezone.utc)))
+            s.commit()
+        t = client.get("/measurements?tab=journal").text
+        assert "13:30" in t
+        assert "18:30" not in t
+    finally:
+        _clear_journal_entries(me)
+        client.post("/settings/timezone", data={"mode": "system", "timezone": ""})
 
 
 def test_past_entry_shows_that_days_doses_not_todays(client, db):

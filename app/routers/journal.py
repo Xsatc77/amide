@@ -1,6 +1,7 @@
-from datetime import date
+import zoneinfo
+from datetime import date, datetime, timezone as dt_timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -54,7 +55,17 @@ def doses_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
     ]
 
 
-def _entry_view(entry: JournalEntry, doses: list[dict], owner_name: str | None = None) -> dict:
+def _local_time_str(dt: datetime, tz_name: str | None) -> str:
+    """`dt` (stored/naive-UTC, mirroring app/routers/settings.py's `_format_last_login`) formatted
+    as HH:MM in `tz_name` when given, else left as UTC."""
+    aware = dt.replace(tzinfo=dt_timezone.utc)
+    if tz_name:
+        aware = aware.astimezone(zoneinfo.ZoneInfo(tz_name))
+    return aware.strftime("%H:%M")
+
+
+def _entry_view(entry: JournalEntry, doses: list[dict], owner_name: str | None = None,
+                viewer_tz: str | None = None) -> dict:
     return {
         "date": entry.entry_date,
         "mood": entry.mood,
@@ -64,12 +75,18 @@ def _entry_view(entry: JournalEntry, doses: list[dict], owner_name: str | None =
         "side_effects_other": entry.side_effects_other,
         "notes": entry.notes,
         "owner_name": owner_name,
-        "quick_notes": [{"noted_at": qn.noted_at, "text": qn.text} for qn in entry.quick_notes],
+        "quick_notes": [
+            {"noted_at": qn.noted_at, "time_display": _local_time_str(qn.noted_at, viewer_tz), "text": qn.text}
+            for qn in entry.quick_notes
+        ],
         "doses": doses,
     }
 
 
 def journal_tab_context(session: Session, viewer_uid: int) -> dict:
+    viewer = session.get(User, viewer_uid)
+    viewer_tz = viewer.timezone if viewer else None
+
     own_entries = session.scalars(
         _journal_query(viewer_uid).order_by(JournalEntry.entry_date.desc(), JournalEntry.id.desc())).all()
 
@@ -81,15 +98,28 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
     if owner_ids:
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
 
-    views = [_entry_view(e, doses_for(session, e.owner_id, e.entry_date)) for e in own_entries]
+    views = [_entry_view(e, doses_for(session, e.owner_id, e.entry_date), viewer_tz=viewer_tz)
+            for e in own_entries]
     views += [
-        _entry_view(e, doses_for(session, e.owner_id, e.entry_date), owner_name=owner_names.get(e.owner_id))
+        _entry_view(e, doses_for(session, e.owner_id, e.entry_date), owner_name=owner_names.get(e.owner_id),
+                   viewer_tz=viewer_tz)
         for e in shared_entries
     ]
     views.sort(key=lambda v: v["date"], reverse=True)
 
+    # Today's own entry (if any), so the "New Entry" dialog can open pre-filled with what's already
+    # there instead of blank -- re-saving must edit that same row, not silently wipe it (spec's
+    # "Full entry form" section). Only the read side of get_or_create_entry's lookup; never create
+    # a row here, since merely opening the dialog/viewing the tab must not touch the database.
+    today_row = session.scalar(_journal_query(viewer_uid).where(JournalEntry.entry_date == date.today()))
+    today_entry = (
+        _entry_view(today_row, doses_for(session, viewer_uid, date.today()), viewer_tz=viewer_tz)
+        if today_row is not None else None
+    )
+
     return {
-        "entries": views,
+        "journal_entries": views,
+        "today_entry": today_entry,
         "journal_side_effects": list(JournalSideEffect),
         "today_doses": doses_for(session, viewer_uid, date.today()),
     }
@@ -103,6 +133,7 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
     def _raw(field: str) -> str:
         return str(form.get(field, "")).strip()
 
+    errors: dict[str, str] = {}
     values: dict[str, int | None] = {}
     for field in RATING_FIELDS:
         raw = _raw(field)
@@ -112,16 +143,25 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
         try:
             value = int(raw)
         except ValueError:
-            raise HTTPException(422, f"{field} must be a whole number between 1 and 5.")
+            errors[field] = f"{field.replace('_', ' ').title()} must be a whole number between 1 and 5."
+            continue
         if not 1 <= value <= 5:
-            raise HTTPException(422, f"{field} must be between 1 and 5.")
+            errors[field] = f"{field.replace('_', ' ').title()} must be between 1 and 5."
+            continue
         values[field] = value
 
     posted_side_effects = [str(v) for v in form.getlist("side_effects")]
     valid_values = {se.value for se in JournalSideEffect}
     for v in posted_side_effects:
         if v not in valid_values:
-            raise HTTPException(422, "Invalid side effect.")
+            errors["side_effects"] = "Invalid side effect."
+
+    if errors:
+        # Re-render the Journal tab (same template/context as the normal GET), not a bare
+        # HTTPException -- follows this app's established errors-dict-and-`err()`-macro convention
+        # (see app/routers/measurements.py's create_measurement / _render).
+        from app.routers import measurements  # deferred: measurements imports this module at load time
+        return measurements._render(request, session, uid, tab="journal", errors=errors, status_code=422)
 
     entry = get_or_create_entry(session, uid, date.today())
     entry.mood = values["mood"]
@@ -146,7 +186,9 @@ async def add_quick_note(request: Request, session: Session = Depends(get_sessio
     form = await request.form()
     text = str(form.get("text", "")).strip()
     if not text:
-        raise HTTPException(422, "Quick note text is required.")
+        # Silent no-op (spec's "Quick-capture box" section) -- no blank timestamped row, and no
+        # raw JSON error page; just bounce back to the Dashboard as if nothing was submitted.
+        return RedirectResponse("/dashboard", status_code=303)
 
     entry = get_or_create_entry(session, uid, date.today())
     session.add(JournalQuickNote(entry_id=entry.id, text=text))
