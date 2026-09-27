@@ -27,8 +27,8 @@
   <div class="card-grid">
     {% for v in active_views %}
     {% set p = v.p %}
-    <article class="protocol-card">
-      <div class="ribbon" aria-hidden="true"><span>Active</span></div>
+    <article class="protocol-card" data-status="{{ v.status.value }}">
+      <div class="ribbon ribbon-{{ v.status.value }}" aria-hidden="true"><span>{{ v.status.label }}</span></div>
       <header class="protocol-card-head">
         <h3>{{ p.name }}</h3>
         <div class="tags">{% for g in p.goal_slugs %}<span class="tag">{{ g | goal_label }}</span>{% endfor %}</div>
@@ -47,7 +47,11 @@
       </p>
       <footer class="protocol-card-actions">
         <a class="btn btn-ghost" href="/protocols/{{ p.id }}/edit">Edit</a>
+        {% if v.status.value == 'paused' %}
+        <form method="post" action="/protocols/{{ p.id }}/resume" class="inline"><button class="btn btn-ghost">Resume</button></form>
+        {% else %}
         <form method="post" action="/protocols/{{ p.id }}/pause" class="inline"><button class="btn btn-ghost">Pause</button></form>
+        {% endif %}
         <form method="post" action="/protocols/{{ p.id }}/end" class="inline" data-confirm="End “{{ p.name }}” today? It stays in Saved protocols and can be repeated.">
           <button class="btn btn-ghost">End</button>
         </form>
@@ -90,7 +94,7 @@
     <h2 id="saved-heading" class="section-title">Saved protocols</h2>
     <div class="chips" role="group" aria-label="Filter saved protocols">
       <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
-      {% for s in statuses if s.value != 'active' %}
+      {% for s in statuses if s.value == 'ended' %}
       <button type="button" class="chip" data-filter="{{ s.value }}" aria-pressed="false">{{ s.label }}</button>
       {% endfor %}
     </div>

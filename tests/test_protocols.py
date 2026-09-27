@@ -68,7 +68,7 @@ def test_page_sections_and_goal_cards(client):
 def test_active_card_has_ribbon_and_details(client, db):
     make_protocol(db)
     active, _ = sections(page(client))
-    assert 'class="ribbon"' in active
+    assert 'class="ribbon ribbon-active"' in active
     assert "Heal" in active
     assert "BPC-157" in active and "250 mcg · Daily · AM · SubQ" in active
     assert "Day 22" in active and "Ongoing" in active
@@ -84,18 +84,39 @@ def test_card_shows_current_titration_step(client, db):
 
 
 def test_status_grouping(client, db):
+    """Active, Paused, and Scheduled protocols all get a card in the Active Protocols section
+    (each its own banner); only Ended protocols drop to Saved."""
     make_protocol(db, name="Alpha")
     make_protocol(db, name="Sched", start=date(2026, 10, 1))
     make_protocol(db, name="Paws", paused=True)
     make_protocol(db, name="Done", ended_on=date(2026, 9, 20))
     make_protocol(db, name="Lapsed", end_date=date(2026, 9, 21))
     active, saved = sections(page(client))
-    assert "Alpha" in active
-    for name in ("Sched", "Paws", "Done", "Lapsed"):
-        assert name not in active and name in saved
+    for name in ("Alpha", "Sched", "Paws"):
+        assert name in active and name not in saved
+    for name in ("Done", "Lapsed"):
+        assert name in saved and name not in active
     assert saved.count('data-status="ended"') == 2
-    assert 'data-status="scheduled"' in saved and 'data-status="paused"' in saved
-    assert "Alpha" not in saved
+    assert 'data-status="scheduled"' not in saved and 'data-status="paused"' not in saved
+    assert 'data-status="active"' in active and 'class="ribbon ribbon-active"' in active
+    assert 'data-status="scheduled"' in active and 'class="ribbon ribbon-scheduled"' in active
+    assert 'data-status="paused"' in active and 'class="ribbon ribbon-paused"' in active
+
+
+def test_active_section_ordering_is_active_then_paused_then_scheduled(client, db):
+    make_protocol(db, name="Sched", start=date(2026, 10, 1))
+    make_protocol(db, name="Paws", paused=True)
+    make_protocol(db, name="Alpha")
+    active, _ = sections(page(client))
+    assert active.index("Alpha") < active.index("Paws") < active.index("Sched")
+
+
+def test_paused_card_shows_resume_not_pause(client, db):
+    make_protocol(db, name="Paws", paused=True)
+    active, _ = sections(page(client))
+    card = active[active.index('data-status="paused"'):]
+    assert 'action="/protocols/' in card and '/resume"' in card
+    assert '/pause"' not in card.split('/resume"')[0]
 
 
 # ---------------------------------------------------------------- actions

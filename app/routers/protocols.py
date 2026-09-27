@@ -113,8 +113,13 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
         uid: int = Depends(current_user_id)):
     protocols = session.scalars(_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
     views = [_view(p, today) for p in protocols]
-    active = sorted((v for v in views if v["status"] is Status.ACTIVE), key=lambda v: v["p"].start_date)
-    saved = [v for v in views if v["status"] is not Status.ACTIVE]
+    # Active, Paused, and Scheduled protocols all get a card in the Active Protocols section (each
+    # its own banner color) -- only Ended protocols drop to Saved. Within the section, cards group
+    # by status in this fixed order, each group sorted by start date.
+    active = []
+    for status in (Status.ACTIVE, Status.PAUSED, Status.SCHEDULED):
+        active += sorted((v for v in views if v["status"] is status), key=lambda v: v["p"].start_date)
+    saved = [v for v in views if v["status"] is Status.ENDED]
 
     shared_protocols = session.scalars(
         _shared_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
