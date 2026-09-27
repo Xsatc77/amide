@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models import LabMarker, LabPanel, LabResult, Share, ShareCategory, User
 
+from tests.test_journal import _seed_dose_log
 from tests.test_measurements_page import _logged_in_client, _text
 
 
@@ -290,5 +291,43 @@ def test_chart_range_selector_filters_points(client, db):
             # than 2 points in range and its chart disappears entirely.
             labels_7d = [c["marker_label"] for c in ctx_7d["lab_charts"]["series"]]
             assert "TSH" not in labels_7d
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_panel_shows_active_protocols_on_its_own_draw_date(client, db):
+    me = _tester_id()
+    draw_date = date(2026, 9, 20)
+    _seed_dose_log(me, "LabProtocolPeptide", draw_date)
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-20",
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        }, follow_redirects=False)
+        assert r.status_code == 303
+        t = _text(client.get("/measurements?tab=labs"))
+        assert "LabProtocolPeptide" in t
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_past_panel_shows_that_days_protocols_not_todays(client, db):
+    me = _tester_id()
+    past_date = date(2026, 9, 20)
+    _seed_dose_log(me, "PastLabPeptide", past_date)
+    _seed_dose_log(me, "TodayOnlyLabPeptide", date.today())
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-20",
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        }, follow_redirects=False)
+        assert r.status_code == 303
+        t = _text(client.get("/measurements?tab=labs"))
+        # Scope to the panel list -- the "New Panel" dialog above it is unrelated to this assertion.
+        panels_section = t.split('id="labs-panels-heading"', 1)[1]
+        assert "PastLabPeptide" in panels_section
+        assert "TodayOnlyLabPeptide" not in panels_section
     finally:
         _clear_lab_panels(me)

@@ -10,6 +10,7 @@ from app import uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import LabMarker, LabPanel, LabResult, Share, ShareCategory, User
+from app.routers.journal import doses_for
 
 router = APIRouter()
 
@@ -55,7 +56,11 @@ def _result_view(r: LabResult) -> dict:
     }
 
 
-def _panel_view(p: LabPanel, owner_name: str | None = None) -> dict:
+def _panel_view(session: Session, p: LabPanel, owner_name: str | None = None) -> dict:
+    # That panel's OWN owner/draw-date -- for a shared panel, always the panel owner (the sharing
+    # user), never the viewer, and always that panel's own `drawn_at`, never today. Mirrors the
+    # cross-owner scoping rule Journal's `doses_for` already established for shared entries.
+    doses = doses_for(session, p.owner_id, p.drawn_at)
     return {
         "id": p.id,
         "drawn_at": p.drawn_at,
@@ -63,6 +68,10 @@ def _panel_view(p: LabPanel, owner_name: str | None = None) -> dict:
         "report_filename": p.report_filename,
         "owner_name": owner_name,
         "results": [_result_view(r) for r in p.results],
+        "active_protocols": [
+            {"peptide_name": d["peptide_name"], "dose_value": d["dose_value"], "dose_unit": d["dose_unit"]}
+            for d in doses
+        ],
     }
 
 
@@ -120,8 +129,8 @@ def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifeti
     if owner_ids:
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
 
-    panels = [_panel_view(p) for p in own_panels]
-    panels += [_panel_view(p, owner_name=owner_names.get(p.owner_id)) for p in shared_panels]
+    panels = [_panel_view(session, p) for p in own_panels]
+    panels += [_panel_view(session, p, owner_name=owner_names.get(p.owner_id)) for p in shared_panels]
     panels.sort(key=lambda v: v["drawn_at"], reverse=True)
 
     return {"panels": panels, "lab_markers": list(LabMarker),

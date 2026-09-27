@@ -610,6 +610,18 @@
         </tbody>
       </table>
     </div>
+    <div class="form-section">
+      <p class="muted"><strong>Active protocols</strong></p>
+      {% if not panel.active_protocols %}
+      <p class="muted">No doses logged that day.</p>
+      {% else %}
+      <ul class="dose-list">
+        {% for d in panel.active_protocols %}
+        <li>{{ d.peptide_name }} — {{ d.dose_value }} {{ d.dose_unit.value if d.dose_unit else '' }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
   </div>
   {% endfor %}
   {% endif %}
