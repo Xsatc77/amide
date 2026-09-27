@@ -6,7 +6,7 @@ Each phase is a usable release on its own. Phases are ordered by **data dependen
 
 ---
 
-## Where we are: v0.5 — Inventory + Protocols + Library + Daily Dosing + Dashboard + Vendor Management ✅
+## Where we are: v0.5 — Inventory + Protocols + Library + Daily Dosing + Dashboard + Vendor Management + Weight & Measurements + Journal ✅
 
 **Vendor Management (v0.6, shipped ahead of schedule)**
 - A full `/vendors` page: structured contact/payment methods (built-in types get clickable links,
@@ -106,7 +106,7 @@ Firm up the base before anything depends on it.
 
 - ✅ *Calendar (month / week / day views of scheduled doses) shipped, now with adherence color-coding since Daily Dosing (v0.4).* Next: tick doses off directly from the calendar (today only the Today view and the Protocol page's catch-up list can log a dose).
 - ✅ *Dashboard shipped in v0.5* (spec: `docs/superpowers/specs/2026-09-26-dashboard-design.md`) — the new homepage: a Today's Schedule summary linking out to the real `/today` page, Alerts (low stock — per-item threshold, defaulting to a user-set number; vial/BAC/sealed-stock expiration, both "soon" and already-expired; shipment running long), a Cost snapshot (cost per vial/dose from existing order data), an Adherence snapshot (% on-time/late over the last 30 days, counting genuinely-missed doses against it), and a single-person **viewer switcher** for anyone who's shared data with you (never blended — one person's data at a time, gated per the existing Inventory/Personal-data share categories). This covers the "today's doses," "low stock," "vials nearing discard," and "adherence streak" bullets below.
-  - **Deferred out of this build, for later:** per-widget show/hide toggles (shipped as one fixed layout first; toggles are a fast-follow once it's been used for a while); per-vendor historical shipment-time averaging (needs Phase 5's still-open Vendor management page to store it — v1 uses a flat, user-adjustable day-count default instead); real Weight/Measurements, Journal, and Health-integration widgets stay **placeholder cards only** until Phases 6 and 9 actually build those features — the Dashboard just reserves their layout slot.
+  - **Deferred out of this build, for later:** per-widget show/hide toggles (shipped as one fixed layout first; toggles are a fast-follow once it's been used for a while); per-vendor historical shipment-time averaging (needs Phase 5's still-open Vendor management page to store it — v1 uses a flat, user-adjustable day-count default instead); the Dashboard's own Weight & Measurements and Journal placeholder cards became real (the Weight/Measurements one still just links out, but the Journal one is now the quick-capture box) once Phase 6 shipped those features; a Health-integration widget stays a **placeholder card only** until Phase 9.
   - **Known follow-up (non-blocking):** the Adherence snapshot slightly over-penalizes a brand-new protocol's very first due day — a not-yet-logged dose due *today* counts against the percentage instead of showing "no data yet" until the day is over (the rest of the app treats a dose as loggable-but-not-yet-missed all day). Cosmetic only, no data-isolation or correctness risk; worth excluding today from the count when convenient.
 - ~~Today's doses and what's already done~~ / ~~Low stock~~ / ~~Vials nearing their discard date~~ / ~~Adherence streak~~ — covered by the Dashboard above.
 - "Runs out on…" predictions (from protocol usage × inventory) — not part of the Dashboard v1 build; still open.
@@ -126,10 +126,12 @@ Firm up the base before anything depends on it.
 
 ## Phase 6 — v0.7: Body & Health Tracking
 
-- **Weight & measurements** (waist, hips, body fat %, etc.) with trend charts
-- **Macros:** water, protein, and fiber daily targets and logging
-- **Journal:** daily entries: mood, energy, sleep, side effects, free text. Linked to that day's doses, so you can see *what works and what didn't*.
-- **Labs & medical results:** upload PDFs, enter values with reference ranges, chart markers over time and overlay against protocols
+- ✅ *Weight & Measurements shipped* (spec: `docs/superpowers/specs/2026-09-28-weight-measurements-design.md`) — scale weight, blood pressure, and 7 tape-measure points (neck, biceps L/R, forearms L/R, waist, hips, quads L/R, calves L/R) logged per session, all fields optional; a body silhouette showing each measurement's current value and change since the last time that field was logged (bilateral fields shown as their average, missing sides never silently averaged with zero); a Macros/TDEE calculator (Mifflin-St Jeor + activity multiplier + goal offset, with a safe-floor clamp and visible adjusted-notice) reading a new Settings body-profile section (sex, birth date, height, activity level, goal, diet preset); a water-intake goal (half bodyweight in oz, editable) broken down into cups/bottles-per-hour pacing; BMI and US Navy-method body-fat % computed at read time; hand-drawn SVG trend charts with a 7-day-to-lifetime range selector; sharing via the existing Personal Data category.
+  - **Known follow-up (in progress):** the body silhouette's SVG outline looks bad (an abstract blob, not a recognizable body shape, with value labels dumped as a plain text list instead of anchored to their points) — a redesign using real body-outline reference art is underway.
+  - **Deferred out of this build:** actual water-intake logging (this build only computes and displays the goal/pace); metric units; protein/fiber targets and logging (folded into a future pass if wanted); mood/energy/sleep trend charts (see Journal below — text-only journal for now).
+- ✅ *Journal shipped* (spec: `docs/superpowers/specs/2026-09-28-journal-design.md`) — daily entries (mood/energy/sleep, each 1-5; a 10-item side-effect checklist plus free-text "other"; a free-text notes field), one entry per day with same-day resubmission editing in place (never a duplicate); a Dashboard quick-capture box for timestamped notes through the day, auto-creating that day's entry and folding in underneath the main entry when later viewed or edited; a read-only, query-time view of that day's logged doses (no stored relationship) so you can see what you took alongside how you felt; sharing via the existing Personal Data category, same as Weight & Measurements.
+  - **Deferred out of this build:** mood/energy/sleep trend charts (a plain reverse-chronological list for now); back-dating or editing a past day's entry; a user-extensible side-effect list.
+- **Labs & medical results:** upload PDFs, enter values with reference ranges, chart markers over time and overlay against protocols — not started (the third and final Phase 6 sub-project).
 
 ## Phase 7 — v0.8: Exercise
 
