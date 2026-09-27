@@ -1,9 +1,13 @@
 import html
+from datetime import date, datetime, timezone
 
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import JournalEntry, JournalSideEffect, Share, ShareCategory, User
+from app.models import (
+    DoseLog, DoseStatus, DoseUnit, Frequency, JournalEntry, JournalSideEffect, Peptide, Protocol, ProtocolItem,
+    Route, Share, ShareCategory, TimeOfDay, User,
+)
 
 from tests.test_measurements_page import _logged_in_client, _text
 
@@ -18,6 +22,34 @@ def _clear_journal_entries(*owner_ids: int) -> None:
 def _tester_id() -> int:
     with SessionLocal() as s:
         return s.scalar(select(User.id).where(User.username_key == "tester"))
+
+
+def _seed_dose_log(owner_id: int, peptide_name: str, scheduled_date: date) -> None:
+    """Mirrors tests/test_dashboard.py's test_adherence_pct_counts_unlogged_missed_doses_in_denominator
+    DoseLog-seeding pattern: a minimal Protocol + ProtocolItem backing one DoseLog row, reusing the
+    seeded "Retatrutide" Peptide (Peptide.name is unique) but with our own peptide_name so different
+    doses are distinguishable in rendered output. Cleaned up by the autouse `clean` fixture, which
+    deletes Protocol rows (cascading to ProtocolItem/DoseLog)."""
+    with SessionLocal() as s:
+        peptide = s.scalar(select(Peptide).where(Peptide.name == "Retatrutide"))
+        if peptide is None:
+            peptide = Peptide(name="Retatrutide")
+            s.add(peptide)
+            s.flush()
+        protocol = Protocol(name=f"Journal Test Protocol {peptide_name}", start_date=scheduled_date,
+                            owner_id=owner_id)
+        s.add(protocol)
+        s.flush()
+        pitem = ProtocolItem(protocol_id=protocol.id, peptide_id=peptide.id, dose=2.0, dose_unit=DoseUnit.MG,
+                             frequency=Frequency.EVERY_N_DAYS, every_n_days=5, route=Route.SUBQ)
+        s.add(pitem)
+        s.flush()
+        s.add(DoseLog(owner_id=owner_id, protocol_id=protocol.id, protocol_item_id=pitem.id,
+                      peptide_id=peptide.id, peptide_name=peptide_name, dose_value=pitem.dose,
+                      dose_unit=pitem.dose_unit, route=pitem.route.value, scheduled_date=scheduled_date,
+                      scheduled_time_of_day=TimeOfDay.ANY, status=DoseStatus.ON_TIME,
+                      logged_at=datetime.now(timezone.utc)))
+        s.commit()
 
 
 def test_new_entry_creates_todays_journal_entry(client, db):
@@ -177,5 +209,34 @@ def test_journal_tab_shows_quick_notes_under_the_main_entry(client, db):
         client.post("/journal/quick-note", data={"text": "2pm quick note"})
         t = client.get("/measurements?tab=journal").text
         assert "main entry text" in t and "2pm quick note" in t
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_full_entry_form_shows_todays_doses(client, db):
+    me = _tester_id()
+    _seed_dose_log(me, "TodayFormPeptide", date.today())
+    try:
+        t = _text(client.get("/measurements?tab=journal"))
+        assert "TodayFormPeptide" in t
+    finally:
+        _clear_journal_entries(me)
+
+
+def test_past_entry_shows_that_days_doses_not_todays(client, db):
+    me = _tester_id()
+    past_date = date(2026, 9, 20)
+    _seed_dose_log(me, "PastDayPeptide", past_date)
+    _seed_dose_log(me, "TodayOnlyPeptide", date.today())
+    with SessionLocal() as s:
+        s.add(JournalEntry(owner_id=me, entry_date=past_date, notes="notes from a past day"))
+        s.commit()
+    try:
+        t = _text(client.get("/measurements?tab=journal"))
+        # Scope the assertion to the entries table (the entry-form dialog above it separately shows
+        # "Today's doses", where TodayOnlyPeptide legitimately appears -- that's not what's under test).
+        entries_section = t.split('id="journal-entries-heading"', 1)[1]
+        assert "PastDayPeptide" in entries_section
+        assert "TodayOnlyPeptide" not in entries_section
     finally:
         _clear_journal_entries(me)

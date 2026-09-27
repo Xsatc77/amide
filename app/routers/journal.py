@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
-    JournalEntry, JournalEntrySideEffect, JournalQuickNote, JournalSideEffect, Share, ShareCategory, User,
+    DoseLog, JournalEntry, JournalEntrySideEffect, JournalQuickNote, JournalSideEffect, Share, ShareCategory, User,
 )
 
 router = APIRouter()
@@ -42,7 +42,19 @@ def get_or_create_entry(session: Session, owner_id: int, entry_date: date) -> Jo
     return entry
 
 
-def _entry_view(entry: JournalEntry, owner_name: str | None = None) -> dict:
+def doses_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
+    """That owner's logged doses on that date. For a shared entry, `owner_id` must be the entry's
+    own owner (the sharing user), not the viewer -- the viewer's access to see the entry at all is
+    already gated by the sharing query, so no additional check is needed here."""
+    rows = session.scalars(
+        select(DoseLog).where(DoseLog.owner_id == owner_id, DoseLog.scheduled_date == entry_date)).all()
+    return [
+        {"peptide_name": r.peptide_name, "dose_value": r.dose_value, "dose_unit": r.dose_unit, "status": r.status}
+        for r in rows
+    ]
+
+
+def _entry_view(entry: JournalEntry, doses: list[dict], owner_name: str | None = None) -> dict:
     return {
         "date": entry.entry_date,
         "mood": entry.mood,
@@ -53,6 +65,7 @@ def _entry_view(entry: JournalEntry, owner_name: str | None = None) -> dict:
         "notes": entry.notes,
         "owner_name": owner_name,
         "quick_notes": [{"noted_at": qn.noted_at, "text": qn.text} for qn in entry.quick_notes],
+        "doses": doses,
     }
 
 
@@ -68,11 +81,18 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
     if owner_ids:
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
 
-    views = [_entry_view(e) for e in own_entries]
-    views += [_entry_view(e, owner_name=owner_names.get(e.owner_id)) for e in shared_entries]
+    views = [_entry_view(e, doses_for(session, e.owner_id, e.entry_date)) for e in own_entries]
+    views += [
+        _entry_view(e, doses_for(session, e.owner_id, e.entry_date), owner_name=owner_names.get(e.owner_id))
+        for e in shared_entries
+    ]
     views.sort(key=lambda v: v["date"], reverse=True)
 
-    return {"entries": views, "journal_side_effects": list(JournalSideEffect)}
+    return {
+        "entries": views,
+        "journal_side_effects": list(JournalSideEffect),
+        "today_doses": doses_for(session, viewer_uid, date.today()),
+    }
 
 
 @router.post("/journal/entries")

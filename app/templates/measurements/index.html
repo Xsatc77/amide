@@ -358,6 +358,20 @@
       <textarea name="notes" rows="4" data-autogrow placeholder="How was today?"></textarea>
     </label>
 
+    <fieldset class="form-section">
+      <legend>Today's doses</legend>
+      {% if not today_doses %}
+      <p class="muted">No doses logged today.</p>
+      {% else %}
+      <ul class="dose-list">
+        {% for d in today_doses %}
+        <li>{{ d.peptide_name }} — {{ d.dose_value }} {{ d.dose_unit.value if d.dose_unit else '' }}
+          <span class="tag status-{{ d.status.value }}">{{ d.status.label }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </fieldset>
+
     <footer class="dialog-foot">
       <button type="button" class="btn" data-action="close">Cancel</button>
       <button type="submit" class="btn btn-primary">Save entry</button>
@@ -383,6 +397,7 @@
           <th>Sleep</th>
           <th>Side effects</th>
           <th>Notes</th>
+          <th>That day's doses</th>
           <th>Shared by</th>
         </tr>
       </thead>
@@ -409,6 +424,18 @@
               {% endfor %}
             </ul>
             {% endif %}
+          </td>
+          <td data-label="That day's doses">
+            {%- if not e.doses -%}
+              —
+            {%- else -%}
+            <ul class="dose-list">
+              {% for d in e.doses %}
+              <li>{{ d.peptide_name }} — {{ d.dose_value }} {{ d.dose_unit.value if d.dose_unit else '' }}
+                <span class="tag status-{{ d.status.value }}">{{ d.status.label }}</span></li>
+              {% endfor %}
+            </ul>
+            {%- endif -%}
           </td>
           <td data-label="Shared by">{{ e.owner_name or '—' }}</td>
         </tr>
