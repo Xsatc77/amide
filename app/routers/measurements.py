@@ -189,19 +189,36 @@ def _scaled_points(points: list[tuple[date, float]], min_d: date, max_d: date, m
 
 
 def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 160,
-          pad_x: int = 28, pad_y: int = 16) -> dict | None:
+          pad_x: int = 28, pad_y: int = 16,
+          band: list[tuple[date, float, float]] | None = None) -> dict | None:
     """A single-series line chart's plotted geometry, scaled to its own viewBox from `points`
-    (most-recent-last order not required -- sorted here). None when there's nothing to plot."""
+    (most-recent-last order not required -- sorted here). None when there's nothing to plot.
+
+    `band`, when given, is a list of (date, low, high) tuples -- one per plotted point, though the
+    caller decides that -- used to draw a shaded reference-range polygon behind the line (Labs'
+    per-marker charts use this for their user-entered reference ranges; Weight & Measurements'
+    own charts never pass one). The band's own low/high values widen the value scale so the band
+    itself is never clipped."""
     if not points:
         return None
     points = sorted(points)
     dates = [d for d, _ in points]
     values = [v for _, v in points]
-    min_d, max_d, min_v, max_v = min(dates), max(dates), min(values), max(values)
+    band_values = [v for _, lo, hi in band for v in (lo, hi)] if band else []
+    min_d, max_d = min(dates), max(dates)
+    min_v, max_v = min(values + band_values), max(values + band_values)
     coords = _scaled_points(points, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
-    return {"width": width, "height": height, "points": coords,
-           "poly": " ".join(f"{x},{y}" for x, y in coords),
-           "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
+    result = {"width": width, "height": height, "points": coords,
+             "poly": " ".join(f"{x},{y}" for x, y in coords), "band": None,
+             "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
+    if band:
+        band_sorted = sorted(band)
+        top = _scaled_points([(d, hi) for d, _, hi in band_sorted],
+                             min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+        bottom = _scaled_points([(d, lo) for d, lo, _ in reversed(band_sorted)],
+                                min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+        result["band"] = " ".join(f"{x},{y}" for x, y in top + bottom)
+    return result
 
 
 def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, float]], *,

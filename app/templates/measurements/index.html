@@ -4,6 +4,20 @@
 
 {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 
+{% macro line_chart(chart, label, stroke='currentColor') %}
+{% if chart %}
+<div class="card">
+  <h3>{{ label }}</h3>
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
+    {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
+    <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
+    {% for cx, cy in chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}"></circle>{% endfor %}
+  </svg>
+  <p class="muted">{{ chart.min_d.strftime('%b') }} {{ chart.min_d.day }}, {{ chart.min_d.year }} – {{ chart.max_d.strftime('%b') }} {{ chart.max_d.day }}, {{ chart.max_d.year }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
+</div>
+{% endif %}
+{% endmacro %}
+
 {% block content %}
 <div class="page-head">
   <h1>Weight & Measurements</h1>
@@ -68,19 +82,6 @@
     <a href="/measurements?tab=measurements&range={{ opt }}" class="tab {{ 'active' if charts.range == opt }}" role="tab" aria-selected="{{ 'true' if charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
     {% endfor %}
   </div>
-
-  {% macro line_chart(chart, label, stroke='currentColor') %}
-  {% if chart %}
-  <div class="card">
-    <h3>{{ label }}</h3>
-    <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
-      <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
-      {% for cx, cy in chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}"></circle>{% endfor %}
-    </svg>
-    <p class="muted">{{ chart.min_d.strftime('%b') }} {{ chart.min_d.day }}, {{ chart.min_d.year }} – {{ chart.max_d.strftime('%b') }} {{ chart.max_d.day }}, {{ chart.max_d.year }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
-  </div>
-  {% endif %}
-  {% endmacro %}
 
   <div class="dashboard-placeholders">
     {% for s in charts.series %}
@@ -555,15 +556,7 @@
   </div>
   <div class="dashboard-placeholders">
     {% for c in lab_charts.series %}
-    <div class="card">
-      <h3>{{ c.marker_label }}</h3>
-      <svg viewBox="0 0 {{ c.chart.width }} {{ c.chart.height }}" class="measurement-chart" role="img" aria-label="{{ c.marker_label }} over time">
-        {% if c.chart.band %}<polygon points="{{ c.chart.band }}" fill="currentColor" opacity="0.12"></polygon>{% endif %}
-        <polyline points="{{ c.chart.poly }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
-        {% for cx, cy in c.chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="currentColor"></circle>{% endfor %}
-      </svg>
-      <p class="muted">{{ c.chart.min_d.strftime('%b') }} {{ c.chart.min_d.day }}, {{ c.chart.min_d.year }} – {{ c.chart.max_d.strftime('%b') }} {{ c.chart.max_d.day }}, {{ c.chart.max_d.year }} · range {{ c.chart.min_v }}–{{ c.chart.max_v }}</p>
-    </div>
+      {{ line_chart(c.chart, c.marker_label) }}
     {% endfor %}
   </div>
 </section>

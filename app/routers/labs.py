@@ -70,52 +70,16 @@ def _in_window(panels: list[LabPanel], window_start: date | None) -> list[LabPan
     return panels if window_start is None else [p for p in panels if p.drawn_at >= window_start]
 
 
-def _scale(d: date, v: float, min_d: date, max_d: date, min_v: float, max_v: float,
-          width: int, height: int, pad_x: int, pad_y: int) -> tuple[float, float]:
-    span_d = (max_d - min_d).days or 1
-    span_v = (max_v - min_v) or None
-    cx = pad_x + (d - min_d).days / span_d * (width - 2 * pad_x)
-    cy = height / 2 if span_v is None else height - pad_y - (v - min_v) / span_v * (height - 2 * pad_y)
-    return round(cx, 1), round(cy, 1)
-
-
-def _lab_chart(points: list[dict], *, width: int = 560, height: int = 160,
-              pad_x: int = 28, pad_y: int = 16) -> dict | None:
-    """One marker's trend-chart geometry from `points` (each a dict with drawn_at/value/
-    range_low/range_high, already sorted by drawn_at). None when there are fewer than 2 points --
-    a single point isn't a trend (Task 3 Step 3/Review requirement). A shaded reference-range band
-    is included only when EVERY point in this chart carries both bounds -- a mix of some-bounds/
-    no-bounds points would misleadingly imply a band that doesn't apply to every plotted date."""
-    if len(points) < 2:
-        return None
-    dates = [p["drawn_at"] for p in points]
-    values = [p["value"] for p in points]
-    bounds = [p["range_low"] for p in points if p["range_low"] is not None]
-    bounds += [p["range_high"] for p in points if p["range_high"] is not None]
-    min_d, max_d = min(dates), max(dates)
-    min_v, max_v = min(values + bounds), max(values + bounds)
-
-    def scale(d: date, v: float) -> tuple[float, float]:
-        return _scale(d, v, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
-
-    coords = [scale(p["drawn_at"], p["value"]) for p in points]
-    band = None
-    if all(p["range_low"] is not None and p["range_high"] is not None for p in points):
-        top = [scale(p["drawn_at"], p["range_high"]) for p in points]
-        bottom = [scale(p["drawn_at"], p["range_low"]) for p in reversed(points)]
-        band = " ".join(f"{x},{y}" for x, y in top + bottom)
-
-    return {"width": width, "height": height, "points": coords,
-           "poly": " ".join(f"{x},{y}" for x, y in coords), "band": band,
-           "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
-
-
 def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[dict]:
     """One trend chart per marker, built ONLY from the viewer's OWN panels (a sharing partner's
     results stay visible in the panel list but never get plotted into the viewer's own chart --
     same rule Weight & Measurements' own charts follow), windowed by the shared range selector.
     Grouped by marker, using `marker_other` as the effective key for "Other" markers so two
-    differently-named custom markers are never merged into one chart."""
+    differently-named custom markers are never merged into one chart. Reuses measurements.py's
+    own `_chart` geometry builder (deferred import -- measurements.py imports this module at load
+    time) rather than duplicating its date/value scaling math a second time."""
+    from app.routers.measurements import _chart  # deferred: avoid the module-level import cycle
+
     grouped: dict[str, list[dict]] = {}
     for panel in _in_window(own_panels, window_start):
         for r in panel.results:
@@ -128,7 +92,16 @@ def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[
     charts = []
     for label, points in grouped.items():
         points.sort(key=lambda p: p["drawn_at"])
-        chart = _lab_chart(points)
+        # A single point isn't a trend -- no chart at all below 2 points in the selected window.
+        if len(points) < 2:
+            continue
+        # The shaded reference-range band is included only when EVERY point in this chart
+        # carries both bounds -- a mix of some-bounds/no-bounds points would misleadingly imply
+        # a band that doesn't apply to every plotted date.
+        band = None
+        if all(p["range_low"] is not None and p["range_high"] is not None for p in points):
+            band = [(p["drawn_at"], p["range_low"], p["range_high"]) for p in points]
+        chart = _chart([(p["drawn_at"], p["value"]) for p in points], band=band)
         if chart is not None:
             charts.append({"marker_label": label, "chart": chart})
     charts.sort(key=lambda c: c["marker_label"])
