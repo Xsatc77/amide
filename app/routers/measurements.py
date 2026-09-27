@@ -317,7 +317,8 @@ def _macros_context(user: User, latest_weight: float | None) -> dict:
 
 def _render(request: Request, session: Session, uid: int, *, tab: str = "measurements",
            range_param: str | None = None, as_of_param: str | None = None,
-           form: dict | None = None, errors: dict | None = None, status_code: int = 200):
+           form: dict | None = None, errors: dict | None = None, status_code: int = 200,
+           extra: dict | None = None):
     # Full history (unfiltered by chart range) -- silhouette/macros/water always reflect the
     # single most recent entry regardless of which chart window is selected.
     own_entries = session.scalars(
@@ -364,7 +365,9 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     if tab == "journal":
         context.update(journal.journal_tab_context(session, uid))
     elif tab == "labs":
-        context.update(labs.labs_tab_context(session, uid))
+        context.update(labs.labs_tab_context(session, uid, range_key, window_start))
+    if extra:
+        context.update(extra)
 
     return templates.TemplateResponse(request, "measurements/index.html", context, status_code=status_code)
 

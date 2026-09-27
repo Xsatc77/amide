@@ -1,9 +1,10 @@
 import html
+from datetime import date
 
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import LabMarker, LabPanel, Share, ShareCategory, User
+from app.models import LabMarker, LabPanel, LabResult, Share, ShareCategory, User
 
 from tests.test_measurements_page import _logged_in_client, _text
 
@@ -78,6 +79,35 @@ def test_non_other_marker_rejects_marker_other_text(client, db):
             "range_low[]": [""], "range_high[]": [""], "marker_other[]": ["Some Custom Name"],
         })
         assert r.status_code == 422
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_validation_error_preserves_the_other_posted_rows(client, db):
+    """A bulk-entry form must not discard every already-correct row just because one other row
+    failed -- the whole point of a bulk form is entering many rows in one sitting. Two valid rows
+    plus one invalid row (a non-"Other" marker illegally carrying marker_other text) should still
+    surface the two valid rows' posted values in the re-rendered page, not a blank form."""
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH", "HDL", "LDL"],
+            "value[]": ["2.5", "55", "130"],
+            "unit[]": ["mIU/L", "mg/dL", "mg/dL"],
+            "range_low[]": ["0.5", "", ""],
+            "range_high[]": ["4.5", "", ""],
+            "marker_other[]": ["", "", "Not allowed here"],  # LDL row is invalid
+        })
+        assert r.status_code == 422
+        t = html.unescape(r.text)
+        assert 'id="lab-error-data"' in t
+        error_data = t.split('id="lab-error-data">', 1)[1].split("</script>", 1)[0]
+        # The two valid rows' posted values must round-trip into the error-data blob the client
+        # rebuilds the dialog from, not just the invalid row / a blank form.
+        assert '"TSH"' in error_data and '"2.5"' in error_data
+        assert '"HDL"' in error_data and '"55"' in error_data
+        assert '"Not allowed here"' in error_data  # the invalid row's own posted text, too
     finally:
         _clear_lab_panels(me)
 
@@ -158,3 +188,107 @@ def test_labs_tab_loads_with_empty_state(client, db):
     r = client.get("/measurements?tab=labs")
     assert r.status_code == 200
     assert "No lab panels yet" in r.text or "New Panel" in r.text
+
+
+def test_marker_chart_only_appears_with_2_or_more_points(client, db):
+    me = _tester_id()
+    try:
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-20", "marker[]": ["TSH"], "value[]": ["2.0"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        t = client.get("/measurements?tab=labs&range=lifetime").text
+        assert "TSH" in t  # the single result still shows in the panel list
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            from app.routers.labs import labs_tab_context
+            ctx = labs_tab_context(s, me_user.id, "lifetime", None)
+            assert ctx["lab_charts"]["series"] == []  # not yet -- only one point so far
+
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-27", "marker[]": ["TSH"], "value[]": ["2.4"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            from app.routers.labs import labs_tab_context
+            ctx = labs_tab_context(s, me_user.id, "lifetime", None)
+            labels = [c["marker_label"] for c in ctx["lab_charts"]["series"]]
+            assert "TSH" in labels
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_marker_chart_does_not_mix_a_sharing_partners_results(client, db):
+    me = _tester_id()
+    other = _logged_in_client("LabsChartSharePartner")
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "labschartsharepartner"))
+    try:
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-20", "marker[]": ["TSH"], "value[]": ["2.0"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-27", "marker[]": ["TSH"], "value[]": ["2.4"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        other.post("/labs/panels", data={
+            "drawn_at": "2026-09-25", "marker[]": ["TSH"], "value[]": ["999.9"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        with SessionLocal() as s:
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.commit()
+
+        r = client.get("/measurements?tab=labs&range=lifetime")
+        assert r.status_code == 200
+        assert "999.9" in r.text  # visible in the shared panel list
+
+        from app.routers.labs import labs_tab_context
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            ctx = labs_tab_context(s, me_user.id, "lifetime", None)
+            tsh_chart = next(c for c in ctx["lab_charts"]["series"] if c["marker_label"] == "TSH")
+            # Only the viewer's own 2 points are plotted -- the partner's 999.9 would have both
+            # added a 3rd point and wildly skewed the value scale had it been mixed in.
+            assert len(tsh_chart["chart"]["points"]) == 2
+            assert tsh_chart["chart"]["max_v"] < 100
+    finally:
+        with SessionLocal() as s:
+            s.query(Share).filter_by(owner_id=other_id, grantee_id=me,
+                                     category=ShareCategory.PERSONAL_DATA).delete()
+            s.commit()
+        _clear_lab_panels(me, other_id)
+
+
+def test_chart_range_selector_filters_points(client, db):
+    old = date(2026, 1, 1)
+    me = _tester_id()
+    try:
+        with SessionLocal() as s:
+            user = s.scalar(select(User).where(User.username_key == "tester"))
+            panel = LabPanel(owner_id=user.id, drawn_at=old, created_at=old)
+            panel.results.append(LabResult(marker=LabMarker.TSH, value=1.0))
+            s.add(panel)
+            s.commit()
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28", "marker[]": ["TSH"], "value[]": ["2.4"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+
+        from app.routers.labs import labs_tab_context
+        with SessionLocal() as s:
+            user = s.scalar(select(User).where(User.username_key == "tester"))
+            ctx_lifetime = labs_tab_context(s, user.id, "lifetime", None)
+            tsh_lifetime = next(c for c in ctx_lifetime["lab_charts"]["series"]
+                                if c["marker_label"] == "TSH")
+            assert tsh_lifetime["chart"]["min_v"] == 1.0
+
+            ctx_7d = labs_tab_context(s, user.id, "7d", date(2026, 9, 21))
+            # The old (2026-01-01) point falls outside the 7-day window, so TSH now has fewer
+            # than 2 points in range and its chart disappears entirely.
+            labels_7d = [c["marker_label"] for c in ctx_7d["lab_charts"]["series"]]
+            assert "TSH" not in labels_7d
+    finally:
+        _clear_lab_panels(me)

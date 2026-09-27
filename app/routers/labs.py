@@ -66,7 +66,77 @@ def _panel_view(p: LabPanel, owner_name: str | None = None) -> dict:
     }
 
 
-def labs_tab_context(session: Session, viewer_uid: int) -> dict:
+def _in_window(panels: list[LabPanel], window_start: date | None) -> list[LabPanel]:
+    return panels if window_start is None else [p for p in panels if p.drawn_at >= window_start]
+
+
+def _scale(d: date, v: float, min_d: date, max_d: date, min_v: float, max_v: float,
+          width: int, height: int, pad_x: int, pad_y: int) -> tuple[float, float]:
+    span_d = (max_d - min_d).days or 1
+    span_v = (max_v - min_v) or None
+    cx = pad_x + (d - min_d).days / span_d * (width - 2 * pad_x)
+    cy = height / 2 if span_v is None else height - pad_y - (v - min_v) / span_v * (height - 2 * pad_y)
+    return round(cx, 1), round(cy, 1)
+
+
+def _lab_chart(points: list[dict], *, width: int = 560, height: int = 160,
+              pad_x: int = 28, pad_y: int = 16) -> dict | None:
+    """One marker's trend-chart geometry from `points` (each a dict with drawn_at/value/
+    range_low/range_high, already sorted by drawn_at). None when there are fewer than 2 points --
+    a single point isn't a trend (Task 3 Step 3/Review requirement). A shaded reference-range band
+    is included only when EVERY point in this chart carries both bounds -- a mix of some-bounds/
+    no-bounds points would misleadingly imply a band that doesn't apply to every plotted date."""
+    if len(points) < 2:
+        return None
+    dates = [p["drawn_at"] for p in points]
+    values = [p["value"] for p in points]
+    bounds = [p["range_low"] for p in points if p["range_low"] is not None]
+    bounds += [p["range_high"] for p in points if p["range_high"] is not None]
+    min_d, max_d = min(dates), max(dates)
+    min_v, max_v = min(values + bounds), max(values + bounds)
+
+    def scale(d: date, v: float) -> tuple[float, float]:
+        return _scale(d, v, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+
+    coords = [scale(p["drawn_at"], p["value"]) for p in points]
+    band = None
+    if all(p["range_low"] is not None and p["range_high"] is not None for p in points):
+        top = [scale(p["drawn_at"], p["range_high"]) for p in points]
+        bottom = [scale(p["drawn_at"], p["range_low"]) for p in reversed(points)]
+        band = " ".join(f"{x},{y}" for x, y in top + bottom)
+
+    return {"width": width, "height": height, "points": coords,
+           "poly": " ".join(f"{x},{y}" for x, y in coords), "band": band,
+           "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
+
+
+def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[dict]:
+    """One trend chart per marker, built ONLY from the viewer's OWN panels (a sharing partner's
+    results stay visible in the panel list but never get plotted into the viewer's own chart --
+    same rule Weight & Measurements' own charts follow), windowed by the shared range selector.
+    Grouped by marker, using `marker_other` as the effective key for "Other" markers so two
+    differently-named custom markers are never merged into one chart."""
+    grouped: dict[str, list[dict]] = {}
+    for panel in _in_window(own_panels, window_start):
+        for r in panel.results:
+            key = r.marker_other if r.marker is LabMarker.OTHER else r.marker.value
+            grouped.setdefault(key, []).append({
+                "drawn_at": panel.drawn_at, "value": r.value,
+                "range_low": r.range_low, "range_high": r.range_high,
+            })
+
+    charts = []
+    for label, points in grouped.items():
+        points.sort(key=lambda p: p["drawn_at"])
+        chart = _lab_chart(points)
+        if chart is not None:
+            charts.append({"marker_label": label, "chart": chart})
+    charts.sort(key=lambda c: c["marker_label"])
+    return charts
+
+
+def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifetime",
+                     window_start: date | None = None) -> dict:
     own_panels = session.scalars(
         _lab_query(viewer_uid).order_by(LabPanel.drawn_at.desc(), LabPanel.id.desc())).all()
 
@@ -81,7 +151,8 @@ def labs_tab_context(session: Session, viewer_uid: int) -> dict:
     panels += [_panel_view(p, owner_name=owner_names.get(p.owner_id)) for p in shared_panels]
     panels.sort(key=lambda v: v["drawn_at"], reverse=True)
 
-    return {"panels": panels, "lab_markers": list(LabMarker)}
+    return {"panels": panels, "lab_markers": list(LabMarker),
+           "lab_charts": {"range": range_key, "series": _labs_charts(own_panels, window_start)}}
 
 
 # ---------------------------------------------------------------- routes
@@ -134,6 +205,7 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
         return str(items[i]).strip() if i < len(items) else ""
 
     parsed_results: list[dict] = []
+    posted_rows: list[dict] = []
     for i, marker_raw in enumerate(markers):
         marker_raw = str(marker_raw).strip()
         value_raw = _at(values_raw, i)
@@ -141,6 +213,14 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
         range_low_raw = _at(range_lows, i)
         range_high_raw = _at(range_highs, i)
         marker_other_raw = _at(marker_others, i)
+
+        # Recorded up front, before any validation, so a re-render on error can rebuild every row
+        # exactly as posted -- including rows that themselves have no error (Review Focus: a bulk
+        # form must not discard already-correct rows just because one other row failed).
+        posted_rows.append({
+            "marker": marker_raw, "value": value_raw, "unit": unit,
+            "range_low": range_low_raw, "range_high": range_high_raw, "marker_other": marker_other_raw,
+        })
 
         try:
             marker = LabMarker[marker_raw]
@@ -195,7 +275,14 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
 
     if errors:
         from app.routers import measurements  # deferred: measurements imports this module at load time
-        return measurements._render(request, session, uid, tab="labs", errors=errors, status_code=422)
+        lab_posted = {
+            "drawn_at": drawn_at_raw,
+            "notes": _raw("notes"),
+            "rows": posted_rows,
+            "errors": errors,
+        }
+        return measurements._render(request, session, uid, tab="labs", errors=errors, status_code=422,
+                                    extra={"lab_posted": lab_posted})
 
     panel = LabPanel(owner_id=uid, drawn_at=drawn_at, notes=_raw("notes") or None,
                      report_filename=report_filename)

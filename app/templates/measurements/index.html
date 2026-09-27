@@ -470,7 +470,7 @@
 <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
 {% endif %}
 
-<dialog id="lab-dialog" class="dialog"{{ ' open' if errors }}>
+<dialog id="lab-dialog" class="dialog"{{ ' data-open-on-load' if errors }}>
   <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate>
     <header class="dialog-head">
       <h2>New lab panel</h2>
@@ -542,6 +542,32 @@
     <button type="button" class="btn btn-ghost" data-action="remove-lab-row">Remove</button>
   </div>
 </template>
+
+<script type="application/json" id="lab-error-data">{{ (lab_posted or {}) | tojson }}</script>
+
+{% if lab_charts.series %}
+<section aria-labelledby="labs-charts-heading">
+  <h2 id="labs-charts-heading" class="section-title">Charts</h2>
+  <div class="tabs" role="tablist" aria-label="Chart range">
+    {% for opt in charts.range_options %}
+    <a href="/measurements?tab=labs&range={{ opt }}" class="tab {{ 'active' if lab_charts.range == opt }}" role="tab" aria-selected="{{ 'true' if lab_charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
+    {% endfor %}
+  </div>
+  <div class="dashboard-placeholders">
+    {% for c in lab_charts.series %}
+    <div class="card">
+      <h3>{{ c.marker_label }}</h3>
+      <svg viewBox="0 0 {{ c.chart.width }} {{ c.chart.height }}" class="measurement-chart" role="img" aria-label="{{ c.marker_label }} over time">
+        {% if c.chart.band %}<polygon points="{{ c.chart.band }}" fill="currentColor" opacity="0.12"></polygon>{% endif %}
+        <polyline points="{{ c.chart.poly }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+        {% for cx, cy in c.chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="currentColor"></circle>{% endfor %}
+      </svg>
+      <p class="muted">{{ c.chart.min_d.strftime('%b') }} {{ c.chart.min_d.day }}, {{ c.chart.min_d.year }} – {{ c.chart.max_d.strftime('%b') }} {{ c.chart.max_d.day }}, {{ c.chart.max_d.year }} · range {{ c.chart.min_v }}–{{ c.chart.max_v }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <section aria-labelledby="labs-panels-heading">
   <h2 id="labs-panels-heading" class="section-title">Panels</h2>
