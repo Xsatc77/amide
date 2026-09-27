@@ -113,6 +113,149 @@ def test_validation_error_preserves_the_other_posted_rows(client, db):
         _clear_lab_panels(me)
 
 
+def test_nan_value_is_rejected_with_422_not_a_500(client, db):
+    """`float("nan")` passes a bare try/except float() parse (it's valid float syntax), but would
+    then reach SQLite's NOT NULL `value` column as an effective NULL, raising an unhandled
+    IntegrityError -- a 500, not a normal validation error."""
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["nan"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_inf_value_is_rejected_not_silently_stored(client, db):
+    """`float("inf")` (and any magnitude beyond float64, which Python's parser silently coerces to
+    inf, e.g. `1e309`) must not be silently accepted -- it would store fine but produce nan/inf
+    chart coordinates downstream."""
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["inf"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_huge_range_bound_that_parses_to_inf_is_rejected(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+            "range_low[]": ["1e309"], "range_high[]": [""], "marker_other[]": [""],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_stale_marker_other_error_uses_the_indexed_key_convention(client, db):
+    """Reproduces the server-side symptom of the stale-hidden-field bug: marker is switched to a
+    non-Other value but marker_other[] still carries text (as would happen if the frontend failed
+    to clear it after a marker change). The existing 422 rejection must still fire, and the error
+    must land under the same indexed key convention (`marker_other_{i}`) the frontend's
+    fieldByErrorKey map already knows how to locate -- not some other key it can't find."""
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": ["Stale Custom Name"],
+        })
+        assert r.status_code == 422
+        t = html.unescape(r.text)
+        error_data = t.split('id="lab-error-data">', 1)[1].split("</script>", 1)[0]
+        assert '"marker_other_0"' in error_data
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_marker_other_over_length_is_rejected(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["OTHER"], "value[]": ["1.2"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": ["x" * 81],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_unit_over_length_is_rejected(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": ["x" * 21],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_notes_over_length_is_rejected(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28", "notes": "x" * 2001,
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+def test_invalid_row_with_a_valid_file_upload_leaves_no_orphaned_file(client, db):
+    """The file must only be written to disk after all row/field validation has passed -- writing
+    it any earlier would leave an orphaned, unreferenced file on disk whenever a 422 fires for some
+    other reason."""
+    from app import config
+
+    me = _tester_id()
+    before = set(config.LAB_REPORT_DIR.iterdir()) if config.LAB_REPORT_DIR.exists() else set()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["nan"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        }, files={"report": ("report.png", PNG_BYTES, "image/png")})
+        assert r.status_code == 422
+        after = set(config.LAB_REPORT_DIR.iterdir()) if config.LAB_REPORT_DIR.exists() else set()
+        assert after == before
+        with SessionLocal() as s:
+            assert s.query(LabPanel).filter_by(owner_id=me).count() == 0
+    finally:
+        _clear_lab_panels(me)
+
+
 def test_panel_with_zero_results_is_rejected(client, db):
     me = _tester_id()
     try:

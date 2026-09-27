@@ -318,6 +318,38 @@ def test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor(client, d
     assert not (config.COA_DIR / coa_filename).exists()
 
 
+def test_delete_user_removes_their_lab_report_files_from_disk(client, db):
+    """`LabPanel.report_filename` files must be deleted from disk when their owner's account is
+    deleted -- mirrors the COA-deletion assertion in
+    test_delete_user_cascades_inventory_and_protocols_but_keeps_vendor above."""
+    from app.models import LabPanel
+
+    owner = TestClient(app, follow_redirects=False)
+    owner.post("/notice", data={"understand": "1"})
+    owner.post("/register", data={"username": "HasLabReport", "password": "Owns1!aaa", "confirm": "Owns1!aaa"})
+    owner.post("/labs/panels", data={
+        "drawn_at": "2026-09-28",
+        "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+        "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+    }, files={"report": ("report.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 32, "image/png")})
+
+    with SessionLocal() as s:
+        owner_id = s.scalar(select(User.id).where(User.username_key == "haslabreport"))
+        panel = s.scalar(select(LabPanel).where(LabPanel.owner_id == owner_id))
+        report_filename = panel.report_filename
+        assert report_filename is not None
+        assert (config.LAB_REPORT_DIR / report_filename).exists()
+
+    r = client.post(f"/settings/admin/users/{owner_id}/delete", data={"username": "HasLabReport"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+
+    with SessionLocal() as s:
+        assert s.get(User, owner_id) is None
+        assert s.query(LabPanel).filter_by(owner_id=owner_id).count() == 0
+    assert not (config.LAB_REPORT_DIR / report_filename).exists()
+
+
 def test_admin_delete_user_removes_orphaned_orders(client, db):
     from app.models import Order
 

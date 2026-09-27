@@ -1,3 +1,4 @@
+import math
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -212,27 +213,47 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
 
         if marker is LabMarker.OTHER and not marker_other_raw:
             errors[f"marker_other_{i}"] = 'Enter a name for this "Other" marker.'
-        if marker is not LabMarker.OTHER and marker_other_raw:
+        elif marker is not LabMarker.OTHER and marker_other_raw:
             errors[f"marker_other_{i}"] = "Only used for \"Other\" markers."
+        elif marker_other_raw and len(marker_other_raw) > 80:
+            errors[f"marker_other_{i}"] = "Must be 80 characters or fewer."
 
+        if unit and len(unit) > 20:
+            errors[f"unit_{i}"] = "Must be 20 characters or fewer."
+
+        # A row's value/range bounds must parse to a FINITE float -- `float("nan")` passes the bare
+        # try/except below (it's valid float syntax) but would then hit SQLite's NOT NULL `value`
+        # column as an effective NULL, raising an unhandled IntegrityError; `float("inf")` (or any
+        # magnitude beyond what float64 holds, which Python silently coerces to inf) would insert
+        # fine but produce nan/inf chart coordinates downstream. Rejecting both here, before any DB
+        # write, keeps a bad row a normal per-row 422 instead of a 500 or silently-broken chart.
         value: float | None = None
         if not value_raw:
             errors[f"value_{i}"] = "Value is required."
         else:
             try:
-                value = float(value_raw)
+                parsed_value = float(value_raw)
+                if not math.isfinite(parsed_value):
+                    raise ValueError
+                value = parsed_value
             except ValueError:
                 errors[f"value_{i}"] = "Enter a number."
 
         range_low = range_high = None
         if range_low_raw:
             try:
-                range_low = float(range_low_raw)
+                parsed_low = float(range_low_raw)
+                if not math.isfinite(parsed_low):
+                    raise ValueError
+                range_low = parsed_low
             except ValueError:
                 errors[f"range_low_{i}"] = "Enter a number."
         if range_high_raw:
             try:
-                range_high = float(range_high_raw)
+                parsed_high = float(range_high_raw)
+                if not math.isfinite(parsed_high):
+                    raise ValueError
+                range_high = parsed_high
             except ValueError:
                 errors[f"range_high_{i}"] = "Enter a number."
         if range_low is not None and range_high is not None and range_low > range_high:
@@ -247,9 +268,17 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
             "range_high": range_high,
         })
 
+    notes_raw = _raw("notes")
+    if len(notes_raw) > 2000:
+        errors["notes"] = "Notes must be 2000 characters or fewer."
+
+    # The upload is only written to disk once every other field/row has already passed validation --
+    # writing it any earlier would leave an orphaned, unreferenced file on disk whenever some other
+    # part of the same submission gets rejected with a 422 (and the browser can't refill a file
+    # input, so a user fixing one bad row and resubmitting leaves yet another orphan each time).
     report_filename = None
     report_file = form.get("report")
-    if isinstance(report_file, UploadFile) and report_file.filename:
+    if not errors and isinstance(report_file, UploadFile) and report_file.filename:
         try:
             report_filename = await uploads.save_lab_report(report_file)
         except uploads.UploadError as exc:
@@ -259,14 +288,14 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
         from app.routers import measurements  # deferred: measurements imports this module at load time
         lab_posted = {
             "drawn_at": drawn_at_raw,
-            "notes": _raw("notes"),
+            "notes": notes_raw,
             "rows": posted_rows,
             "errors": errors,
         }
         return measurements._render(request, session, uid, tab="labs", errors=errors, status_code=422,
                                     extra={"lab_posted": lab_posted})
 
-    panel = LabPanel(owner_id=uid, drawn_at=drawn_at, notes=_raw("notes") or None,
+    panel = LabPanel(owner_id=uid, drawn_at=drawn_at, notes=notes_raw or None,
                      report_filename=report_filename)
     panel.results = [LabResult(**r) for r in parsed_results]
     session.add(panel)

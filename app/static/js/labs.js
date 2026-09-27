@@ -15,8 +15,17 @@
   function wireRow(row) {
     const select = row.querySelector("[data-lab-marker-select]");
     const otherField = row.querySelector("[data-lab-marker-other]");
+    const otherInput = otherField.querySelector('[name="marker_other[]"]');
     function syncOther() {
-      otherField.hidden = select.value !== "OTHER";
+      const isOther = select.value === "OTHER";
+      otherField.hidden = !isOther;
+      // Clear any stale text left over from a previous "Other" selection when the marker changes
+      // away from it -- otherwise the hidden field's old value would still be posted with the row
+      // (rejected server-side with no visible indication why, since the field itself is now
+      // hidden) every time the form is resubmitted. Never *disable* the input instead: a disabled
+      // input isn't submitted at all, which would break the row-array alignment between
+      // marker[]/value[]/etc. -- every row must always submit all its fields, blank or not.
+      if (!isOther) otherInput.value = "";
     }
     select.addEventListener("change", syncOther);
     syncOther();
@@ -52,14 +61,22 @@
       marker: 'select[name="marker[]"]',
       marker_other: '[name="marker_other[]"]',
       value: '[name="value[]"]',
+      unit: '[name="unit[]"]',
       range_low: '[name="range_low[]"]',
       range_high: '[name="range_high[]"]',
       range: '[name="range_low[]"]',  // a low/high mismatch is flagged on the low field
     };
+    const otherField = row.querySelector("[data-lab-marker-other]");
     for (const [key, selector] of Object.entries(fieldByErrorKey)) {
       const message = rowErrors[key];
       if (!message) continue;
-      const el = row.querySelector(selector);
+      // marker_other's own field can be hidden (its marker isn't "Other") -- syncOther above
+      // just set otherField.hidden from the row's *current* marker. An error inside a hidden
+      // element is never seen by the user (only the generic top-of-form banner would show), so
+      // fall back to the visible marker <select> instead of the hidden label.
+      const targetSelector = (key === "marker_other" && otherField.hidden)
+        ? fieldByErrorKey.marker : selector;
+      const el = row.querySelector(targetSelector);
       if (!el) continue;
       el.closest("label")?.classList.add("has-error");
       const small = document.createElement("small");

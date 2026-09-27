@@ -15,8 +15,8 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.calculations import macros_for_preset
 from app.models import (
-    ActivityLevel, BiologicalSex, Colorway, DietPreset, InventoryItem, MacroGoal, Order, Protocol,
-    Share, ShareCategory, User, Vendor,
+    ActivityLevel, BiologicalSex, Colorway, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
+    Protocol, Share, ShareCategory, User, Vendor,
 )
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
@@ -437,6 +437,14 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
                 coa_filenames.append(li.coa_filename)
             order_ids.add(li.order_id)
         session.delete(item)
+    # Own lab panels only -- this is about deleting THEIR data, not a sharing partner's panels this
+    # user could merely view. Filenames are collected up front (same as coa_filenames above) so the
+    # files can be unlinked from disk after the DB rows/user are gone, mirroring the COA pattern below.
+    report_filenames = []
+    for panel in session.scalars(select(LabPanel).where(LabPanel.owner_id == target.id)):
+        if panel.report_filename:
+            report_filenames.append(panel.report_filename)
+        session.delete(panel)
     for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
         session.delete(protocol)
     # Vendors are a shared resource now (see Vendor's docstring) -- keep the row, just clear
@@ -458,4 +466,6 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
     session.commit()
     for filename in coa_filenames:
         uploads.delete_coa(filename)
+    for filename in report_filenames:
+        uploads.delete_lab_report(filename)
     return RedirectResponse("/settings#admin", status_code=303)
