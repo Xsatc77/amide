@@ -152,6 +152,83 @@ def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
     return points
 
 
+# Front-view body outlines, traced from the user-provided reference art (a filled front-view
+# male/female silhouette pair) via Moore-neighbor contour tracing + Douglas-Peucker simplification
+# -- not hand-drawn approximations. Normalized to a 320x440 viewBox, centered horizontally. See
+# `docs/superpowers/specs/assets/body-silhouette-reference.jpg` for the source art.
+_FEMALE_PATH = ("M 153.7,4.0 L 173.2,8.2 L 182.9,23.4 L 185.7,59.6 L 173.2,62.3 L 171.8,67.9 "
+               "L 180.1,77.6 L 201.0,86.0 L 205.1,91.5 L 209.3,141.5 L 217.6,167.9 L 217.6,219.3 "
+               "L 221.8,242.9 L 216.3,255.4 L 210.7,258.2 L 213.5,247.1 L 207.9,245.7 L 207.9,198.5 "
+               "L 198.2,167.9 L 194.0,130.4 L 188.5,136.0 L 188.5,170.7 L 199.6,211.0 L 199.6,245.7 "
+               "L 185.7,319.3 L 185.7,356.8 L 174.6,404.1 L 174.6,417.9 L 181.5,433.2 L 163.5,434.6 "
+               "L 166.3,323.5 L 159.3,234.6 L 152.4,324.9 L 156.5,431.8 L 153.7,436.0 L 137.1,433.2 "
+               "L 144.0,419.3 L 144.0,402.7 L 132.9,355.4 L 132.9,317.9 L 119.0,241.5 L 119.0,213.7 "
+               "L 130.1,172.1 L 130.1,134.6 L 124.6,130.4 L 121.8,162.4 L 110.7,199.9 L 110.7,247.1 "
+               "L 105.1,247.1 L 107.9,258.2 L 98.2,247.1 L 101.0,170.7 L 109.3,142.9 L 112.1,95.7 "
+               "L 120.4,84.6 L 137.1,79.0 L 146.8,69.3 L 145.4,62.3 L 132.9,59.6 L 132.9,40.1 "
+               "L 139.9,15.1 L 152.4,5.4 Z")
+_MALE_PATH = ("M 150.2,4.0 L 167.2,6.6 L 177.7,26.3 L 169.8,63.1 L 204.0,77.5 L 214.5,89.3 "
+             "L 232.9,177.3 L 231.6,233.8 L 226.3,246.9 L 217.1,256.1 L 221.1,229.8 L 218.4,225.9 "
+             "L 214.5,236.4 L 211.9,223.3 L 218.4,199.6 L 207.9,173.4 L 206.6,149.8 L 194.8,130.1 "
+             "L 189.5,157.6 L 198.7,258.7 L 192.2,294.2 L 194.8,349.3 L 185.6,416.3 L 198.7,434.7 "
+             "L 175.1,436.0 L 168.5,426.8 L 169.8,380.9 L 164.6,359.8 L 167.2,311.3 L 162.0,300.8 "
+             "L 156.7,232.5 L 151.5,298.1 L 146.2,309.9 L 143.6,428.1 L 137.0,436.0 L 113.4,434.7 "
+             "L 127.8,415.0 L 118.6,358.5 L 121.3,298.1 L 114.7,266.6 L 114.7,225.9 L 123.9,164.2 "
+             "L 118.6,130.1 L 106.8,148.4 L 105.5,170.8 L 95.0,195.7 L 95.0,208.8 L 100.3,219.3 "
+             "L 98.9,236.4 L 92.4,225.9 L 96.3,254.8 L 87.1,248.2 L 87.1,141.9 L 97.6,90.7 "
+             "L 106.8,78.8 L 143.6,61.8 L 135.7,26.3 L 141.0,11.9 L 148.8,5.3 Z")
+
+# Anatomical landmark positions for the 7 measurement locations, read off the same traced points
+# above (the right-side x, mirrored via 320-x for the left side) -- not independently estimated,
+# so a point always sits on or very near the actual traced limb/torso edge at that height.
+_SILHOUETTE_LANDMARKS = {
+    "Female": {
+        "neck_in": (160, 62), "waist_in": (160, 150), "hips_in": (160, 215),
+        "biceps": (202, 110), "forearm": (213, 155), "quad": (193, 270), "calf": (180, 340),
+    },
+    "Male": {
+        "neck_in": (160, 63), "waist_in": (160, 157.6), "hips_in": (160, 258.7),
+        "biceps": (218, 110), "forearm": (228, 150), "quad": (195, 280), "calf": (189, 350),
+    },
+}
+
+# Fixed label positions (never move regardless of the actual anatomical point), so labels never
+# collide or overlap each other -- each is (x, y, text-anchor). Left margin for the 3 centerline
+# locations, right margin for the 4 limb locations; a leader line is drawn from wherever the real
+# data point is to whichever of these slots that location owns.
+# Note: these are deliberately not round decade numbers (80, 100, 190, 200...) -- as literal SVG
+# attribute values they'd otherwise collide with plausible test-fixture weight/measurement values
+# (e.g. a test asserting "190" is absent from a range-filtered page would false-fail against a
+# `y="190"` attribute that has nothing to do with the actual data).
+_LABEL_SLOTS = {
+    "neck_in": (14, 83, "start"), "waist_in": (14, 187, "start"), "hips_in": (14, 247, "start"),
+    "biceps": (306, 137, "end"), "forearm": (306, 211, "end"),
+    "quad": (306, 291, "end"), "calf": (306, 361, "end"),
+}
+
+
+def _mirror(x: float) -> float:
+    return 320 - x
+
+
+def _silhouette_shape(sex: str | None) -> dict:
+    """Front-view body outline (one traced path per sex) plus the (x, y) anatomical position for
+    each of the 7 measurement locations. Falls back to the male outline/landmarks when `sex` is
+    unset, matching this app's existing default assumption elsewhere (e.g. the Macros tab)."""
+    key = sex if sex in _SILHOUETTE_LANDMARKS else "Male"
+    landmarks = _SILHOUETTE_LANDMARKS[key]
+    path = _FEMALE_PATH if key == "Female" else _MALE_PATH
+
+    points = {"neck_in": {"l": landmarks["neck_in"]},
+             "waist_in": {"l": landmarks["waist_in"]},
+             "hips_in": {"l": landmarks["hips_in"]}}
+    for loc in ("biceps", "forearm", "quad", "calf"):
+        right = landmarks[loc]
+        points[loc] = {"l": (_mirror(right[0]), right[1]), "r": right}
+
+    return {"body_path": path, "points": points, "label_slots": _LABEL_SLOTS}
+
+
 def _range_window(range_param: str | None, as_of_param: str | None) -> tuple[str, date, date | None]:
     """(range_key, as_of, window_start). `range_key` is always one of RANGES -- an absent or
     unrecognized value silently falls back to DEFAULT_RANGE, never a 500. `as_of` mirrors
@@ -374,6 +451,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "today": date.today().isoformat(),
         "active_tab": tab,
         "silhouette": _silhouette_points(own_entries),
+        "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
         "water": water,
         "macros": _macros_context(me_user, latest_weight) if me_user else {"status": "missing_profile", "missing_fields": []},
         "charts": _charts_context(own_windowed, me_user, range_key),

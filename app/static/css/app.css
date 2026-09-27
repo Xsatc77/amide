@@ -639,6 +639,14 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .body-silhouette { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 .body-silhouette circle[data-site] { cursor: pointer; }
 
+/* ---------- measurement silhouette (Weight & Measurements page) ---------- */
+.silhouette-wrap { max-width: 460px; margin: 0 auto; }
+.silhouette-leader { stroke: var(--border); stroke-width: 1; }
+.silhouette-point { fill: currentColor; }
+.silhouette-label-name { font-size: 11px; fill: var(--muted); }
+.silhouette-label-value { font-size: 13px; font-weight: 600; fill: var(--text); }
+.silhouette-label-asof { font-size: 10px; fill: var(--muted); }
+
 /* Shared base for both the SVG's per-site <circle>s (painted by app/static/js/dosing.js) and the
    dialog's own <i class="site-dot ..."> legend swatches -- a <circle> already has its own size via
    its r attribute, so width/height here only matter for the legend's <i> elements. */

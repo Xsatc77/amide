@@ -31,45 +31,44 @@
 </div>
 
 {% if active_tab == 'measurements' %}
+{% macro silhouette_text(pt) %}{% if pt.value is none %}No data{% elif pt.side %}{{ pt.side }} only: {{ pt.value }} in{% else %}{{ pt.value }} in{% endif %}{% if pt.delta is not none %} ({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }}){% endif %}{% endmacro %}
+
+{% macro silhouette_point(key, pt, shape) %}
+{% set slot = shape.label_slots[key] %}
+{% set anchors = shape.points[key] %}
+{% if pt.value is not none %}
+  {% if pt.side == 'R' %}
+    <line x1="{{ anchors.r[0] }}" y1="{{ anchors.r[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
+    <circle cx="{{ anchors.r[0] }}" cy="{{ anchors.r[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+  {% elif pt.side == 'L' %}
+    <line x1="{{ anchors.l[0] }}" y1="{{ anchors.l[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
+    <circle cx="{{ anchors.l[0] }}" cy="{{ anchors.l[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+  {% else %}
+    <line x1="{{ anchors.l[0] }}" y1="{{ anchors.l[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
+    <circle cx="{{ anchors.l[0] }}" cy="{{ anchors.l[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+    {% if anchors.r %}
+    <line x1="{{ anchors.r[0] }}" y1="{{ anchors.r[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
+    <circle cx="{{ anchors.r[0] }}" cy="{{ anchors.r[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+    {% endif %}
+  {% endif %}
+{% endif %}
+<text x="{{ slot[0] }}" y="{{ slot[1] - 6 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-name">{{ pt.label }}</text>
+<text x="{{ slot[0] }}" y="{{ slot[1] + 8 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-value {{ 'muted' if pt.value is none }}">{{ silhouette_text(pt) }}</text>
+{% if pt.as_of %}
+<text x="{{ slot[0] }}" y="{{ slot[1] + 20 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-asof muted">as of {{ pt.as_of.strftime('%b') }} {{ pt.as_of.day }}, {{ pt.as_of.year }}</text>
+{% endif %}
+{% endmacro %}
+
 {% if silhouette %}
 <section aria-labelledby="silhouette-heading">
   <h2 id="silhouette-heading" class="section-title">Body silhouette</h2>
   <div class="silhouette-wrap">
-    <svg viewBox="0 0 200 400" class="body-silhouette" aria-label="Body measurement diagram">
-      <path d="M100 10 C80 10 70 30 70 50 C70 70 80 90 70 110 L60 180 L55 260 L60 340 L70 390 L90 390 L92 260 L100 200 L108 260 L110 390 L130 390 L140 340 L145 260 L140 180 L130 110 C120 90 130 70 130 50 C130 30 120 10 100 10 Z"
-            fill="none" stroke="currentColor" stroke-width="2"/>
-      <circle data-point="neck_in" cx="100" cy="40" r="6"></circle>
-      <circle data-point="biceps" cx="65" cy="120" r="6"></circle>
-      <circle data-point="biceps" cx="135" cy="120" r="6"></circle>
-      <circle data-point="forearm" cx="55" cy="170" r="6"></circle>
-      <circle data-point="forearm" cx="145" cy="170" r="6"></circle>
-      <circle data-point="waist_in" cx="100" cy="180" r="6"></circle>
-      <circle data-point="hips_in" cx="100" cy="210" r="6"></circle>
-      <circle data-point="quad" cx="82" cy="260" r="6"></circle>
-      <circle data-point="quad" cx="118" cy="260" r="6"></circle>
-      <circle data-point="calf" cx="85" cy="330" r="6"></circle>
-      <circle data-point="calf" cx="115" cy="330" r="6"></circle>
-    </svg>
-    <ul class="silhouette-legend">
+    <svg viewBox="0 0 320 440" class="body-silhouette" aria-label="Body measurement diagram">
+      <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
       {% for key, pt in silhouette.items() %}
-      <li>
-        <strong>{{ pt.label }}:</strong>
-        {% if pt.value is none %}
-          <span class="muted">No data</span>
-        {% elif pt.side %}
-          {{ pt.side }} only: {{ pt.value }} in
-        {% else %}
-          {{ pt.value }} in
-        {% endif %}
-        {% if pt.delta is not none %}
-          <span class="{{ 'delta-down' if pt.delta < 0 else 'delta-up' }}">({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }})</span>
-        {% endif %}
-        {% if pt.as_of %}
-          <span class="muted">(as of {{ pt.as_of.strftime('%b') }} {{ pt.as_of.day }}, {{ pt.as_of.year }})</span>
-        {% endif %}
-      </li>
+        {{ silhouette_point(key, pt, silhouette_shape) }}
       {% endfor %}
-    </ul>
+    </svg>
   </div>
 </section>
 {% endif %}
