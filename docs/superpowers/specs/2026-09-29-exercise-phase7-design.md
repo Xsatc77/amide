@@ -95,7 +95,8 @@ class WorkoutPlan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     days: Mapped[list["WorkoutPlanDay"]] = relationship(
-        cascade="all, delete-orphan", passive_deletes=True, order_by="WorkoutPlanDay.position")
+        back_populates="plan", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="WorkoutPlanDay.position")
 
 
 class WorkoutPlanDay(Base):
@@ -107,6 +108,7 @@ class WorkoutPlanDay(Base):
     weekdays: Mapped[str | None] = mapped_column(String(7))  # reuses ProtocolItem's own convention exactly:
     # a subset of WEEKDAY_LETTERS ("MTWRFSU", Monday-first), set at scheduling time, None until assigned
 
+    plan: Mapped["WorkoutPlan"] = relationship(back_populates="days")
     exercises: Mapped[list["WorkoutExercise"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True, order_by="WorkoutExercise.position")
 
@@ -132,6 +134,7 @@ class WorkoutLog(Base):
     log_date: Mapped[date] = mapped_column(Date, index=True)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    plan_day: Mapped["WorkoutPlanDay"] = relationship()
     exercise_logs: Mapped[list["WorkoutExerciseLog"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True)
 
