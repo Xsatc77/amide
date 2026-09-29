@@ -9,7 +9,7 @@ from pathlib import Path
 
 from app.db import SessionLocal
 from app.library.loader import load_sheets
-from app.library.sheet_parser import parse_sheet
+from app.library.sheet_parser import UnrecognizedSheetError, parse_sheet
 from app.migrate import upgrade_db
 
 
@@ -21,12 +21,18 @@ def main() -> None:
 
     # Parse each named file
     sheets = []
+    skipped: list[str] = []
     for filepath in sys.argv[1:]:
         path = Path(filepath)
         if not path.exists():
             sys.exit(f"No file at {path}.")
         text = path.read_text(encoding="utf-8")
-        sheet = parse_sheet(text)
+        try:
+            sheet = parse_sheet(text)
+        except UnrecognizedSheetError:
+            print(f"Skipped {path}: does not look like a peptide reference sheet")
+            skipped.append(str(path))
+            continue
         # Add empty usage_tips by default (curated tips are added manually later)
         sheet["usage_tips"] = []
         sheets.append(sheet)
@@ -34,6 +40,7 @@ def main() -> None:
     # Load all sheets at once
     with SessionLocal() as session:
         print(load_sheets(session, sheets).summary())
+    print(f"{len(skipped)} skipped (not a peptide reference sheet)")
 
 
 if __name__ == "__main__":
