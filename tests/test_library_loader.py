@@ -140,6 +140,51 @@ def test_load_sheets_replaces_an_existing_card_sourced_peptide(db):
     assert existing.card_class is None and existing.category is None and existing.card_details is None
 
 
+def _blank_sheet(name):
+    return {"name": name, "aliases": [], "tags": [], "half_life_text": None,
+            "route_summary": None, "cycle_shorthand": None, "summary": None, "dosing_tiers": [],
+            "cycle": None, "stack_relations": [], "monitoring_tests": [], "bioavailability_text": None,
+            "tmax_text": None, "storage_before_text": None, "storage_after_text": None,
+            "storage_temperature_text": None, "legal_status_text": None, "cost_estimate_text": None,
+            "sheet_sections": {}, "usage_tips": []}
+
+
+def test_load_sheets_does_not_overwrite_an_existing_starter_sourced_peptide(db):
+    """A name collision with a STARTER-sourced peptide must not modify it -- only CARD-sourced
+    peptides get the full-clear-and-convert-to-SHEET treatment."""
+    from app.library.loader import load_sheets
+    existing = Peptide(name="Test-Compound-9", source=PeptideSource.STARTER, notes="my own notes",
+                        dose_low=100)
+    db.add(existing)
+    db.commit()
+    try:
+        report = load_sheets(db, [_blank_sheet("Test-Compound-9")])
+        db.refresh(existing)
+        assert existing.source == PeptideSource.STARTER
+        assert existing.notes == "my own notes" and existing.dose_low == 100
+        assert existing.half_life_text is None  # sheet fields never applied
+        assert report.created == [] and report.updated == []
+        assert "Test-Compound-9" in report.skipped_existing
+    finally:
+        # STARTER-sourced rows aren't cleared by the autouse `clean` fixture (only CUSTOM/SHEET
+        # are), so remove it ourselves to avoid leaking into later tests.
+        db.delete(existing)
+        db.commit()
+
+
+def test_load_sheets_does_not_overwrite_an_existing_custom_sourced_peptide(db):
+    from app.library.loader import load_sheets
+    existing = Peptide(name="Test-Compound-9", source=PeptideSource.CUSTOM, notes="my own notes")
+    db.add(existing)
+    db.commit()
+    report = load_sheets(db, [_blank_sheet("Test-Compound-9")])
+    db.refresh(existing)
+    assert existing.source == PeptideSource.CUSTOM
+    assert existing.notes == "my own notes"
+    assert report.created == [] and report.updated == []
+    assert "Test-Compound-9" in report.skipped_existing
+
+
 def test_load_sheets_does_not_crash_on_a_dosing_tier_or_monitoring_test_missing_a_cell(db):
     """Spec: a missing field/table row leaves that field/table empty, never a crash -- a real row
     can genuinely be missing a cell (parse_sheet already produces None positionally for these)."""

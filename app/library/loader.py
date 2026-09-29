@@ -38,11 +38,15 @@ class LoadReport:
     updated: list[str] = field(default_factory=list)
     created: list[str] = field(default_factory=list)
     mismatched: list[str] = field(default_factory=list)
+    # Sheet imports skipped because the name matched an existing STARTER/CUSTOM-sourced peptide --
+    # i.e. the user's own data, which load_sheets must never silently overwrite.
+    skipped_existing: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         lines = [f"{len(self.updated)} updated, {len(self.created)} created, {len(self.mismatched)} mismatched"]
         lines += [f"  created: {n}" for n in self.created]
         lines += [f"  skipped {m}" for m in self.mismatched]
+        lines += [f"  skipped {n}: existing user-owned peptide, not overwritten" for n in self.skipped_existing]
         return "\n".join(lines)
 
 
@@ -100,6 +104,11 @@ def load_sheets(session: Session, sheets: list[dict]) -> LoadReport:
     for sheet in sheets:
         name = sheet["name"].strip()
         peptide = session.scalar(select(Peptide).where(Peptide.name == name))
+        if peptide is not None and peptide.source in (PeptideSource.STARTER, PeptideSource.CUSTOM):
+            # A name collision with a peptide the user added/edited themselves. Never overwrite
+            # user-owned data -- treat this sheet like the "doesn't match" case and skip it.
+            report.skipped_existing.append(name)
+            continue
         if peptide is None:
             peptide = Peptide(name=name)
             session.add(peptide)
