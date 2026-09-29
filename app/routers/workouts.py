@@ -3,6 +3,7 @@ and the one-Active-plan-at-a-time rule."""
 
 from datetime import date
 from datetime import date as date_type
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -13,6 +14,7 @@ from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
+    WEEKDAY_LETTERS,
     WeightUnit,
     WorkoutExercise,
     WorkoutExerciseLog,
@@ -26,6 +28,41 @@ from app.uploads import UploadError, save_workout_pdf
 from app.workouts.pdf_parser import extract_text, parse_workout_pdf
 
 router = APIRouter()
+
+
+def workouts_due_today(session: Session, uid: int, today: date_type) -> list[WorkoutPlanDay]:
+    """Active plans' days scheduled for today's weekday, excluding any already logged today."""
+    letter = WEEKDAY_LETTERS[today.weekday()]
+    days = session.scalars(
+        select(WorkoutPlanDay).join(WorkoutPlan)
+        .where(WorkoutPlan.owner_id == uid, WorkoutPlan.ended_on.is_(None),
+              WorkoutPlanDay.weekdays.isnot(None))
+    ).all()
+    due = [d for d in days if letter in d.weekdays]
+    logged_day_ids = {
+        wl.plan_day_id for wl in session.scalars(
+            select(WorkoutLog).where(WorkoutLog.owner_id == uid, WorkoutLog.log_date == today))
+    }
+    return [d for d in due if d.id not in logged_day_ids]
+
+
+def scheduled_workout_dates(session: Session, uid: int, start: date_type, end: date_type) -> set[date_type]:
+    """Every date in [start, end] on which an Active plan has a day scheduled -- regardless of
+    whether it's already been logged (unlike workouts_due_today, which is specifically "still
+    pending today"). Used only for a plain calendar marker, not for the Today list."""
+    days = session.scalars(
+        select(WorkoutPlanDay).join(WorkoutPlan)
+        .where(WorkoutPlan.owner_id == uid, WorkoutPlan.ended_on.is_(None),
+              WorkoutPlanDay.weekdays.isnot(None))
+    ).all()
+    dates = set()
+    d = start
+    while d <= end:
+        letter = WEEKDAY_LETTERS[d.weekday()]
+        if any(letter in day.weekdays for day in days):
+            dates.add(d)
+        d += timedelta(days=1)
+    return dates
 
 
 def _get_own_plan(session: Session, plan_id: int, uid: int) -> WorkoutPlan:

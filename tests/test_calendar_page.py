@@ -120,3 +120,15 @@ def test_calendar_privacy(client):
     other.post("/register", data={"username": "CalOther", "password": "Cal0ther!", "confirm": "Cal0ther!"})
     r = other.get("/calendar", params={"view": "month", "date": "2026-09-15"})
     assert r.status_code == 200 and "Mine only" not in r.text and "Mine only" not in json.dumps(cal_data(r.text))
+
+
+def test_month_view_marks_a_day_with_a_scheduled_workout(client, db, me):
+    from app.models import WorkoutPlan, WorkoutPlanDay, WorkoutSource, WEEKDAY_LETTERS
+    today_letter = WEEKDAY_LETTERS[date.today().weekday()]
+    plan = WorkoutPlan(owner_id=me, name="Test Plan", source=WorkoutSource.MANUAL, started_on=date.today())
+    plan.days = [WorkoutPlanDay(position=0, label="Leg Day", weekdays=today_letter)]
+    db.add(plan)
+    db.commit()
+
+    body = client.get("/calendar").text
+    assert "Workout scheduled" in body

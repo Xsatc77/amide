@@ -684,3 +684,22 @@ def test_catch_up_list_bounded_to_recent_window_for_old_protocol(client, db):
     # One "Log now (late)" button per missed day -- thousands for a protocol running since 2020
     # with no bound, at most ~15 (CATCH_UP_WINDOW_DAYS + 1) with the fix.
     assert r.text.count('data-action="log-dose"') <= 16
+
+
+# ---------------------------------------------------------------- Today surfaces due workouts
+
+def test_today_shows_a_due_workout_and_hides_it_once_logged(client, db, me):
+    from app.models import WorkoutPlan, WorkoutPlanDay, WorkoutSource, WEEKDAY_LETTERS
+    today_letter = WEEKDAY_LETTERS[date.today().weekday()]
+    plan = WorkoutPlan(owner_id=me, name="Test Plan", source=WorkoutSource.MANUAL, started_on=date.today())
+    plan.days = [WorkoutPlanDay(position=0, label="Leg Day", weekdays=today_letter)]
+    db.add(plan)
+    db.commit()
+
+    body = client.get("/today").text
+    assert "Leg Day" in body
+
+    day = plan.days[0]
+    client.post(f"/workouts/day/{day.id}/log", data={"log_date": date.today().isoformat()})
+    body_after = client.get("/today").text
+    assert "Leg Day" not in body_after
