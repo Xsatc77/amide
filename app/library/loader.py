@@ -90,7 +90,7 @@ _SHEET_COLUMNS = (
 )
 
 
-def load_sheets(session: Session, sheets: list[dict]) -> LoadReport:
+def load_sheets(session: Session, sheets: list[dict], force_names: set[str] | None = None) -> LoadReport:
     """Load parsed peptide reference sheets (app.library.sheet_parser.parse_sheet output, plus two
     caller-added keys -- "usage_tips" and "sheet_sections_simple", both hand-curated per file
     rather than mechanically parsed) into the library, matching by name (Peptide.name is
@@ -100,14 +100,25 @@ def load_sheets(session: Session, sheets: list[dict]) -> LoadReport:
     field is (re)written, so re-importing is always safe and a card-sourced peptide fully converts
     to a sheet-sourced one. The child rows (dosing_tiers, cycle, stack_relations, monitoring_tests)
     are replaced wholesale from the sheet's own lists/dict on every load.
+
+    A name collision with a STARTER/CUSTOM-sourced peptide (one the user added/edited themselves)
+    is skipped by default, never silently overwritten -- see `force_names` to override this for
+    specific peptides the user has explicitly asked to have overwritten. `notes` is never touched
+    by this function either way, since it's always the owner's own free-text field.
     """
+    force_names = force_names or set()
     report = LoadReport()
     for sheet in sheets:
         name = sheet["name"].strip()
         peptide = session.scalar(select(Peptide).where(Peptide.name == name))
-        if peptide is not None and peptide.source in (PeptideSource.STARTER, PeptideSource.CUSTOM):
+        if (
+            peptide is not None
+            and peptide.source in (PeptideSource.STARTER, PeptideSource.CUSTOM)
+            and name not in force_names
+        ):
             # A name collision with a peptide the user added/edited themselves. Never overwrite
-            # user-owned data -- treat this sheet like the "doesn't match" case and skip it.
+            # user-owned data -- treat this sheet like the "doesn't match" case and skip it,
+            # unless the caller explicitly named this peptide in force_names.
             report.skipped_existing.append(name)
             continue
         if peptide is None:

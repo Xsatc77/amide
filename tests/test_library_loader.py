@@ -204,6 +204,36 @@ def test_load_sheets_does_not_overwrite_an_existing_custom_sourced_peptide(db):
     assert "Test-Compound-9" in report.skipped_existing
 
 
+def test_load_sheets_force_names_overwrites_a_named_starter_sourced_peptide(db):
+    """force_names is an explicit, per-call opt-in for the user to say 'yes, overwrite this
+    specific one' -- everything else with a STARTER/CUSTOM name collision is still skipped."""
+    from app.library.loader import load_sheets
+    existing = Peptide(name="Test-Compound-9", source=PeptideSource.STARTER, notes="my own notes",
+                        dose_low=100)
+    other = Peptide(name="Other-Starter", source=PeptideSource.STARTER, notes="leave me alone")
+    db.add_all([existing, other])
+    db.commit()
+    try:
+        sheet = _blank_sheet("Test-Compound-9")
+        sheet["half_life_text"] = "~3-5 hours"
+        report = load_sheets(
+            db, [sheet, _blank_sheet("Other-Starter")], force_names={"Test-Compound-9"}
+        )
+        db.refresh(existing)
+        db.refresh(other)
+        assert existing.source == PeptideSource.SHEET
+        assert existing.half_life_text == "~3-5 hours"
+        assert existing.notes == "my own notes"  # notes is never touched, even when forced
+        assert existing.dose_low == 100  # not a sheet column, untouched
+        assert "Test-Compound-9" in report.updated
+        assert other.source == PeptideSource.STARTER  # not in force_names -- still skipped
+        assert "Other-Starter" in report.skipped_existing
+    finally:
+        db.delete(existing)
+        db.delete(other)
+        db.commit()
+
+
 def test_load_sheets_does_not_crash_on_a_dosing_tier_or_monitoring_test_missing_a_cell(db):
     """Spec: a missing field/table row leaves that field/table empty, never a crash -- a real row
     can genuinely be missing a cell (parse_sheet already produces None positionally for these)."""
