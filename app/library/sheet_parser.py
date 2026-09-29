@@ -63,7 +63,20 @@ _SECTION_HEADERS = {
     # entirely -- it still goes into sheet_sections for traceability, even
     # though it's ALSO used as a section boundary (see _all_known_header_indices).
     "how_to_use": lambda name: [f"How to Use {name}"],
+    "protocols_by_goal": lambda name: [f"{name} Protocols by Goal"],
 }
+
+# Headers that must be recognized as section boundaries so their content is
+# never absorbed into the section that precedes them, but whose own text is
+# deliberately NOT retained anywhere -- the spec excludes these sections
+# (Science-vs-Community-Consensus scoring, the Before/After timeline, and its
+# accompanying "What to Expect"/detailed-timeline retelling) from storage.
+_DISCARD_ONLY_HEADERS = [
+    lambda name: [f"{name}: Science vs Community Consensus"],
+    lambda name: [f"{name} Before and After"],
+    lambda name: ["WHAT TO EXPECT"],
+    lambda name: ["DETAILED TIMELINE: SCIENCE VS COMMUNITY"],
+]
 
 # All headers used for slicing the document into sections (superset of the
 # narrative ones above, plus the structural ones the parser also relies on).
@@ -99,6 +112,8 @@ def _all_known_header_indices(lines: list[str], name: str) -> list[tuple[int, st
     candidates: list[str] = []
     for builder in _SECTION_HEADERS.values():
         candidates.extend(builder(name))
+    for builder in _DISCARD_ONLY_HEADERS:
+        candidates.extend(builder(name))
     for suffix in _STRUCTURAL_HEADERS:
         if suffix in ("Cycling Protocol", "Estimated Cost", "Recommended Monitoring",
                        "Pharmacokinetics", "Storage & Stability"):
@@ -130,7 +145,21 @@ def _section_text(lines: list[str], start_idx: int, all_headers: list[tuple[int,
 
 
 def _extract_name(text: str) -> str:
-    for line in _lines(text):
+    # Real scraped files begin with the site's own navigation chrome ("Peptide
+    # Schedule", "Peptides", "Protocols", ...), so the first non-blank line is
+    # never the peptide's name. The literal "Full disclaimer" line is the last
+    # piece of chrome before the name itself, which repeats immediately after
+    # it -- anchor on that instead. Fall back to the first non-blank line for
+    # any text that lacks this landmark (e.g. a minimal synthetic fixture).
+    lines = _lines(text)
+    for i, line in enumerate(lines):
+        if line.strip() == "Full disclaimer":
+            for candidate in lines[i + 1:]:
+                stripped = candidate.strip()
+                if stripped:
+                    return stripped
+            break
+    for line in lines:
         stripped = line.strip()
         if stripped:
             return stripped
@@ -148,7 +177,13 @@ def _extract_aliases(text: str, name: str) -> list[str]:
 
 
 def _extract_half_life_text(text: str) -> str | None:
-    match = re.search(r"~?[\d.]+(?:-[\d.]+)?\s*hours?\s*half-life", text, re.IGNORECASE)
+    # Real files express half-life in minutes, hours, or days depending on
+    # the compound (e.g. "30 min half-life", "10-15 days half-life").
+    match = re.search(
+        r"~?[\d.]+(?:-[\d.]+)?\s*(?:min(?:ute)?s?|hours?|hrs?|days?)\s*half-life",
+        text,
+        re.IGNORECASE,
+    )
     if match:
         return match.group(0).strip()
     return None
@@ -184,6 +219,46 @@ def _extract_cycle_shorthand(lines: list[str], route_idx_hint: str | None) -> st
     return None
 
 
+def _is_icon_caption_line(line: str) -> bool:
+    # The header block includes one of these two fixed captions under the
+    # molecule icon, depending on whether the compound has an amino acid
+    # sequence (a peptide) or not (a small molecule). Immediately after this
+    # line comes: category, evidence level, safety grade (3 lines), then the
+    # classification tags/badges, then the peptide's name repeats again.
+    return (
+        "Icon reflects category theme only" in line
+        or "Each bubble = one amino acid" in line
+    )
+
+
+def _extract_tags(lines: list[str], name: str) -> list[str]:
+    icon_idx = None
+    for i, line in enumerate(lines):
+        if _is_icon_caption_line(line):
+            icon_idx = i
+            break
+    if icon_idx is None:
+        return []
+    # Skip the category, evidence-level, and safety-grade lines that always
+    # follow the icon caption, positionally -- never by matching their text,
+    # since those three values vary per peptide.
+    start = icon_idx + 4
+    tags: list[str] = []
+    for line in lines[start:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped == name or stripped.startswith("Also known as:"):
+            break
+        tags.append(stripped)
+        if len(tags) >= 15:
+            # Defensive cap: the name should always repeat and end the block:
+            # if it doesn't (unexpected file shape), stop rather than
+            # consuming the rest of the document as "tags".
+            break
+    return tags
+
+
 def _extract_summary(text: str, name: str) -> str | None:
     # The opening TL;DR paragraph sits after the quick-facts block and before
     # "What Is <name>?" -- find the first "long" paragraph line following the
@@ -195,17 +270,35 @@ def _extract_summary(text: str, name: str) -> str | None:
             aliases_idx = i
             break
     what_is_idx = _find_header_index(lines, f"What Is {name}?")
-    if aliases_idx is None or what_is_idx is None:
+    if what_is_idx is None:
         return None
-    for i in range(aliases_idx + 1, what_is_idx):
+    if aliases_idx is not None:
+        start_idx = aliases_idx + 1
+    else:
+        # Some compounds have no "Also known as:" line at all. Fall back to
+        # scanning from right after "Full disclaimer" instead of from the
+        # top of the file -- the fixed boilerplate disclaimer line ("Not
+        # medical advice. Talk to your provider...") that precedes it is
+        # itself long/wordy enough to otherwise be mistaken for the real
+        # opening paragraph.
+        disclaimer_idx = _find_header_index(lines, "Full disclaimer")
+        start_idx = disclaimer_idx + 1 if disclaimer_idx is not None else 0
+    for i in range(start_idx, what_is_idx):
         candidate = lines[i].strip()
-        if candidate and len(candidate) > 20 and not candidate.endswith("?"):
-            # Skip obvious UI-chrome lines from the scrape.
-            if candidate in ("Calculate dose", "Check with AI", "Popular", "Used?"):
-                continue
-            if candidate.isdigit():
-                continue
-            return candidate
+        if not candidate or candidate.endswith("?"):
+            continue
+        if _is_icon_caption_line(candidate):
+            continue
+        # This gap is full of short UI-chrome lines: buttons ("Calculate
+        # dose"), popularity/verification badges ("Hot", "1,000+", "Used?"),
+        # counters ("3", "15 references"), and social-proof call-outs ("Used
+        # by Huberman, Greenfield + 17 more"). The real opening paragraph is
+        # always a genuine multi-sentence paragraph -- require both enough
+        # length and enough words, rather than trying to enumerate every
+        # possible chrome string.
+        if len(candidate) < 60 or len(candidate.split()) < 10:
+            continue
+        return candidate
     return None
 
 
@@ -458,6 +551,7 @@ def parse_sheet(text: str) -> dict:
         raise UnrecognizedSheetError("no recognized section headers found")
 
     aliases = _extract_aliases(text, name)
+    tags = _extract_tags(lines, name)
     half_life_text = _extract_half_life_text(text)
     route_summary = _extract_route_summary(lines, name)
     cycle_shorthand = _extract_cycle_shorthand(lines, route_summary)
@@ -482,7 +576,7 @@ def parse_sheet(text: str) -> dict:
     return {
         "name": name,
         "aliases": aliases,
-        "tags": [],
+        "tags": tags,
         "half_life_text": half_life_text,
         "route_summary": route_summary,
         "cycle_shorthand": cycle_shorthand,

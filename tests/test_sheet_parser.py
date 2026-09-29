@@ -9,6 +9,8 @@ Not medical advice. Talk to your provider before using any peptide.
 Full disclaimer
 Test-Compound-9
 Peptide
+Each bubble = one amino acid. Size = residue mass. Color = chemical class.
+Recovery Support
 Research
 Grade B
 Synthetic Modulator
@@ -66,6 +68,21 @@ OFF PERIOD
 4 weeks
 
 A made-up cycling narrative for testing.
+
+Test-Compound-9 Protocols by Goal
+A made-up protocols-by-goal narrative for testing.
+
+Test-Compound-9: Science vs Community Consensus
+A made-up consensus narrative that must never be stored, for testing.
+
+Test-Compound-9 Before and After
+A made-up before-and-after narrative that must never be stored, for testing.
+
+WHAT TO EXPECT
+A made-up what-to-expect narrative that must never be stored, for testing.
+
+DETAILED TIMELINE: SCIENCE VS COMMUNITY
+A made-up detailed-timeline narrative that must never be stored, for testing.
 
 How to Use Test-Compound-9
 1
@@ -306,3 +323,76 @@ def test_text_with_no_known_headers_raises_unrecognized_sheet_error():
 
 def test_valid_sample_does_not_raise_unrecognized_sheet_error():
     parse_sheet(SAMPLE)  # must not raise
+
+
+def test_name_extracted_after_full_disclaimer_not_site_navigation():
+    """Regression: real scraped files begin with the site's own navigation
+    chrome ("Peptide Schedule", "Peptides", "Protocols", ...) before the
+    disclaimer block. The first non-blank line of the raw text is never the
+    peptide's name -- the name is whatever repeats immediately after the
+    literal 'Full disclaimer' line."""
+    with_nav_chrome = "Peptide Schedule\nPeptides\nProtocols\nTools\nSearch\n\n" + SAMPLE
+    result = parse_sheet(with_nav_chrome)
+    assert result["name"] == "Test-Compound-9"
+
+
+def test_tags_extracted_from_the_classification_badge_block():
+    """Classification tags/badges sit between the icon-caption line and the
+    peptide's name repeating (which begins the half-life/route quick-facts
+    block), after the category/evidence-level/safety-grade lines."""
+    result = parse_sheet(SAMPLE)
+    assert result["tags"] == ["Synthetic Modulator", "Recovery"]
+
+
+def test_half_life_text_supports_minutes_and_days_units():
+    minutes_variant = SAMPLE.replace("~3-5 hours half-life", "30 min half-life")
+    result = parse_sheet(minutes_variant)
+    assert result["half_life_text"] == "30 min half-life"
+
+    days_variant = SAMPLE.replace("~3-5 hours half-life", "10-15 days half-life")
+    result = parse_sheet(days_variant)
+    assert result["half_life_text"] == "10-15 days half-life"
+
+
+def test_summary_extracted_even_without_an_also_known_as_line():
+    """Some compounds have no aliases at all, so 'Also known as:' is absent.
+    The opening paragraph must still be found (falling back to scanning from
+    right after 'Full disclaimer'), and the fixed boilerplate disclaimer
+    line itself must never be mistaken for it."""
+    no_aliases = SAMPLE.replace("Also known as: Test-Compound-9, TC9\n\n", "")
+    result = parse_sheet(no_aliases)
+    assert result["aliases"] == []
+    assert result["summary"] == (
+        "This is a made-up summary paragraph describing Test-Compound-9 for testing purposes only."
+    )
+    assert "Not medical advice" not in (result["summary"] or "")
+
+
+def test_protocols_by_goal_captured_in_sheet_sections():
+    result = parse_sheet(SAMPLE)
+    assert "protocols-by-goal narrative" in result["sheet_sections"]["protocols_by_goal"]
+
+
+def test_removed_sections_recognized_as_boundaries_but_never_stored():
+    """The spec excludes Science-vs-Community-Consensus scoring, the
+    Before/After timeline, and its accompanying What-to-Expect/detailed-
+    timeline retelling from storage. Their headers must still be recognized
+    as section boundaries (so they don't leak into an adjacent captured
+    section), but their own text must never appear anywhere in the result."""
+    result = parse_sheet(SAMPLE)
+    forbidden = [
+        "must never be stored",
+        "consensus narrative",
+        "before-and-after narrative",
+        "what-to-expect narrative",
+        "detailed-timeline narrative",
+    ]
+    serialized = repr(result)
+    for phrase in forbidden:
+        assert phrase not in serialized
+
+    # And the section immediately preceding these headers (Protocols by Goal)
+    # must not have absorbed any of their text either.
+    protocols_by_goal = result["sheet_sections"]["protocols_by_goal"]
+    for phrase in forbidden:
+        assert phrase not in protocols_by_goal
