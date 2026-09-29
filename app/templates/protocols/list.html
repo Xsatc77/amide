@@ -79,7 +79,8 @@
   </div>
   <div class="goal-grid">
     {% for g in goals %}
-    <button type="button" class="goal-card" data-goal="{{ g.slug }}" aria-pressed="false">
+    <button type="button" class="goal-card" data-goal="{{ g.slug }}" aria-pressed="false"
+            style="--goal-color: var(--goal-{{ g.color }});">
       <span class="goal-check" aria-hidden="true">✓</span>
       <strong>{{ g.label }}</strong>
       <span class="small muted">{{ g.description }}</span>

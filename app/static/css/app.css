@@ -348,8 +348,9 @@ section + section { margin-top: 36px; }
   display: flex; flex-direction: column; gap: 4px;
   background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
 }
-.goal-card:hover { border-color: var(--accent); }
-.goal-card[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.goal-card:hover { border-color: var(--goal-color, var(--accent)); }
+.goal-card[aria-pressed="true"] { border-color: var(--goal-color, var(--accent)); background: color-mix(in srgb, var(--goal-color, var(--accent-soft)) 25%, var(--surface)); }
+.goal-card[aria-pressed="true"] .goal-check { background: var(--goal-color, var(--accent)); }
 .goal-check {
   position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%;
   display: grid; place-items: center; font-size: 0.75rem; font-weight: 700;

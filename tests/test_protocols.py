@@ -332,3 +332,10 @@ def test_builder_autocomplete_uses_whole_library(client, db):
     assert 'id="b-add-list"' in page_html and 'role="combobox"' in page_html
     bpc.aliases = None
     db.commit()
+
+
+def test_goal_cards_use_their_own_color(client):
+    resp = client.get("/protocols")
+    body = resp.text
+    assert "var(--goal-fat-loss)" in body
+    assert "var(--goal-sleep-recovery)" in body
