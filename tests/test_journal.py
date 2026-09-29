@@ -342,6 +342,26 @@ def test_quick_note_time_displays_in_viewers_timezone_not_utc(client, db):
         client.post("/settings/timezone", data={"mode": "system", "timezone": ""})
 
 
+def test_workouts_for_returns_completed_workouts_on_that_date(db):
+    from app.models import WorkoutExerciseLog, WorkoutLog, WorkoutPlan, WorkoutPlanDay, WorkoutSource
+    from app.routers.journal import workouts_for
+
+    me = _tester_id()
+    plan = WorkoutPlan(owner_id=me, name="Test Plan", source=WorkoutSource.MANUAL, started_on=date.today())
+    plan.days = [WorkoutPlanDay(position=0, label="Leg Day")]
+    db.add(plan)
+    db.flush()
+    log = WorkoutLog(owner_id=me, plan_day_id=plan.days[0].id, log_date=date(2026, 1, 8))
+    db.add(log)
+    db.commit()
+
+    result = workouts_for(db, me, date(2026, 1, 8))
+    assert len(result) == 1
+    assert result[0]["label"] == "Leg Day"
+
+    assert workouts_for(db, me, date(2026, 1, 9)) == []  # wrong date
+
+
 def test_past_entry_shows_that_days_doses_not_todays(client, db):
     me = _tester_id()
     past_date = date(2026, 9, 20)
