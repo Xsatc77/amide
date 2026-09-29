@@ -639,8 +639,8 @@ class PeptideDosingTier(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), index=True)
     level: Mapped[DosingTierLevel] = mapped_column(_enum_column(DosingTierLevel))
-    dose_text: Mapped[str] = mapped_column(String(100))
-    frequency_text: Mapped[str] = mapped_column(String(100))
+    dose_text: Mapped[str | None] = mapped_column(String(100))
+    frequency_text: Mapped[str | None] = mapped_column(String(100))
     time_of_day: Mapped[TimeOfDay | None] = mapped_column(_enum_column(TimeOfDay))
 
     peptide: Mapped["Peptide"] = relationship(back_populates="dosing_tiers")
@@ -674,8 +674,8 @@ class PeptideMonitoringTest(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), index=True)
     test_name: Mapped[str] = mapped_column(String(120))
-    when_text: Mapped[str] = mapped_column(String(200))
-    why_text: Mapped[str] = mapped_column(Text)
+    when_text: Mapped[str | None] = mapped_column(String(200))
+    why_text: Mapped[str | None] = mapped_column(Text)
     target_text: Mapped[str | None] = mapped_column(String(200))
 
     peptide: Mapped["Peptide"] = relationship(back_populates="monitoring_tests")

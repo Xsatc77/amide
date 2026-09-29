@@ -609,3 +609,34 @@ def test_0021_adds_tags_and_summary(tmp_path):
     with sqlite3.connect(db) as c:
         peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
         assert not ({"tags", "summary"} & peptide_cols)
+
+
+def test_0022_allows_null_dosing_and_monitoring_text(tmp_path):
+    db = tmp_path / "j.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0021")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into peptides(name, source) values ('Test-Compound-9', 'sheet')")
+        pid = c.execute("select id from peptides where name='Test-Compound-9'").fetchone()[0]
+        # A real row missing a table cell must be storable with NULL, not raise IntegrityError.
+        c.execute(
+            "insert into peptide_dosing_tiers(peptide_id, level, dose_text, frequency_text) "
+            "values (?, 'Beginner', NULL, NULL)", (pid,))
+        c.execute(
+            "insert into peptide_monitoring_tests(peptide_id, test_name, when_text, why_text) "
+            "values (?, 'Made-up test', NULL, NULL)", (pid,))
+        row = c.execute(
+            "select dose_text, frequency_text from peptide_dosing_tiers where peptide_id=?", (pid,)
+        ).fetchone()
+        assert row == (None, None)
+        row = c.execute(
+            "select when_text, why_text from peptide_monitoring_tests where peptide_id=?", (pid,)
+        ).fetchone()
+        assert row == (None, None)
+    command.downgrade(cfg, "0021")
+    with sqlite3.connect(db) as c:
+        cols = {r[1]: r[3] for r in c.execute("pragma table_info(peptide_dosing_tiers)")}
+        assert cols["dose_text"] == 1 and cols["frequency_text"] == 1  # notnull flag restored
+        cols = {r[1]: r[3] for r in c.execute("pragma table_info(peptide_monitoring_tests)")}
+        assert cols["when_text"] == 1 and cols["why_text"] == 1

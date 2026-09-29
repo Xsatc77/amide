@@ -140,6 +140,24 @@ def test_load_sheets_replaces_an_existing_card_sourced_peptide(db):
     assert existing.card_class is None and existing.category is None and existing.card_details is None
 
 
+def test_load_sheets_does_not_crash_on_a_dosing_tier_or_monitoring_test_missing_a_cell(db):
+    """Spec: a missing field/table row leaves that field/table empty, never a crash -- a real row
+    can genuinely be missing a cell (parse_sheet already produces None positionally for these)."""
+    from app.library.loader import load_sheets
+    sheet = {"name": "Test-Compound-9", "aliases": [], "tags": [], "half_life_text": None,
+            "route_summary": None, "cycle_shorthand": None, "summary": None,
+            "dosing_tiers": [{"level": "Beginner", "dose_text": None, "frequency_text": None, "time_of_day": None}],
+            "cycle": None, "stack_relations": [],
+            "monitoring_tests": [{"test_name": "Made-up test", "when_text": None, "why_text": None, "target_text": None}],
+            "bioavailability_text": None, "tmax_text": None,
+            "storage_before_text": None, "storage_after_text": None, "storage_temperature_text": None,
+            "legal_status_text": None, "cost_estimate_text": None, "sheet_sections": {}, "usage_tips": []}
+    load_sheets(db, [sheet])  # must not raise IntegrityError
+    p = db.query(Peptide).filter_by(name="Test-Compound-9").one()
+    assert p.dosing_tiers[0].dose_text is None and p.dosing_tiers[0].frequency_text is None
+    assert p.monitoring_tests[0].when_text is None and p.monitoring_tests[0].why_text is None
+
+
 def test_load_sheets_stack_relation_partner_not_matching_any_peptide_is_fine(db):
     from app.library.loader import load_sheets
     sheet = {"name": "Test-Compound-9", "aliases": [], "tags": [], "half_life_text": None,
