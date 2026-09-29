@@ -34,6 +34,12 @@
   --goal-wellness: #eab308;
   --goal-glp1-weight: #06b6d4;
   --goal-sleep-recovery: #3b82f6;
+  /* All 8 goal colors above are mid-to-high-luminance hues where white text
+     fails WCAG AA contrast (4.5:1) at tag-chip size -- confirmed by
+     computing each one's white-text ratio (1.92:1 to 4.47:1, all below
+     4.5:1). One dark token works for all of them, so no per-goal text
+     color is needed. */
+  --goal-text: #111827;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -462,7 +468,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .lib-head p { margin: 2px 0 6px; }
 .lib-tags { margin-bottom: 6px; }
 .tag-plain { background: var(--bg); border: 1px solid var(--border); }
-.tag-goal { color: #fff; border: none; }
+.tag-goal { color: var(--goal-text); border: none; }
 .lib-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 .lib-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
 .lib-section .section-title { display: flex; align-items: center; gap: 8px; }

@@ -27,7 +27,7 @@
     </div>
     {% if goals %}
     <div class="tags lib-tags">
-      {% for slug in goals %}<span class="tag tag-goal" style="background: var(--goal-{{ slug }}); color: #fff;">{{ slug | goal_label }}</span>{% endfor %}
+      {% for slug in goals %}<span class="tag tag-goal" style="background: var(--goal-{{ slug }});">{{ slug | goal_label }}</span>{% endfor %}
     </div>
     {% endif %}
   </div>
@@ -109,7 +109,7 @@
         ("drug_interactions", "Drug interactions"), ("legal", "Legal status"),
         ("who_should_consider", "Who should consider this"), ("product_quality", "Product quality"),
       ] %}
-      {% set bullet_keys = ("benefits", "contraindications", "drug_interactions", "who_should_consider") %}
+      {% set bullet_keys = ("benefits", "contraindications", "drug_interactions", "who_should_consider", "product_quality") %}
       {% for key, title in narrative_order if simple.get(key) %}
       <section class="lib-section">
         <h2 class="section-title">{{ title }}</h2>

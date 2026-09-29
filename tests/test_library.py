@@ -201,6 +201,19 @@ def test_detail_renders_sheet_sourced_peptide(client, db):
     assert "THE ORIGINAL SCIENTIFIC TEXT MUST NEVER RENDER" not in body
 
 
+def test_detail_renders_goal_stack_chips_with_their_goal_color(client, db):
+    """Coverage gap the final review found: no test exercised the detail page's goal-stack chips
+    (a peptide's membership in a protocol Goal), which render for both sheet-sourced and
+    card-sourced peptides alike. A regression here (e.g. a typo in the goal_label filter lookup)
+    would previously have gone undetected -- see ledger's corrected Task 4/5 note."""
+    p = _sheet_test_peptide(db)
+    db.add(GoalPeptide(goal="muscle-recovery", peptide_id=p.id, position=0))
+    db.commit()
+    body = text(client.get(f"/library/{p.id}"))
+    assert "Muscle & Recovery" in body
+    assert "var(--goal-muscle-recovery)" in body
+
+
 def test_detail_sheet_sourced_tags_get_goal_colors(client, db):
     p = _sheet_test_peptide(db)
     resp = client.get(f"/library/{p.id}")
@@ -220,6 +233,21 @@ def test_detail_sheet_sourced_peptide_missing_some_sections_renders_only_present
     assert "Only this one section exists for testing." in body
     assert "Side Effects" not in body
     assert "Contraindications" not in body
+
+
+def test_detail_product_quality_renders_as_separate_lines_not_one_run_on_paragraph(client, db):
+    """Real product_quality text is a risk sentence followed by several checklist items joined by
+    newlines (confirmed across all 150 real sheet-sourced peptides) -- it must render as distinct
+    lines/items, not collapse into one run-on paragraph."""
+    p = _sheet_test_peptide(db)
+    p.sheet_sections_simple = {
+        "product_quality": "high risk\nFirst checklist item for testing.\nSecond checklist item for testing.",
+    }
+    db.commit()
+    resp = client.get(f"/library/{p.id}")
+    body = resp.text
+    assert "<li>First checklist item for testing.</li>" in body
+    assert "<li>Second checklist item for testing.</li>" in body
 
 
 def test_detail_no_card_no_sheet_peptide_shows_empty_state(client, db):

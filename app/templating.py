@@ -51,14 +51,14 @@ def tag_style(tag: str) -> str:
     if not slugs:
         return ""
     if len(slugs) == 1:
-        return f"background: var(--goal-{slugs[0]}); color: #fff;"
+        return f"background: var(--goal-{slugs[0]}); color: var(--goal-text);"
     band = 100 / len(slugs)
     stops = []
     for i, slug in enumerate(slugs):
         start = i * band
         end = (i + 1) * band
         stops.append(f"var(--goal-{slug}) {start:.4g}% {end:.4g}%")
-    return f"background: linear-gradient(135deg, {', '.join(stops)}); color: #fff;"
+    return f"background: linear-gradient(135deg, {', '.join(stops)}); color: var(--goal-text);"
 
 
 templates.env.filters["tag_style"] = tag_style
