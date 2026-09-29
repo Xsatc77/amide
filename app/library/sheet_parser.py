@@ -91,6 +91,14 @@ def _all_known_header_indices(lines: list[str], name: str) -> list[tuple[int, st
         if suffix in ("Cycling Protocol", "Estimated Cost", "Recommended Monitoring",
                        "Pharmacokinetics", "Storage & Stability"):
             candidates.append(suffix)
+        elif suffix == "How to Use":
+            # Unlike every other templated header in this format, "How to Use"
+            # puts the label BEFORE the peptide name ("How to Use <name>"),
+            # not after ("<name> How to Use"). Without this special case the
+            # header is never recognized as a section boundary and the
+            # How-to-Use section's own text silently leaks into whatever
+            # section precedes it (e.g. Cycling Protocol's note).
+            candidates.append(f"How to Use {name}")
         else:
             candidates.append(f"{name} {suffix}")
 

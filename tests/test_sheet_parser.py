@@ -198,8 +198,28 @@ def test_dosing_tier_old_names_moderate_and_aggressive_map_to_renamed_tiers():
 
 def test_cycle_parsed_when_present():
     result = parse_sheet(SAMPLE)
-    assert result["cycle"] == {"on_weeks": 6, "off_weeks": 4, "note": result["cycle"]["note"]}
-    assert "made-up cycling narrative" in result["cycle"]["note"]
+    assert result["cycle"] == {
+        "on_weeks": 6,
+        "off_weeks": 4,
+        "note": "A made-up cycling narrative for testing.",
+    }
+
+
+def test_cycle_note_does_not_leak_how_to_use_section():
+    """Regression test: 'How to Use <name>' puts the peptide name AFTER the
+    label, the opposite order from every other templated header in this
+    format ('<name> How to Use' would never match a real file). If that
+    header isn't recognized as its own section boundary, the entire
+    How-to-Use section (numbered steps, mechanical instructions) silently
+    gets appended into whatever section precedes it -- here, Cycling
+    Protocol's note. Assert none of the How-to-Use section's own text leaks
+    into cycle["note"]."""
+    result = parse_sheet(SAMPLE)
+    note = result["cycle"]["note"]
+    assert "How to Use" not in note
+    assert "Confirm your vial strength" not in note
+    assert "Generic mechanical instruction" not in note
+    assert "Take in the morning" not in note
 
 
 def test_cycle_is_none_when_section_absent():
