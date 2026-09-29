@@ -621,6 +621,14 @@ class Peptide(Base):
     usage_tips: Mapped[list | None] = mapped_column(JSON)
     sheet_sections: Mapped[dict | None] = mapped_column(JSON)
 
+    dosing_tiers: Mapped[list["PeptideDosingTier"]] = relationship(
+        back_populates="peptide", cascade="all, delete-orphan")
+    cycle: Mapped["PeptideCycle | None"] = relationship(back_populates="peptide", cascade="all, delete-orphan")
+    stack_relations: Mapped[list["PeptideStackRelation"]] = relationship(
+        back_populates="peptide", cascade="all, delete-orphan")
+    monitoring_tests: Mapped[list["PeptideMonitoringTest"]] = relationship(
+        back_populates="peptide", cascade="all, delete-orphan")
+
 
 class PeptideDosingTier(Base):
     """One row per level (Beginner/Intermediate/Advanced) for a peptide's community dosing guide."""
@@ -633,7 +641,7 @@ class PeptideDosingTier(Base):
     frequency_text: Mapped[str] = mapped_column(String(100))
     time_of_day: Mapped[TimeOfDay | None] = mapped_column(_enum_column(TimeOfDay))
 
-    peptide: Mapped["Peptide"] = relationship()
+    peptide: Mapped["Peptide"] = relationship(back_populates="dosing_tiers")
 
 
 class PeptideCycle(Base):
@@ -645,7 +653,7 @@ class PeptideCycle(Base):
     max_cycles_per_year: Mapped[int | None] = mapped_column(Integer)
     note: Mapped[str | None] = mapped_column(Text)
 
-    peptide: Mapped["Peptide"] = relationship()
+    peptide: Mapped["Peptide"] = relationship(back_populates="cycle")
 
 
 class PeptideStackRelation(Base):
@@ -656,7 +664,7 @@ class PeptideStackRelation(Base):
     relation: Mapped[StackRelation] = mapped_column(_enum_column(StackRelation))
     note: Mapped[str] = mapped_column(Text)
 
-    peptide: Mapped["Peptide"] = relationship()
+    peptide: Mapped["Peptide"] = relationship(back_populates="stack_relations")
 
 
 class PeptideMonitoringTest(Base):
@@ -668,7 +676,7 @@ class PeptideMonitoringTest(Base):
     why_text: Mapped[str] = mapped_column(Text)
     target_text: Mapped[str | None] = mapped_column(String(200))
 
-    peptide: Mapped["Peptide"] = relationship()
+    peptide: Mapped["Peptide"] = relationship(back_populates="monitoring_tests")
 
 
 class GoalPeptide(Base):

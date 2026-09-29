@@ -45,7 +45,7 @@ def clean(client):
     with SessionLocal() as s:
         s.query(Vendor).delete()
         s.query(Protocol).delete()
-        s.query(Peptide).filter(Peptide.source == PeptideSource.CUSTOM).delete()
+        s.query(Peptide).filter(Peptide.source.in_((PeptideSource.CUSTOM, PeptideSource.SHEET))).delete()
         s.query(InventoryItem).delete()
         s.commit()
     for f in config.COA_DIR.glob("*"):

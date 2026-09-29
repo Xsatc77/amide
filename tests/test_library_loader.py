@@ -92,3 +92,61 @@ def test_load_adopts_same_named_peptide_without_number(s):
     p = pep(s, "BPC-157")
     assert report.updated == ["BPC-157"] and report.created == []
     assert p.card_number == 2 and p.card_class == "Cytoprotective peptide"
+
+
+def test_load_sheets_creates_a_new_peptide(db):
+    from app.library.loader import load_sheets
+    sheet = {
+        "name": "Test-Compound-9", "aliases": ["TC9"], "tags": ["Recovery"],
+        "half_life_text": "~3-5 hours", "route_summary": "Injection", "cycle_shorthand": "6w on / 4w off",
+        "summary": "A made-up summary.", "dosing_tiers": [
+            {"level": "Beginner", "dose_text": "10mg", "frequency_text": "Daily", "time_of_day": None},
+        ],
+        "cycle": {"on_weeks": 6, "off_weeks": 4, "note": "A made-up note."},
+        "stack_relations": [{"partner_name": "Made-Up-Partner-A", "relation": "works_with", "note": "n"}],
+        "monitoring_tests": [{"test_name": "Made-up test", "when_text": "Baseline", "why_text": "y", "target_text": None}],
+        "bioavailability_text": None, "tmax_text": "~1 hour",
+        "storage_before_text": "a", "storage_after_text": "b", "storage_temperature_text": "c",
+        "legal_status_text": "d", "cost_estimate_text": "e", "sheet_sections": {"what_is": "f"},
+        "usage_tips": ["Take each morning on an empty stomach."],
+    }
+    report = load_sheets(db, [sheet])
+    assert report.created == ["Test-Compound-9"]
+    p = db.query(Peptide).filter_by(name="Test-Compound-9").one()
+    assert p.source == PeptideSource.SHEET
+    assert p.usage_tips == ["Take each morning on an empty stomach."]
+    assert len(p.dosing_tiers) == 1
+
+
+def test_load_sheets_replaces_an_existing_card_sourced_peptide(db):
+    """Review Focus item 2: a name match against a CARD-sourced peptide must fully clear its old
+    card fields, not leave them alongside the new sheet fields."""
+    from app.library.loader import load_sheets
+    existing = Peptide(name="Test-Compound-9", source=PeptideSource.CARD, card_class="Old class",
+                       category="Old category", card_details={"old": "data"})
+    db.add(existing)
+    db.commit()
+    sheet = {"name": "Test-Compound-9", "aliases": [], "tags": [], "half_life_text": None,
+            "route_summary": None, "cycle_shorthand": None, "summary": None, "dosing_tiers": [],
+            "cycle": None, "stack_relations": [], "monitoring_tests": [], "bioavailability_text": None,
+            "tmax_text": None, "storage_before_text": None, "storage_after_text": None,
+            "storage_temperature_text": None, "legal_status_text": None, "cost_estimate_text": None,
+            "sheet_sections": {}, "usage_tips": []}
+    load_sheets(db, [sheet])
+    db.refresh(existing)
+    assert existing.source == PeptideSource.SHEET
+    assert existing.card_class is None and existing.category is None and existing.card_details is None
+
+
+def test_load_sheets_stack_relation_partner_not_matching_any_peptide_is_fine(db):
+    from app.library.loader import load_sheets
+    sheet = {"name": "Test-Compound-9", "aliases": [], "tags": [], "half_life_text": None,
+            "route_summary": None, "cycle_shorthand": None, "summary": None, "dosing_tiers": [],
+            "cycle": None,
+            "stack_relations": [{"partner_name": "Nonexistent Drug Class", "relation": "avoid", "note": "n"}],
+            "monitoring_tests": [], "bioavailability_text": None, "tmax_text": None,
+            "storage_before_text": None, "storage_after_text": None, "storage_temperature_text": None,
+            "legal_status_text": None, "cost_estimate_text": None, "sheet_sections": {}, "usage_tips": []}
+    load_sheets(db, [sheet])  # must not raise
+    p = db.query(Peptide).filter_by(name="Test-Compound-9").one()
+    assert p.stack_relations[0].partner_name == "Nonexistent Drug Class"

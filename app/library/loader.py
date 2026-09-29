@@ -9,7 +9,17 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Peptide, PeptideSource
+from app.models import (
+    DosingTierLevel,
+    Peptide,
+    PeptideCycle,
+    PeptideDosingTier,
+    PeptideMonitoringTest,
+    PeptideSource,
+    PeptideStackRelation,
+    StackRelation,
+    TimeOfDay,
+)
 
 # Card keys stored in their own columns (or used only for matching); everything else goes in card_details.
 _COLUMN_KEYS = {"class": "card_class", "category": "category", "evidence_level": "evidence_level",
@@ -54,5 +64,93 @@ def load_cards(session: Session, cards: list[dict]) -> LoadReport:
         for key, column in _COLUMN_KEYS.items():
             setattr(peptide, column, (card.get(key) or None))
         peptide.card_details = {k: v for k, v in card.items() if k not in _NOT_DETAILS}
+    session.commit()
+    return report
+
+
+# Sheet keys written straight onto their same-named Peptide column. `tags`, `cycle_shorthand` and
+# `summary` (from parse_sheet) have no dedicated Peptide column yet, so load_sheets doesn't persist
+# them; `notes` stays the owner's own free-text field and is never touched here.
+_SHEET_COLUMNS = (
+    "half_life_text", "bioavailability_text", "tmax_text", "route_summary",
+    "storage_before_text", "storage_after_text", "storage_temperature_text",
+    "legal_status_text", "cost_estimate_text",
+)
+
+
+def load_sheets(session: Session, sheets: list[dict]) -> LoadReport:
+    """Load parsed peptide reference sheets (app.library.sheet_parser.parse_sheet output, plus a
+    caller-added "usage_tips" key) into the library, matching by name (Peptide.name is
+    COLLATE NOCASE, so a plain equality comparison is already case-insensitive).
+
+    Whether matched or newly created, the peptide's old card fields are cleared and every sheet
+    field is (re)written, so re-importing is always safe and a card-sourced peptide fully converts
+    to a sheet-sourced one. The child rows (dosing_tiers, cycle, stack_relations, monitoring_tests)
+    are replaced wholesale from the sheet's own lists/dict on every load.
+    """
+    report = LoadReport()
+    for sheet in sheets:
+        name = sheet["name"].strip()
+        peptide = session.scalar(select(Peptide).where(Peptide.name == name))
+        if peptide is None:
+            peptide = Peptide(name=name)
+            session.add(peptide)
+            report.created.append(name)
+        else:
+            report.updated.append(peptide.name)
+
+        peptide.card_class = peptide.category = peptide.evidence_level = None
+        peptide.status = peptide.card_details = peptide.card_image = None
+        peptide.source = PeptideSource.SHEET
+
+        peptide.aliases = ", ".join(sheet.get("aliases") or []) or None
+        for column in _SHEET_COLUMNS:
+            setattr(peptide, column, sheet.get(column))
+        peptide.usage_tips = sheet.get("usage_tips") or []
+        peptide.sheet_sections = sheet.get("sheet_sections") or {}
+
+        # Replace child rows: clear and flush first so a replacement using the same natural key
+        # (dosing tier level, or the one-per-peptide cycle) never collides with the old row on
+        # insert.
+        peptide.dosing_tiers.clear()
+        peptide.stack_relations.clear()
+        peptide.monitoring_tests.clear()
+        peptide.cycle = None
+        session.flush()
+
+        peptide.dosing_tiers = [
+            PeptideDosingTier(
+                level=DosingTierLevel(tier["level"]),
+                dose_text=tier["dose_text"],
+                frequency_text=tier["frequency_text"],
+                time_of_day=(TimeOfDay(tier["time_of_day"]) if tier.get("time_of_day") else None),
+            )
+            for tier in sheet.get("dosing_tiers") or []
+        ]
+
+        cycle = sheet.get("cycle")
+        peptide.cycle = (
+            PeptideCycle(on_weeks=cycle.get("on_weeks"), off_weeks=cycle.get("off_weeks"), note=cycle.get("note"))
+            if cycle else None
+        )
+
+        peptide.stack_relations = [
+            PeptideStackRelation(
+                partner_name=relation["partner_name"],
+                relation=StackRelation(relation["relation"]),
+                note=relation.get("note") or "",
+            )
+            for relation in sheet.get("stack_relations") or []
+        ]
+
+        peptide.monitoring_tests = [
+            PeptideMonitoringTest(
+                test_name=test["test_name"],
+                when_text=test["when_text"],
+                why_text=test["why_text"],
+                target_text=test.get("target_text"),
+            )
+            for test in sheet.get("monitoring_tests") or []
+        ]
     session.commit()
     return report
