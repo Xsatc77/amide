@@ -43,7 +43,7 @@ _DAY_LABEL_PATTERNS = [
 _ROW_PATTERN = re.compile(
     r"^(?P<name>.+?)\s+"
     r"(?P<sets>\d+(?:\s*-\s*\d+)?)\s+"
-    r"(?P<reps>\d+(?:\s*-\s*\d+)?\*?(?:,?\s*Each(?:\s+\w+)?)?)"
+    r"(?P<reps>\d+\s*(?:Min|Sec)|\d+(?:\s*-\s*\d+)?\*?(?:,?\s*Each(?:\s+\w+)?)?)"
     r"(?:\s+(?P<rest>\d+\s*(?:Min|Sec)))?$"
 )
 

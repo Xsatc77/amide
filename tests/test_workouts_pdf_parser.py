@@ -107,6 +107,27 @@ def test_parse_recognizes_each_leg_and_each_arm_reps_qualifiers():
     assert exercises[1]["reps_text"] == "10 - 12 Each Arm"
 
 
+def test_parse_recognizes_duration_reps_for_isometric_holds():
+    """Real row from 8weekbeginnerfatlossworkout.pdf: an isometric hold (Plank) is measured in
+    time, not rep count, so the Reps column itself holds a duration string like "30 Sec" --
+    not just the Rest column. Previously the reps group required a leading digit-count/range
+    format, so this row failed to match _ROW_PATTERN entirely and was silently dropped."""
+    text = (
+        "Exercise Sets Reps Rest\n"
+        "Plank 2 30 Sec 30 Sec\n"
+        "Workout #1 - Core Workout A\n"
+    )
+    result = parse_workout_pdf(text)
+    assert len(result["days"]) == 1
+    exercises = result["days"][0]["exercises"]
+    assert len(exercises) == 1
+    ex = exercises[0]
+    assert ex["name"] == "Plank"
+    assert ex["sets_text"] == "2"
+    assert ex["reps_text"] == "30 Sec"
+    assert ex["rest_text"] == "30 Sec"
+
+
 def test_parse_more_tables_than_labels_falls_back_to_day_n():
     """A table with no corresponding label found (fewer labels than tables, or a table whose
     zip-position label came back empty) must still get a usable default label."""
