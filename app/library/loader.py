@@ -1,7 +1,13 @@
-"""Load imported peptide cards (cards.json) into the library.
+"""Load imported peptide data (cards.json, and parsed reference sheets) into the library.
 
-Only the card columns are written. The owner's own fields (aliases, doses, frequency, notes) and the goal
-stacks are never touched, so re-importing is always safe.
+`load_cards` writes only the card columns. The owner's own fields (aliases, doses, frequency, notes) and
+the goal stacks are never touched, so re-importing is always safe.
+
+`load_sheets` writes a parsed reference sheet's fields (see app.library.sheet_parser.parse_sheet) onto a
+peptide matched by name, including `aliases` -- unlike `load_cards`, a sheet's own aliases are treated as
+canonical reference data and do overwrite whatever was there before. It also clears any old card fields and
+replaces the peptide's dosing tiers, cycle, stack relations and monitoring tests wholesale on every load, so
+re-importing the same sheet is always safe.
 """
 
 from dataclasses import dataclass, field
@@ -68,13 +74,15 @@ def load_cards(session: Session, cards: list[dict]) -> LoadReport:
     return report
 
 
-# Sheet keys written straight onto their same-named Peptide column. `tags`, `cycle_shorthand` and
-# `summary` (from parse_sheet) have no dedicated Peptide column yet, so load_sheets doesn't persist
-# them; `notes` stays the owner's own free-text field and is never touched here.
+# Sheet keys written straight onto their same-named Peptide column. `cycle_shorthand` (from
+# parse_sheet) has no dedicated Peptide column -- it's redundant with the already-structured
+# PeptideCycle.on_weeks/off_weeks, which can regenerate the same "6w on / 4w off" text later if
+# needed -- so load_sheets doesn't persist it. `notes` stays the owner's own free-text field and is
+# never touched here.
 _SHEET_COLUMNS = (
     "half_life_text", "bioavailability_text", "tmax_text", "route_summary",
     "storage_before_text", "storage_after_text", "storage_temperature_text",
-    "legal_status_text", "cost_estimate_text",
+    "legal_status_text", "cost_estimate_text", "tags", "summary",
 )
 
 

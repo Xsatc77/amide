@@ -620,6 +620,8 @@ class Peptide(Base):
     cost_estimate_text: Mapped[str | None] = mapped_column(Text)
     usage_tips: Mapped[list | None] = mapped_column(JSON)
     sheet_sections: Mapped[dict | None] = mapped_column(JSON)
+    tags: Mapped[list | None] = mapped_column(JSON)
+    summary: Mapped[str | None] = mapped_column(Text)
 
     dosing_tiers: Mapped[list["PeptideDosingTier"]] = relationship(
         back_populates="peptide", cascade="all, delete-orphan")

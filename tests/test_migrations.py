@@ -586,3 +586,26 @@ def test_0020_adds_peptide_sheets(tmp_path):
                     "peptide_monitoring_tests"} & tables)
         peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
         assert "half_life_text" not in peptide_cols
+
+
+def test_0021_adds_tags_and_summary(tmp_path):
+    db = tmp_path / "i.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0020")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert {"tags", "summary"} <= peptide_cols
+        # A plain nullable column add uses SQLite's native ALTER TABLE ADD COLUMN, not a
+        # reflect-and-rebuild -- unlike 0020's/0016's raw-SQL rebuilds, this must NOT touch (and so
+        # cannot drop) peptides.name's COLLATE NOCASE.
+        peptides_sql = c.execute("select sql from sqlite_master where name='peptides'").fetchone()[0]
+        assert "COLLATE NOCASE" in peptides_sql.upper()
+        c.execute("insert into peptides(name, source, tags, summary) "
+                  "values ('Test-Compound-9', 'sheet', '[\"Recovery\"]', 'A summary.')")
+        row = c.execute("select tags, summary from peptides where name='Test-Compound-9'").fetchone()
+        assert row == ('["Recovery"]', "A summary.")
+    command.downgrade(cfg, "0020")
+    with sqlite3.connect(db) as c:
+        peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert not ({"tags", "summary"} & peptide_cols)

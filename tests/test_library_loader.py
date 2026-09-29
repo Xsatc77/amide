@@ -116,6 +116,8 @@ def test_load_sheets_creates_a_new_peptide(db):
     assert p.source == PeptideSource.SHEET
     assert p.usage_tips == ["Take each morning on an empty stomach."]
     assert len(p.dosing_tiers) == 1
+    assert p.tags == ["Recovery"]
+    assert p.summary == "A made-up summary."
 
 
 def test_load_sheets_replaces_an_existing_card_sourced_peptide(db):
