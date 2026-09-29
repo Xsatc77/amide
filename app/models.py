@@ -527,6 +527,18 @@ class PeptideSource(LabeledEnum):
     CARD = ("card", "Peptide card")
     STARTER = ("starter", "Starter list")
     CUSTOM = ("custom", "Added by you")
+    SHEET = ("sheet", "Reference sheet")
+
+
+class DosingTierLevel(str, enum.Enum):
+    BEGINNER = "Beginner"
+    INTERMEDIATE = "Intermediate"
+    ADVANCED = "Advanced"
+
+
+class StackRelation(str, enum.Enum):
+    WORKS_WITH = "works_with"
+    AVOID = "avoid"
 
 
 # Weekday letters used in ProtocolItem.weekdays, Monday first (R = Thursday, U = Sunday).
@@ -595,6 +607,68 @@ class Peptide(Base):
     card_details: Mapped[dict | None] = mapped_column(JSON)
     # Filename inside config.CARDS_DIR.
     card_image: Mapped[str | None] = mapped_column(String(100))
+
+    # Reference sheet columns
+    half_life_text: Mapped[str | None] = mapped_column(String(100))
+    bioavailability_text: Mapped[str | None] = mapped_column(Text)
+    tmax_text: Mapped[str | None] = mapped_column(String(100))
+    route_summary: Mapped[str | None] = mapped_column(String(100))
+    storage_before_text: Mapped[str | None] = mapped_column(Text)
+    storage_after_text: Mapped[str | None] = mapped_column(Text)
+    storage_temperature_text: Mapped[str | None] = mapped_column(String(100))
+    legal_status_text: Mapped[str | None] = mapped_column(Text)
+    cost_estimate_text: Mapped[str | None] = mapped_column(Text)
+    usage_tips: Mapped[list | None] = mapped_column(JSON)
+    sheet_sections: Mapped[dict | None] = mapped_column(JSON)
+
+
+class PeptideDosingTier(Base):
+    """One row per level (Beginner/Intermediate/Advanced) for a peptide's community dosing guide."""
+    __tablename__ = "peptide_dosing_tiers"
+    __table_args__ = (UniqueConstraint("peptide_id", "level", name="uq_peptide_dosing_tier_level"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), index=True)
+    level: Mapped[DosingTierLevel] = mapped_column(_enum_column(DosingTierLevel))
+    dose_text: Mapped[str] = mapped_column(String(100))
+    frequency_text: Mapped[str] = mapped_column(String(100))
+    time_of_day: Mapped[TimeOfDay | None] = mapped_column(_enum_column(TimeOfDay))
+
+    peptide: Mapped["Peptide"] = relationship()
+
+
+class PeptideCycle(Base):
+    __tablename__ = "peptide_cycles"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), unique=True)
+    on_weeks: Mapped[int | None] = mapped_column(Integer)
+    off_weeks: Mapped[int | None] = mapped_column(Integer)
+    max_cycles_per_year: Mapped[int | None] = mapped_column(Integer)
+    note: Mapped[str | None] = mapped_column(Text)
+
+    peptide: Mapped["Peptide"] = relationship()
+
+
+class PeptideStackRelation(Base):
+    __tablename__ = "peptide_stack_relations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), index=True)
+    partner_name: Mapped[str] = mapped_column(String(120))
+    relation: Mapped[StackRelation] = mapped_column(_enum_column(StackRelation))
+    note: Mapped[str] = mapped_column(Text)
+
+    peptide: Mapped["Peptide"] = relationship()
+
+
+class PeptideMonitoringTest(Base):
+    __tablename__ = "peptide_monitoring_tests"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), index=True)
+    test_name: Mapped[str] = mapped_column(String(120))
+    when_text: Mapped[str] = mapped_column(String(200))
+    why_text: Mapped[str] = mapped_column(Text)
+    target_text: Mapped[str | None] = mapped_column(String(200))
+
+    peptide: Mapped["Peptide"] = relationship()
 
 
 class GoalPeptide(Base):

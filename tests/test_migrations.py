@@ -556,3 +556,33 @@ def test_0019_adds_labs(tmp_path):
     with sqlite3.connect(db) as c:
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
         assert not ({"lab_panels", "lab_results"} & tables)
+
+
+def test_0020_adds_peptide_sheets(tmp_path):
+    db = tmp_path / "h.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0019")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert {"half_life_text", "bioavailability_text", "tmax_text", "route_summary",
+               "storage_before_text", "storage_after_text", "storage_temperature_text",
+               "legal_status_text", "cost_estimate_text", "usage_tips", "sheet_sections"} <= peptide_cols
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert {"peptide_dosing_tiers", "peptide_cycles", "peptide_stack_relations",
+               "peptide_monitoring_tests"} <= tables
+        c.execute("insert into peptides(name, source) values ('Test-Compound-9', 'sheet')")
+        pid = c.execute("select id from peptides where name='Test-Compound-9'").fetchone()[0]
+        c.execute("insert into peptide_dosing_tiers(peptide_id, level, dose_text, frequency_text) "
+                  "values (?, 'Beginner', '50mg', 'Daily')", (pid,))
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into peptide_dosing_tiers(peptide_id, level, dose_text, frequency_text) "
+                      "values (?, 'Beginner', '100mg', 'Daily')", (pid,))  # unique (peptide_id, level)
+    command.downgrade(cfg, "0019")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert not ({"peptide_dosing_tiers", "peptide_cycles", "peptide_stack_relations",
+                    "peptide_monitoring_tests"} & tables)
+        peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert "half_life_text" not in peptide_cols
