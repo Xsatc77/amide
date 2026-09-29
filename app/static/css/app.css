@@ -21,6 +21,21 @@
   color-scheme: light;
 }
 
+:root {
+  /* Per-goal accent colors, shared by the Library's tag chips and the
+     Protocols page's Goal Cards. One definition for all colorways (see
+     Global Constraints) -- these are saturated enough to read on any of
+     the app's existing surface colors. */
+  --goal-fat-loss: #f97316;
+  --goal-muscle-recovery: #22c55e;
+  --goal-gh-performance: #8b5cf6;
+  --goal-longevity: #6366f1;
+  --goal-skin-beauty: #ec4899;
+  --goal-wellness: #eab308;
+  --goal-glp1-weight: #06b6d4;
+  --goal-sleep-recovery: #3b82f6;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1115;
