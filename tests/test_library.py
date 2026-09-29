@@ -66,14 +66,20 @@ def text(r) -> str:
 # ---------------------------------------------------------------- list
 
 def test_list_page(client, db):
+    """KPV (used here previously as an example of a card-less peptide) is now permanently
+    SHEET-sourced from this session's earlier import work -- use a fresh synthetic CUSTOM
+    peptide instead. See ledger Task 5."""
     with_card(db)
+    bare = Peptide(name="Test-List-Bare-Peptide", source=PeptideSource.CUSTOM)
+    db.add(bare)
+    db.commit()
     t = text(client.get("/library"))
     assert t.count('class="lib-tile') >= 105
     assert 'data-search="bpc-157' in t and "cytoprotective peptide" in t
     assert 'data-goals="muscle-recovery skin-beauty wellness"' in t or "muscle-recovery" in t
     for label in ("All", "Fat Loss / Metabolic", "Added by me"):
         assert label in t
-    assert "No card" in t  # starter peptides (e.g. KPV) have no card
+    assert "No card" in t  # a peptide with neither card nor sheet data
     assert 'href="/library"' in t  # nav link
 
 
@@ -237,6 +243,48 @@ def test_detail_lists_protocols_using_peptide(client, db, me):
 
 def test_detail_404(client):
     assert client.get("/library/99999").status_code == 404
+
+
+def test_list_sorts_alphabetically_case_insensitively(client, db):
+    p1 = Peptide(name="zzz-test-first", source=PeptideSource.CUSTOM)
+    p2 = Peptide(name="AAA-test-second", source=PeptideSource.CUSTOM)
+    db.add_all([p1, p2])
+    db.commit()
+    resp = client.get("/library")
+    body = resp.text
+    assert body.index("AAA-test-second") < body.index("zzz-test-first")
+
+
+def test_list_no_card_number_badge_anywhere(client, db):
+    resp = client.get("/library")
+    assert "Card #" not in resp.text and "lib-num" not in resp.text
+
+
+def test_list_sheet_sourced_tile_shows_tags_not_no_card(client, db):
+    p = _sheet_test_peptide(db)
+    resp = client.get("/library")
+    body = resp.text
+    tile_start = body.index(f'href="/library/{p.id}"')
+    tile_end = body.index("</a>", tile_start)
+    tile = body[tile_start:tile_end]
+    assert "Tissue Repair" in tile
+    assert "No card" not in tile
+
+
+def test_list_card_sourced_tile_unchanged(client, db):
+    """Exercised on a fresh synthetic CARD-sourced peptide, not the real BPC-157 row (now
+    permanently SHEET-sourced -- see ledger Task 5)."""
+    p = _card_test_peptide(db)
+    try:
+        resp = client.get("/library")
+        body = resp.text
+        tile_start = body.index(f'href="/library/{p.id}"')
+        tile_end = body.index("</a>", tile_start)
+        tile = body[tile_start:tile_end]
+        assert p.card_class in tile
+    finally:
+        db.delete(p)
+        db.commit()
 
 
 # ---------------------------------------------------------------- card image

@@ -55,8 +55,7 @@ _TIER_ORDER = {DosingTierLevel.BEGINNER: 0, DosingTierLevel.INTERMEDIATE: 1, Dos
 
 @router.get("/library")
 def library_list(request: Request, session: Session = Depends(get_session)):
-    peptides = session.scalars(
-        select(Peptide).order_by(Peptide.card_number.is_(None), Peptide.card_number, Peptide.name)).all()
+    peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()
     return templates.TemplateResponse(request, "library/list.html", {
         "peptides": peptides, "goals": GOALS, "goal_map": _goal_map(session),
         "added_sources": {PeptideSource.STARTER, PeptideSource.CUSTOM},
