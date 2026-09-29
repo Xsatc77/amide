@@ -640,3 +640,26 @@ def test_0022_allows_null_dosing_and_monitoring_text(tmp_path):
         assert cols["dose_text"] == 1 and cols["frequency_text"] == 1  # notnull flag restored
         cols = {r[1]: r[3] for r in c.execute("pragma table_info(peptide_monitoring_tests)")}
         assert cols["when_text"] == 1 and cols["why_text"] == 1
+
+
+def test_0023_adds_sheet_sections_simple(tmp_path):
+    db = tmp_path / "k.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0022")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert "sheet_sections_simple" in peptide_cols
+        # Plain nullable column add -- must not touch (and so cannot drop) name's COLLATE NOCASE.
+        peptides_sql = c.execute("select sql from sqlite_master where name='peptides'").fetchone()[0]
+        assert "COLLATE NOCASE" in peptides_sql.upper()
+        c.execute("insert into peptides(name, source, sheet_sections_simple) "
+                  "values ('Test-Compound-9', 'sheet', '{\"what_is\": \"Plain-language text.\"}')")
+        row = c.execute(
+            "select sheet_sections_simple from peptides where name='Test-Compound-9'"
+        ).fetchone()
+        assert row == ('{"what_is": "Plain-language text."}',)
+    command.downgrade(cfg, "0022")
+    with sqlite3.connect(db) as c:
+        peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
+        assert "sheet_sections_simple" not in peptide_cols

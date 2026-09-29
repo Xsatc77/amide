@@ -108,6 +108,7 @@ def test_load_sheets_creates_a_new_peptide(db):
         "bioavailability_text": None, "tmax_text": "~1 hour",
         "storage_before_text": "a", "storage_after_text": "b", "storage_temperature_text": "c",
         "legal_status_text": "d", "cost_estimate_text": "e", "sheet_sections": {"what_is": "f"},
+        "sheet_sections_simple": {"what_is": "A made-up plain-language rewrite."},
         "usage_tips": ["Take each morning on an empty stomach."],
     }
     report = load_sheets(db, [sheet])
@@ -118,6 +119,24 @@ def test_load_sheets_creates_a_new_peptide(db):
     assert len(p.dosing_tiers) == 1
     assert p.tags == ["Recovery"]
     assert p.summary == "A made-up summary."
+    assert p.sheet_sections == {"what_is": "f"}
+    assert p.sheet_sections_simple == {"what_is": "A made-up plain-language rewrite."}
+
+
+def test_load_sheets_defaults_sheet_sections_simple_to_empty_dict_when_absent(db):
+    """sheet_sections_simple is hand-curated per file, like usage_tips -- a sheet dict that
+    doesn't supply it (e.g. during the parser-only build phase, before curation exists) must
+    default cleanly rather than raise or store None."""
+    from app.library.loader import load_sheets
+    sheet = {"name": "Test-Compound-9", "aliases": [], "tags": [], "half_life_text": None,
+            "route_summary": None, "cycle_shorthand": None, "summary": None, "dosing_tiers": [],
+            "cycle": None, "stack_relations": [], "monitoring_tests": [], "bioavailability_text": None,
+            "tmax_text": None, "storage_before_text": None, "storage_after_text": None,
+            "storage_temperature_text": None, "legal_status_text": None, "cost_estimate_text": None,
+            "sheet_sections": {}, "usage_tips": []}
+    load_sheets(db, [sheet])
+    p = db.query(Peptide).filter_by(name="Test-Compound-9").one()
+    assert p.sheet_sections_simple == {}
 
 
 def test_load_sheets_replaces_an_existing_card_sourced_peptide(db):

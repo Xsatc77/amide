@@ -91,8 +91,9 @@ _SHEET_COLUMNS = (
 
 
 def load_sheets(session: Session, sheets: list[dict]) -> LoadReport:
-    """Load parsed peptide reference sheets (app.library.sheet_parser.parse_sheet output, plus a
-    caller-added "usage_tips" key) into the library, matching by name (Peptide.name is
+    """Load parsed peptide reference sheets (app.library.sheet_parser.parse_sheet output, plus two
+    caller-added keys -- "usage_tips" and "sheet_sections_simple", both hand-curated per file
+    rather than mechanically parsed) into the library, matching by name (Peptide.name is
     COLLATE NOCASE, so a plain equality comparison is already case-insensitive).
 
     Whether matched or newly created, the peptide's old card fields are cleared and every sheet
@@ -125,6 +126,7 @@ def load_sheets(session: Session, sheets: list[dict]) -> LoadReport:
             setattr(peptide, column, sheet.get(column))
         peptide.usage_tips = sheet.get("usage_tips") or []
         peptide.sheet_sections = sheet.get("sheet_sections") or {}
+        peptide.sheet_sections_simple = sheet.get("sheet_sections_simple") or {}
 
         # Replace child rows: clear and flush first so a replacement using the same natural key
         # (dosing tier level, or the one-per-peptide cycle) never collides with the old row on
