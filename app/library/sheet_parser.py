@@ -16,6 +16,13 @@ from __future__ import annotations
 
 import re
 
+
+class UnrecognizedSheetError(ValueError):
+    """Raised by parse_sheet when the text has none of the known
+    peptide-sheet section headers -- i.e. it doesn't look like a peptide
+    reference sheet at all (e.g. an index page, or an empty/truncated
+    file)."""
+
 # Map of "old" dosing-tier names (still present in some real source files) to
 # the current, renamed tier labels the app stores.
 _TIER_RENAME = {
@@ -50,6 +57,12 @@ _SECTION_HEADERS = {
     "who_should_consider": lambda name: [f"Who Should Consider {name}"],
     "related_peptides": lambda name: ["Related Peptides"],
     "citations": lambda name: ["Citations", "References"],
+    # Unlike every other templated header in this format, "How to Use" puts the
+    # label BEFORE the peptide name ("How to Use <name>"), not after ("<name>
+    # How to Use"). The spec is explicit that this raw text is not discarded
+    # entirely -- it still goes into sheet_sections for traceability, even
+    # though it's ALSO used as a section boundary (see _all_known_header_indices).
+    "how_to_use": lambda name: [f"How to Use {name}"],
 }
 
 # All headers used for slicing the document into sections (superset of the
@@ -57,7 +70,6 @@ _SECTION_HEADERS = {
 _STRUCTURAL_HEADERS = [
     "Dosage Guide",
     "Cycling Protocol",
-    "How to Use",
     "Stacking Protocols",
     "Estimated Cost",
     "Recommended Monitoring",
@@ -91,14 +103,6 @@ def _all_known_header_indices(lines: list[str], name: str) -> list[tuple[int, st
         if suffix in ("Cycling Protocol", "Estimated Cost", "Recommended Monitoring",
                        "Pharmacokinetics", "Storage & Stability"):
             candidates.append(suffix)
-        elif suffix == "How to Use":
-            # Unlike every other templated header in this format, "How to Use"
-            # puts the label BEFORE the peptide name ("How to Use <name>"),
-            # not after ("<name> How to Use"). Without this special case the
-            # header is never recognized as a section boundary and the
-            # How-to-Use section's own text silently leaks into whatever
-            # section precedes it (e.g. Cycling Protocol's note).
-            candidates.append(f"How to Use {name}")
         else:
             candidates.append(f"{name} {suffix}")
 
@@ -450,6 +454,8 @@ def parse_sheet(text: str) -> dict:
     lines = _lines(text)
     name = _extract_name(text)
     all_headers = _all_known_header_indices(lines, name)
+    if not all_headers:
+        raise UnrecognizedSheetError("no recognized section headers found")
 
     aliases = _extract_aliases(text, name)
     half_life_text = _extract_half_life_text(text)

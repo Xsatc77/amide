@@ -1,4 +1,6 @@
-from app.library.sheet_parser import parse_sheet
+import pytest
+
+from app.library.sheet_parser import UnrecognizedSheetError, parse_sheet
 
 SAMPLE = """Test-Compound-9
 
@@ -275,9 +277,32 @@ def test_narrative_sections_captured_verbatim():
     assert "made-up legal-status" in result["sheet_sections"]["legal"].lower()
 
 
+def test_how_to_use_raw_text_lands_in_sheet_sections():
+    """Spec: the raw 'How to Use' text is NOT discarded entirely -- it still goes into
+    sheet_sections for traceability, even though it's also used as a section boundary."""
+    result = parse_sheet(SAMPLE)
+    how_to_use = result["sheet_sections"]["how_to_use"]
+    assert "Confirm your vial strength" in how_to_use
+    assert "Take in the morning" in how_to_use
+
+
 def test_missing_section_leaves_field_empty_not_a_crash():
     """A file missing an expected optional section must not crash the parser."""
     stripped = SAMPLE.replace(
         "Who Should Consider Test-Compound-9\nA made-up audience bullet for testing.\n\n", "")
     result = parse_sheet(stripped)
     assert result["sheet_sections"].get("who_should_consider") in (None, "")
+
+
+def test_empty_text_raises_unrecognized_sheet_error():
+    with pytest.raises(UnrecognizedSheetError):
+        parse_sheet("")
+
+
+def test_text_with_no_known_headers_raises_unrecognized_sheet_error():
+    with pytest.raises(UnrecognizedSheetError):
+        parse_sheet("Some Random Page\nNot a peptide sheet at all.\n")
+
+
+def test_valid_sample_does_not_raise_unrecognized_sheet_error():
+    parse_sheet(SAMPLE)  # must not raise
