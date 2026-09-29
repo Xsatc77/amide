@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set active_nav = "workouts" %}
+{% block title %}Workouts{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1>Workouts</h1></div>
+  <a class="btn btn-primary" href="/workouts/new">New plan</a>
+</div>
+
+<div class="plain-list">
+  {% for p in plans %}
+  <div class="side-box">
+    <div class="side-head">
+      <h2 class="section-title"><a href="/workouts/{{ p.id }}/edit">{{ p.name }}</a></h2>
+      {% if p.ended_on %}<span class="tag tag-plain">Ended</span>{% else %}<span class="status status-active">Active</span>{% endif %}
+    </div>
+    <p class="small muted">{{ p.days | length }} day(s) · {{ p.source.value }}</p>
+    {% if p.ended_on %}
+    <form method="post" action="/workouts/{{ p.id }}/activate"><button type="submit" class="btn btn-ghost">Make Active</button></form>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="muted">No workout plans yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}
