@@ -4,25 +4,136 @@
 
 {% macro bullets(items) %}{% if items %}<ul class="bullets">{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}{% endmacro %}
 
+{% set is_sheet = p.source.value == "sheet" %}
+
 {% block content %}
 <div class="page-head lib-head">
   <div>
     <p class="small"><a href="/library">← Library</a></p>
-    <h1>{{ p.name }} {% if p.card_number %}<span class="lib-num">Card {{ p.card_number }}</span>{% endif %}</h1>
-    {% if card.subtitle %}<p class="muted">{{ card.subtitle }}</p>{% endif %}
+    <h1>{{ p.name }}</h1>
+    {% if not is_sheet and card.subtitle %}<p class="muted">{{ card.subtitle }}</p>{% endif %}
     <div class="tags lib-tags">
-      {% if p.card_class %}<span class="tag">{{ p.card_class }}</span>{% endif %}
-      {% if p.category %}<span class="tag">{{ p.category }}</span>{% endif %}
-      {% if p.evidence_level %}<span class="ev-tag {{ p.evidence_level | evidence_class }}">Evidence: {{ p.evidence_level }}</span>{% endif %}
-      {% if p.status %}<span class="tag tag-plain">{{ p.status }}</span>{% endif %}
+      {% if is_sheet %}
+        {% for tag in p.tags or [] %}
+        {% set style = tag | tag_style %}
+        <span class="tag {{ 'tag-goal' if style else 'tag-plain' }}" {% if style %}style="{{ style }}"{% endif %}>{{ tag }}</span>
+        {% endfor %}
+      {% else %}
+        {% if p.card_class %}<span class="tag">{{ p.card_class }}</span>{% endif %}
+        {% if p.category %}<span class="tag">{{ p.category }}</span>{% endif %}
+        {% if p.evidence_level %}<span class="ev-tag {{ p.evidence_level | evidence_class }}">Evidence: {{ p.evidence_level }}</span>{% endif %}
+        {% if p.status %}<span class="tag tag-plain">{{ p.status }}</span>{% endif %}
+      {% endif %}
     </div>
-    {% if goals %}<p class="small muted">In goal stacks: {{ goals | map('goal_label') | join(', ') }}</p>{% endif %}
+    {% if goals %}
+    <div class="tags lib-tags">
+      {% for slug in goals %}<span class="tag tag-goal" style="background: var(--goal-{{ slug }}); color: #fff;">{{ slug | goal_label }}</span>{% endfor %}
+    </div>
+    {% endif %}
   </div>
 </div>
 
 <div class="lib-layout">
   <div class="lib-main">
-    {% if not card %}
+    {% if is_sheet %}
+      {% if p.summary %}<p class="lead">{{ p.summary }}</p>{% endif %}
+
+      {% if p.half_life_text or p.route_summary or p.cycle %}
+      <section class="lib-section">
+        <dl class="kv kv-tight quick-facts">
+          {% if p.half_life_text %}<dt>Half-life</dt><dd>{{ p.half_life_text }}</dd>{% endif %}
+          {% if p.route_summary %}<dt>Route</dt><dd>{{ p.route_summary }}</dd>{% endif %}
+          {% if p.cycle %}<dt>Cycle</dt><dd>{{ p.cycle.on_weeks }}w on / {{ p.cycle.off_weeks }}w off</dd>{% endif %}
+        </dl>
+      </section>
+      {% endif %}
+
+      {% if dosing_tiers %}
+      <section class="lib-section">
+        <h2 class="section-title">Dosing (community)</h2>
+        <table class="lib-table">
+          <thead><tr><th>Level</th><th>Dose</th><th>Frequency</th><th>Time of day</th></tr></thead>
+          <tbody>
+            {% for t in dosing_tiers %}
+            <tr><td>{{ t.level.value }}</td><td>{{ t.dose_text or '—' }}</td><td>{{ t.frequency_text or '—' }}</td>
+                <td>{{ t.time_of_day.value if t.time_of_day else '—' }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      {% if p.cycle and p.cycle.note %}
+      <section class="lib-section">
+        <h2 class="section-title">Cycle notes</h2>
+        <p>{{ p.cycle.note }}</p>
+      </section>
+      {% endif %}
+
+      {% if p.stack_relations %}
+      <section class="lib-section two-col">
+        <div>
+          <h2 class="section-title">Works with</h2>
+          {% for r in p.stack_relations if r.relation.value == "works_with" %}
+          <p><strong>{{ r.partner_name }}</strong>{% if r.note %} — {{ r.note }}{% endif %}</p>
+          {% endfor %}
+        </div>
+        <div>
+          <h2 class="section-title">Avoid</h2>
+          {% for r in p.stack_relations if r.relation.value == "avoid" %}
+          <p><strong>{{ r.partner_name }}</strong>{% if r.note %} — {{ r.note }}{% endif %}</p>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if p.monitoring_tests %}
+      <section class="lib-section">
+        <h2 class="section-title">Recommended monitoring</h2>
+        <table class="lib-table">
+          <thead><tr><th>Test</th><th>When</th><th>Why</th><th>Target</th></tr></thead>
+          <tbody>
+            {% for m in p.monitoring_tests %}
+            <tr><td>{{ m.test_name }}</td><td>{{ m.when_text or '—' }}</td><td>{{ m.why_text or '—' }}</td>
+                <td>{{ m.target_text or '—' }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      {% set simple = p.sheet_sections_simple or {} %}
+      {% set narrative_order = [
+        ("what_is", "What is it?"), ("how_it_works", "How it works"), ("benefits", "Benefits"),
+        ("side_effects", "Side effects"), ("contraindications", "Contraindications"),
+        ("drug_interactions", "Drug interactions"), ("legal", "Legal status"),
+        ("who_should_consider", "Who should consider this"), ("product_quality", "Product quality"),
+      ] %}
+      {% set bullet_keys = ("benefits", "contraindications", "drug_interactions", "who_should_consider") %}
+      {% for key, title in narrative_order if simple.get(key) %}
+      <section class="lib-section">
+        <h2 class="section-title">{{ title }}</h2>
+        {% if key in bullet_keys %}
+          {{ bullets(simple[key].split("\n")) }}
+        {% else %}
+          <p>{{ simple[key] }}</p>
+        {% endif %}
+      </section>
+      {% endfor %}
+
+      {% if p.storage_before_text or p.storage_after_text or p.storage_temperature_text %}
+      <section class="lib-section">
+        <h2 class="section-title">Storage</h2>
+        <dl class="kv">
+          {% if p.storage_before_text %}<dt>Before reconstitution</dt><dd>{{ p.storage_before_text }}</dd>{% endif %}
+          {% if p.storage_after_text %}<dt>After reconstitution</dt><dd>{{ p.storage_after_text }}</dd>{% endif %}
+          {% if p.storage_temperature_text %}<dt>Temperature</dt><dd>{{ p.storage_temperature_text }}</dd>{% endif %}
+        </dl>
+      </section>
+      {% endif %}
+      <p class="small muted">From an imported reference sheet, simplified for readability. Informational only — not a recommendation.</p>
+
+    {% elif not card %}
     <div class="empty"><p><strong>No card imported for this peptide.</strong></p>
       <p class="muted">Peptides added by you or from the starter list have no card. Your own info is on the right.</p></div>
     {% else %}
@@ -87,7 +198,7 @@
   </div>
 
   <aside class="lib-side">
-    {% if p.card_image %}
+    {% if not is_sheet and p.card_image %}
     <a class="card-thumb" href="/library/{{ p.id }}/card" target="_blank" rel="noopener" title="Open the full card">
       <img src="/library/{{ p.id }}/card" alt="{{ p.name }} card" loading="lazy">
       <span class="small">Open full card ↗</span>

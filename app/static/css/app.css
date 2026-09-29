@@ -478,6 +478,11 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .kv dd { margin: 0; }
 .kv-tight { gap: 4px 12px; }
 .pre { white-space: pre-wrap; }
+.lib-table { width: 100%; border-collapse: collapse; }
+.lib-table th, .lib-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.lead { font-size: 1.05rem; }
+.quick-facts { display: flex; gap: 24px; flex-wrap: wrap; }
+.quick-facts dt { font-weight: 600; }
 .lib-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 72px; }
 .card-thumb { display: flex; flex-direction: column; gap: 6px; text-decoration: none; }
 .card-thumb img { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }

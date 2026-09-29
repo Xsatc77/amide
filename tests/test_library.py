@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app import config
 from app.db import SessionLocal
 from app.library.loader import load_cards
-from app.models import GoalPeptide, Peptide, Protocol, ProtocolGoal, ProtocolItem
+from app.models import GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolGoal, ProtocolItem
 
 CARD = {
     "card_number": 2, "name": "BPC-157", "subtitle": "Synthetic pentadecapeptide derived from a gastric protein",
@@ -79,21 +79,149 @@ def test_list_page(client, db):
 
 # ---------------------------------------------------------------- detail
 
+def _card_test_peptide(db) -> Peptide:
+    """A fresh synthetic CARD-sourced peptide, decoupled from the real BPC-157 row (which is now
+    permanently SHEET-sourced from this session's earlier peptide-sheet-import work -- see ledger
+    Task 4). Cleaned up automatically: CARD-sourced peptides aren't cleared by the autouse `clean`
+    fixture, so tests using this must delete it themselves."""
+    p = Peptide(
+        name="Test-Card-Peptide", source=PeptideSource.CARD, card_number=None,
+        card_class="Cytoprotective peptide", category="Tissue repair / gastrointestinal",
+        evidence_level="Low / experimental", status="Not approved — investigational use",
+        card_image="002.jpg",
+        card_details={
+            "subtitle": "Synthetic pentadecapeptide derived from a gastric protein",
+            "applications": [{"title": "Tissue healing", "detail": "Experimental models"}],
+            "mechanism_flow": ["Test-Card-Peptide", "Repair signaling"],
+            "mechanism": ["Cytoprotective action described in experimental models."],
+            "clinical_use_note": "Established clinical use: not defined.",
+            "evidence": {"level": "LOW EXPERIMENTAL", "points": ["Mostly preclinical data."]},
+            "cautions": ["Long-term safety not established."],
+            "quick_info": {"Half-life": "Not established in humans"},
+            "regulatory": {"FDA": "Not approved as a drug"},
+            "quick_read": ["Peptide associated with tissue repair."],
+            "references": ["Sikiric et al., 2018 — Curr Pharm Des (review)"],
+        },
+    )
+    db.add(p)
+    db.commit()
+    return p
+
+
 def test_detail_shows_card_sections(client, db):
-    p = with_card(db)
-    t = text(client.get(f"/library/{p.id}"))
-    for s in ("BPC-157", "Card 2", "Synthetic pentadecapeptide derived from a gastric protein",
-              "Cytoprotective peptide", "Tissue repair / gastrointestinal", "Low / experimental",
-              "Tissue healing", "Repair signaling", "Long-term safety not established.",
-              "Not established in humans", "Not approved as a drug", "Sikiric et al., 2018",
-              f'href="/library/{p.id}/card"', "Muscle & Recovery"):
-        assert s in t, s
+    p = _card_test_peptide(db)
+    try:
+        t = text(client.get(f"/library/{p.id}"))
+        for s in ("Test-Card-Peptide", "Synthetic pentadecapeptide derived from a gastric protein",
+                  "Cytoprotective peptide", "Tissue repair / gastrointestinal", "Low / experimental",
+                  "Tissue healing", "Repair signaling", "Long-term safety not established.",
+                  "Not established in humans", "Not approved as a drug", "Sikiric et al., 2018",
+                  f'href="/library/{p.id}/card"'):
+            assert s in t, s
+        assert "Card " not in t  # the "Card N" badge is removed project-wide
+    finally:
+        db.delete(p)
+        db.commit()
+
+
+def test_detail_card_sourced_peptide_unchanged(client, db):
+    """Existing card-sourced rendering must not regress."""
+    p = _card_test_peptide(db)
+    try:
+        resp = client.get(f"/library/{p.id}")
+        assert resp.status_code == 200
+        assert "No card imported" not in resp.text
+        assert "Card " not in resp.text  # the "Card N" badge is removed project-wide
+    finally:
+        db.delete(p)
+        db.commit()
 
 
 def test_detail_without_card(client, db):
-    kpv = db.scalar(select(Peptide).where(Peptide.name == "KPV"))
-    t = text(client.get(f"/library/{kpv.id}"))
+    """No-card-no-sheet empty state, on a fresh synthetic peptide: KPV (used here previously) is
+    now permanently SHEET-sourced from this session's earlier import work. See ledger Task 4."""
+    p = Peptide(name="Test-No-Card-Peptide", source=PeptideSource.CUSTOM)
+    db.add(p)
+    db.commit()
+    t = text(client.get(f"/library/{p.id}"))
     assert "No card imported" in t and "/card" not in t.split("No card imported")[0][-200:]
+
+
+def _sheet_test_peptide(db) -> Peptide:
+    """A fresh SHEET-sourced peptide with one of everything this task
+    renders. Cleaned up automatically by the autouse `clean` fixture
+    (conftest.py), which deletes SHEET-sourced peptides -- and their child
+    rows via the DB-level ON DELETE CASCADE -- after the test."""
+    from app.models import (
+        DosingTierLevel, PeptideCycle, PeptideDosingTier, PeptideMonitoringTest,
+        PeptideStackRelation, StackRelation, TimeOfDay,
+    )
+    p = Peptide(
+        name="Test-Sheet-Peptide", source=PeptideSource.SHEET,
+        summary="A made-up plain-language summary for testing.",
+        tags=["Tissue Repair", "Grade A"], half_life_text="~3-5 hours",
+        route_summary="Injection",
+        sheet_sections_simple={
+            "what_is": "A made-up plain-language description for testing.",
+            "benefits": "A made-up plain-language benefit for testing.",
+        },
+        sheet_sections={"what_is": "THE ORIGINAL SCIENTIFIC TEXT MUST NEVER RENDER"},
+    )
+    db.add(p)
+    db.flush()
+    p.dosing_tiers = [PeptideDosingTier(level=DosingTierLevel.BEGINNER, dose_text="10mg",
+                                         frequency_text="Daily", time_of_day=TimeOfDay.AM)]
+    p.cycle = PeptideCycle(on_weeks=6, off_weeks=4, note="A made-up cycle note for testing.")
+    p.stack_relations = [PeptideStackRelation(partner_name="Made-Up-Partner", relation=StackRelation.WORKS_WITH,
+                                               note="A made-up stacking note for testing.")]
+    p.monitoring_tests = [PeptideMonitoringTest(test_name="Made-up test", when_text="Baseline",
+                                                 why_text="A made-up reason for testing.")]
+    db.commit()
+    return p
+
+
+def test_detail_renders_sheet_sourced_peptide(client, db):
+    p = _sheet_test_peptide(db)
+    resp = client.get(f"/library/{p.id}")
+    assert resp.status_code == 200
+    body = resp.text
+    assert "A made-up plain-language summary for testing." in body
+    assert "A made-up plain-language description for testing." in body
+    assert "10mg" in body and "Daily" in body
+    assert "A made-up cycle note for testing." in body
+    assert "Made-Up-Partner" in body
+    assert "Made-up test" in body
+    # The original scientific text must never appear -- only the simplified version.
+    assert "THE ORIGINAL SCIENTIFIC TEXT MUST NEVER RENDER" not in body
+
+
+def test_detail_sheet_sourced_tags_get_goal_colors(client, db):
+    p = _sheet_test_peptide(db)
+    resp = client.get(f"/library/{p.id}")
+    body = resp.text
+    assert "var(--goal-muscle-recovery)" in body  # "Tissue Repair" tag
+    assert "tag-plain" in body  # "Grade A" tag renders neutral
+
+
+def test_detail_sheet_sourced_peptide_missing_some_sections_renders_only_present_ones(client, db):
+    """Review Focus: a sheet-sourced peptide missing most of the 9 narrative keys must not
+    render empty headings for the missing ones."""
+    p = _sheet_test_peptide(db)
+    p.sheet_sections_simple = {"what_is": "Only this one section exists for testing."}
+    db.commit()
+    resp = client.get(f"/library/{p.id}")
+    body = resp.text
+    assert "Only this one section exists for testing." in body
+    assert "Side Effects" not in body
+    assert "Contraindications" not in body
+
+
+def test_detail_no_card_no_sheet_peptide_shows_empty_state(client, db):
+    p = Peptide(name="Test-Bare-Peptide", source=PeptideSource.CUSTOM)
+    db.add(p)
+    db.commit()
+    resp = client.get(f"/library/{p.id}")
+    assert "No card imported for this peptide." in resp.text
 
 
 def test_detail_lists_protocols_using_peptide(client, db, me):
