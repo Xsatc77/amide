@@ -1,5 +1,8 @@
 from datetime import date
+from io import BytesIO
 
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from sqlalchemy import select
 
 from app.models import WorkoutPlan, WorkoutSource
@@ -15,6 +18,37 @@ def _plan_form(**overrides):
         "exercise_rest[0][]": [""],
     }
     return {**fields, **overrides}
+
+
+def _minimal_workout_pdf(text: str) -> bytes:
+    """Same verified approach as tests/test_workouts_pdf_parser.py's _pdf_bytes (duplicated here
+    since these are separate test files) -- a page with no /Font resource extracts back as
+    garbled text, not the original, so a real Helvetica font must be registered first."""
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject()
+    font[NameObject("/Type")] = NameObject("/Font")
+    font[NameObject("/Subtype")] = NameObject("/Type1")
+    font[NameObject("/BaseFont")] = NameObject("/Helvetica")
+    font[NameObject("/Encoding")] = NameObject("/WinAnsiEncoding")
+    font_ref = writer._add_object(font)
+    resources = DictionaryObject()
+    font_dict = DictionaryObject()
+    font_dict[NameObject("/F1")] = font_ref
+    resources[NameObject("/Font")] = font_dict
+    page[NameObject("/Resources")] = resources
+    ops = ["BT", "/F1 12 Tf", "72 720 Td"]
+    for line in text.split("\n"):
+        safe = line.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+        ops.append(f"({safe}) Tj")
+        ops.append("0 -14 Td")
+    ops.append("ET")
+    content = DecodedStreamObject()
+    content.set_data("\n".join(ops).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(content)
+    buf = BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
 
 
 def test_create_manual_plan(client, db):
@@ -59,3 +93,29 @@ def test_edit_replaces_days_and_exercises(client, db):
     db.refresh(plan)
     assert len(plan.days[0].exercises) == 1
     assert plan.days[0].exercises[0].name == "Sit-up"
+
+
+def test_upload_pdf_creates_a_prefilled_plan(client, db):
+    # Real Muscle & Strength PDFs list every table BEFORE any day/workout label -- see Task 2's
+    # pdf_parser.py docstring. This fixture matches that real order.
+    pdf_text = "Exercise Sets Reps\nPush-up 3 10 - 12\nDay 1: Upper Body\n"
+    r = client.post(
+        "/workouts/upload",
+        files={"pdf": ("plan.pdf", _minimal_workout_pdf(pdf_text), "application/pdf")},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    from app.models import WorkoutPlan, WorkoutSource
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.source == WorkoutSource.PDF))
+    assert plan is not None
+    assert plan.days[0].label == "Upper Body"
+    assert plan.days[0].exercises[0].name == "Push-up"
+
+
+def test_upload_unparseable_pdf_still_creates_an_empty_editable_plan(client, db):
+    r = client.post(
+        "/workouts/upload",
+        files={"pdf": ("blank.pdf", _minimal_workout_pdf("Not a workout sheet at all."), "application/pdf")},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303  # never a rejected upload

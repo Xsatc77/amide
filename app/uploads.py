@@ -143,3 +143,21 @@ def lab_report_path(filename: str) -> Path:
 def delete_lab_report(filename: str | None) -> None:
     if filename:
         lab_report_path(filename).unlink(missing_ok=True)
+
+
+async def save_workout_pdf(upload: UploadFile) -> str:
+    """Validate and store an uploaded workout-plan PDF. Returns the stored filename."""
+    ext = Path(upload.filename or "").suffix.lower()
+    if ext != ".pdf":
+        raise UploadError("Workout plan must be a PDF.")
+
+    data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        raise UploadError(f"PDF is larger than {config.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+    if not _sniff_ok(ext, data[:16]):
+        raise UploadError("File contents don't match a PDF.")
+
+    config.ensure_dirs()
+    filename = f"{uuid.uuid4().hex}{ext}"
+    (config.WORKOUT_PDF_DIR / filename).write_bytes(data)
+    return filename

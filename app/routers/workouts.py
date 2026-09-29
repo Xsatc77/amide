@@ -3,15 +3,18 @@ and the one-Active-plan-at-a-time rule."""
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import WorkoutExercise, WorkoutPlan, WorkoutPlanDay, WorkoutSource
 from app.templating import templates
+from app.uploads import UploadError, save_workout_pdf
+from app.workouts.pdf_parser import extract_text, parse_workout_pdf
 
 router = APIRouter()
 
@@ -97,6 +100,27 @@ async def workouts_create(request: Request, session: Session = Depends(get_sessi
     plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.MANUAL, started_on=date.today())
     session.add(plan)
     save_workout_plan(session, plan, name, days_data)
+    session.flush()
+    _activate(session, plan, uid)
+    session.commit()
+    return RedirectResponse(f"/workouts/{plan.id}/edit", status_code=303)
+
+
+@router.post("/workouts/upload")
+async def workouts_upload(pdf: UploadFile = File(...), session: Session = Depends(get_session),
+                          uid: int = Depends(current_user_id)):
+    try:
+        filename = await save_workout_pdf(pdf)
+    except UploadError as e:
+        raise HTTPException(422, str(e))
+    raw_bytes = (config.WORKOUT_PDF_DIR / filename).read_bytes()
+    text = extract_text(raw_bytes)
+    parsed = parse_workout_pdf(text)
+    plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.PDF, source_pdf_filename=filename,
+                       started_on=date.today())
+    session.add(plan)
+    name = parsed["name"] or pdf.filename or "Imported Plan"
+    save_workout_plan(session, plan, name, parsed["days"])
     session.flush()
     _activate(session, plan, uid)
     session.commit()

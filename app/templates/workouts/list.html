@@ -5,7 +5,13 @@
 {% block content %}
 <div class="page-head">
   <div><h1>Workouts</h1></div>
-  <a class="btn btn-primary" href="/workouts/new">New plan</a>
+  <div>
+    <a class="btn btn-primary" href="/workouts/new">New plan</a>
+    <form method="post" action="/workouts/upload" enctype="multipart/form-data" style="display: inline;">
+      <label>Import a PDF <input type="file" name="pdf" accept="application/pdf" required></label>
+      <button type="submit" class="btn">Upload</button>
+    </form>
+  </div>
 </div>
 
 <div class="plain-list">
