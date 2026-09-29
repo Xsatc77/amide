@@ -161,6 +161,20 @@ Firm up the base before anything depends on it.
 
 ---
 
+## Phase 10 — v1.1: Beautification
+
+A dedicated visual-polish pass, pulled together from items across the owner's 2026-09-29 wishlist that are about *how things look* rather than new capability. Not yet spec'd.
+
+- **Dashboard:** rework cards to look more like Grafana-style panels; general layout pass
+- **Library:** color the dosage-tier bar Green/Yellow/Red (Beginner/Intermediate/Advanced); yellow/black caution-style borders on Side Effects, Contraindications, and Drug Interactions — *the dosing-tier coloring was originally flagged during the peptide-sheet-import spec as "for the Library Redesign phase," which shipped without it; this is that dropped item*
+- **Calendar:** a legend for status colors on every view; month view colors the whole day-bar (not just a dot) and colors a clicked card's top edge to match status; week view gets a colored banner instead of a dot; day view gets a colored left-edge accent instead of a dot; replace the body-silhouette site-picker art (described as "still the blob")
+- **Charts:** smoother/less-cluttered body-outline trend lines (or swap in the owner's referenced SVG outlines, moving measurement lines to the right of the body with hover/click detail); make the single overview chart actually readable — it currently shows no visible data points, lines, or scale
+- **Inventory:** style the "New Order" button to match "+ Add Item"
+- **Body Outline (entry forms):** smaller entry boxes placed beside their labels; day-range as a dropdown instead of text links
+- **General:** a color/accent pass across the app, tighter visual grouping — the owner's own "overall beautification" note
+
+---
+
 ## Cross-cutting work (ongoing, alongside the phases)
 
 | Area | Plan |
@@ -170,6 +184,71 @@ Firm up the base before anything depends on it.
 | **Backups** | Scheduled automatic backup of `data/` (Phase 1), restore tested in CI |
 | **Security** | Accounts + 2FA + lockout + cross-site form protection (done, v0.4), upload validation (done); raise the minimum password length; guidance for reverse proxy + HTTPS |
 | **Data ownership** | Full export at any time in open formats (JSON/CSV); no telemetry, no external calls unless you enable an integration |
+
+---
+
+## Requested enhancements (owner's To Do list, 2026-09-29)
+
+Raw wishlist items, organized by app area to match the source list. Not yet spec'd — these are candidates for future brainstorming/spec/plan cycles, not committed scope.
+
+**Dashboard**
+- Each card clickable through to its page
+- *(Grafana-style visual rework and layout pass moved to Phase 10 — Beautification)*
+
+**Inventory**
+- New-item "Local Seller" checkbox — excludes shipping-time math for that item
+- Sort Peptides/Medicines by Expiration, then FIFO by Arrived Date (oldest stock first)
+- BAC Water: vial size (mL), COA upload, and the ability to convert an opened BAC Water bottle into an Active Vial *(builds on Active Vials, Phase 2 ✅)*
+- All Active Vials assumed refrigerator-stored once made active, 28-day clock starts on reconstitution; a "Put These Dates on Your Labels" popup (recon date + 28-day expiry) at reconstitution time *(extends the existing reconstitution flow, Phase 2 ✅)*
+- On order check-in, offer to print vial labels (name, concentration, batch, blank recon/exp date boxes, "Research Use Only")
+
+**Vendors**
+- Average shipping time on the vendor card — *its own blocking dependency (Phase 5's Vendor management page) has since shipped in v0.6; this is now buildable*
+- Add/remove a vendor card from the list
+
+**Protocols**
+- Vitamins/Supplements card and Prescriptions card (non-peptide); future conflict-checking between meds and peptides
+- Multi-goal selection for a single protocol
+- Frequency: day-of-week picker for non-daily schedules, "X times per day," "X times per week"
+- Pre-/Post-Workout options in the Time of Day dropdown
+- Pre-planned stacks: Top 10 Stacks PDF, "Celebrity Stacks" — *note: overlaps with Library's "26 or so Premade Protocols" below, same underlying content*
+- Printable protocol view
+
+**Body Outline**
+- Labs form: list every marker with an inline entry box instead of select-then-add; an "Add Marker" button for anything not listed; integer-only entries (positive/negative, `<`/`>` accepted, 0 is valid)
+- *(Entry-box sizing/placement and day-range dropdown moved to Phase 10 — Beautification)*
+
+**Charts & Graphs**
+- Body outline: move measurement lines to the right of the body with hover showing last two measurements + delta; click changes the chart to that body part's history
+- Historical labs backfill
+- AI-assisted lab-result interpretation (MedGemma or similar) — *see MedGemma below; this is the same proposal*
+- Dropdown to pick which series the overview chart shows
+- *(Smoothing/decluttering the lines and making the chart visually readable moved to Phase 10 — Beautification)*
+
+**Calendar**
+- Month view: individual card per day, not one long bar (structural, not just visual)
+- Any view: clicking an item due today should surface Pick Site / Log Dose directly
+- Subscribe-to-calendar logic — *already an open Phase 4 item ("Subscribe to calendar on device"); no new roadmap entry needed, just reaffirmed*
+- *(Legend, color-bar/banner/accent styling, and the site-picker art moved to Phase 10 — Beautification)*
+
+**Calculator**
+- Add HGH-specific dosing calculations (reference: peprecon.com/hgh)
+
+**Library**
+- Per-peptide "open calculator prefilled with Beginner/Moderate/Advanced/Custom dosing" button
+- Find peptides still showing the old card-style entry (High/Moderate/Low evidence tag) and get them onto the sheet-style entry — confirmed two distinct causes, both real:
+  1. **31 peptides have a real sheet-style entry that already exists under a slightly different name** (e.g. card "Amylin" vs sheet "Amylin (IAPP)"; card "Atosiban" vs sheet "Atosiban (Tractocile)"), so the import's exact-name match created a second row instead of updating the original — these are the "two entries, same thing" duplicates. A fix belongs in `load_sheets`'s matching logic (e.g. also check aliases), not a data-entry job.
+  2. **35 peptides have no matching source file at all yet** (e.g. AMG-133/MariTide, Nafarelin, Epitalon, GLP-1, GIP, and 30 others) — genuinely still card-only, matching "anything with a High/Moderate/Low tag potentially."
+- ~26 premade protocols, sourced from the owner's own saved copies of what influencers in the space are running plus community-consensus protocols — *overlaps with Protocols' "Pre-Planned Stacks" above, same source material*
+- Standardized footer copy change (Educational/Informational Purposes Only disclaimer wording)
+- *(Dosage-tier color bar and caution-style borders moved to Phase 10 — Beautification)*
+
+**Overall**
+- *(General visual/color/accent pass — see Phase 10 — Beautification)*
+
+**MedGemma / AI lab interpretation**
+- A hybrid architecture proposal: deterministic code for all real calculations (HOMA-IR, LDL, eGFR, dosing conversions, etc.), a self-hostable medical LLM (MedGemma or similar) strictly for *explaining* results and flagging calculation mismatches against a reference database, never for doing the math itself. Includes an AI-acceptance popup/checkbox per upload and a Settings-level on/off toggle. Raises real privacy/PHI-hosting considerations if ever exposed beyond local use.
+- *This is architecturally substantial — worth its own brainstorming/spec cycle before it's more than a placeholder line on the roadmap, not something to fold in as a quick bullet.*
 
 ---
 
