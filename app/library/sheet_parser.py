@@ -231,6 +231,9 @@ def _is_icon_caption_line(line: str) -> bool:
     )
 
 
+_GRADE_LINE = re.compile(r"^Grade [A-Za-z]$")
+
+
 def _extract_tags(lines: list[str], name: str) -> list[str]:
     icon_idx = None
     for i, line in enumerate(lines):
@@ -239,10 +242,20 @@ def _extract_tags(lines: list[str], name: str) -> list[str]:
             break
     if icon_idx is None:
         return []
-    # Skip the category, evidence-level, and safety-grade lines that always
-    # follow the icon caption, positionally -- never by matching their text,
-    # since those three values vary per peptide.
-    start = icon_idx + 4
+    # The block between the icon caption and the tags is: category, evidence
+    # level, safety grade -- always in that order, but NOT always exactly 3
+    # lines: some files (e.g. large/unusual sequences) insert an extra icon
+    # sub-caption line ("Uses closest standard amino acids for non-standard
+    # residues.") before it. A fixed line-count skip under-skips those files,
+    # leaking the safety grade into tags. The safety grade line itself
+    # ("Grade A"/"Grade B"/...) is a reliable, small-vocabulary anchor
+    # regardless of how many lines precede it -- tags start right after it.
+    grade_idx = None
+    for i in range(icon_idx + 1, len(lines)):
+        if _GRADE_LINE.match(lines[i].strip()):
+            grade_idx = i
+            break
+    start = (grade_idx + 1) if grade_idx is not None else icon_idx + 4
     tags: list[str] = []
     for line in lines[start:]:
         stripped = line.strip()

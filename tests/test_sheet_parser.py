@@ -336,6 +336,23 @@ def test_name_extracted_after_full_disclaimer_not_site_navigation():
     assert result["name"] == "Test-Compound-9"
 
 
+def test_tags_extraction_skips_grade_line_even_with_an_extra_caption_line():
+    """Regression: some real files insert an extra icon sub-caption line ('Uses closest standard
+    amino acids for non-standard residues.') between the icon caption and category, which used to
+    shift a fixed-offset skip by one and leak the safety grade ('Grade B') into tags as if it were
+    a real classification tag."""
+    variant = SAMPLE.replace(
+        "Each bubble = one amino acid. Size = residue mass. Color = chemical class.\n"
+        "Recovery Support\n",
+        "Each bubble = one amino acid. Size = residue mass. Color = chemical class.\n"
+        "Uses closest standard amino acids for non-standard residues.\n"
+        "Recovery Support\n",
+    )
+    result = parse_sheet(variant)
+    assert result["tags"] == ["Synthetic Modulator", "Recovery"]
+    assert "Grade B" not in result["tags"]
+
+
 def test_tags_extracted_from_the_classification_badge_block():
     """Classification tags/badges sit between the icon-caption line and the
     peptide's name repeating (which begins the half-life/route quick-facts
