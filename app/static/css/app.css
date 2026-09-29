@@ -461,6 +461,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .lib-head p { margin: 2px 0 6px; }
 .lib-tags { margin-bottom: 6px; }
 .tag-plain { background: var(--bg); border: 1px solid var(--border); }
+.tag-goal { color: #fff; border: none; }
 .lib-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 .lib-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
 .lib-section .section-title { display: flex; align-items: center; gap: 8px; }
