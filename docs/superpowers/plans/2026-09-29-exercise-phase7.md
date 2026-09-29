@@ -351,43 +351,55 @@ Expected: `pypdf` installs alongside the existing packages.
 
 - [ ] **Step 2: Write the failing tests**
 
-Create `tests/test_workouts_pdf_parser.py`:
+Create `tests/test_workouts_pdf_parser.py`. Note on how these fixtures are built: a naive
+attempt to draw PDF text with `pypdf`'s writer (no `/Font` resource registered on the page)
+produces bytes that `extract_text` decodes back as garbage, not the original text — confirmed by
+direct experiment while writing this plan. The helper below registers a real `/Font` resource
+(standard Helvetica, WinAnsi encoding) before writing the content stream, which round-trips
+correctly (also confirmed directly):
 
 ```python
 from io import BytesIO
 
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from app.workouts.pdf_parser import extract_text, parse_workout_pdf
 
 
 def _pdf_bytes(text: str) -> bytes:
-    """Builds a minimal real PDF containing `text`, for round-tripping extract_text -- pypdf can
-    write as well as read, so this needs no second library and no fixture binary file checked
-    into the repo."""
+    """Builds a minimal real PDF whose extracted text is exactly `text` (one line per `\\n`-split
+    line), for round-tripping extract_text/parse_workout_pdf without a binary fixture file
+    checked into the repo. Registers a real Helvetica /Font resource -- without one, pypdf's own
+    text extraction of a hand-built content stream comes back garbled, not the original text."""
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)
-    # pypdf's writer has no simple "draw this text" helper on a blank page in the way a rendering
-    # library would; the simplest reliable round-trip is to use the low-level content-stream
-    # writer via `page.merge_page` is overkill here -- instead, insert a text annotation-free
-    # approach: use reportlab-free raw content stream injection.
-    from pypdf.generic import ContentStream, NameObject, TextStringObject
-    content = ContentStream([], writer)
-    content.operations.append(((), b"BT"))
-    content.operations.append(((TextStringObject("Helvetica"), 12), b"Tf"))
-    content.operations.append(((72, 720), b"Td"))
+
+    font = DictionaryObject()
+    font[NameObject("/Type")] = NameObject("/Font")
+    font[NameObject("/Subtype")] = NameObject("/Type1")
+    font[NameObject("/BaseFont")] = NameObject("/Helvetica")
+    font[NameObject("/Encoding")] = NameObject("/WinAnsiEncoding")
+    font_ref = writer._add_object(font)
+    resources = DictionaryObject()
+    font_dict = DictionaryObject()
+    font_dict[NameObject("/F1")] = font_ref
+    resources[NameObject("/Font")] = font_dict
+    page[NameObject("/Resources")] = resources
+
+    ops = ["BT", "/F1 12 Tf", "72 720 Td"]
     for line in text.split("\n"):
-        content.operations.append(((TextStringObject(line),), b"Tj"))
-        content.operations.append(((0, -14), b"Td"))
-    content.operations.append(((), b"ET"))
-    page[NameObject("/Contents")] = content
+        safe = line.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+        ops.append(f"({safe}) Tj")
+        ops.append("0 -14 Td")
+    ops.append("ET")
+    content = DecodedStreamObject()
+    content.set_data("\n".join(ops).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(content)
+
     buf = BytesIO()
     writer.write(buf)
     return buf.getvalue()
-
-
-SAMPLE_WORKOUT_HEADER = "Workout #1 - Upper Body Workout A"
-SAMPLE_ROW = "Dumbbell Bench Press 2 10 45 Sec"
 
 
 def test_extract_text_round_trips_real_pdf_content():
@@ -395,30 +407,73 @@ def test_extract_text_round_trips_real_pdf_content():
     assert "Hello Workout Test" in extract_text(pdf_bytes)
 
 
-def test_parse_recognizes_workout_hash_header_style():
-    text = f"{SAMPLE_WORKOUT_HEADER}\nDumbbell Bench Press\t2\t10\t45 Sec\n"
+# Real Muscle & Strength PDFs list every table ("Exercise Sets Reps[ Rest]" header + its rows)
+# BEFORE any of the day/workout labels -- the labels appear later, in a separate "Workout
+# Summary" block, in the same order as their tables but not adjacent to them. Confirmed directly
+# against all 3 of the owner's sample PDFs while writing this plan. So the parser must find every
+# table and every label independently, then zip them by position -- never by textual adjacency.
+
+def test_parse_zips_tables_and_labels_by_position_workout_hash_style():
+    text = (
+        "Exercise Sets Reps Rest\n"
+        "Dumbbell Bench Press 2 10 45 Sec\n"
+        "Exercise Sets Reps Rest\n"
+        "Goblet Squat 2 10 45 Sec\n"
+        "Workout #1 - Upper Body Workout A\n"
+        "Workout #2 - Lower Body Workout A\n"
+    )
     result = parse_workout_pdf(text)
-    assert len(result["days"]) == 1
+    assert len(result["days"]) == 2
     assert result["days"][0]["label"] == "Upper Body Workout A"
+    assert result["days"][1]["label"] == "Lower Body Workout A"
     ex = result["days"][0]["exercises"][0]
     assert ex["name"] == "Dumbbell Bench Press"
     assert ex["sets_text"] == "2" and ex["reps_text"] == "10" and ex["rest_text"] == "45 Sec"
 
 
-def test_parse_recognizes_day_colon_header_style():
-    text = "Day 1: Upper Body\nBent Over Dumbbell Row\t2 - 3\t10 - 12\n"
+def test_parse_recognizes_day_colon_header_style_and_no_rest_column():
+    text = (
+        "Exercise Sets Reps\n"
+        "Bent Over Dumbbell Row 2 - 3 10 - 12\n"
+        "Day 1: Upper Body\n"
+    )
     result = parse_workout_pdf(text)
-    assert result["days"][0]["label"] == "Upper Body"
     ex = result["days"][0]["exercises"][0]
+    assert result["days"][0]["label"] == "Upper Body"
     assert ex["name"] == "Bent Over Dumbbell Row"
     assert ex["sets_text"] == "2 - 3" and ex["reps_text"] == "10 - 12"
     assert ex["rest_text"] is None  # this style has no Rest column
 
 
 def test_parse_recognizes_bare_workout_number_header_style():
-    text = "Workout 1\nGoblet Squat\t3\t10 - 12\t2 Min\n"
+    text = (
+        "Exercise Sets Reps Rest\n"
+        "Goblet Squat 3 10 - 12 2 Min\n"
+        "Workout 1\n"
+    )
     result = parse_workout_pdf(text)
     assert result["days"][0]["label"] == "Day 1"  # no label text in this header style
+
+
+def test_parse_recognizes_each_leg_and_each_arm_reps_qualifiers():
+    text = (
+        "Exercise Sets Reps\n"
+        "Walking Lunge 2 - 3 10 - 12 Each Leg\n"
+        "One Arm Dumbbell Row 2 - 3 10 - 12 Each Arm\n"
+        "Day 1: Full Body\n"
+    )
+    result = parse_workout_pdf(text)
+    exercises = result["days"][0]["exercises"]
+    assert exercises[0]["reps_text"] == "10 - 12 Each Leg"
+    assert exercises[1]["reps_text"] == "10 - 12 Each Arm"
+
+
+def test_parse_more_tables_than_labels_falls_back_to_day_n():
+    """A table with no corresponding label found (fewer labels than tables, or a table whose
+    zip-position label came back empty) must still get a usable default label."""
+    text = "Exercise Sets Reps\nPush-up 3 10\n"  # zero day/workout labels anywhere
+    result = parse_workout_pdf(text)
+    assert result["days"][0]["label"] == "Day 1"
 
 
 def test_parse_unrecognized_format_returns_zero_days_never_raises():
@@ -444,22 +499,48 @@ Mirrors app/library/sheet_parser.py's philosophy: real-world PDFs vary in header
 column presence, so every lookup here is positional and defensive. A row or day this can't
 confidently parse is simply left out or blank -- never a raised exception. The caller (the
 review/edit screen) is always the backstop for anything this gets wrong.
+
+Confirmed directly against 3 real Muscle & Strength sample PDFs: every table ("Exercise Sets
+Reps[ Rest]" header, then its rows) appears BEFORE any of the day/workout labels in the
+extracted text -- the labels live in a separate "Workout Summary" block later in the document,
+in the same order as their tables but not textually adjacent to them. So tables and labels are
+found independently and zipped together by POSITION, never by "the label right before/after a
+table" (there is no such adjacency in the real files).
 """
 
 from __future__ import annotations
 
 import re
-
-from pypdf import PdfReader
 from io import BytesIO
 
-# Three known day/workout header shapes, tried in order. Each captures a label when the style
-# has one; the bare "Workout N" style has none, so its label defaults to "Day N" by the caller.
-_HEADER_PATTERNS = [
+from pypdf import PdfReader
+
+# The literal table-header row, with or without a trailing Rest column. This is the one thing
+# that's exactly consistent across every observed real file -- unlike the day/workout labels,
+# which vary in style (see _DAY_LABEL_PATTERNS).
+_TABLE_HEADER = re.compile(r"^Exercise\s+Sets\s+Reps(\s+Rest)?$")
+
+# Three known day/workout label shapes, tried in order. Each captures a label when the style has
+# one; the bare "Workout N" style has none, so its label defaults to "Day N" by the caller.
+_DAY_LABEL_PATTERNS = [
     re.compile(r"^Workout #(\d+) - (.+)$"),
     re.compile(r"^Day (\d+): (.+)$"),
     re.compile(r"^Workout (\d+)$"),
 ]
+
+# One exercise row, anchored from the RIGHT: real rows are single-space-separated with no
+# reliable delimiter between the (possibly multi-word) exercise name and its numeric columns, so
+# splitting from the left is ambiguous. Anchoring on the trailing Rest ("45 Sec"/"2 Min"), then
+# the Reps (a number or range, optionally with a trailing "*" footnote marker or an "Each
+# Leg"/"Each Arm"/"Each Side"/bare "Each" qualifier), then the Sets (a number or range), and
+# treating everything left over as the name, correctly parses every real row shape confirmed
+# directly against all 3 sample PDFs.
+_ROW_PATTERN = re.compile(
+    r"^(?P<name>.+?)\s+"
+    r"(?P<sets>\d+(?:\s*-\s*\d+)?)\s+"
+    r"(?P<reps>\d+(?:\s*-\s*\d+)?\*?(?:,?\s*Each(?:\s+\w+)?)?)"
+    r"(?:\s+(?P<rest>\d+\s*(?:Min|Sec)))?$"
+)
 
 
 def extract_text(pdf_bytes: bytes) -> str:
@@ -469,49 +550,37 @@ def extract_text(pdf_bytes: bytes) -> str:
     return "\n".join((page.extract_text() or "") for page in reader.pages)
 
 
-def _find_headers(lines: list[str]) -> list[tuple[int, str]]:
-    """(line index, label) for every recognized day header, in document order."""
-    found = []
-    for i, line in enumerate(lines):
+def _find_table_starts(lines: list[str]) -> list[int]:
+    """Line index of every table's header row, in document order."""
+    return [i for i, line in enumerate(lines) if _TABLE_HEADER.match(line.strip())]
+
+
+def _find_day_labels(lines: list[str]) -> list[str | None]:
+    """One label per recognized day/workout header found ANYWHERE in the document, in the order
+    they appear -- None for a recognized-but-labelless header (the bare "Workout N" style), so
+    the caller can tell "found but blank" apart from "not found at all" if it ever needs to."""
+    labels: list[str | None] = []
+    for line in lines:
         stripped = line.strip()
-        for pattern in _HEADER_PATTERNS:
+        for pattern in _DAY_LABEL_PATTERNS:
             m = pattern.match(stripped)
             if m:
-                label = m.group(2) if m.lastindex and m.lastindex >= 2 else f"Day {m.group(1)}"
-                found.append((i, label))
+                labels.append(m.group(2) if m.lastindex and m.lastindex >= 2 else None)
                 break
-    return found
+    return labels
 
 
 def _parse_exercise_row(line: str) -> dict | None:
-    """One exercise row, recovered positionally: split on tabs first (the PDFs' own extracted
-    text keeps tab-separated columns where the source had a real table), falling back to
-    whitespace-run splitting for a row that came out space-separated instead. The exercise name
-    is everything before the first cell that looks like a number (a set/rep count) -- never
-    matched against a literal "Sets"/"Reps"/"Rest" header string, since those repeat per table
-    and vary between PDFs."""
-    cells = [c.strip() for c in line.split("\t") if c.strip()]
-    if len(cells) < 2:
-        cells = [c for c in re.split(r"\s{2,}", line.strip()) if c]
-    if len(cells) < 2:
-        return None
-    # Find where the numeric-looking cells start (a plain number or a range like "2 - 3").
-    name_parts = []
-    rest_of_row = cells
-    for i, cell in enumerate(cells):
-        if re.match(r"^\d+(\s*-\s*\d+)?$", cell):
-            name_parts = cells[:i]
-            rest_of_row = cells[i:]
-            break
-    else:
-        return None
-    if not name_parts:
+    """One exercise row from its raw line, or None if it doesn't match the known row shape at
+    all (e.g. it's blank, or a stray line from something else entirely)."""
+    m = _ROW_PATTERN.match(line.strip())
+    if not m:
         return None
     return {
-        "name": " ".join(name_parts),
-        "sets_text": rest_of_row[0] if len(rest_of_row) > 0 else None,
-        "reps_text": rest_of_row[1] if len(rest_of_row) > 1 else None,
-        "rest_text": rest_of_row[2] if len(rest_of_row) > 2 else None,
+        "name": m.group("name"),
+        "sets_text": m.group("sets"),
+        "reps_text": m.group("reps"),
+        "rest_text": m.group("rest"),
     }
 
 
@@ -522,15 +591,19 @@ def parse_workout_pdf(text: str) -> dict:
     caller (the create/review/edit screen) opens with nothing pre-filled rather than rejecting
     the upload."""
     lines = text.split("\n")
-    headers = _find_headers(lines)
+    table_starts = _find_table_starts(lines)
+    if not table_starts:
+        return {"name": "", "days": []}
+    day_labels = _find_day_labels(lines)
     days = []
-    for idx, (start, label) in enumerate(headers):
-        end = headers[idx + 1][0] if idx + 1 < len(headers) else len(lines)
+    for i, start in enumerate(table_starts):
+        end = table_starts[i + 1] if i + 1 < len(table_starts) else len(lines)
         exercises = []
         for line in lines[start + 1:end]:
             row = _parse_exercise_row(line)
             if row:
                 exercises.append(row)
+        label = day_labels[i] if i < len(day_labels) and day_labels[i] else f"Day {i + 1}"
         days.append({"label": label, "exercises": exercises})
     return {"name": "", "days": days}
 ```
@@ -538,7 +611,7 @@ def parse_workout_pdf(text: str) -> dict:
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `py -m pytest tests/test_workouts_pdf_parser.py -v`
-Expected: PASS (6/6)
+Expected: PASS (7/7)
 
 - [ ] **Step 6: Run the full test suite**
 
@@ -937,32 +1010,50 @@ git commit -m "feat: add manual Workout Plan creation, editing, and scheduling"
 Add to `tests/test_workouts.py`:
 
 ```python
-from pypdf import PdfWriter
 from io import BytesIO
 
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
-def _minimal_workout_pdf() -> bytes:
-    from pypdf.generic import ContentStream, NameObject, TextStringObject
+
+def _minimal_workout_pdf(text: str) -> bytes:
+    """Same verified approach as tests/test_workouts_pdf_parser.py's _pdf_bytes (duplicated here
+    since these are separate test files) -- a page with no /Font resource extracts back as
+    garbled text, not the original, so a real Helvetica font must be registered first."""
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)
-    content = ContentStream([], writer)
-    content.operations.append(((), b"BT"))
-    content.operations.append(((TextStringObject("Helvetica"), 12), b"Tf"))
-    content.operations.append(((72, 720), b"Td"))
-    for line in ["Day 1: Upper Body", "Push-up\t3\t10 - 12"]:
-        content.operations.append(((TextStringObject(line),), b"Tj"))
-        content.operations.append(((0, -14), b"Td"))
-    content.operations.append(((), b"ET"))
-    page[NameObject("/Contents")] = content
+    font = DictionaryObject()
+    font[NameObject("/Type")] = NameObject("/Font")
+    font[NameObject("/Subtype")] = NameObject("/Type1")
+    font[NameObject("/BaseFont")] = NameObject("/Helvetica")
+    font[NameObject("/Encoding")] = NameObject("/WinAnsiEncoding")
+    font_ref = writer._add_object(font)
+    resources = DictionaryObject()
+    font_dict = DictionaryObject()
+    font_dict[NameObject("/F1")] = font_ref
+    resources[NameObject("/Font")] = font_dict
+    page[NameObject("/Resources")] = resources
+    ops = ["BT", "/F1 12 Tf", "72 720 Td"]
+    for line in text.split("\n"):
+        safe = line.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+        ops.append(f"({safe}) Tj")
+        ops.append("0 -14 Td")
+    ops.append("ET")
+    content = DecodedStreamObject()
+    content.set_data("\n".join(ops).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(content)
     buf = BytesIO()
     writer.write(buf)
     return buf.getvalue()
 
 
 def test_upload_pdf_creates_a_prefilled_plan(client, db):
+    # Real Muscle & Strength PDFs list every table BEFORE any day/workout label -- see Task 2's
+    # pdf_parser.py docstring. This fixture matches that real order.
+    pdf_text = "Exercise Sets Reps\nPush-up 3 10 - 12\nDay 1: Upper Body\n"
     r = client.post(
         "/workouts/upload",
-        files={"pdf": ("plan.pdf", _minimal_workout_pdf(), "application/pdf")},
+        files={"pdf": ("plan.pdf", _minimal_workout_pdf(pdf_text), "application/pdf")},
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -974,13 +1065,9 @@ def test_upload_pdf_creates_a_prefilled_plan(client, db):
 
 
 def test_upload_unparseable_pdf_still_creates_an_empty_editable_plan(client, db):
-    empty_pdf = PdfWriter()
-    empty_pdf.add_blank_page(width=612, height=792)
-    buf = BytesIO()
-    empty_pdf.write(buf)
     r = client.post(
         "/workouts/upload",
-        files={"pdf": ("blank.pdf", buf.getvalue(), "application/pdf")},
+        files={"pdf": ("blank.pdf", _minimal_workout_pdf("Not a workout sheet at all."), "application/pdf")},
         follow_redirects=False,
     )
     assert r.status_code == 303  # never a rejected upload

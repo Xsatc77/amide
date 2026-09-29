@@ -33,7 +33,15 @@ already disagree on:
 - Footnotes attached to specific exercises (`Close Grip Push Up 2-3 10-12*`
   with an `Author's Note: *Go to failure...` at the bottom).
 - A "Workout Summary" info box (goal, level, days/week, duration, equipment,
-  author) that precedes the tables, using the same layout across all three.
+  author) that sits visually at the top of the page in all three — but
+  **extracts as text *after* every table**, not before. `pypdf`'s text
+  extraction follows the PDF's internal content-stream order, not visual
+  reading order, and the day/workout labels live inside this
+  summary block. Confirmed directly (not assumed) against all 3 real
+  files: every exercise table appears before any day/workout label in the
+  extracted text, in every one of them — see "PDF import & parsing" below
+  for what this means for how the parser must associate a table with its
+  label.
 
 This confirms parsing must be **best-effort and positional**, never
 pattern-matching on exact header text — the same lesson already learned
@@ -178,20 +186,37 @@ New module `app/workouts/pdf_parser.py`, structured like
 - `parse_workout_pdf(text: str) -> dict` — pure function, text in,
   structured dict out (`{"name": str, "days": [{"label": str, "exercises":
   [{"name", "sets_text", "reps_text", "rest_text"}, ...]}, ...]}`).
-  - Day boundaries are found by scanning for any of three known label
-    shapes: `r"^Workout #\d+ - (.+)$"`, `r"^Day \d+: (.+)$"`,
-    `r"^Workout \d+$"` (label defaults to `"Day N"` for the last, bare
-    case).
-  - Within a day's slice, rows are recovered positionally: split each
-    line on whitespace runs, take the exercise name as everything before
-    the first cell that looks numeric (a set/rep count), then take the
-    next 2-3 whitespace-separated groups as sets/reps/(rest) by position
-    — never by matching a literal "Sets"/"Reps"/"Rest" header string
-    (headers repeat per table in these PDFs and are themselves
-    inconsistent, per the confirmed variance above).
-  - No known day boundary found anywhere → returns `{"name": ..., "days":
-    []}` (never raises) — the upload still succeeds, opening straight
-    into an empty manual-edit screen.
+  - **Tables and day/workout labels are found independently and zipped by
+    position — never by textual adjacency.** Confirmed directly against
+    all 3 of the owner's real sample PDFs: every table ("Exercise Sets
+    Reps[ Rest]" header, then its rows) appears *before* any of the
+    day/workout labels in the extracted text. The labels live in a
+    separate "Workout Summary" block later in the document, in the same
+    order as their tables but never adjacent to them. (An earlier version
+    of this spec assumed a label directly precedes its own table's rows —
+    that assumption does not hold against any of the 3 real files and was
+    corrected while writing the implementation plan.)
+  - Table boundaries are found by scanning for the literal row
+    `r"^Exercise\s+Sets\s+Reps(\s+Rest)?$"` — the one structural marker
+    confirmed exactly consistent across every real file, unlike the
+    labels themselves.
+  - Day/workout labels are found by scanning for any of three known
+    shapes, wherever they appear in the document: `r"^Workout #\d+ - (.+)$"`,
+    `r"^Day \d+: (.+)$"`, `r"^Workout \d+$"` (label defaults to `"Day N"`
+    for the last, bare case, or for any table with no corresponding label
+    at its position).
+  - Within a table's slice, rows are recovered by matching a single
+    right-anchored pattern per line — real rows are single-space-separated
+    with no reliable delimiter between the (possibly multi-word) exercise
+    name and its numeric columns, so left-to-right whitespace splitting is
+    ambiguous. Anchoring on the optional trailing Rest ("45 Sec"/"2 Min"),
+    then Reps (a number or range, optionally with a trailing "*" footnote
+    marker or an "Each Leg"/"Each Arm"/"Each Side"/bare "Each" qualifier),
+    then Sets (a number or range), with everything left over as the name,
+    correctly parses every row shape confirmed across all 3 real files.
+  - No table found anywhere → returns `{"name": ..., "days": []}` (never
+    raises) — the upload still succeeds, opening straight into an empty
+    manual-edit screen.
 
 ## Shared create/review/edit screen
 
@@ -286,9 +311,11 @@ test."
 
 ## Review Focus
 
-1. A PDF with zero recognized day headers must still produce a plan (empty,
-   editable) rather than a rejected upload — the "never raise" constraint
-   above, pinned by a dedicated parser test.
+1. A PDF with zero recognized exercise tables must still produce a plan
+   (empty, editable) rather than a rejected upload — the "never raise"
+   constraint above, pinned by a dedicated parser test. (A table found with
+   no corresponding day/workout label is a *different*, fully-parseable
+   case — it still gets its exercises, just with a default "Day N" label.)
 2. A workout day scheduled for a weekday that's already been logged today
    must not reappear in "Workouts due today" (no duplicate-logging prompt).
 3. Weight/reps left blank on some exercises but not others in the same
