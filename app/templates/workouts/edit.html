@@ -31,6 +31,9 @@
     {% endfor %}
   </div>
 
+  {% if has_logged_history %}
+  <p class="warning">Saving will permanently clear logged workout history for this plan.</p>
+  {% endif %}
   <button type="submit" class="btn btn-primary">Save</button>
 </form>
 

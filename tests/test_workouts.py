@@ -119,3 +119,55 @@ def test_upload_unparseable_pdf_still_creates_an_empty_editable_plan(client, db)
         follow_redirects=False,
     )
     assert r.status_code == 303  # never a rejected upload
+
+
+def test_log_completion_persists_partial_state(client, db):
+    client.post("/workouts", data=_plan_form(
+        **{"name": "Log Test Plan",
+           "exercise_name[0][]": ["Push-up", "Sit-up"],
+           "exercise_sets[0][]": ["3", "3"], "exercise_reps[0][]": ["10", "10"],
+           "exercise_rest[0][]": ["", ""]}))
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "Log Test Plan"))
+    day = plan.days[0]
+    ex0, ex1 = day.exercises[0], day.exercises[1]
+
+    r = client.post(f"/workouts/day/{day.id}/log", data={
+        "log_date": "2026-01-08",
+        f"completed[{ex0.id}]": "on",
+        f"weight_value[{ex0.id}]": "25",
+        f"weight_unit[{ex0.id}]": "lb",
+        f"reps_value[{ex0.id}]": "12",
+        # ex1 deliberately left unchecked and blank
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    from app.models import WorkoutLog
+    log = db.scalar(select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id))
+    by_exercise = {el.exercise_id: el for el in log.exercise_logs}
+    assert by_exercise[ex0.id].completed is True
+    assert by_exercise[ex0.id].weight_value == 25.0
+    assert by_exercise[ex0.id].reps_value == 12
+    assert by_exercise[ex1.id].completed is False
+    assert by_exercise[ex1.id].weight_value is None
+
+
+def test_edit_page_shows_no_warning_when_plan_has_no_logged_history(client, db):
+    client.post("/workouts", data=_plan_form(name="No History Plan"))
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "No History Plan"))
+    r = client.get(f"/workouts/{plan.id}/edit")
+    assert r.status_code == 200
+    assert "will permanently clear logged workout history" not in r.text
+
+
+def test_edit_page_shows_warning_after_a_workout_has_been_logged(client, db):
+    client.post("/workouts", data=_plan_form(name="Has History Plan"))
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "Has History Plan"))
+    day = plan.days[0]
+    ex0 = day.exercises[0]
+    client.post(f"/workouts/day/{day.id}/log", data={
+        "log_date": "2026-01-08",
+        f"completed[{ex0.id}]": "on",
+    })
+    r = client.get(f"/workouts/{plan.id}/edit")
+    assert r.status_code == 200
+    assert "will permanently clear logged workout history" in r.text

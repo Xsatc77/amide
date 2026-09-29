@@ -2,6 +2,7 @@
 and the one-Active-plan-at-a-time rule."""
 
 from datetime import date
+from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -11,7 +12,15 @@ from sqlalchemy.orm import Session
 from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import WorkoutExercise, WorkoutPlan, WorkoutPlanDay, WorkoutSource
+from app.models import (
+    WeightUnit,
+    WorkoutExercise,
+    WorkoutExerciseLog,
+    WorkoutLog,
+    WorkoutPlan,
+    WorkoutPlanDay,
+    WorkoutSource,
+)
 from app.templating import templates
 from app.uploads import UploadError, save_workout_pdf
 from app.workouts.pdf_parser import extract_text, parse_workout_pdf
@@ -24,6 +33,13 @@ def _get_own_plan(session: Session, plan_id: int, uid: int) -> WorkoutPlan:
     if p is None or p.owner_id != uid:
         raise HTTPException(404, "Workout plan not found")
     return p
+
+
+def _get_own_day(session: Session, plan_day_id: int, uid: int) -> WorkoutPlanDay:
+    day = session.get(WorkoutPlanDay, plan_day_id)
+    if day is None or day.plan.owner_id != uid:
+        raise HTTPException(404, "Workout day not found")
+    return day
 
 
 def save_workout_plan(session: Session, plan: WorkoutPlan, name: str, days_data: list[dict]) -> WorkoutPlan:
@@ -131,7 +147,11 @@ async def workouts_upload(pdf: UploadFile = File(...), session: Session = Depend
 def workouts_edit(plan_id: int, request: Request, session: Session = Depends(get_session),
                   uid: int = Depends(current_user_id)):
     plan = _get_own_plan(session, plan_id, uid)
-    return templates.TemplateResponse(request, "workouts/edit.html", {"plan": plan, "days": plan.days})
+    has_logged_history = session.query(WorkoutLog).join(WorkoutPlanDay).filter(
+        WorkoutPlanDay.plan_id == plan.id).first() is not None
+    return templates.TemplateResponse(request, "workouts/edit.html", {
+        "plan": plan, "days": plan.days, "has_logged_history": has_logged_history,
+    })
 
 
 @router.post("/workouts/{plan_id}")
@@ -166,3 +186,42 @@ def workouts_activate(plan_id: int, session: Session = Depends(get_session),
     _activate(session, plan, uid)
     session.commit()
     return RedirectResponse("/workouts", status_code=303)
+
+
+@router.get("/workouts/day/{plan_day_id}/log")
+def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | None = None,
+                      session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    day = _get_own_day(session, plan_day_id, uid)
+    return templates.TemplateResponse(request, "workouts/log.html", {
+        "day": day, "log_date": log_date or date_type.today(), "units": list(WeightUnit),
+    })
+
+
+@router.post("/workouts/day/{plan_day_id}/log")
+async def workouts_log_save(plan_day_id: int, request: Request, session: Session = Depends(get_session),
+                            uid: int = Depends(current_user_id)):
+    day = _get_own_day(session, plan_day_id, uid)
+    raw = await request.form()
+    log_date = date_type.fromisoformat(raw["log_date"])
+
+    existing = session.scalar(
+        select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
+    if existing is not None:
+        session.delete(existing)
+        session.flush()
+
+    log = WorkoutLog(owner_id=uid, plan_day_id=day.id, log_date=log_date)
+    session.add(log)
+    for ex in day.exercises:
+        weight_value = raw.get(f"weight_value[{ex.id}]")
+        weight_unit = raw.get(f"weight_unit[{ex.id}]")
+        reps_value = raw.get(f"reps_value[{ex.id}]")
+        log.exercise_logs.append(WorkoutExerciseLog(
+            exercise_id=ex.id,
+            completed=raw.get(f"completed[{ex.id}]") == "on",
+            weight_value=float(weight_value) if weight_value else None,
+            weight_unit=WeightUnit(weight_unit) if weight_unit else None,
+            reps_value=int(reps_value) if reps_value else None,
+        ))
+    session.commit()
+    return RedirectResponse("/today", status_code=303)
