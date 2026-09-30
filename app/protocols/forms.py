@@ -5,6 +5,7 @@ The builder page submits flat field names:
   items-{i}-peptide_id | items-{i}-new_name, items-{i}-dose, -dose_unit, -frequency, -every_n_days,
   -weekdays (repeated letters), -time_of_day, -route, -inventory_item_id, -notes
   items-{i}-steps-{j}-start_week, -end_week, -dose
+  items-{i}-cycle_offs-{j}-start_week, -weeks
 
 "State" is the same data as plain strings, nested; the builder's JavaScript renders from it, so it is
 what we send back when re-showing the form (after an error, for edit, or for repeat).
@@ -21,9 +22,11 @@ from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, Ti
 ITEM_FIELDS = ("peptide_id", "new_name", "dose", "dose_unit", "frequency", "every_n_days",
                "time_of_day", "route", "inventory_item_id", "notes")
 STEP_FIELDS = ("start_week", "end_week", "dose")
+CYCLE_OFF_FIELDS = ("start_week", "weeks")
 
 _ITEM_KEY = re.compile(r"^items-(\d+)-(\w+)$")
 _STEP_KEY = re.compile(r"^items-(\d+)-steps-(\d+)-(\w+)$")
+_CYCLE_OFF_KEY = re.compile(r"^items-(\d+)-cycle_offs-(\d+)-(\w+)$")
 
 
 @dataclass
@@ -31,6 +34,12 @@ class ParsedStep:
     start_week: int
     end_week: int | None
     dose: float
+
+
+@dataclass
+class ParsedCycleOff:
+    start_week: int
+    end_week: int
 
 
 @dataclass
@@ -47,6 +56,7 @@ class ParsedItem:
     inventory_item_id: int | None
     notes: str | None
     steps: list[ParsedStep] = field(default_factory=list)
+    cycle_offs: list["ParsedCycleOff"] = field(default_factory=list)
 
 
 @dataclass
@@ -82,11 +92,16 @@ def state_from_form(form: Mapping[str, list[str]]) -> dict:
         if m := _STEP_KEY.match(key):
             i, j, name = int(m[1]), int(m[2]), m[3]
             if name in STEP_FIELDS:
-                item = items.setdefault(i, {"steps": {}})
+                item = items.setdefault(i, {"steps": {}, "cycle_offs": {}})
                 item["steps"].setdefault(j, {})[name] = _first(form, key)
+        elif m := _CYCLE_OFF_KEY.match(key):
+            i, j, name = int(m[1]), int(m[2]), m[3]
+            if name in CYCLE_OFF_FIELDS:
+                item = items.setdefault(i, {"steps": {}, "cycle_offs": {}})
+                item["cycle_offs"].setdefault(j, {})[name] = _first(form, key)
         elif m := _ITEM_KEY.match(key):
             i, name = int(m[1]), m[2]
-            item = items.setdefault(i, {"steps": {}})
+            item = items.setdefault(i, {"steps": {}, "cycle_offs": {}})
             if name == "weekdays":
                 item["weekdays"] = "".join(v.strip() for v in form[key])
             elif name in ITEM_FIELDS:
@@ -98,6 +113,8 @@ def state_from_form(form: Mapping[str, list[str]]) -> dict:
         item = {f: raw.get(f, "") for f in ITEM_FIELDS}
         item["weekdays"] = raw.get("weekdays", "")
         item["steps"] = [{f: raw["steps"][j].get(f, "") for f in STEP_FIELDS} for j in sorted(raw["steps"])]
+        item["cycle_offs"] = [{f: raw["cycle_offs"][j].get(f, "") for f in CYCLE_OFF_FIELDS}
+                              for j in sorted(raw["cycle_offs"])]
         out_items.append(item)
 
     return {
@@ -143,6 +160,8 @@ def state_from_protocol(p: Protocol, *, repeat: bool = False, today: date | None
                 "notes": it.notes or "",
                 "steps": [{"start_week": str(s.start_week), "end_week": "" if s.end_week is None else str(s.end_week),
                            "dose": _num(s.dose)} for s in it.steps],
+                "cycle_offs": [{"start_week": str(c.start_week), "weeks": str(c.end_week - c.start_week + 1)}
+                              for c in it.cycle_offs],
             }
             for it in p.items
         ],
@@ -230,6 +249,40 @@ def _parse_steps(item_state: dict, prefix: str, titration: bool, errors: dict) -
     return [step for _, step in parsed]
 
 
+def _parse_cycle_offs(item_state: dict, prefix: str, errors: dict,
+                      steps: list[ParsedStep]) -> list["ParsedCycleOff"]:
+    """Cycle-offs are always validated (unlike steps, which are only validated when titration is
+    on) -- cycling is independent of the titration toggle."""
+    parsed: list[tuple[int, ParsedCycleOff]] = []
+    for j, raw in enumerate(item_state["cycle_offs"]):
+        if not any(raw.values()):
+            continue
+        key = f"{prefix}-cycle_offs-{j}"
+        start = _parse_int(raw["start_week"], f"{key}-start_week", errors, minimum=1, label="Start week")
+        weeks = _parse_int(raw["weeks"], f"{key}-weeks", errors, minimum=1, label="Weeks off")
+        if start is None and f"{key}-start_week" not in errors:
+            errors[f"{key}-start_week"] = "Start week is required."
+        if weeks is None and f"{key}-weeks" not in errors:
+            errors[f"{key}-weeks"] = "Weeks off is required."
+        if start is None or weeks is None:
+            continue
+        parsed.append((j, ParsedCycleOff(start, start + weeks - 1)))
+
+    parsed.sort(key=lambda pair: pair[1].start_week)
+    for (ja, a), (jb, b) in zip(parsed, parsed[1:]):
+        if b.start_week <= a.end_week:
+            errors[f"{prefix}-cycle_offs-{jb}-start_week"] = "Overlaps the previous cycle-off."
+
+    for j, off in parsed:
+        for k, step in enumerate(steps):
+            step_end = step.end_week if step.end_week is not None else off.end_week
+            if off.start_week <= step_end and step.start_week <= off.end_week:
+                errors[f"{prefix}-cycle_offs-{j}-start_week"] = "Overlaps a titration step."
+                break
+
+    return [off for _, off in parsed]
+
+
 def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
                         inventory_ids: set[int]) -> tuple[ParsedProtocol, dict[str, str]]:
     """Returns (values, field name -> error message)."""
@@ -306,6 +359,7 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
         if notes and len(notes) > 300:
             errors[f"{key}-notes"] = "Keep notes under 300 characters."
 
+        steps = _parse_steps(raw, key, titration, errors)
         items.append(ParsedItem(
             peptide_id=peptide_id,
             new_name=new_name,
@@ -318,7 +372,8 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             route=_parse_choice(Route, raw["route"], Route.SUBQ, f"{key}-route", errors),
             inventory_item_id=inventory_item_id,
             notes=notes,
-            steps=_parse_steps(raw, key, titration, errors),
+            steps=steps,
+            cycle_offs=_parse_cycle_offs(raw, key, errors, steps),
         ))
 
     if not items:

@@ -90,6 +90,39 @@ def test_titration_off_keeps_valid_steps_silently():
     assert [(s.start_week, s.dose) for s in p.items[0].steps] == [(1, 1.0)]
 
 
+def test_cycle_off_happy_path():
+    p, e = parse_protocol_form(base(
+        items__0__cycle_offs__0__start_week="4", items__0__cycle_offs__0__weeks="3"), **IDS)
+    assert e == {}
+    assert [(c.start_week, c.end_week) for c in p.items[0].cycle_offs] == [(4, 6)]
+
+
+def test_cycle_off_requires_weeks():
+    _, e = parse_protocol_form(base(
+        items__0__cycle_offs__0__start_week="4", items__0__cycle_offs__0__weeks=""), **IDS)
+    assert "items-0-cycle_offs-0-weeks" in e
+
+
+def test_cycle_offs_cannot_overlap_each_other():
+    _, e = parse_protocol_form(base(
+        items__0__cycle_offs__0__start_week="1", items__0__cycle_offs__0__weeks="4",
+        items__0__cycle_offs__1__start_week="3", items__0__cycle_offs__1__weeks="2"), **IDS)
+    assert "items-0-cycle_offs-1-start_week" in e
+
+
+def test_cycle_off_cannot_overlap_a_titration_step():
+    _, e = parse_protocol_form(base(titration="1",
+        items__0__steps__0__start_week="1", items__0__steps__0__end_week="6", items__0__steps__0__dose="1",
+        items__0__cycle_offs__0__start_week="4", items__0__cycle_offs__0__weeks="2"), **IDS)
+    assert "items-0-cycle_offs-0-start_week" in e
+
+
+def test_cycle_off_not_offered_state_still_round_trips_when_absent():
+    form = base()
+    s = state_from_form(form)
+    assert s["items"][0]["cycle_offs"] == []
+
+
 def test_state_round_trip():
     form = base(titration="1", items__0__steps__0__start_week="1", items__0__steps__0__end_week="4",
                 items__0__steps__0__dose="bad", items__1__new_name="Thing", items__1__weekdays=["M", "F"])
