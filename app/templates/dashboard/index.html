@@ -204,15 +204,15 @@
 {% endif %}
 
 {% if show_quick_capture %}
-<section class="card dash-panel dash-area-journal" aria-labelledby="quick-capture-heading" style="--panel-accent: var(--goal-skin-beauty);">
+<section class="card dash-panel dash-panel-tall dash-area-journal" aria-labelledby="quick-capture-heading" style="--panel-accent: var(--goal-skin-beauty);">
   <div class="panel-head">
     {{ panel_icon('edit') }}
     <h2 id="quick-capture-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=journal">Journal</a></h2>
   </div>
-  <form method="post" action="/journal/quick-note" class="quick-capture-form">
-    <label class="field">
+  <form method="post" action="/journal/quick-note" class="quick-capture-form dash-journal-form">
+    <label class="field dash-journal-field">
       <span class="sr-only">Quick note</span>
-      <input name="text" type="text" maxlength="500" placeholder="Quick note (e.g. how you're feeling right now)">
+      <textarea name="text" maxlength="500" placeholder="Quick note (e.g. how you're feeling right now)"></textarea>
     </label>
     <button type="submit" class="btn btn-primary">Add</button>
   </form>
