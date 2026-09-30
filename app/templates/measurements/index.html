@@ -101,23 +101,26 @@
 <div class="overview-row">
   {% if charts %}
   <section class="overview-chart-section" aria-labelledby="overview-heading">
-    <div class="section-head-row">
-      <h2 id="overview-heading" class="section-title">Overview</h2>
-      {{ range_select('measurements', charts.range, 'overview') }}
-    </div>
+    <h2 id="overview-heading" class="section-title">Overview</h2>
     {% set overview_metrics = charts.series | selectattr('chart') | list %}
     {% set overview_avgs = charts.bilateral_avg | selectattr('chart') | list %}
-    {% if overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf %}
-    <label class="field">
-      <span>Metric</span>
-      <select id="overview-metric-select">
-        {% for s in overview_metrics %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
-        {% for s in overview_avgs %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
-        {% if charts.bp %}<option value="bp">Blood pressure</option>{% endif %}
-        {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
-        {% if charts.bf %}<option value="bf">Body fat %</option>{% endif %}
-      </select>
-    </label>
+    {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf %}
+    <div class="overview-controls-row">
+      {% if has_metrics %}
+      <label class="field">
+        <span>Metric</span>
+        <select id="overview-metric-select">
+          {% for s in overview_metrics %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
+          {% for s in overview_avgs %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
+          {% if charts.bp %}<option value="bp">Blood pressure</option>{% endif %}
+          {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
+          {% if charts.bf %}<option value="bf">Body fat %</option>{% endif %}
+        </select>
+      </label>
+      {% endif %}
+      {{ range_select('measurements', charts.range, 'overview') }}
+    </div>
+    {% if has_metrics %}
     {% set shown = namespace(done=false) %}
     <div id="overview-chart-slot">
       {% for s in overview_metrics %}
@@ -153,6 +156,11 @@
   </section>
   {% endif %}
 </div>
+
+<section aria-labelledby="entry-heading">
+  <h2 id="entry-heading" class="section-title">Log a measurement</h2>
+  <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log a measurement</button>
+</section>
 
 {% if charts %}
 <section aria-labelledby="charts-heading">
@@ -192,27 +200,39 @@
 </section>
 {% endif %}
 
-<section aria-labelledby="entry-heading">
-  <h2 id="entry-heading" class="section-title">Log a measurement</h2>
-  <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log a measurement</button>
-</section>
+{% macro mini_input(name, pos, placeholder) %}
+<label class="mini-field {{ 'has-error' if errors[name] }}" style="left: {{ (pos[0] / 320 * 100) | round(2) }}%; top: {{ (pos[1] / 440 * 100) | round(2) }}%;">
+  <span class="sr-only">{{ placeholder }}</span>
+  <input name="{{ name }}" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form[name] or '' }}" placeholder="{{ placeholder }}">
+</label>
+{% endmacro %}
 
-<dialog id="measurement-dialog" class="dialog"{{ ' data-open-on-load' if errors }}>
+<dialog id="measurement-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
   <form method="post" action="/measurements" class="settings-form" novalidate>
     <header class="dialog-head">
       <h2>Log a measurement</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
-    <div class="grid measurement-entry-grid">
-      <label class="field {{ 'has-error' if errors.measured_at }}">
-        <span>Date</span>
-        <input name="measured_at" type="date" value="{{ form.measured_at or today }}">
-        {{ err('measured_at') }}
-      </label>
+    {% if errors %}
+    <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
+    {% endif %}
+
+    <label class="field {{ 'has-error' if errors.measured_at }}">
+      <span>Date</span>
+      <input name="measured_at" type="date" value="{{ form.measured_at or today }}">
+      {{ err('measured_at') }}
+    </label>
+
+    <div class="measurement-entry-top-grid">
       <label class="field {{ 'has-error' if errors.weight_lbs }}">
         <span>Weight (lbs) <span class="muted" title="Best to weigh within 1 hour of waking, at least once a week, no clothing.">ⓘ</span></span>
         <input name="weight_lbs" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.weight_lbs or '' }}">
         {{ err('weight_lbs') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.heart_rate_bpm }}">
+        <span>Heart Rate (bpm)</span>
+        <input name="heart_rate_bpm" type="number" step="1" min="0" inputmode="numeric" value="{{ form.heart_rate_bpm or '' }}">
+        {{ err('heart_rate_bpm') }}
       </label>
       <label class="field {{ 'has-error' if errors.systolic }}">
         <span>Systolic</span>
@@ -224,68 +244,28 @@
         <input name="diastolic" type="number" step="1" min="0" inputmode="numeric" value="{{ form.diastolic or '' }}">
         {{ err('diastolic') }}
       </label>
-      <label class="field {{ 'has-error' if errors.heart_rate_bpm }}">
-        <span>Heart Rate (bpm)</span>
-        <input name="heart_rate_bpm" type="number" step="1" min="0" inputmode="numeric" value="{{ form.heart_rate_bpm or '' }}">
-        {{ err('heart_rate_bpm') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.neck_in }}">
-        <span>Neck (in)</span>
-        <input name="neck_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.neck_in or '' }}">
-        {{ err('neck_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.waist_in }}">
-        <span>Waist (in)</span>
-        <input name="waist_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.waist_in or '' }}">
-        {{ err('waist_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.hips_in }}">
-        <span>Hips (in)</span>
-        <input name="hips_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.hips_in or '' }}">
-        {{ err('hips_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.biceps_l_in }}">
-        <span>Biceps L (in)</span>
-        <input name="biceps_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.biceps_l_in or '' }}">
-        {{ err('biceps_l_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.biceps_r_in }}">
-        <span>Biceps R (in)</span>
-        <input name="biceps_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.biceps_r_in or '' }}">
-        {{ err('biceps_r_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.forearm_l_in }}">
-        <span>Forearm L (in)</span>
-        <input name="forearm_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.forearm_l_in or '' }}">
-        {{ err('forearm_l_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.forearm_r_in }}">
-        <span>Forearm R (in)</span>
-        <input name="forearm_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.forearm_r_in or '' }}">
-        {{ err('forearm_r_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.quad_l_in }}">
-        <span>Quad L (in)</span>
-        <input name="quad_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.quad_l_in or '' }}">
-        {{ err('quad_l_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.quad_r_in }}">
-        <span>Quad R (in)</span>
-        <input name="quad_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.quad_r_in or '' }}">
-        {{ err('quad_r_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.calf_l_in }}">
-        <span>Calf L (in)</span>
-        <input name="calf_l_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.calf_l_in or '' }}">
-        {{ err('calf_l_in') }}
-      </label>
-      <label class="field {{ 'has-error' if errors.calf_r_in }}">
-        <span>Calf R (in)</span>
-        <input name="calf_r_in" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.calf_r_in or '' }}">
-        {{ err('calf_r_in') }}
-      </label>
     </div>
-    <button type="submit">Log a measurement</button>
+
+    <div class="mini-silhouette-wrap">
+      <svg viewBox="0 0 320 440" class="body-silhouette" aria-hidden="true">
+        <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      {{ mini_input('neck_in', silhouette_shape.points.neck_in.l, 'Neck') }}
+      {{ mini_input('waist_in', silhouette_shape.points.waist_in.l, 'Waist') }}
+      {{ mini_input('hips_in', silhouette_shape.points.hips_in.l, 'Hips') }}
+      {{ mini_input('biceps_l_in', silhouette_shape.points.biceps.l, 'Biceps L') }}
+      {{ mini_input('biceps_r_in', silhouette_shape.points.biceps.r, 'Biceps R') }}
+      {{ mini_input('forearm_l_in', silhouette_shape.points.forearm.l, 'Forearm L') }}
+      {{ mini_input('forearm_r_in', silhouette_shape.points.forearm.r, 'Forearm R') }}
+      {{ mini_input('quad_l_in', silhouette_shape.points.quad.l, 'Quad L') }}
+      {{ mini_input('quad_r_in', silhouette_shape.points.quad.r, 'Quad R') }}
+      {{ mini_input('calf_l_in', silhouette_shape.points.calf.l, 'Calf L') }}
+      {{ mini_input('calf_r_in', silhouette_shape.points.calf.r, 'Calf R') }}
+    </div>
+
+    <div class="dialog-submit-row">
+      <button type="submit" class="btn btn-primary">Log a measurement</button>
+    </div>
   </form>
 </dialog>
 

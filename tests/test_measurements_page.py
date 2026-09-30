@@ -231,7 +231,7 @@ def test_silhouette_trend_coloring_limbs_are_reversed(client, db):
 def test_measurement_entry_is_a_dialog_opened_by_a_button(client, db, me):
     try:
         t = client.get("/measurements").text
-        assert '<dialog id="measurement-dialog" class="dialog">' in t
+        assert '<dialog id="measurement-dialog" class="dialog dialog-wide">' in t
         assert 'data-action="open-measurement-dialog"' in t
     finally:
         _clear_measurements(me)
@@ -529,7 +529,24 @@ def test_weight_field_has_info_tooltip(client, db, me):
 def test_entry_form_fields_use_the_scoped_beside_label_layout(client, db, me):
     try:
         t = client.get("/measurements").text
-        assert 'class="grid measurement-entry-grid"' in t
+        assert 'class="measurement-entry-top-grid"' in t
+    finally:
+        _clear_measurements(me)
+
+
+def test_entry_dialog_has_a_mini_silhouette_with_positioned_inputs(client, db, me):
+    try:
+        t = client.get("/measurements").text
+        assert 'class="mini-silhouette-wrap"' in t
+        for field in ("neck_in", "waist_in", "hips_in", "biceps_l_in", "biceps_r_in",
+                     "forearm_l_in", "forearm_r_in", "quad_l_in", "quad_r_in", "calf_l_in", "calf_r_in"):
+            assert f'name="{field}"' in t
+        # DOM order: head-down for the body fields, with Weight/HeartRate/Systolic/Diastolic
+        # appearing earlier (in the top grid) ahead of all of them.
+        assert t.index('name="weight_lbs"') < t.index('name="neck_in"')
+        assert t.index('name="neck_in"') < t.index('name="waist_in"') < t.index('name="hips_in"')
+        assert t.index('name="hips_in"') < t.index('name="biceps_l_in"') < t.index('name="biceps_r_in"')
+        assert t.index('name="calf_l_in"') < t.index('name="calf_r_in"')
     finally:
         _clear_measurements(me)
 
