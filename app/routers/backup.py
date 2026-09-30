@@ -94,7 +94,8 @@ def export_json(session: Session = Depends(get_session), uid: int = Depends(curr
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid)
         .options(selectinload(Protocol.goals), selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
-                selectinload(Protocol.items).selectinload(ProtocolItem.steps))
+                selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+                selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs))
         .order_by(Protocol.name)
     ).all()
     payload = {

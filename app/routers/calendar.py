@@ -130,6 +130,7 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
         select(Protocol).where(Protocol.owner_id == uid).order_by(Protocol.id).options(
             selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
             selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+            selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     colors = {p.id: i % PALETTE_SIZE for i, p in enumerate(protocols)}

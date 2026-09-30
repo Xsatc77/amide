@@ -92,6 +92,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
         select(Protocol).where(Protocol.owner_id == uid).options(
             selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
             selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+            selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     occs = occurrences(protocols, today, today)

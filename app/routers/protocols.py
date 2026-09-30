@@ -37,6 +37,7 @@ def _protocol_query(uid: int):
         selectinload(Protocol.goals),
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
         selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+        selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
     )
 
 
@@ -48,6 +49,7 @@ def _shared_protocol_query(uid: int):
         selectinload(Protocol.goals),
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
         selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+        selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
     )
 
 

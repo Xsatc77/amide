@@ -74,6 +74,20 @@ def test_month_view(client):
     assert 'href="/calendar?view=month&date=2026-08-15"' in t and 'href="/calendar?view=month&date=2026-10-15"' in t
 
 
+def test_month_view_respects_a_cycle_off(client, db):
+    from app.models import ProtocolItem, ProtocolItemCycleOff
+    pid = make(client, name="Cycled", items={
+        "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am",
+    })
+    with SessionLocal() as s:
+        item = s.scalar(select(ProtocolItem).where(ProtocolItem.protocol_id == pid))
+        s.add(ProtocolItemCycleOff(protocol_item_id=item.id, start_week=1, end_week=52))
+        s.commit()
+    t = page(client, view="month", date="2026-09-15")
+    assert 'data-key="{}|2026-09-15"'.format(pid) not in t
+
+
 def test_month_view_marks_dont_merge_across_days(client):
     """The old bar-per-protocol layout merged every consecutive due day into one spanning bar --
     the redesign gives each day its own independent mark instead, so a daily protocol shows a

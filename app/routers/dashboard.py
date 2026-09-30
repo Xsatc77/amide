@@ -50,6 +50,7 @@ def _todays_schedule(session: Session, uid: int, today: date) -> list[dict]:
         select(Protocol).where(Protocol.owner_id == uid).options(
             selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
             selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+            selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     occs = occurrences(protocols, today, today)
@@ -80,6 +81,7 @@ def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
         select(Protocol).where(Protocol.owner_id == uid).options(
             selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
             selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+            selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     occs = occurrences(protocols, since, today)
