@@ -40,6 +40,15 @@ def _get_visible_panel(session: Session, panel_id: int, uid: int) -> LabPanel:
     return panel
 
 
+def _get_own_panel(session: Session, panel_id: int, uid: int) -> LabPanel:
+    """Like `_get_visible_panel`, but never a shared panel -- editing is owner-only, since a panel
+    shared with you for viewing was never yours to change."""
+    panel = session.scalar(_lab_query(uid).where(LabPanel.id == panel_id))
+    if panel is None:
+        raise HTTPException(404, "Lab panel not found")
+    return panel
+
+
 # ---------------------------------------------------------------- display helpers
 
 def _result_view(r: LabResult) -> dict:
@@ -72,6 +81,21 @@ def _panel_view(session: Session, p: LabPanel, owner_name: str | None = None) ->
         "active_protocols": [
             {"peptide_name": d["peptide_name"], "dose_value": d["dose_value"], "dose_unit": d["dose_unit"]}
             for d in doses
+        ],
+    }
+
+
+def _panel_edit_data(p: LabPanel) -> dict:
+    """Raw, editable field values for one of the viewer's OWN panels -- unlike `_panel_view`
+    (display-only: resolved marker label, no raw enum name), this carries exactly what the New/Edit
+    dialog's own row template needs to repopulate a <select> and every input for editing."""
+    return {
+        "id": p.id, "drawn_at": p.drawn_at.isoformat(), "notes": p.notes or "",
+        "rows": [
+            {"marker": r.marker.name, "marker_other": r.marker_other or "",
+             "value": r.value, "unit": r.unit or "",
+             "range_low": r.range_low, "range_high": r.range_high}
+            for r in p.results
         ],
     }
 
@@ -135,45 +159,21 @@ def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifeti
     panels.sort(key=lambda v: v["drawn_at"], reverse=True)
 
     return {"panels": panels, "lab_markers": list(LabMarker),
-           "lab_charts": {"range": range_key, "series": _labs_charts(own_panels, window_start)}}
+           "lab_charts": {"range": range_key, "series": _labs_charts(own_panels, window_start)},
+           "own_panels_for_edit": [_panel_edit_data(p) for p in own_panels]}
 
 
-# ---------------------------------------------------------------- routes
-
-@router.get("/labs/panels/{panel_id}/report")
-def get_lab_report(panel_id: int, session: Session = Depends(get_session),
-        uid: int = Depends(current_user_id)):
-    panel = _get_visible_panel(session, panel_id, uid)
-    if not panel.report_filename:
-        raise HTTPException(404, "This panel has no report attached")
-    path = uploads.lab_report_path(panel.report_filename)
-    if not path.exists():
-        raise HTTPException(404, "Lab report file is missing from disk")
-    return FileResponse(path, media_type=uploads.media_type(panel.report_filename),
-                        headers={"X-Content-Type-Options": "nosniff"},
-                        content_disposition_type="inline")
+def _at(items: list, i: int) -> str:
+    return str(items[i]).strip() if i < len(items) else ""
 
 
-@router.post("/labs/panels")
-async def create_lab_panel(request: Request, session: Session = Depends(get_session),
-                           uid: int = Depends(current_user_id)):
-    form = await request.form()
-
-    def _raw(field: str) -> str:
-        return str(form.get(field, "")).strip()
-
-    errors: dict[str, str] = {}
-
-    drawn_at_raw = _raw("drawn_at")
-    drawn_at: date | None = None
-    if not drawn_at_raw:
-        errors["drawn_at"] = "Draw date is required."
-    else:
-        try:
-            drawn_at = date.fromisoformat(drawn_at_raw)
-        except ValueError:
-            errors["drawn_at"] = "Enter a valid date."
-
+def _parse_lab_rows(form) -> tuple[list[dict], list[dict], dict]:
+    """(parsed_results, posted_rows, row_errors) from a submitted bulk-entry sheet's bracket-array
+    fields. A row with no value entered is silently skipped, not an error -- the sheet now ships
+    with 25 blank lines by default (Review Focus: filling in a handful of a much longer sheet is
+    the normal case, not an incomplete submission), so treating every unfilled line as "value
+    required" would make the sheet unusable as shipped. A row IS still validated normally, and can
+    still error, once it has a non-blank value -- only a fully-blank line is exempt."""
     markers = form.getlist("marker[]")
     values_raw = form.getlist("value[]")
     units = form.getlist("unit[]")
@@ -181,14 +181,10 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
     range_highs = form.getlist("range_high[]")
     marker_others = form.getlist("marker_other[]")
 
-    if not markers:
-        errors["rows"] = "At least one result row is required."
-
-    def _at(items: list, i: int) -> str:
-        return str(items[i]).strip() if i < len(items) else ""
-
+    errors: dict[str, str] = {}
     parsed_results: list[dict] = []
     posted_rows: list[dict] = []
+    any_filled = False
     for i, marker_raw in enumerate(markers):
         marker_raw = str(marker_raw).strip()
         value_raw = _at(values_raw, i)
@@ -197,6 +193,10 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
         range_high_raw = _at(range_highs, i)
         marker_other_raw = _at(marker_others, i)
 
+        if not value_raw:
+            continue  # an unfilled sheet line -- not a posted row at all
+
+        any_filled = True
         # Recorded up front, before any validation, so a re-render on error can rebuild every row
         # exactly as posted -- including rows that themselves have no error (Review Focus: a bulk
         # form must not discard already-correct rows just because one other row failed).
@@ -228,16 +228,13 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
         # fine but produce nan/inf chart coordinates downstream. Rejecting both here, before any DB
         # write, keeps a bad row a normal per-row 422 instead of a 500 or silently-broken chart.
         value: float | None = None
-        if not value_raw:
-            errors[f"value_{i}"] = "Value is required."
-        else:
-            try:
-                parsed_value = float(value_raw)
-                if not math.isfinite(parsed_value):
-                    raise ValueError
-                value = parsed_value
-            except ValueError:
-                errors[f"value_{i}"] = "Enter a number."
+        try:
+            parsed_value = float(value_raw)
+            if not math.isfinite(parsed_value):
+                raise ValueError
+            value = parsed_value
+        except ValueError:
+            errors[f"value_{i}"] = "Enter a number."
 
         range_low = range_high = None
         if range_low_raw:
@@ -268,6 +265,49 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
             "range_high": range_high,
         })
 
+    if not any_filled:
+        errors["rows"] = "Enter at least one result."
+    return parsed_results, posted_rows, errors
+
+
+@router.get("/labs/panels/{panel_id}/report")
+def get_lab_report(panel_id: int, session: Session = Depends(get_session),
+        uid: int = Depends(current_user_id)):
+    panel = _get_visible_panel(session, panel_id, uid)
+    if not panel.report_filename:
+        raise HTTPException(404, "This panel has no report attached")
+    path = uploads.lab_report_path(panel.report_filename)
+    if not path.exists():
+        raise HTTPException(404, "Lab report file is missing from disk")
+    return FileResponse(path, media_type=uploads.media_type(panel.report_filename),
+                        headers={"X-Content-Type-Options": "nosniff"},
+                        content_disposition_type="inline")
+
+
+async def _save_panel(request: Request, session: Session, uid: int, *, panel: LabPanel | None):
+    """Shared create/edit handling: `panel` is None for a new panel, or an existing owned panel to
+    overwrite in place. On success, redirects to the Labs tab; on any error, re-renders the whole
+    Measurements page (Labs tab) with the dialog set to reopen pre-filled with what was posted, per
+    this codebase's established error-reopen convention (see inventory.js/journal.js)."""
+    form = await request.form()
+
+    def _raw(field: str) -> str:
+        return str(form.get(field, "")).strip()
+
+    drawn_at_raw = _raw("drawn_at")
+    drawn_at: date | None = None
+    errors: dict[str, str] = {}
+    if not drawn_at_raw:
+        errors["drawn_at"] = "Draw date is required."
+    else:
+        try:
+            drawn_at = date.fromisoformat(drawn_at_raw)
+        except ValueError:
+            errors["drawn_at"] = "Enter a valid date."
+
+    parsed_results, posted_rows, row_errors = _parse_lab_rows(form)
+    errors.update(row_errors)
+
     notes_raw = _raw("notes")
     if len(notes_raw) > 2000:
         errors["notes"] = "Notes must be 2000 characters or fewer."
@@ -276,7 +316,7 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
     # writing it any earlier would leave an orphaned, unreferenced file on disk whenever some other
     # part of the same submission gets rejected with a 422 (and the browser can't refill a file
     # input, so a user fixing one bad row and resubmitting leaves yet another orphan each time).
-    report_filename = None
+    report_filename = panel.report_filename if panel else None
     report_file = form.get("report")
     if not errors and isinstance(report_file, UploadFile) and report_file.filename:
         try:
@@ -287,6 +327,7 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
     if errors:
         from app.routers import measurements  # deferred: measurements imports this module at load time
         lab_posted = {
+            "id": panel.id if panel else None,
             "drawn_at": drawn_at_raw,
             "notes": notes_raw,
             "rows": posted_rows,
@@ -295,9 +336,27 @@ async def create_lab_panel(request: Request, session: Session = Depends(get_sess
         return measurements._render(request, session, uid, tab="labs", errors=errors, status_code=422,
                                     extra={"lab_posted": lab_posted})
 
-    panel = LabPanel(owner_id=uid, drawn_at=drawn_at, notes=notes_raw or None,
-                     report_filename=report_filename)
+    if panel is None:
+        panel = LabPanel(owner_id=uid)
+        session.add(panel)
+    panel.drawn_at = drawn_at
+    panel.notes = notes_raw or None
+    panel.report_filename = report_filename
+    # Clear-and-rebuild, matching save_protocol's own idiom elsewhere in this codebase -- simplest
+    # way to reconcile an arbitrary add/remove/reorder of rows on an edit.
     panel.results = [LabResult(**r) for r in parsed_results]
-    session.add(panel)
     session.commit()
     return RedirectResponse("/measurements?tab=labs", status_code=303)
+
+
+@router.post("/labs/panels")
+async def create_lab_panel(request: Request, session: Session = Depends(get_session),
+                           uid: int = Depends(current_user_id)):
+    return await _save_panel(request, session, uid, panel=None)
+
+
+@router.post("/labs/panels/{panel_id}")
+async def edit_lab_panel(panel_id: int, request: Request, session: Session = Depends(get_session),
+                         uid: int = Depends(current_user_id)):
+    panel = _get_own_panel(session, panel_id, uid)
+    return await _save_panel(request, session, uid, panel=panel)

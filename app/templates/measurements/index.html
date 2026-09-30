@@ -530,16 +530,27 @@
 <section aria-labelledby="labs-heading">
   <h2 id="labs-heading" class="section-title">Labs</h2>
   <button type="button" class="btn btn-primary" data-action="open-lab-panel">New Panel</button>
+  {% if own_panels_for_edit %}
+  <label class="field" style="display: inline-flex; flex-direction: row; align-items: center; gap: 8px;">
+    <span class="sr-only">Panel to edit</span>
+    <select id="lab-edit-select">
+      {% for p in own_panels_for_edit %}
+      <option value="{{ p.id }}">{{ p.drawn_at }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="button" class="btn" data-action="open-edit-panel">Edit</button>
+  {% endif %}
 </section>
 
 {% if errors %}
 <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
 {% endif %}
 
-<dialog id="lab-dialog" class="dialog"{{ ' data-open-on-load' if errors }}>
-  <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate>
+<dialog id="lab-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
+  <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate data-lab-form>
     <header class="dialog-head">
-      <h2>New lab panel</h2>
+      <h2 data-lab-dialog-title>New lab panel</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
 
@@ -563,53 +574,46 @@
 
     <fieldset class="form-section">
       <legend>Results</legend>
+      <p class="muted small">Fill in as many lines as you need -- blank lines are ignored.</p>
       {{ err('rows') }}
-      <div data-lab-rows-container></div>
-      <button type="button" class="btn" data-action="add-lab-row">Add another result</button>
+      <div class="table-wrap">
+        <table class="lab-bulk-table">
+          <thead>
+            <tr><th>Marker</th><th>Value</th><th>Unit</th><th>High</th><th>Low</th><th></th></tr>
+          </thead>
+          <tbody data-lab-rows-container></tbody>
+        </table>
+      </div>
+      <button type="button" class="btn" data-action="add-lab-row">Add another line</button>
     </fieldset>
 
     <footer class="dialog-foot">
       <button type="button" class="btn" data-action="close">Cancel</button>
-      <button type="submit" class="btn btn-primary">Save panel</button>
+      <button type="submit" class="btn btn-primary" data-lab-dialog-submit>Save panel</button>
     </footer>
   </form>
 </dialog>
 
 <template id="lab-row-template">
-  <div class="grid" data-lab-row>
-    <label class="field">
-      <span>Marker</span>
+  <tr data-lab-row>
+    <td>
       <select name="marker[]" data-lab-marker-select>
         {% for m in lab_markers %}
         <option value="{{ m.name }}">{{ m.value }}</option>
         {% endfor %}
       </select>
-    </label>
-    <label class="field" data-lab-marker-other hidden>
-      <span>Other marker name</span>
-      <input name="marker_other[]" maxlength="80">
-    </label>
-    <label class="field">
-      <span>Value</span>
-      <input name="value[]" type="number" step="any" required>
-    </label>
-    <label class="field">
-      <span>Unit</span>
-      <input name="unit[]" maxlength="20">
-    </label>
-    <label class="field">
-      <span>Range low</span>
-      <input name="range_low[]" type="number" step="any">
-    </label>
-    <label class="field">
-      <span>Range high</span>
-      <input name="range_high[]" type="number" step="any">
-    </label>
-    <button type="button" class="btn btn-ghost" data-action="remove-lab-row">Remove</button>
-  </div>
+      <input name="marker_other[]" data-lab-marker-other hidden maxlength="80" placeholder="Other marker name">
+    </td>
+    <td><input name="value[]" type="number" step="any"></td>
+    <td><input name="unit[]" maxlength="20"></td>
+    <td><input name="range_high[]" type="number" step="any"></td>
+    <td><input name="range_low[]" type="number" step="any"></td>
+    <td><button type="button" class="btn btn-ghost btn-icon" data-action="remove-lab-row" aria-label="Remove line">×</button></td>
+  </tr>
 </template>
 
 <script type="application/json" id="lab-error-data">{{ (lab_posted or {}) | tojson }}</script>
+<script type="application/json" id="lab-panels-edit-data">{{ own_panels_for_edit | tojson }}</script>
 
 {% if lab_charts.series %}
 <section aria-labelledby="labs-charts-heading">

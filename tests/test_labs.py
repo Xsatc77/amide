@@ -514,3 +514,116 @@ def test_shared_panel_active_protocols_use_the_owners_doses_not_the_viewers(clie
                                      category=ShareCategory.PERSONAL_DATA).delete()
             s.commit()
         _clear_lab_panels(me, other_id)
+
+
+def test_blank_rows_in_a_bulk_sheet_are_silently_skipped(client, db):
+    """The sheet now ships with many blank lines by default -- an unfilled line must never be an
+    error, only a row that has a marker but no value would previously have been."""
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH", "FASTING_GLUCOSE", "LDL"],
+            "value[]": ["2.5", "", ""],
+            "unit[]": ["mIU/L", "", ""],
+            "range_low[]": ["", "", ""], "range_high[]": ["", "", ""],
+            "marker_other[]": ["", "", ""],
+        }, follow_redirects=False)
+        assert r.status_code == 303
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [panel] = s.scalars(select(LabPanel).where(LabPanel.owner_id == me_user.id)).all()
+            [result] = panel.results  # only the one filled-in row was saved
+            assert result.marker == LabMarker.TSH
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_all_blank_rows_is_a_422_not_a_silent_empty_panel(client, db):
+    me = _tester_id()
+    try:
+        r = client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH", "FASTING_GLUCOSE"], "value[]": ["", ""], "unit[]": ["", ""],
+            "range_low[]": ["", ""], "range_high[]": ["", ""], "marker_other[]": ["", ""],
+        })
+        assert r.status_code == 422
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            assert s.scalars(select(LabPanel).where(LabPanel.owner_id == me_user.id)).all() == []
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_edit_route_replaces_an_existing_panels_results(client, db):
+    me = _tester_id()
+    try:
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-20",
+            "marker[]": ["TSH"], "value[]": ["2.0"], "unit[]": ["mIU/L"],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        with SessionLocal() as s:
+            me_user = s.scalar(select(User).where(User.username_key == "tester"))
+            [panel] = s.scalars(select(LabPanel).where(LabPanel.owner_id == me_user.id)).all()
+            panel_id = panel.id
+
+        r = client.post(f"/labs/panels/{panel_id}", data={
+            "drawn_at": "2026-09-21",
+            "marker[]": ["FASTING_GLUCOSE"], "value[]": ["95"], "unit[]": ["mg/dL"],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        }, follow_redirects=False)
+        assert r.status_code == 303
+
+        with SessionLocal() as s:
+            edited = s.get(LabPanel, panel_id)
+            assert edited.drawn_at == date(2026, 9, 21)
+            [result] = edited.results
+            assert result.marker == LabMarker.FASTING_GLUCOSE and result.value == 95.0
+    finally:
+        _clear_lab_panels(me)
+
+
+def test_edit_route_rejects_another_users_panel(client, db):
+    me = _tester_id()
+    other = _logged_in_client("labseditother")
+    with SessionLocal() as s:
+        other_id = s.scalar(select(User.id).where(User.username_key == "labseditother"))
+    try:
+        other.post("/labs/panels", data={
+            "drawn_at": "2026-09-20",
+            "marker[]": ["TSH"], "value[]": ["2.0"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        with SessionLocal() as s:
+            [panel] = s.scalars(select(LabPanel).where(LabPanel.owner_id == other_id)).all()
+            panel_id = panel.id
+
+        r = client.post(f"/labs/panels/{panel_id}", data={
+            "drawn_at": "2026-09-21",
+            "marker[]": ["FASTING_GLUCOSE"], "value[]": ["95"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        assert r.status_code == 404
+    finally:
+        _clear_lab_panels(me, other_id)
+
+
+def test_edit_button_and_picker_only_appear_once_a_panel_exists(client, db):
+    me = _tester_id()
+    try:
+        t = _text(client.get("/measurements?tab=labs"))
+        assert 'data-action="open-edit-panel"' not in t
+        assert 'id="lab-edit-select"' not in t
+
+        client.post("/labs/panels", data={
+            "drawn_at": "2026-09-28",
+            "marker[]": ["TSH"], "value[]": ["2.5"], "unit[]": [""],
+            "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
+        })
+        t2 = _text(client.get("/measurements?tab=labs"))
+        assert 'data-action="open-edit-panel"' in t2
+        assert 'id="lab-edit-select"' in t2
+        assert '"marker": "TSH"' in t2  # the raw edit-data JSON carries the enum name, not the label
+    finally:
+        _clear_lab_panels(me)

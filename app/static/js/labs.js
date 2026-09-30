@@ -1,11 +1,16 @@
-// Labs tab (inside Weight & Measurements): the "New Panel" dialog open/close wiring and the
-// repeatable result-row section, mirroring inventory.js's addLine/data-action="add-line" pattern.
+// Labs tab (inside Weight & Measurements): the New Panel / Edit Panel dialog (shared between both
+// flows) and its bulk-entry sheet of repeatable result rows -- mirrors inventory.js's
+// addLine/data-action="add-line" pattern, extended to a compact <table> row (Marker/Value/Unit/
+// High/Low) and to pre-filling 25 blank lines by default, per the owner's own "bulk entry sheet"
+// request.
 (() => {
   const dialog = document.getElementById("lab-dialog");
   if (!dialog) return;  // only present on the Labs tab
   const form = dialog.querySelector("form");
   const rowsContainer = dialog.querySelector("[data-lab-rows-container]");
   const template = document.getElementById("lab-row-template");
+  const titleEl = dialog.querySelector("[data-lab-dialog-title]");
+  const DEFAULT_BLANK_ROWS = 25;
 
   function clearRowErrors(row) {
     row.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
@@ -14,11 +19,10 @@
 
   function wireRow(row) {
     const select = row.querySelector("[data-lab-marker-select]");
-    const otherField = row.querySelector("[data-lab-marker-other]");
-    const otherInput = otherField.querySelector('[name="marker_other[]"]');
+    const otherInput = row.querySelector("[data-lab-marker-other]");
     function syncOther() {
       const isOther = select.value === "OTHER";
-      otherField.hidden = !isOther;
+      otherInput.hidden = !isOther;
       // Clear any stale text left over from a previous "Other" selection when the marker changes
       // away from it -- otherwise the hidden field's old value would still be posted with the row
       // (rejected server-side with no visible indication why, since the field itself is now
@@ -29,10 +33,7 @@
     }
     select.addEventListener("change", syncOther);
     syncOther();
-    row.querySelector('[data-action="remove-lab-row"]').addEventListener("click", () => {
-      // Always leave at least one row behind so the form never submits with zero rows.
-      if (rowsContainer.querySelectorAll("[data-lab-row]").length > 1) row.remove();
-    });
+    row.querySelector('[data-action="remove-lab-row"]').addEventListener("click", () => row.remove());
   }
 
   function addRow() {
@@ -41,6 +42,10 @@
     const row = rowsContainer.lastElementChild;
     wireRow(row);
     return row;
+  }
+
+  function addBlankRows(n) {
+    for (let i = 0; i < n; i++) addRow();
   }
 
   // Fills one row's fields from a posted-row object (raw strings, as posted) and marks any of
@@ -52,11 +57,12 @@
     if (rowData.marker) select.value = rowData.marker;
     select.dispatchEvent(new Event("change", { bubbles: true }));  // syncs the Other-field visibility
     row.querySelector('[name="marker_other[]"]').value = rowData.marker_other || "";
-    row.querySelector('[name="value[]"]').value = rowData.value || "";
+    row.querySelector('[name="value[]"]').value = rowData.value ?? "";
     row.querySelector('[name="unit[]"]').value = rowData.unit || "";
-    row.querySelector('[name="range_low[]"]').value = rowData.range_low || "";
-    row.querySelector('[name="range_high[]"]').value = rowData.range_high || "";
+    row.querySelector('[name="range_low[]"]').value = rowData.range_low ?? "";
+    row.querySelector('[name="range_high[]"]').value = rowData.range_high ?? "";
 
+    if (!rowErrors) return;
     const fieldByErrorKey = {
       marker: 'select[name="marker[]"]',
       marker_other: '[name="marker_other[]"]',
@@ -66,19 +72,17 @@
       range_high: '[name="range_high[]"]',
       range: '[name="range_low[]"]',  // a low/high mismatch is flagged on the low field
     };
-    const otherField = row.querySelector("[data-lab-marker-other]");
+    const otherInput = row.querySelector("[data-lab-marker-other]");
     for (const [key, selector] of Object.entries(fieldByErrorKey)) {
       const message = rowErrors[key];
       if (!message) continue;
       // marker_other's own field can be hidden (its marker isn't "Other") -- syncOther above
-      // just set otherField.hidden from the row's *current* marker. An error inside a hidden
-      // element is never seen by the user (only the generic top-of-form banner would show), so
-      // fall back to the visible marker <select> instead of the hidden label.
-      const targetSelector = (key === "marker_other" && otherField.hidden)
-        ? fieldByErrorKey.marker : selector;
+      // just set its *current* visibility from the row's current marker. An error inside a
+      // hidden element is never seen by the user, so fall back to the visible marker <select>.
+      const targetSelector = (key === "marker_other" && otherInput.hidden) ? fieldByErrorKey.marker : selector;
       const el = row.querySelector(targetSelector);
       if (!el) continue;
-      el.closest("label")?.classList.add("has-error");
+      el.classList.add("has-error");
       const small = document.createElement("small");
       small.className = "error";
       small.textContent = message;
@@ -86,15 +90,44 @@
     }
   }
 
+  function resetForNew() {
+    form.reset();
+    form.action = "/labs/panels";
+    delete form.dataset.labPanelId;
+    if (titleEl) titleEl.textContent = "New lab panel";
+    rowsContainer.innerHTML = "";
+    addBlankRows(DEFAULT_BLANK_ROWS);
+  }
+
+  function openForEdit(panelId) {
+    const data = JSON.parse(document.getElementById("lab-panels-edit-data").textContent || "[]");
+    const panel = data.find((p) => String(p.id) === String(panelId));
+    if (!panel) return;
+    form.reset();
+    form.action = `/labs/panels/${panel.id}`;
+    form.dataset.labPanelId = panel.id;
+    if (titleEl) titleEl.textContent = "Edit lab panel";
+    form.elements["drawn_at"].value = panel.drawn_at || "";
+    form.elements["notes"].value = panel.notes || "";
+    rowsContainer.innerHTML = "";
+    panel.rows.forEach((rowData) => fillRow(addRow(), rowData));
+    // Still a bulk sheet while editing -- pad with blank lines so there's room to add new results
+    // alongside fixing existing ones, not just enough rows to hold what's already there.
+    const extra = Math.max(0, DEFAULT_BLANK_ROWS - panel.rows.length);
+    addBlankRows(extra);
+    dialog.showModal();
+  }
+
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
     const action = btn.dataset.action;
     if (action === "open-lab-panel") {
-      form.reset();
-      rowsContainer.innerHTML = "";
-      addRow();
+      resetForNew();
       dialog.showModal();
+    } else if (action === "open-edit-panel") {
+      const select = document.getElementById("lab-edit-select");
+      if (select && select.value) openForEdit(select.value);
     } else if (action === "close" && dialog.contains(btn)) {
       dialog.close();
     } else if (action === "add-lab-row") {
@@ -113,13 +146,19 @@
   // Server re-rendered the page after a validation error: rebuild every posted row (not just a
   // blank one) and each row's own field error(s) from lab-error-data, then reopen -- a bulk-entry
   // form must not force the user to retype already-correct rows just because one other row failed.
+  // Works for both New and Edit: lab-error-data carries the panel id the form was posted to, if any.
   if (dialog.hasAttribute("data-open-on-load")) {
     const data = JSON.parse(document.getElementById("lab-error-data").textContent || "{}");
+    if (data.id) {
+      form.action = `/labs/panels/${data.id}`;
+      form.dataset.labPanelId = data.id;
+      if (titleEl) titleEl.textContent = "Edit lab panel";
+    }
     form.elements["drawn_at"].value = data.drawn_at || "";
     form.elements["notes"].value = data.notes || "";
 
     rowsContainer.innerHTML = "";
-    const rows = data.rows && data.rows.length ? data.rows : [{}];
+    const rows = data.rows && data.rows.length ? data.rows : [];
     const rowErrors = data.errors || {};
     rows.forEach((rowData, i) => {
       const row = addRow();
@@ -128,11 +167,13 @@
         marker: rowErrors[`marker_${i}`],
         marker_other: rowErrors[`marker_other_${i}`],
         value: rowErrors[`value_${i}`],
+        unit: rowErrors[`unit_${i}`],
         range_low: rowErrors[`range_low_${i}`],
         range_high: rowErrors[`range_high_${i}`],
         range: rowErrors[`range_${i}`],
       });
     });
+    addBlankRows(Math.max(0, DEFAULT_BLANK_ROWS - rows.length));
     dialog.showModal();
   }
 })();
