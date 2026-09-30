@@ -240,6 +240,18 @@ def test_new_builder_embeds_merged_suggestions(client, db):
     assert form_action(r.text) == "/protocols"
 
 
+def test_edit_page_shows_existing_cycle_offs(client, db):
+    client.post("/protocols", data={
+        "name": "Edit Cycle Test", "start_date": "2026-09-01", "weeks": "12", "goal": "fat-loss",
+        "items-0-peptide_id": str(peptide_id(db, "BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am", "items-0-route": "subq",
+        "items-0-cycle_offs-0-start_week": "4", "items-0-cycle_offs-0-weeks": "3",
+    })
+    pid = db.scalar(select(Protocol.id).where(Protocol.name == "Edit Cycle Test"))
+    t = client.get(f"/protocols/{pid}/edit").text
+    assert '"start_week": "4"' in t and '"weeks": "3"' in t
+
+
 def test_saving_a_protocol_persists_cycle_offs(client, db):
     # items-1 (BPC-157) has no titration steps in valid_form, so its cycle-off can't collide.
     client.post("/protocols", data=valid_form(db, **{
