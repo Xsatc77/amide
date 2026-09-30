@@ -6,6 +6,13 @@ from app.models import FitnessTestExerciseName, FitnessTestResult
 from app.routers.fitness_test import fitness_test_logged_dates
 
 
+def test_charts_render_in_a_quad_grid_and_entry_is_a_dialog(client, db):
+    t = client.get("/fitness-test").text
+    assert 'class="fitness-test-grid"' in t
+    assert '<dialog id="fitness-test-dialog" class="dialog">' in t
+    assert 'data-action="open-fitness-test-dialog"' in t
+
+
 def test_log_a_fitness_test_result(client, db):
     r = client.post("/fitness-test", data={
         "tested_at": "2026-01-08",

@@ -349,6 +349,7 @@ form.inline { display: inline; }
 }
 .mini-field.has-error input { border-color: var(--danger); }
 .entry-cta-row { margin-top: 16px; }
+.fitness-test-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .chart-point { cursor: pointer; }
 .chart-point:hover { r: 4; }
 .chart-tooltip {
@@ -881,6 +882,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .cal-month-head span { padding: 6px 2px; text-align: center; font-size: 0.65rem; }
   .cal-mark { font-size: 0.6rem; padding: 1px 3px; }
   .overview-row { grid-template-columns: 1fr; }
+  .fitness-test-grid { grid-template-columns: 1fr; }
   .cal-daynum { margin-left: 2px; font-size: 0.78rem; }
   .cal-more { font-size: 0.6rem; margin-left: 2px; }
   .cal-controls { width: 100%; }

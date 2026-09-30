@@ -3,29 +3,55 @@
 {% block title %}Fitness Test{% endblock %}
 
 {% block content %}
-<div class="page-head"><div><h1>Fitness Test</h1></div></div>
+<div class="page-head">
+  <div><h1>Fitness Test</h1></div>
+  <button type="button" class="btn btn-primary" data-action="open-fitness-test-dialog">+ Log a new test</button>
+</div>
 
-{% for e in exercises %}
-<section class="lib-section">
-  <h2 class="section-title">{{ e.label }}</h2>
-  {% if e.suggest_retest %}
-  <p class="note">It's been a while — consider a retest for {{ e.label }}.</p>
-  {% endif %}
-  {% if e.chart %}
-  <svg viewBox="0 0 {{ e.chart.width }} {{ e.chart.height }}" class="measurement-chart" role="img" aria-label="{{ e.label }} over time">
-    <polyline points="{{ e.chart.poly }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
-  </svg>
-  {% else %}
-  <p class="muted small">Log at least two results to see a trend.</p>
-  {% endif %}
-</section>
-{% endfor %}
-
-<form method="post" action="/fitness-test">
-  <label>Date <input type="date" name="tested_at" value="{{ today }}" required></label>
+<div class="fitness-test-grid">
   {% for e in exercises %}
-  <label>{{ e.label }} <input type="number" step="0.1" name="{{ e.key }}"></label>
+  <section class="lib-section">
+    <h2 class="section-title">{{ e.label }}</h2>
+    {% if e.suggest_retest %}
+    <p class="note">It's been a while — consider a retest for {{ e.label }}.</p>
+    {% endif %}
+    {% if e.chart %}
+    <svg viewBox="0 0 {{ e.chart.width }} {{ e.chart.height }}" class="measurement-chart" role="img" aria-label="{{ e.label }} over time">
+      <polyline points="{{ e.chart.poly }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+    </svg>
+    {% else %}
+    <p class="muted small">Log at least two results to see a trend.</p>
+    {% endif %}
+  </section>
   {% endfor %}
-  <button type="submit" class="btn btn-primary">Log a new test</button>
-</form>
+</div>
+
+<dialog id="fitness-test-dialog" class="dialog">
+  <form method="post" action="/fitness-test" class="settings-form" novalidate>
+    <header class="dialog-head">
+      <h2>Log a new test</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
+    </header>
+    <label class="field">
+      <span>Date</span>
+      <input type="date" name="tested_at" value="{{ today }}" required>
+    </label>
+    <div class="grid">
+      {% for e in exercises %}
+      <label class="field">
+        <span>{{ e.label }}</span>
+        <input type="number" step="0.1" name="{{ e.key }}">
+      </label>
+      {% endfor %}
+    </div>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close">Cancel</button>
+      <button type="submit" class="btn btn-primary">Log a new test</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/fitness-test.js') }}" defer></script>
 {% endblock %}
