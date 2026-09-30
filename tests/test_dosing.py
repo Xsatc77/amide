@@ -194,6 +194,14 @@ def test_today_page_shows_site_picker_for_subq_route(client, db):
     assert '"value": "glute_l"' not in t and '&#34;value&#34;: &#34;glute_l&#34;' not in t  # SubQ excludes Glute
 
 
+def test_site_picker_uses_the_real_body_silhouette(client, db):
+    t = client.get("/today").text
+    assert 'viewBox="0 0 320 440"' in t
+    # The old hand-drawn blob path started with this exact control-point sequence -- gone now.
+    assert "M100 10 C80 10 70 30" not in t
+    assert 'data-site="arm_l"' in t and 'data-site="glute_r"' in t
+
+
 def test_today_shows_logged_entries_with_an_undo_button(client, db):
     protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
     client.post("/today/log", data={

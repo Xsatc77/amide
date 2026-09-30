@@ -93,17 +93,16 @@
     <h2>Injection site</h2>
     <button type="button" class="btn btn-ghost btn-icon" data-action="close-site" aria-label="Close">×</button>
   </header>
-  <svg viewBox="0 0 200 400" class="body-silhouette" aria-label="Body diagram with injection sites">
-    <path d="M100 10 C80 10 70 30 70 50 C70 70 80 90 70 110 L60 180 L55 260 L60 340 L70 390 L90 390 L92 260 L100 200 L108 260 L110 390 L130 390 L140 340 L145 260 L140 180 L130 110 C120 90 130 70 130 50 C130 30 120 10 100 10 Z"
-          fill="none" stroke="currentColor" stroke-width="2"/>
-    <circle data-site="abdomen_l" cx="90" cy="150" r="8"></circle>
-    <circle data-site="abdomen_r" cx="110" cy="150" r="8"></circle>
-    <circle data-site="thigh_l" cx="82" cy="240" r="8"></circle>
-    <circle data-site="thigh_r" cx="118" cy="240" r="8"></circle>
-    <circle data-site="arm_l" cx="65" cy="120" r="8"></circle>
-    <circle data-site="arm_r" cx="135" cy="120" r="8"></circle>
-    <circle data-site="glute_l" cx="85" cy="200" r="8"></circle>
-    <circle data-site="glute_r" cx="115" cy="200" r="8"></circle>
+  <svg viewBox="0 0 320 440" class="body-silhouette" aria-label="Body diagram with injection sites">
+    <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
+    <circle data-site="arm_l" cx="{{ silhouette_shape.points.biceps.l[0] }}" cy="{{ silhouette_shape.points.biceps.l[1] }}" r="9"></circle>
+    <circle data-site="arm_r" cx="{{ silhouette_shape.points.biceps.r[0] }}" cy="{{ silhouette_shape.points.biceps.r[1] }}" r="9"></circle>
+    <circle data-site="abdomen_l" cx="132" cy="170" r="9"></circle>
+    <circle data-site="abdomen_r" cx="188" cy="170" r="9"></circle>
+    <circle data-site="glute_l" cx="135" cy="222" r="9"></circle>
+    <circle data-site="glute_r" cx="185" cy="222" r="9"></circle>
+    <circle data-site="thigh_l" cx="{{ silhouette_shape.points.quad.l[0] }}" cy="{{ silhouette_shape.points.quad.l[1] }}" r="9"></circle>
+    <circle data-site="thigh_r" cx="{{ silhouette_shape.points.quad.r[0] }}" cy="{{ silhouette_shape.points.quad.r[1] }}" r="9"></circle>
   </svg>
   <div class="site-legend">
     <span><i class="site-dot site-dot-last"></i> Last used</span>
