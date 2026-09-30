@@ -40,9 +40,10 @@
           <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
           {% if item.protocol_item_id in site_data %}
           <input type="hidden" name="injection_site" value="{{ site_data[item.protocol_item_id].recommended or '' }}" data-site-input>
-          <button type="button" class="btn btn-ghost" data-action="pick-site" data-item-id="{{ item.protocol_item_id }}">Pick site</button>
-          {% endif %}
+          <button type="button" class="btn btn-primary" data-action="log-dose" data-needs-site data-item-id="{{ item.protocol_item_id }}">Log dose</button>
+          {% else %}
           <button type="submit" class="btn btn-primary" data-action="log-dose">Log dose</button>
+          {% endif %}
         </form>
         <form method="post" action="/today/skip" class="inline">
           <input type="hidden" name="protocol_id" value="{{ occ.protocol_id }}">
@@ -56,6 +57,24 @@
   </tbody>
 </table>
 </div>
+{% endif %}
+
+{% if logged_today %}
+<section class="lib-section">
+  <h2 class="section-title">Logged today</h2>
+  <ul class="plain-list">
+    {% for log in logged_today %}
+    <li>
+      <span>{{ log.peptide_name }}{% if log.dose_value %} — {{ log.dose_value }} {{ log.dose_unit.value }}{% endif %}
+        · {{ log.scheduled_time_of_day.label }}{% if log.status.value == 'skipped' %} <span class="tag">Skipped</span>{% endif %}</span>
+      <form method="post" action="/today/undo" class="inline">
+        <input type="hidden" name="dose_log_id" value="{{ log.id }}">
+        <button type="submit" class="btn btn-ghost">Undo</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
 {% endif %}
 
 {% if workout_days_due %}

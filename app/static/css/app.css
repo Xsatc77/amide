@@ -575,6 +575,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .side-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .side-head .section-title { margin: 0; }
 .plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.plain-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .dose-range { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .goal-checks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; }
 .lib-edit { max-width: 760px; }

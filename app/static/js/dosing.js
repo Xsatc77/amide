@@ -23,7 +23,11 @@
     });
   }
 
-  document.querySelectorAll('[data-action="pick-site"]').forEach((btn) => btn.addEventListener("click", () => {
+  // "Log dose" itself opens the picker for any item that needs a site -- picking one both fills
+  // it in AND submits, so there's a single action per row instead of a separate "Pick site" button
+  // easy to miss next to it (a real mis-click the owner ran into: hitting "Log dose" logged the
+  // item on its bare recommended default instead of opening the picker).
+  document.querySelectorAll('[data-action="log-dose"][data-needs-site]').forEach((btn) => btn.addEventListener("click", () => {
     activeForm = btn.closest("form");
     paintDots(btn.dataset.itemId);
     dialog.showModal();
@@ -34,6 +38,7 @@
     const input = activeForm.querySelector("[data-site-input]");
     if (input) input.value = circle.dataset.site;
     dialog.close();
+    activeForm.submit();
   }));
 
   dialog.querySelectorAll('[data-action="close-site"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));

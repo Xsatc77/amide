@@ -194,6 +194,76 @@ def test_today_page_shows_site_picker_for_subq_route(client, db):
     assert '"value": "glute_l"' not in t and '&#34;value&#34;: &#34;glute_l&#34;' not in t  # SubQ excludes Glute
 
 
+def test_today_shows_logged_entries_with_an_undo_button(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    })
+    t = html.unescape(client.get("/today").text)
+    assert "Logged today" in t and "Retatrutide" in t
+    assert 'action="/today/undo"' in t
+
+
+def test_undo_removes_the_log_and_restores_vial_volume(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    })
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(1.6)
+
+    r = client.post("/today/undo", data={"dose_log_id": str(log.id)}, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.scalars(select(DoseLog)).all() == []
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(2.0)  # restored
+
+
+def test_undo_refuses_a_dose_not_scheduled_for_today(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    yesterday = date.today() - timedelta(days=1)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": yesterday.isoformat(),
+    })
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+    r = client.post("/today/undo", data={"dose_log_id": str(log.id)})
+    assert r.status_code == 422
+    with SessionLocal() as s:
+        assert s.scalars(select(DoseLog)).all() != []  # untouched
+
+
+def test_undo_requires_ownership(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    client.post("/today/log", data={
+        "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+        "scheduled_date": date.today().isoformat(),
+    })
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+    other = TestClient(app, follow_redirects=False)
+    other.post("/notice", data={"understand": "1"})
+    other.post("/register", data={"username": "DosingUndoOther", "password": "DosingOther1!", "confirm": "DosingOther1!"})
+    r = other.post("/today/undo", data={"dose_log_id": str(log.id)})
+    assert r.status_code == 404
+    with SessionLocal() as s:
+        assert s.scalars(select(DoseLog)).all() != []  # untouched
+
+
+def test_log_dose_button_opens_site_picker_instead_of_submitting_when_a_site_is_needed(client, db):
+    """The owner's own misclick report: a separate "Pick site" button next to "Log dose" was too
+    easy to hit the wrong one of. Log dose itself must now be a non-submitting button for any item
+    that needs a site, not a submit button -- the site dialog is what actually submits, once a site
+    is chosen."""
+    _setup_protocol_with_vial(client, db)  # SubQ route -> needs a site
+    t = html.unescape(client.get("/today").text)
+    assert '<button type="button" class="btn btn-primary" data-action="log-dose" data-needs-site' in t
+
+
 def test_log_dose_with_explicit_site_records_it(client, db):
     protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
     client.post("/today/log", data={

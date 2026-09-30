@@ -97,10 +97,10 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     occs = occurrences(protocols, today, today)
     all_due = [(occ, item) for occ in occs for item in occ.items]
 
-    logged_ids = {
-        (dl.protocol_item_id) for dl in session.scalars(
-            select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date == today))
-    }
+    todays_logs = session.scalars(
+        select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date == today)
+        .order_by(DoseLog.logged_at)).all()
+    logged_ids = {dl.protocol_item_id for dl in todays_logs}
     due = [(occ, item) for occ, item in all_due if item.protocol_item_id not in logged_ids]
 
     from app.routers.workouts import workouts_due_today
@@ -158,6 +158,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
         "volume_text": volume_text, "empty_vial": empty_vial, "workout_days_due": workout_days_due,
+        "logged_today": todays_logs,
     })
 
 
@@ -261,5 +262,33 @@ async def skip_dose(request: Request, session: Session = Depends(get_session), u
         route=item.route.value, scheduled_date=scheduled_date, scheduled_time_of_day=item.time_of_day,
         status=DoseStatus.SKIPPED, logged_at=datetime.now(timezone.utc),
     ))
+    session.commit()
+    return RedirectResponse("/today", status_code=303)
+
+
+@router.post("/today/undo")
+async def undo_dose(request: Request, session: Session = Depends(get_session),
+                    uid: int = Depends(current_user_id)):
+    """Removes a logged dose or skip -- only one scheduled for TODAY, never older history, so this
+    is strictly an "I just misclicked" correction, not a way to edit the record after the fact. A
+    dose that drew down an Active Vial gets that volume restored, so undoing never leaves a vial
+    permanently short."""
+    form = await request.form()
+    try:
+        log_id = int(form.get("dose_log_id", ""))
+    except (TypeError, ValueError):
+        raise HTTPException(404)
+    log = session.get(DoseLog, log_id)
+    if log is None or log.owner_id != uid:
+        raise HTTPException(404, "Dose log not found")
+    if log.scheduled_date != date.today():
+        raise HTTPException(422, "Only a dose scheduled for today can be undone.")
+
+    if log.active_vial_id is not None and log.volume_ml is not None:
+        vial = session.get(ActiveVial, log.active_vial_id)
+        if vial is not None:
+            vial.volume_remaining_ml = round(vial.volume_remaining_ml + log.volume_ml, 4)
+
+    session.delete(log)
     session.commit()
     return RedirectResponse("/today", status_code=303)
