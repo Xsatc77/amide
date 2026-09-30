@@ -277,8 +277,14 @@ def workouts_activate(plan_id: int, session: Session = Depends(get_session),
 def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | None = None,
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     day = _get_own_day(session, plan_day_id, uid)
+    log_date = log_date or date_type.today()
+    # Re-opening an already-logged date shows what was logged (saving replaces that log), instead
+    # of a blank form that would silently overwrite it with blanks.
+    existing = session.scalar(
+        select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
+    prior = {el.exercise_id: el for el in existing.exercise_logs} if existing else {}
     return templates.TemplateResponse(request, "workouts/log.html", {
-        "day": day, "log_date": log_date or date_type.today(), "units": list(WeightUnit),
+        "day": day, "log_date": log_date, "units": list(WeightUnit), "prior": prior,
     })
 
 

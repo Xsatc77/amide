@@ -201,7 +201,43 @@ def test_log_completion_persists_partial_state(client, db):
     assert by_exercise[ex1.id].weight_value is None
 
 
-_HISTORY_WARNING = "will also delete any logged history for it"
+def test_edit_page_links_each_saved_day_to_its_log_form(client, db):
+    plan = _two_day_plan(client, db, name="Linked Plan")
+    r = client.get(f"/workouts/{plan.id}/edit")
+    for day in plan.days:
+        assert f'href="/workouts/day/{day.id}/log"' in r.text
+
+
+def test_log_form_prefills_from_an_existing_log_for_that_date(client, db):
+    client.post("/workouts", data=_plan_form(
+        **{"name": "Prefill Plan", "exercise_name[0][]": ["Push-up", "Sit-up"],
+           "exercise_sets[0][]": ["3", "3"], "exercise_reps[0][]": ["10", "10"],
+           "exercise_rest[0][]": ["", ""]}))
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "Prefill Plan"))
+    day = plan.days[0]
+    ex0, ex1 = day.exercises
+    client.post(f"/workouts/day/{day.id}/log", data={
+        "log_date": "2026-01-08",
+        f"completed[{ex0.id}]": "on", f"weight_value[{ex0.id}]": "27.5",
+        f"weight_unit[{ex0.id}]": "kg", f"reps_value[{ex0.id}]": "12",
+    })
+
+    r = client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-01-08"})
+    assert r.status_code == 200
+    assert f'name="completed[{ex0.id}]" checked' in r.text
+    assert f'name="completed[{ex1.id}]" checked' not in r.text
+    assert f'name="weight_value[{ex0.id}]" value="27.5"' in r.text
+    assert f'name="reps_value[{ex0.id}]" value="12"' in r.text
+    assert re.search(rf'name="weight_unit\[{ex0.id}\]">\s*(<option[^>]*>[^<]*</option>\s*)*'
+                     rf'<option value="kg" selected>', r.text)
+
+    # A different date has no log yet: a blank form.
+    r = client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-01-09"})
+    assert f'name="completed[{ex0.id}]" checked' not in r.text
+    assert f'name="weight_value[{ex0.id}]" value="27.5"' not in r.text
+
+
+_HISTORY_WARNING ="will also delete any logged history for it"
 
 
 def test_edit_page_shows_no_warning_when_plan_has_no_logged_history(client, db):

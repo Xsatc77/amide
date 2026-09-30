@@ -25,6 +25,8 @@
   <legend>Day <span data-day-number>{{ number }}</span></legend>
   <input type="hidden" name="day_id[]" value="{{ day.id if day else '' }}">
   <label>Label <input type="text" name="day_label[]" value="{{ day.label if day else '' }}" placeholder="e.g. Upper Body"></label>
+  {#- Log any saved day on any date, scheduled or not (e.g. right after a PDF import). -#}
+  {% if day %}<a class="btn btn-ghost" href="/workouts/day/{{ day.id }}/log">Log</a>{% endif %}
   <button type="button" class="btn btn-ghost" data-action="remove-day">Remove day</button>
   <table class="lib-table">
     <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Rest</th><th></th></tr></thead>
