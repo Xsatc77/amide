@@ -210,7 +210,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 - Vitamins/Supplements card and Prescriptions card (non-peptide); future conflict-checking between meds and peptides
 - Multi-goal selection for a single protocol
 - Frequency: day-of-week picker for non-daily schedules, "X times per day," "X times per week"
-- Pre-/Post-Workout options in the Time of Day dropdown
+- **Expanded Time of Day options** (parked during the Phase 10 Calendar redesign brainstorm, 2026-09-30, so it isn't missed — this is a real data-model change to the dosing/protocol Time of Day concept, not a cosmetic tweak, and deserves its own brainstorm/spec cycle before implementation): Fasting, Waking (immediately after waking), AM (first half of day), Pre-Workout (up to 1hr before), Post-Workout (up to 1hr after), PM (second half of day), Before Bed (up to 1hr before), Bedtime, Any. Slots collapse from the bottom up when unused — e.g. no Waking entries means AM takes the first position; no Before Bed/Bedtime entries means Any moves up rather than leaving a gap.
 - Pre-planned stacks: Top 10 Stacks PDF, "Celebrity Stacks" — *note: overlaps with Library's "26 or so Premade Protocols" below, same underlying content*
 - Printable protocol view
 
