@@ -41,3 +41,20 @@ def test_chart_renders_with_multiple_points(client, db):
     db.commit()
     body = client.get("/fitness-test").text
     assert "<polyline" in body
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("form", [
+    {"max_pushups": "20"},                                   # tested_at missing
+    {"tested_at": "not-a-date", "max_pushups": "20"},
+    {"tested_at": "2026-01-08", "max_pushups": "twenty"},
+    {"tested_at": "2026-01-08", "max_pushups": "nan"},
+    {"tested_at": "2026-01-08", "max_pushups": "inf"},
+    {"tested_at": "2026-01-08", "max_pushups": "20", "max_situps": "-inf"},
+])
+def test_malformed_fitness_test_input_is_a_422_and_saves_nothing(client, db, form):
+    r = client.post("/fitness-test", data=form, follow_redirects=False)
+    assert r.status_code == 422
+    assert db.scalars(select(FitnessTestResult)).all() == []

@@ -1,9 +1,10 @@
 """The standalone Fitness Test: a fixed, no-equipment bodyweight exercise set, retaken anytime,
 with a per-exercise trend chart and a gentle (never blocking) 28-day retest suggestion."""
 
+import math
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -58,11 +59,24 @@ def fitness_test_page(request: Request, session: Session = Depends(get_session),
 async def fitness_test_log(request: Request, session: Session = Depends(get_session),
                            uid: int = Depends(current_user_id)):
     raw = await request.form()
-    tested_at = date.fromisoformat(raw["tested_at"])
+    try:
+        tested_at = date.fromisoformat(raw["tested_at"])
+    except (KeyError, ValueError):
+        raise HTTPException(422, "A valid test date (YYYY-MM-DD) is required.")
+    # Validate every value before adding any, so one bad field saves nothing rather than a partial test.
+    results = []
     for exercise in FitnessTestExerciseName:
         value = raw.get(exercise.value)
-        if value:
-            session.add(FitnessTestResult(owner_id=uid, exercise=exercise, value=float(value), tested_at=tested_at))
+        if not value:
+            continue
+        try:
+            number = float(value)
+        except ValueError:
+            raise HTTPException(422, f"{_LABELS[exercise]} must be a number.")
+        if math.isnan(number) or math.isinf(number):  # float() happily accepts "nan"/"inf"
+            raise HTTPException(422, f"{_LABELS[exercise]} must be a finite number.")
+        results.append(FitnessTestResult(owner_id=uid, exercise=exercise, value=number, tested_at=tested_at))
+    session.add_all(results)
     session.commit()
     from fastapi.responses import RedirectResponse
     return RedirectResponse("/fitness-test", status_code=303)

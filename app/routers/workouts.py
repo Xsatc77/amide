@@ -1,6 +1,7 @@
 """Workout Plans: manual/PDF creation, the shared review/edit screen, day-of-week scheduling,
 and the one-Active-plan-at-a-time rule."""
 
+import math
 from datetime import date
 from datetime import date as date_type
 from datetime import timedelta
@@ -293,7 +294,36 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
                             uid: int = Depends(current_user_id)):
     day = _get_own_day(session, plan_day_id, uid)
     raw = await request.form()
-    log_date = date_type.fromisoformat(raw["log_date"])
+    try:
+        log_date = date_type.fromisoformat(raw["log_date"])
+    except (KeyError, ValueError):
+        raise HTTPException(422, "A valid workout date (YYYY-MM-DD) is required.")
+
+    # Parse every exercise's input before touching the existing log, so a bad value never costs
+    # the user what was already logged for this date.
+    exercise_logs = []
+    for ex in day.exercises:
+        weight_value = raw.get(f"weight_value[{ex.id}]")
+        weight_unit = raw.get(f"weight_unit[{ex.id}]")
+        reps_value = raw.get(f"reps_value[{ex.id}]")
+        try:
+            weight = float(weight_value) if weight_value else None
+            if weight is not None and not math.isfinite(weight):
+                raise ValueError
+        except ValueError:
+            raise HTTPException(422, f"Weight for {ex.name} must be a number.")
+        try:
+            reps = int(reps_value) if reps_value else None
+        except ValueError:
+            raise HTTPException(422, f"Reps for {ex.name} must be a whole number.")
+        try:
+            unit = WeightUnit(weight_unit) if weight_unit else None
+        except ValueError:
+            raise HTTPException(422, f"Unknown weight unit for {ex.name}.")
+        exercise_logs.append(WorkoutExerciseLog(
+            exercise_id=ex.id, completed=raw.get(f"completed[{ex.id}]") == "on",
+            weight_value=weight, weight_unit=unit, reps_value=reps,
+        ))
 
     existing = session.scalar(
         select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
@@ -301,18 +331,7 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
         session.delete(existing)
         session.flush()
 
-    log = WorkoutLog(owner_id=uid, plan_day_id=day.id, log_date=log_date)
+    log = WorkoutLog(owner_id=uid, plan_day_id=day.id, log_date=log_date, exercise_logs=exercise_logs)
     session.add(log)
-    for ex in day.exercises:
-        weight_value = raw.get(f"weight_value[{ex.id}]")
-        weight_unit = raw.get(f"weight_unit[{ex.id}]")
-        reps_value = raw.get(f"reps_value[{ex.id}]")
-        log.exercise_logs.append(WorkoutExerciseLog(
-            exercise_id=ex.id,
-            completed=raw.get(f"completed[{ex.id}]") == "on",
-            weight_value=float(weight_value) if weight_value else None,
-            weight_unit=WeightUnit(weight_unit) if weight_unit else None,
-            reps_value=int(reps_value) if reps_value else None,
-        ))
     session.commit()
     return RedirectResponse("/today", status_code=303)

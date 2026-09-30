@@ -2,6 +2,7 @@ import re
 from datetime import date
 from io import BytesIO
 
+import pytest
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from sqlalchemy import select
@@ -237,7 +238,40 @@ def test_log_form_prefills_from_an_existing_log_for_that_date(client, db):
     assert f'name="weight_value[{ex0.id}]" value="27.5"' not in r.text
 
 
-_HISTORY_WARNING ="will also delete any logged history for it"
+@pytest.mark.parametrize("bad", [
+    {"log_date": None},                        # missing entirely
+    {"log_date": "not-a-date"},
+    {"weight_value": "heavy"},
+    {"weight_value": "nan"},
+    {"weight_value": "inf"},
+    {"reps_value": "twelve"},
+    {"reps_value": "12.5"},
+    {"weight_unit": "stone"},
+])
+def test_malformed_log_input_is_a_422_and_keeps_the_existing_log(client, db, bad):
+    from app.models import WorkoutExerciseLog
+    client.post("/workouts", data=_plan_form(name="Bad Input Plan"))
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "Bad Input Plan"))
+    day, ex = plan.days[0], plan.days[0].exercises[0]
+    good = {"log_date": "2026-01-08", f"completed[{ex.id}]": "on", f"weight_value[{ex.id}]": "25",
+            f"weight_unit[{ex.id}]": "lb", f"reps_value[{ex.id}]": "12"}
+    assert client.post(f"/workouts/day/{day.id}/log", data=good, follow_redirects=False).status_code == 303
+
+    form = dict(good)
+    for field, value in bad.items():
+        key = field if field == "log_date" else f"{field}[{ex.id}]"
+        if value is None:
+            form.pop(key)
+        else:
+            form[key] = value
+    r = client.post(f"/workouts/day/{day.id}/log", data=form, follow_redirects=False)
+    assert r.status_code == 422
+    db.expire_all()
+    ex_log = db.scalar(select(WorkoutExerciseLog).where(WorkoutExerciseLog.exercise_id == ex.id))
+    assert ex_log is not None and ex_log.weight_value == 25.0 and ex_log.reps_value == 12
+
+
+_HISTORY_WARNING = "will also delete any logged history for it"
 
 
 def test_edit_page_shows_no_warning_when_plan_has_no_logged_history(client, db):
