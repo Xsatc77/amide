@@ -165,8 +165,8 @@ Firm up the base before anything depends on it.
 
 A dedicated visual-polish pass, pulled together from items across the owner's 2026-09-29 wishlist that are about *how things look* rather than new capability. Not yet spec'd.
 
-- **Dashboard:** rework cards to look more like Grafana-style panels; general layout pass
-  - *Prerequisite fixed 2026-09-30 (found while fixing the Charts item's own dull rendering):* `.card`/`.dashboard-placeholders`/`.measurement-chart` had zero CSS anywhere -- every chart across Measurements, Labs, Fitness Test, and this Dashboard was a bare, unstyled `<h3>` + SVG on the page background. `.card` now has a real surface/border/shadow and chart lines use `--accent` instead of the plain text color. The full "Grafana-style panel" layout rework itself is still open.
+- ✅ *Dashboard shipped, 2026-09-30* — every widget (Schedule, Alerts, Cost snapshot, Adherence, Water goal, Journal, both placeholders) now renders as its own `.card` panel in a responsive grid instead of stacking as plain full-width sections; each panel gets a colored accent stripe + line-icon in its header, Adherence/Water goal show their number as a big stat, and each panel's title links through to its own page.
+  - *Prerequisite fixed 2026-09-30 (found while fixing the Charts item's own dull rendering):* `.card`/`.dashboard-placeholders`/`.measurement-chart` had zero CSS anywhere -- every chart across Measurements, Labs, Fitness Test, and this Dashboard was a bare, unstyled `<h3>` + SVG on the page background. `.card` now has a real surface/border/shadow and chart lines use `--accent` instead of the plain text color.
 - **Library:** color the dosage-tier bar Green/Yellow/Red (Beginner/Intermediate/Advanced); yellow/black caution-style borders on Side Effects, Contraindications, and Drug Interactions — *the dosing-tier coloring was originally flagged during the peptide-sheet-import spec as "for the Library Redesign phase," which shipped without it; this is that dropped item*
 - **Calendar:** a legend for status colors on every view; month view colors the whole day-bar (not just a dot) and colors a clicked card's top edge to match status; week view gets a colored banner instead of a dot; day view gets a colored left-edge accent instead of a dot; replace the body-silhouette site-picker art (described as "still the blob")
 - ✅ *Overview chart shipped, 2026-09-30* — a single chart driven by a metric dropdown (every measurement field, BMI, Body fat %, Blood pressure, plus new Heart Rate tracking) sits beside the Body silhouette at the top of the Measurements page, switching client-side with no round-trip; the existing 7-day-to-lifetime range selector now drives it too. The full grid of every metric's own small chart stays below, unchanged, for at-a-glance scanning.
@@ -194,7 +194,7 @@ A dedicated visual-polish pass, pulled together from items across the owner's 20
 Raw wishlist items, organized by app area to match the source list. Not yet spec'd — these are candidates for future brainstorming/spec/plan cycles, not committed scope.
 
 **Dashboard**
-- Each card clickable through to its page
+- ✅ *Each card clickable through to its page, shipped 2026-09-30 — see Phase 10*
 - *(Grafana-style visual rework and layout pass moved to Phase 10 — Beautification)*
 
 **Inventory**
