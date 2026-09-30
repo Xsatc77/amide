@@ -121,6 +121,20 @@ def test_upload_unparseable_pdf_still_creates_an_empty_editable_plan(client, db)
     assert r.status_code == 303  # never a rejected upload
 
 
+def test_upload_malformed_pdf_still_creates_an_empty_editable_plan(client, db):
+    # Passes the %PDF- magic-byte check but pypdf can't parse it at all.
+    garbage = b"%PDF-1.7\n" + bytes(range(256)) * 8
+    r = client.post(
+        "/workouts/upload",
+        files={"pdf": ("broken.pdf", garbage, "application/pdf")},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.source == WorkoutSource.PDF))
+    assert plan is not None and plan.days == []
+    assert r.headers["location"] == f"/workouts/{plan.id}/edit"
+
+
 def test_log_completion_persists_partial_state(client, db):
     client.post("/workouts", data=_plan_form(
         **{"name": "Log Test Plan",

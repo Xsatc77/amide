@@ -205,7 +205,12 @@ async def workouts_upload(pdf: UploadFile = File(...), session: Session = Depend
     except UploadError as e:
         raise HTTPException(422, str(e))
     raw_bytes = (config.WORKOUT_PDF_DIR / filename).read_bytes()
-    text = extract_text(raw_bytes)
+    try:
+        text = extract_text(raw_bytes)
+    except Exception:  # noqa: BLE001 -- any malformed/encrypted PDF pypdf can't read
+        # Never reject an upload outright: an unreadable PDF becomes an empty plan the user fills
+        # in by hand in the editor (same as a readable one the parser found no days in).
+        text = ""
     parsed = parse_workout_pdf(text)
     plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.PDF, source_pdf_filename=filename,
                        started_on=date.today())
