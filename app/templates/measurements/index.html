@@ -75,10 +75,10 @@
 <div class="card">
   <h3>Blood pressure</h3>
   <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
-    <polyline points="{{ bp.poly_a }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
-    {% for cx, cy in bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
-    <polyline points="{{ bp.poly_b }}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"></polyline>
-    {% for cx, cy in bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+    <polyline points="{{ bp.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
+    {% for cx, cy in bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)"></circle>{% endfor %}
+    <polyline points="{{ bp.poly_b }}" fill="none" stroke="var(--info)" stroke-width="2" stroke-dasharray="4 3"></polyline>
+    {% for cx, cy in bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--info)"></circle>{% endfor %}
   </svg>
   <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ bp.min_d.strftime('%b') }} {{ bp.min_d.day }}, {{ bp.min_d.year }} – {{ bp.max_d.strftime('%b') }} {{ bp.max_d.day }}, {{ bp.max_d.year }}</p>
 </div>

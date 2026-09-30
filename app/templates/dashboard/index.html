@@ -101,7 +101,12 @@
 {% endif %}
 
 <section class="dashboard-placeholders">
-  <div class="card"><h3>Weight & Measurements</h3><p class="muted">Coming in a future update.</p></div>
+  {% if show_personal_data %}
+  <div class="card">
+    <h3>Weight & Measurements</h3>
+    <a href="/measurements" class="btn btn-ghost">View Weight & Measurements</a>
+  </div>
+  {% endif %}
   <div class="card"><h3>Health app integrations</h3><p class="muted">Coming in a future update.</p></div>
 </section>
 {% endblock %}

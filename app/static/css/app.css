@@ -330,6 +330,13 @@ section + section { margin-top: 36px; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.dashboard-placeholders { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+.measurement-chart { display: block; width: 100%; height: auto; color: var(--accent); }
 .vial-card-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .vial-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .vial-card-icon { position: relative; display: flex; justify-content: center; }
