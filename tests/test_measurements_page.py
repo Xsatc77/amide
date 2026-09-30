@@ -407,6 +407,26 @@ def test_overview_and_body_silhouette_sit_in_the_same_top_row(client, db, me):
         t = client.get("/measurements").text
         row = t[t.index('class="overview-row"'):t.index('id="charts-heading"')]
         assert "overview-chart-section" in row and "overview-body-section" in row
+        # Both headings are now siblings, ahead of either section's own content, so CSS grid
+        # auto-placement puts them in the same row regardless of what each section contains.
+        heading_block = t[t.index('<div class="overview-row">'):t.index('overview-chart-section')]
+        assert 'id="overview-heading"' in heading_block and 'id="silhouette-heading"' in heading_block
+    finally:
+        _clear_measurements(me)
+
+
+def test_silhouette_heading_and_button_align_with_the_left_bicep_dot(client, db, me):
+    """The heading and the CTA button use the same margin-left percentage as the left bicep dot's
+    own x position in the SVG's viewBox, so they line up regardless of screen width -- both
+    depend on .silhouette-wrap NOT being capped/centered independently, or the two percentages
+    would be computed against different reference widths and drift apart."""
+    try:
+        t = client.get("/measurements").text
+        import re
+        m = re.search(r'id="silhouette-heading"[^>]*style="margin-left: ([\d.]+)%;"', t)
+        assert m, "expected an inline margin-left on the Body Silhouette heading"
+        pct = m.group(1)
+        assert f'class="entry-cta-row" style="margin-left: {pct}%;"' in t
     finally:
         _clear_measurements(me)
 

@@ -103,10 +103,13 @@
 {% endif %}
 {% endmacro %}
 
+{% set bicep_l_pct = (silhouette_shape.points.biceps.l[0] / 400 * 100) | round(2) %}
 <div class="overview-row">
+  <h2 id="overview-heading" class="section-title overview-row-heading">Overview</h2>
+  <h2 id="silhouette-heading" class="section-title overview-row-heading" style="margin-left: {{ bicep_l_pct }}%;">Body Silhouette</h2>
+
   {% if charts %}
   <section class="overview-chart-section" aria-labelledby="overview-heading">
-    <h2 id="overview-heading" class="section-title">Overview</h2>
     {% set overview_metrics = charts.series | selectattr('chart') | list %}
     {% set overview_avgs = charts.bilateral_avg | selectattr('chart') | list %}
     {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf %}
@@ -148,7 +151,6 @@
   {% endif %}
 
   <section class="overview-body-section" aria-labelledby="silhouette-heading">
-    <h2 id="silhouette-heading" class="section-title">Body Silhouette</h2>
     <div class="silhouette-wrap">
       <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
         <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -158,7 +160,7 @@
       </svg>
       <div id="silhouette-tooltip" class="silhouette-tooltip" hidden role="status"></div>
     </div>
-    <div class="entry-cta-row">
+    <div class="entry-cta-row" style="margin-left: {{ bicep_l_pct }}%;">
       <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log a measurement</button>
     </div>
   </section>

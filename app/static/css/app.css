@@ -737,7 +737,12 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .body-silhouette circle[data-site] { cursor: pointer; }
 
 /* ---------- measurement silhouette (Weight & Measurements page) ---------- */
-.silhouette-wrap { max-width: 540px; margin: 0 auto; position: relative; }
+/* Deliberately full-width, not capped/centered: the "Body Silhouette" heading and the "Log a
+   measurement" button sit outside this wrap but use the same percentage-based left offset as the
+   left bicep dot's own x position within the SVG's viewBox, so they line up exactly -- that only
+   holds if this wrap's own rendered width matches its column's width precisely, with no cap or
+   auto-centering of its own to throw the two calculations out of sync. */
+.silhouette-wrap { position: relative; }
 .overview-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 28px; align-items: start; margin-bottom: 20px; }
 .overview-chart-section .field { max-width: 260px; margin-bottom: 10px; }
 .overview-chart-panel .card { margin: 0; }
