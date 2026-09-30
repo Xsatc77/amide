@@ -55,7 +55,8 @@
           <thead><tr><th>Level</th><th>Dose</th><th>Frequency</th><th>Time of day</th></tr></thead>
           <tbody>
             {% for t in dosing_tiers %}
-            <tr><td>{{ t.level.value }}</td><td>{{ t.dose_text or '—' }}</td><td>{{ t.frequency_text or '—' }}</td>
+            <tr><td><span class="tier-badge tier-{{ t.level.value | lower }}">{{ t.level.value }}</span></td>
+                <td>{{ t.dose_text or '—' }}</td><td>{{ t.frequency_text or '—' }}</td>
                 <td>{{ t.time_of_day.value if t.time_of_day else '—' }}</td></tr>
             {% endfor %}
           </tbody>
@@ -110,8 +111,9 @@
         ("who_should_consider", "Who should consider this"), ("product_quality", "Product quality"),
       ] %}
       {% set bullet_keys = ("benefits", "contraindications", "drug_interactions", "who_should_consider", "product_quality") %}
+      {% set caution_keys = ("side_effects", "contraindications", "drug_interactions") %}
       {% for key, title in narrative_order if simple.get(key) %}
-      <section class="lib-section">
+      <section class="lib-section{{ ' lib-section-caution' if key in caution_keys else '' }}">
         <h2 class="section-title">{{ title }}</h2>
         {% if key in bullet_keys %}
           {{ bullets(simple[key].split("\n")) }}
