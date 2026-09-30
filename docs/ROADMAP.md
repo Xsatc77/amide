@@ -136,9 +136,9 @@ Firm up the base before anything depends on it.
 
 ## Phase 7 — v0.8: Exercise
 
-- Build plans (days → exercises → sets/reps/weight)
-- Log workouts, track progression and personal records
-- Show workouts alongside dosing and body metrics
+- ✅ *Exercise shipped* (spec: `docs/superpowers/specs/2026-09-29-exercise-phase7-design.md`) — Workout Plans built either manually or imported from a Muscle & Strength PDF (best-effort parsing that never rejects an upload, even an unreadable file — worst case, a 0-day plan you fill in by hand); a shared review/edit screen where days and exercises can be added, removed, and edited in place, reconciled by row id on save so an unrelated edit (fixing a typo, renaming the plan) never wipes a day's schedule or its logged history; weekday scheduling via checkboxes; exactly one Active plan at a time (activating a new one ends whichever was Active); completion logging per exercise (checked, weight, reps) from any day at any time, pre-filling from an existing log when re-opening an already-logged date; due workouts surfaced on Today (clearing once logged) and a plain marker on the Calendar month view; completed workouts folded into the Journal tab alongside that day's doses; a standalone Fitness Test (Max Push-ups/Sit-ups/Bodyweight Squats, Plank Hold) retakeable anytime with a per-exercise trend chart and an independent 28-day retest suggestion per exercise.
+  - **Deferred out of this build:** a calorie-per-rep dataset (explicitly out of scope, noted in the spec as a future idea); a 7-day-to-lifetime range selector on the Fitness Test charts (they show the lifetime trend only); metric weight units beyond lb/kg toggle already built.
+  - **Known follow-ups (non-blocking):** no delete/end-plan route yet (a plan can be deactivated but not removed, and uploaded PDFs aren't cleaned up from disk); logged weight/reps are write-only today — no page displays them back yet, only completion counts; logging a workout from the plan editor's own "Log" link redirects to Today rather than back to the editor; the plan editor and its Schedule form are still two separate forms, so a day added in the editor doesn't appear under Schedule until the editor is saved first.
 
 ## Phase 8 — v0.9: Peptide Library & Learning
 
