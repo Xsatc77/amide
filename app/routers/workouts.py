@@ -29,6 +29,8 @@ from app.workouts.pdf_parser import extract_text, parse_workout_pdf
 
 router = APIRouter()
 
+_WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")  # parallel to WEEKDAY_LETTERS
+
 
 def workouts_due_today(session: Session, uid: int, today: date_type) -> list[WorkoutPlanDay]:
     """Active plans' days scheduled for today's weekday, excluding any already logged today."""
@@ -231,6 +233,7 @@ def workouts_edit(plan_id: int, request: Request, session: Session = Depends(get
         WorkoutPlanDay.plan_id == plan.id).first() is not None
     return templates.TemplateResponse(request, "workouts/edit.html", {
         "plan": plan, "days": plan.days, "has_logged_history": has_logged_history,
+        "weekday_choices": list(zip(WEEKDAY_LETTERS, _WEEKDAY_NAMES)),
     })
 
 
@@ -252,8 +255,10 @@ async def workouts_schedule(plan_id: int, request: Request, session: Session = D
     plan = _get_own_plan(session, plan_id, uid)
     raw = await request.form()
     for day in plan.days:
-        key = f"weekdays[{day.id}]"
-        day.weekdays = raw.get(key) or None
+        # One checkbox per weekday letter; stored in canonical WEEKDAY_LETTERS order regardless of
+        # posted order, silently dropping anything that isn't a real weekday letter.
+        checked = set(raw.getlist(f"weekdays[{day.id}][]"))
+        day.weekdays = "".join(letter for letter in WEEKDAY_LETTERS if letter in checked) or None
     session.commit()
     return RedirectResponse(f"/workouts/{plan.id}/edit", status_code=303)
 

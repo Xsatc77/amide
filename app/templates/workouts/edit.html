@@ -65,9 +65,12 @@
 <form method="post" action="/workouts/{{ plan.id }}/schedule">
   <h2 class="section-title">Schedule</h2>
   {% for day in plan.days %}
-  <label>{{ day.label }}
-    <input type="text" name="weekdays[{{ day.id }}]" value="{{ day.weekdays or '' }}" placeholder="e.g. MWF">
-  </label>
+  <fieldset class="lib-section">
+    <legend>{{ day.label }}</legend>
+    {% for letter, name in weekday_choices %}
+    <label><input type="checkbox" name="weekdays[{{ day.id }}][]" value="{{ letter }}"{% if day.weekdays and letter in day.weekdays %} checked{% endif %}> {{ name }}</label>
+    {% endfor %}
+  </fieldset>
   {% endfor %}
   <button type="submit" class="btn">Save schedule</button>
 </form>

@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from io import BytesIO
 
@@ -78,10 +79,45 @@ def test_schedule_sets_weekdays_on_a_plan_day(client, db):
     client.post("/workouts", data=_plan_form())
     plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "My Manual Plan"))
     day_id = plan.days[0].id
-    r = client.post(f"/workouts/{plan.id}/schedule", data={f"weekdays[{day_id}]": "MWF"}, follow_redirects=False)
+    r = client.post(f"/workouts/{plan.id}/schedule", data={f"weekdays[{day_id}][]": ["M", "W", "F"]},
+                    follow_redirects=False)
     assert r.status_code == 303
     db.refresh(plan)
     assert plan.days[0].weekdays == "MWF"
+
+
+def test_schedule_stores_checked_weekdays_in_canonical_order(client, db):
+    client.post("/workouts", data=_plan_form())
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "My Manual Plan"))
+    day_id = plan.days[0].id
+    # Posted out of order, with a duplicate and a bogus value -- stored as canonical MTWRFSU order.
+    client.post(f"/workouts/{plan.id}/schedule",
+                data={f"weekdays[{day_id}][]": ["U", "R", "M", "R", "mon", "x"]})
+    db.refresh(plan)
+    assert plan.days[0].weekdays == "MRU"
+
+
+def test_schedule_with_nothing_checked_clears_weekdays(client, db):
+    client.post("/workouts", data=_plan_form())
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "My Manual Plan"))
+    plan.days[0].weekdays = "MWF"
+    db.commit()
+    client.post(f"/workouts/{plan.id}/schedule", data={})
+    db.refresh(plan)
+    assert plan.days[0].weekdays is None
+
+
+def test_schedule_form_renders_weekday_checkboxes_prechecked(client, db):
+    client.post("/workouts", data=_plan_form())
+    plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "My Manual Plan"))
+    day_id = plan.days[0].id
+    plan.days[0].weekdays = "TR"
+    db.commit()
+    r = client.get(f"/workouts/{plan.id}/edit")
+    boxes = re.findall(rf'<input type="checkbox" name="weekdays\[{day_id}\]\[\]" value="(\w)"( checked)?', r.text)
+    assert [(v, bool(c)) for v, c in boxes] == [
+        ("M", False), ("T", True), ("W", False), ("R", True), ("F", False), ("S", False), ("U", False)]
+    assert 'placeholder="e.g. MWF"' not in r.text
 
 
 def test_edit_replaces_days_and_exercises(client, db):
