@@ -161,9 +161,9 @@ Firm up the base before anything depends on it.
 
 ---
 
-## Phase 10 — v1.1: Beautification
+## Phase 10 — v1.1: Beautification (all specific items shipped; one open-ended item deferred)
 
-A dedicated visual-polish pass, pulled together from items across the owner's 2026-09-29 wishlist that are about *how things look* rather than new capability. Not yet spec'd.
+A dedicated visual-polish pass, pulled together from items across the owner's 2026-09-29 wishlist that are about *how things look* rather than new capability. Every concretely-scoped item below is done; only the vague "General" catch-all at the bottom remains, deliberately deferred until there's a specific page/pain-point to point at.
 
 - ✅ *Dashboard shipped, 2026-09-30* — every widget (Schedule, Alerts, Cost snapshot, Adherence, Water goal, Journal, both placeholders) now renders as its own `.card` panel in a responsive grid instead of stacking as plain full-width sections; each panel gets a colored accent stripe + line-icon in its header, Adherence/Water goal show their number as a big stat, and each panel's title links through to its own page.
   - *Prerequisite fixed 2026-09-30 (found while fixing the Charts item's own dull rendering):* `.card`/`.dashboard-placeholders`/`.measurement-chart` had zero CSS anywhere -- every chart across Measurements, Labs, Fitness Test, and this Dashboard was a bare, unstyled `<h3>` + SVG on the page background. `.card` now has a real surface/border/shadow and chart lines use `--accent` instead of the plain text color.
@@ -175,7 +175,7 @@ A dedicated visual-polish pass, pulled together from items across the owner's 20
 - ✅ *Body silhouette interactivity shipped, 2026-09-30* — all 7 labels moved to one right-hand column; hovering a point shows a custom tooltip with the last two measurements and the delta; clicking jumps the Overview chart to that body part's history (a new averaged "<Location> (avg)" option for the 4 bilateral locations, so an averaged point jumps to the same average it's showing, never an arbitrary side).
 - ✅ *Inventory shipped, 2026-09-30* — "New order" now matches "+ Add item"'s styling (btn-primary + icon), with the two floating buttons stacked on mobile instead of overlapping.
 - ✅ *Body Outline entry forms shipped, 2026-09-30* — measurement fields now sit label-beside-input with a narrower box (scoped to this one form, not the app-wide field style); the day-range control is a real dropdown on both the Measurements and Labs sub-tabs.
-- **General:** a color/accent pass across the app, tighter visual grouping — the owner's own "overall beautification" note
+- **General (deferred, 2026-09-30):** a color/accent pass across the app, tighter visual grouping — the owner's own "overall beautification" note. Left open on purpose: every other Phase 10 item named a specific page/feature to fix; this one didn't, so it's parked until there's a concrete target instead of a vague pass.
 
 ---
 
