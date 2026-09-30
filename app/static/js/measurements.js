@@ -39,6 +39,28 @@
     select.addEventListener("change", () => selectMetric(select.value));
   }
 
+  // ---- Log-a-measurement dialog: open/close (mirrors labs.js's open-lab-panel pattern) ----
+  const entryDialog = document.getElementById("measurement-dialog");
+  if (entryDialog) {
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      if (btn.dataset.action === "open-measurement-dialog") {
+        entryDialog.showModal();
+      } else if (btn.dataset.action === "close" && entryDialog.contains(btn)) {
+        entryDialog.close();
+      }
+    });
+    // See labs.js's identical backdrop-close comment: mousedown is tracked too so a
+    // text-selection drag that starts inside the form and ends on the backdrop doesn't close it.
+    let mousedownOnBackdrop = false;
+    entryDialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === entryDialog; });
+    entryDialog.addEventListener("click", (e) => {
+      if (mousedownOnBackdrop && e.target === entryDialog) entryDialog.close();
+    });
+    if (entryDialog.hasAttribute("data-open-on-load")) entryDialog.showModal();
+  }
+
   // ---- Body silhouette: hover tooltip + click-through to the Overview chart ----
   const tooltip = document.getElementById("silhouette-tooltip");
   const wrap = document.querySelector(".silhouette-wrap");

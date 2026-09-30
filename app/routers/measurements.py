@@ -114,6 +114,27 @@ def _field_current_and_delta(
     return current, prior, delta, as_of
 
 
+# Which direction of change is "good" (colored green) for a silhouette location's value, per the
+# owner's explicit request: waist/hips getting smaller (or holding steady) is the goal, so only an
+# INCREASE is flagged red; the four limb locations are the opposite (growth is the goal), so only a
+# DECREASE is flagged red. Neck is intentionally absent -- left uncolored for now.
+_DECREASE_IS_GOOD = {"waist_in", "hips_in"}
+_INCREASE_IS_GOOD = {"biceps", "forearm", "quad", "calf"}
+
+
+def _trend(key: str, delta: float | None) -> str | None:
+    """'good' | 'bad' | None (no color) for one point's delta, per the polarity rules above. A
+    zero delta ("staying steady") counts as good on both sides of the rule, matching the owner's
+    own wording ("if it stays the same make the numbers green")."""
+    if delta is None:
+        return None
+    if key in _DECREASE_IS_GOOD:
+        return "good" if delta <= 0 else "bad"
+    if key in _INCREASE_IS_GOOD:
+        return "good" if delta >= 0 else "bad"
+    return None
+
+
 def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
     """One entry per silhouette location for the most recent BodyMeasurement row: its current
     value (averaged across both sides for a bilateral location when both sides are present), the
@@ -124,7 +145,8 @@ def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
     clicked: the field itself for a unilateral location or a single-side bilateral one, or the
     location's own `{key}_avg` averaged-series option (see `_charts_context`) when both sides are
     present and averaged -- clicking an averaged point shows the same average it's displaying,
-    never an arbitrarily-picked side."""
+    never an arbitrarily-picked side. And `trend` ('good'/'bad'/None), for coloring the displayed
+    number -- see `_trend`."""
     if not entries:
         return None
 
@@ -161,6 +183,9 @@ def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
         points[field] = {"label": label, "value": value, "prior": prior, "delta": delta, "side": None,
                          "chart_key": field, "as_of": as_of}
 
+    for key, pt in points.items():
+        pt["trend"] = _trend(key, pt["delta"])
+
     return points
 
 
@@ -192,14 +217,17 @@ _MALE_PATH = ("M 150.2,4.0 L 167.2,6.6 L 177.7,26.3 L 169.8,63.1 L 204.0,77.5 L 
 
 # Anatomical landmark positions for the 7 measurement locations, read off the same traced points
 # above (the right-side x, mirrored via 320-x for the left side) -- not independently estimated,
-# so a point always sits on or very near the actual traced limb/torso edge at that height.
+# so a point always sits on or very near the actual traced limb/torso edge at that height. Waist
+# and hips are each nudged 20px (roughly two dot-diameters) off their literal traced position --
+# waist down, hips up -- at the owner's explicit request, since the two landmarks sat close enough
+# together to read ambiguously at a glance.
 _SILHOUETTE_LANDMARKS = {
     "Female": {
-        "neck_in": (160, 62), "waist_in": (160, 150), "hips_in": (160, 215),
+        "neck_in": (160, 62), "waist_in": (160, 170), "hips_in": (160, 195),
         "biceps": (202, 110), "forearm": (213, 155), "quad": (193, 270), "calf": (180, 340),
     },
     "Male": {
-        "neck_in": (160, 63), "waist_in": (160, 157.6), "hips_in": (160, 258.7),
+        "neck_in": (160, 63), "waist_in": (160, 177.6), "hips_in": (160, 238.7),
         "biceps": (218, 110), "forearm": (228, 150), "quad": (195, 280), "calf": (189, 350),
     },
 }
@@ -213,11 +241,13 @@ _SILHOUETTE_LANDMARKS = {
 # (e.g. a test asserting "190" is absent from a range-filtered page would false-fail against a
 # `y="190"` attribute that has nothing to do with the actual data).
 # All 7 on the right margin (moved from a left/right split so every leader line reads the same
-# direction) in roughly top-to-bottom anatomical order, evenly spaced to avoid overlap.
+# direction) in roughly top-to-bottom anatomical order, evenly spaced to avoid overlap. x=386, well
+# clear of the body outline's own rightmost point (~x=234) -- the viewBox is widened to 400 (from
+# 320) to fit this margin without the label text running over the silhouette itself.
 _LABEL_SLOTS = {
-    "neck_in": (306, 51, "end"), "biceps": (306, 109, "end"), "forearm": (306, 167, "end"),
-    "waist_in": (306, 226, "end"), "hips_in": (306, 284, "end"),
-    "quad": (306, 342, "end"), "calf": (306, 399, "end"),
+    "neck_in": (386, 51, "end"), "biceps": (386, 109, "end"), "forearm": (386, 167, "end"),
+    "waist_in": (386, 226, "end"), "hips_in": (386, 284, "end"),
+    "quad": (386, 342, "end"), "calf": (386, 399, "end"),
 }
 
 

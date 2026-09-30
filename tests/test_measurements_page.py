@@ -180,7 +180,7 @@ def test_silhouette_labels_all_sit_on_the_right_margin(client, db):
         for field in ("Neck", "Waist", "Hips"):
             i = t.index(f'>{field}</text>')
             line_start = t.rfind("<text", 0, i)
-            assert 'x="306"' in t[line_start:i] and 'text-anchor="end"' in t[line_start:i]
+            assert 'x="386"' in t[line_start:i] and 'text-anchor="end"' in t[line_start:i]
     finally:
         _clear_measurements(tester)
 
@@ -194,6 +194,47 @@ def test_silhouette_shows_change_since_previous_entry(client, db):
         assert "-0.5" in t or "−0.5" in t
     finally:
         _clear_measurements(tester)
+
+
+def test_silhouette_trend_coloring_waist_hips_down_is_good_up_is_bad(client, db):
+    """Owner's explicit rule: waist/hips shrinking or holding steady is good (green); growing is
+    bad (red). Biceps/forearm/quad/calf are the opposite; neck is never colored."""
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-20", "waist_in": "34", "hips_in": "38", "neck_in": "15"})
+        client.post("/measurements", data={"measured_at": "2026-09-27", "waist_in": "33.5", "hips_in": "38.5", "neck_in": "15.2"})
+        t = client.get("/measurements").text
+        # Waist shrank (good): trend-good. Hips grew (bad): trend-bad. Neck: never colored.
+        i = t.index('data-chart-key="waist_in"')
+        assert 'class="silhouette-label-value trend-good"' in t[i:t.index("</svg>", i)]
+        j = t.index('data-chart-key="hips_in"')
+        assert 'class="silhouette-label-value trend-bad"' in t[j:t.index("</svg>", j)]
+        k = t.index('data-chart-key="neck_in"')
+        neck_value_tag = t[t.index('class="silhouette-label-value', k):t.index(">", t.index('class="silhouette-label-value', k))]
+        assert "trend-" not in neck_value_tag
+    finally:
+        _clear_measurements(tester)
+
+
+def test_silhouette_trend_coloring_limbs_are_reversed(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-20", "quad_l_in": "22", "quad_r_in": "22"})
+        client.post("/measurements", data={"measured_at": "2026-09-27", "quad_l_in": "22.5", "quad_r_in": "22.5"})
+        t = client.get("/measurements").text
+        i = t.index('data-chart-key="quad_avg"')
+        assert 'class="silhouette-label-value trend-good"' in t[i:t.index("</svg>", i)]  # growth is good here
+    finally:
+        _clear_measurements(tester)
+
+
+def test_measurement_entry_is_a_dialog_opened_by_a_button(client, db, me):
+    try:
+        t = client.get("/measurements").text
+        assert '<dialog id="measurement-dialog" class="dialog">' in t
+        assert 'data-action="open-measurement-dialog"' in t
+    finally:
+        _clear_measurements(me)
 
 
 def test_silhouette_shows_single_side_when_other_side_missing(client, db):
