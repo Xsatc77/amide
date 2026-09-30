@@ -401,11 +401,18 @@ section + section { margin-top: 36px; }
 .panel-stat { font-size: 2rem; font-weight: 700; color: var(--panel-accent, var(--text)); line-height: 1.1; margin: 0; }
 .panel-stat-sub { margin: 4px 0 0; }
 
-.dashboard-grid > section.dash-panel-wide { column-span: all; display: block; }
-.dash-body-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-.dash-body-row .card { margin: 0; }
-.dash-silhouette { width: 220px; margin: 0 auto; }
-@media (max-width: 720px) { .dash-body-row { grid-template-columns: 1fr; } }
+/* Three regions: the Weight chart/other panels flank a big centered Body Silhouette instead of
+   everything living in one long masonry list -- the owner's own "surround the body" request.
+   Left/right columns reuse .dashboard-grid's masonry packing; at their narrower width it settles
+   to a single column on its own; Integrations drops out of the flow entirely into its own
+   low-key row at the very bottom, out of the main line of sight. */
+.dashboard-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.dashboard-center { display: flex; flex-direction: column; align-items: center; }
+.dash-chart-slot { display: inline-block; width: 100%; break-inside: avoid; margin: 0 0 16px; }
+.dash-silhouette { width: 340px; margin: 0 auto; }
+@media (max-width: 900px) { .dashboard-layout { grid-template-columns: 1fr; } .dash-silhouette { width: 280px; } }
+.dashboard-footer-row { display: flex; justify-content: center; margin-top: 16px; }
+.dashboard-footer-row .dash-panel { max-width: 320px; width: 100%; opacity: 0.85; }
 
 /* The Water goal panel "fills like a glass" toward its daily ounces goal -- an absolutely
    positioned fill sits behind the panel's own content (z-index 0 vs 1), growing from the bottom

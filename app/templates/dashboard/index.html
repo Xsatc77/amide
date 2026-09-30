@@ -43,7 +43,8 @@
 </form>
 {% endif %}
 
-<div class="dashboard-grid">
+<div class="dashboard-layout">
+<div class="dashboard-grid dashboard-col-left">
 
 {% if show_personal_data %}
 <section class="card dash-panel" aria-labelledby="schedule-heading" style="--panel-accent: var(--accent);">
@@ -110,6 +111,39 @@
   {% endif %}
 </section>
 {% endif %}
+
+{% if body_panel %}
+<section class="dash-chart-slot" aria-labelledby="weight-chart-heading">
+  {% if body_panel.chart %}
+  {{ line_chart(body_panel.chart, 'Weight (lbs)') }}
+  {% else %}
+  <div class="card"><h3 id="weight-chart-heading">Weight (lbs)</h3><p class="muted">No weight logged yet.</p></div>
+  {% endif %}
+</section>
+{% endif %}
+
+</div>
+
+<div class="dashboard-center">
+{% if body_panel %}
+<section class="card dash-panel" aria-labelledby="body-panel-heading" style="--panel-accent: var(--accent);">
+  <div class="panel-head">
+    {{ panel_icon('activity') }}
+    <h2 id="body-panel-heading" class="section-title"><a class="panel-title-link" href="/measurements">Body</a></h2>
+  </div>
+  <div class="silhouette-wrap dash-silhouette">
+    <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
+      <path d="{{ body_panel.silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
+      {% for key, pt in (body_panel.silhouette or {}).items() %}
+        {{ silhouette_point(key, pt, body_panel.silhouette_shape) }}
+      {% endfor %}
+    </svg>
+  </div>
+</section>
+{% endif %}
+</div>
+
+<div class="dashboard-grid dashboard-col-right">
 
 {% if show_personal_data %}
 <section class="card dash-panel" aria-labelledby="adherence-heading" style="--panel-accent: var(--tier-beginner);">
@@ -200,30 +234,10 @@
 </section>
 {% endif %}
 
-{% if body_panel %}
-<section class="card dash-panel dash-panel-wide" aria-labelledby="body-panel-heading" style="--panel-accent: var(--accent);">
-  <div class="panel-head">
-    {{ panel_icon('activity') }}
-    <h2 id="body-panel-heading" class="section-title"><a class="panel-title-link" href="/measurements">Body</a></h2>
-  </div>
-  <div class="dash-body-row">
-    {% if body_panel.chart %}
-    {{ line_chart(body_panel.chart, 'Weight (lbs)') }}
-    {% else %}
-    <div class="card"><h3>Weight (lbs)</h3><p class="muted">No weight logged yet.</p></div>
-    {% endif %}
-    <div class="silhouette-wrap dash-silhouette">
-      <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
-        <path d="{{ body_panel.silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
-        {% for key, pt in (body_panel.silhouette or {}).items() %}
-          {{ silhouette_point(key, pt, body_panel.silhouette_shape) }}
-        {% endfor %}
-      </svg>
-    </div>
-  </div>
-</section>
-{% endif %}
+</div>
+</div>
 
+<div class="dashboard-footer-row">
 <section class="card dash-panel" aria-labelledby="integrations-heading">
   <div class="panel-head">
     {{ panel_icon('link') }}
@@ -231,7 +245,6 @@
   </div>
   <p class="muted">Coming in a future update.</p>
 </section>
-
 </div>
 {% endblock %}
 
