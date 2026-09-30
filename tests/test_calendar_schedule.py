@@ -6,12 +6,13 @@ from app.models import DoseUnit, Frequency, Route, TimeOfDay
 
 
 def item(name="BPC-157", freq=Frequency.DAILY, dose=250.0, unit=DoseUnit.MCG, every_n=None, weekdays=None,
-         tod=TimeOfDay.AM, steps=(), inventory=None, pid=1, item_id=None):
+         tod=TimeOfDay.AM, steps=(), cycle_offs=(), inventory=None, pid=1, item_id=None):
     if item_id is None:
         item_id = pid
     return NS(id=item_id, peptide=NS(id=pid, name=name), peptide_id=pid, dose=dose, dose_unit=unit, frequency=freq,
               every_n_days=every_n, weekdays=weekdays, time_of_day=tod, route=Route.SUBQ,
-              inventory_item=NS(name=inventory) if inventory else None, steps=list(steps))
+              inventory_item=NS(name=inventory) if inventory else None, steps=list(steps),
+              cycle_offs=list(cycle_offs))
 
 
 def proto(pid=1, name="Heal", start=date(2026, 9, 1), end=None, ended_on=None, paused=False, titration=False,
@@ -64,6 +65,56 @@ def test_occurrence_groups_items_and_titration():
     [week2] = schedule.occurrences([p], date(2026, 9, 9), date(2026, 9, 9))
     assert [(i.peptide, i.dose, i.step) for i in week2.items] == [("BPC-157", 250.0, 2)]  # TB-500 not due
     assert first.protocol_id == 1 and first.protocol_name == "Heal"
+
+
+def test_cycle_off_suppresses_due_days_during_its_week_range():
+    from types import SimpleNamespace as NS
+    # Weeks 1-3 on (week 1 = days 0-6 from start), week 4-6 off, week 7 on again.
+    offs = [NS(start_week=4, end_week=6)]
+    p = proto(start=date(2026, 9, 1), items=[item(freq=Frequency.DAILY, cycle_offs=offs)])
+    week1_day = date(2026, 9, 1)         # week 1
+    week5_day = date(2026, 9, 1) + timedelta(days=28)  # week 5 (inside the off range)
+    week7_day = date(2026, 9, 1) + timedelta(days=42)  # week 7 (resumed)
+    assert due_dates(p, week1_day, week1_day) == [week1_day]
+    assert due_dates(p, week5_day, week5_day) == []
+    assert due_dates(p, week7_day, week7_day) == [week7_day]
+
+
+def test_cycle_off_with_no_resume_stays_off_for_the_rest_of_the_course():
+    from types import SimpleNamespace as NS
+    offs = [NS(start_week=2, end_week=999)]  # off from week 2 onward, never resumes
+    p = proto(start=date(2026, 9, 1), end=date(2026, 12, 1),
+              items=[item(freq=Frequency.DAILY, cycle_offs=offs)])
+    week1_day = date(2026, 9, 1)
+    late_day = date(2026, 11, 1)
+    assert due_dates(p, week1_day, week1_day) == [week1_day]
+    assert due_dates(p, late_day, late_day) == []
+
+
+def test_cycle_off_does_not_affect_the_before_start_date_early_return():
+    """A day before the protocol's own start_date is never due regardless of cycle-offs -- the
+    existing `days < 0` check must still short-circuit before cycle-off logic runs at all (not
+    crash trying to compute a negative/undefined week number against the off-range)."""
+    from types import SimpleNamespace as NS
+    offs = [NS(start_week=1, end_week=5)]
+    p = proto(start=date(2026, 9, 10), items=[item(freq=Frequency.DAILY, cycle_offs=offs)])
+    before_start = date(2026, 9, 5)
+    assert due_dates(p, before_start, before_start) == []
+
+
+def test_titration_step_right_after_a_cycle_off_fires_on_its_own_schedule():
+    """The step that resumes dosing after an off period must fire exactly on its own start_week --
+    not shifted later because of the gap before it, and not skipped."""
+    from types import SimpleNamespace as NS
+    offs = [NS(start_week=2, end_week=3)]
+    steps = [NS(start_week=1, end_week=1, dose=100.0), NS(start_week=4, end_week=None, dose=200.0)]
+    p = proto(start=date(2026, 9, 1), titration=True,
+              items=[item(freq=Frequency.DAILY, steps=steps, cycle_offs=offs)])
+    week2_day = date(2026, 9, 1) + timedelta(days=7)   # inside the off period
+    week4_day = date(2026, 9, 1) + timedelta(days=21)  # first day back on, step 2 should apply
+    assert due_dates(p, week2_day, week2_day) == []
+    [occ] = schedule.occurrences([p], week4_day, week4_day)
+    assert (occ.items[0].dose, occ.items[0].step) == (200.0, 2)
 
 
 def test_titration_off_uses_item_dose():

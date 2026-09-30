@@ -36,14 +36,25 @@ def current_week(start: date, today: date) -> int | None:
     return None if today < start else (today - start).days // 7 + 1
 
 
-def current_step(steps, week: int | None):
-    """The titration step covering `week` (an open end_week means "onward"), or None."""
+def _covering(ranges, week: int | None):
+    """The first of `ranges` (each with start_week/end_week, end_week possibly None meaning
+    onward) whose range includes `week`, or None."""
     if week is None:
         return None
-    for step in steps:
-        if step.start_week <= week and (step.end_week is None or week <= step.end_week):
-            return step
+    for r in ranges:
+        if r.start_week <= week and (r.end_week is None or week <= r.end_week):
+            return r
     return None
+
+
+def current_step(steps, week: int | None):
+    """The titration step covering `week` (an open end_week means "onward"), or None."""
+    return _covering(steps, week)
+
+
+def is_cycled_off(cycle_offs, week: int | None) -> bool:
+    """True when `week` falls inside any of this item's cycle-off ranges."""
+    return _covering(cycle_offs, week) is not None
 
 
 def merge_stacks(goal_slugs: list[str], stacks: dict[str, list[int]]) -> list[int]:

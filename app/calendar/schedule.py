@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import WEEKDAY_LETTERS, Frequency, TimeOfDay
-from app.protocols.status import current_step, current_week
+from app.protocols.status import current_step, current_week, is_cycled_off
 
 
 @dataclass
@@ -43,6 +43,8 @@ def protocol_window(p) -> tuple[date, date | None] | None:
 def is_due(item, start: date, day: date) -> bool:
     days = (day - start).days
     if days < 0:
+        return False
+    if is_cycled_off(item.cycle_offs, current_week(start, day)):
         return False
     freq = item.frequency
     if freq is Frequency.DAILY:
