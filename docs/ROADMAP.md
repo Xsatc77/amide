@@ -171,8 +171,8 @@ A dedicated visual-polish pass, pulled together from items across the owner's 20
 - **Calendar:** a legend for status colors on every view; month view colors the whole day-bar (not just a dot) and colors a clicked card's top edge to match status; week view gets a colored banner instead of a dot; day view gets a colored left-edge accent instead of a dot; replace the body-silhouette site-picker art (described as "still the blob")
 - ✅ *Overview chart shipped, 2026-09-30* — a single chart driven by a metric dropdown (every measurement field, BMI, Body fat %, Blood pressure, plus new Heart Rate tracking) sits beside the Body silhouette at the top of the Measurements page, switching client-side with no round-trip; the existing 7-day-to-lifetime range selector now drives it too. The full grid of every metric's own small chart stays below, unchanged, for at-a-glance scanning.
 - ✅ *Body silhouette interactivity shipped, 2026-09-30* — all 7 labels moved to one right-hand column; hovering a point shows a custom tooltip with the last two measurements and the delta; clicking jumps the Overview chart to that body part's history (a new averaged "<Location> (avg)" option for the 4 bilateral locations, so an averaged point jumps to the same average it's showing, never an arbitrary side).
-- **Inventory:** style the "New Order" button to match "+ Add Item"
-- **Body Outline (entry forms):** smaller entry boxes placed beside their labels; day-range as a dropdown instead of text links
+- ✅ *Inventory shipped, 2026-09-30* — "New order" now matches "+ Add item"'s styling (btn-primary + icon), with the two floating buttons stacked on mobile instead of overlapping.
+- ✅ *Body Outline entry forms shipped, 2026-09-30* — measurement fields now sit label-beside-input with a narrower box (scoped to this one form, not the app-wide field style); the day-range control is a real dropdown on both the Measurements and Labs sub-tabs.
 - **General:** a color/accent pass across the app, tighter visual grouping — the owner's own "overall beautification" note
 
 ---
