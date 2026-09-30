@@ -142,6 +142,49 @@ def test_silhouette_shows_average_of_bilateral_measurement(client, db):
         _clear_measurements(tester)
 
 
+def test_silhouette_averaged_point_has_a_matching_overview_chart_option(client, db):
+    """Clicking an averaged bilateral point must jump to the SAME average, not an arbitrarily
+    picked side -- so its chart_key must be a "_avg" key with a matching <option> in the Overview
+    dropdown and a matching chart panel, and the point's own "prior" must be the averaged prior
+    value (for the hover tooltip's "last two measurements"), not just the delta."""
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-20", "biceps_l_in": "15.5", "biceps_r_in": "15.9"})
+        client.post("/measurements", data={"measured_at": "2026-09-27", "biceps_l_in": "16", "biceps_r_in": "16.3"})
+        t = html.unescape(client.get("/measurements").text)
+        assert 'data-chart-key="biceps_avg"' in t
+        assert 'data-prior="15.7"' in t  # average of the prior entry's two sides
+        assert '<option value="biceps_avg">Biceps (avg)</option>' in t
+        assert 'class="overview-chart-panel" data-metric="biceps_avg"' in t
+    finally:
+        _clear_measurements(tester)
+
+
+def test_silhouette_single_side_point_maps_to_that_sides_own_chart(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-27", "quad_l_in": "22"})
+        t = html.unescape(client.get("/measurements").text)
+        assert 'data-chart-key="quad_l_in"' in t
+        assert 'data-chart-key="quad_avg"' not in t
+    finally:
+        _clear_measurements(tester)
+
+
+def test_silhouette_labels_all_sit_on_the_right_margin(client, db):
+    """The redesign moved every label (not just the 4 limb ones) to a single right-hand column."""
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-27", "neck_in": "15", "waist_in": "34", "hips_in": "38"})
+        t = html.unescape(client.get("/measurements").text)
+        for field in ("Neck", "Waist", "Hips"):
+            i = t.index(f'>{field}</text>')
+            line_start = t.rfind("<text", 0, i)
+            assert 'x="306"' in t[line_start:i] and 'text-anchor="end"' in t[line_start:i]
+    finally:
+        _clear_measurements(tester)
+
+
 def test_silhouette_shows_change_since_previous_entry(client, db):
     tester = _tester_id()
     try:

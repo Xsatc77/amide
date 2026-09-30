@@ -82,16 +82,18 @@ def _shared_measurement_query(uid: int):
 
 def _field_current_and_delta(
     entries: list[BodyMeasurement], field: str,
-) -> tuple[float | None, float | None, date | None]:
-    """`entries` is most-recent-first. Returns (current value, delta, as_of) for `field`. `current`
-    is the most recent NON-NULL value for this field -- not necessarily from entries[0], since a
-    later entry may have skipped this field entirely (e.g. a weigh-in-only day after a full
-    tape-measure session). `delta` is against whichever still-earlier entry most recently had a
-    non-null value. `as_of` is the date `current` actually came from, but only when that isn't
-    entries[0]'s own date -- i.e. only when the "current" value is stale relative to the most
-    recent entry, so the template can flag it; None when current is already up to date."""
+) -> tuple[float | None, float | None, float | None, date | None]:
+    """`entries` is most-recent-first. Returns (current value, prior value, delta, as_of) for
+    `field`. `current` is the most recent NON-NULL value for this field -- not necessarily from
+    entries[0], since a later entry may have skipped this field entirely (e.g. a weigh-in-only day
+    after a full tape-measure session). `prior`/`delta` are against whichever still-earlier entry
+    most recently had a non-null value -- `prior` is that raw value (for a "last two measurements"
+    hover display), `delta` is `current - prior` rounded for display. `as_of` is the date `current`
+    actually came from, but only when that isn't entries[0]'s own date -- i.e. only when the
+    "current" value is stale relative to the most recent entry, so the template can flag it; None
+    when current is already up to date."""
     if not entries:
-        return None, None, None
+        return None, None, None, None
     current = current_date = None
     current_idx = None
     for i, entry in enumerate(entries):
@@ -100,7 +102,7 @@ def _field_current_and_delta(
             current, current_date, current_idx = value, entry.measured_at, i
             break
     if current is None:
-        return None, None, None
+        return None, None, None, None
     prior = None
     for entry in entries[current_idx + 1:]:
         value = getattr(entry, field)
@@ -109,46 +111,55 @@ def _field_current_and_delta(
             break
     delta = None if prior is None else round(current - prior, 2)
     as_of = current_date if current_idx != 0 else None
-    return current, delta, as_of
+    return current, prior, delta, as_of
 
 
 def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
     """One entry per silhouette location for the most recent BodyMeasurement row: its current
-    value (averaged across both sides for a bilateral location when both sides are present) and
-    its delta since the most recent prior entry with a non-null value for that field. A bilateral
-    location missing one side shows that side alone, clearly labeled -- never averaged with
-    None/zero (Review Focus item 1)."""
+    value (averaged across both sides for a bilateral location when both sides are present), the
+    prior value it changed from, and the delta between them. A bilateral location missing one side
+    shows that side alone, clearly labeled -- never averaged with None/zero (Review Focus item 1).
+
+    Each point also carries `chart_key`, the Overview chart dropdown option it maps to when
+    clicked: the field itself for a unilateral location or a single-side bilateral one, or the
+    location's own `{key}_avg` averaged-series option (see `_charts_context`) when both sides are
+    present and averaged -- clicking an averaged point shows the same average it's displaying,
+    never an arbitrarily-picked side."""
     if not entries:
         return None
 
     points: dict[str, dict] = {}
     for key, left_field, right_field, label in BILATERAL_LOCATIONS:
-        left_val, left_delta, left_as_of = _field_current_and_delta(entries, left_field)
-        right_val, right_delta, right_as_of = _field_current_and_delta(entries, right_field)
+        left_val, left_prior, left_delta, left_as_of = _field_current_and_delta(entries, left_field)
+        right_val, right_prior, right_delta, right_as_of = _field_current_and_delta(entries, right_field)
         if left_val is not None and right_val is not None:
             deltas = [d for d in (left_delta, right_delta) if d is not None]
+            priors = [p for p in (left_prior, right_prior) if p is not None]
             # If either side's value came from an older entry than the most recent one, flag the
             # averaged value with that (earlier, more conservative) date.
             as_of_candidates = [d for d in (left_as_of, right_as_of) if d is not None]
             points[key] = {
                 "label": label,
                 "value": round((left_val + right_val) / 2, 2),
+                "prior": round(sum(priors) / len(priors), 2) if priors else None,
                 "delta": round(sum(deltas) / len(deltas), 2) if deltas else None,
-                "side": None,
+                "side": None, "chart_key": f"{key}_avg",
                 "as_of": min(as_of_candidates) if as_of_candidates else None,
             }
         elif left_val is not None:
-            points[key] = {"label": label, "value": left_val, "delta": left_delta, "side": "L",
-                          "as_of": left_as_of}
+            points[key] = {"label": label, "value": left_val, "prior": left_prior, "delta": left_delta,
+                          "side": "L", "chart_key": left_field, "as_of": left_as_of}
         elif right_val is not None:
-            points[key] = {"label": label, "value": right_val, "delta": right_delta, "side": "R",
-                          "as_of": right_as_of}
+            points[key] = {"label": label, "value": right_val, "prior": right_prior, "delta": right_delta,
+                          "side": "R", "chart_key": right_field, "as_of": right_as_of}
         else:
-            points[key] = {"label": label, "value": None, "delta": None, "side": None, "as_of": None}
+            points[key] = {"label": label, "value": None, "prior": None, "delta": None, "side": None,
+                          "chart_key": f"{key}_avg", "as_of": None}
 
     for field, label in UNILATERAL_LOCATIONS:
-        value, delta, as_of = _field_current_and_delta(entries, field)
-        points[field] = {"label": label, "value": value, "delta": delta, "side": None, "as_of": as_of}
+        value, prior, delta, as_of = _field_current_and_delta(entries, field)
+        points[field] = {"label": label, "value": value, "prior": prior, "delta": delta, "side": None,
+                         "chart_key": field, "as_of": as_of}
 
     return points
 
@@ -201,10 +212,12 @@ _SILHOUETTE_LANDMARKS = {
 # attribute values they'd otherwise collide with plausible test-fixture weight/measurement values
 # (e.g. a test asserting "190" is absent from a range-filtered page would false-fail against a
 # `y="190"` attribute that has nothing to do with the actual data).
+# All 7 on the right margin (moved from a left/right split so every leader line reads the same
+# direction) in roughly top-to-bottom anatomical order, evenly spaced to avoid overlap.
 _LABEL_SLOTS = {
-    "neck_in": (14, 83, "start"), "waist_in": (14, 187, "start"), "hips_in": (14, 247, "start"),
-    "biceps": (306, 137, "end"), "forearm": (306, 211, "end"),
-    "quad": (306, 291, "end"), "calf": (306, 361, "end"),
+    "neck_in": (306, 51, "end"), "biceps": (306, 109, "end"), "forearm": (306, 167, "end"),
+    "waist_in": (306, 226, "end"), "hips_in": (306, 284, "end"),
+    "quad": (306, 342, "end"), "calf": (306, 399, "end"),
 }
 
 
@@ -330,6 +343,18 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
                                if getattr(r, field) is not None])}
              for field, label in CHART_FIELDS]
 
+    # One averaged L+R series per bilateral location, for the Overview chart only (not the "All
+    # measurements" grid) -- matches exactly what the Body silhouette's own averaged point shows,
+    # so clicking that point can jump to the same average rather than an arbitrarily-picked side.
+    # Only entries with BOTH sides logged that day count -- never averaged with a missing side.
+    bilateral_avg = [
+        {"key": f"{key}_avg", "label": f"{label} (avg)",
+         "chart": _chart([(r.measured_at, (getattr(r, left_field) + getattr(r, right_field)) / 2)
+                          for r in own_windowed
+                          if getattr(r, left_field) is not None and getattr(r, right_field) is not None])}
+        for key, left_field, right_field, label in BILATERAL_LOCATIONS
+    ]
+
     bp_a = [(r.measured_at, r.systolic) for r in own_windowed if r.systolic is not None]
     bp_b = [(r.measured_at, r.diastolic) for r in own_windowed if r.diastolic is not None]
     bp_chart = _dual_chart(bp_a, bp_b)
@@ -363,7 +388,8 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
                 bf_status = "insufficient"
 
     return {"range": range_key, "range_options": RANGES, "range_labels": RANGE_LABELS,
-           "series": series, "bp": bp_chart, "bmi": bmi_chart, "bf": bf_chart, "bf_status": bf_status}
+           "series": series, "bilateral_avg": bilateral_avg, "bp": bp_chart, "bmi": bmi_chart,
+           "bf": bf_chart, "bf_status": bf_status}
 
 
 def _macros_context(user: User, latest_weight: float | None) -> dict:
@@ -438,7 +464,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     # Most recent NON-NULL weight across all history, not just entries[0] -- a tape-measurement-only
     # follow-up entry (no weight) must not blank the water goal or the Macros tab's calorie calc
     # when an earlier entry actually logged a weight (Review Focus item 3).
-    latest_weight, _, latest_weight_as_of = _field_current_and_delta(own_entries, "weight_lbs")
+    latest_weight, _, _, latest_weight_as_of = _field_current_and_delta(own_entries, "weight_lbs")
     water = None
     if latest_weight is not None:
         goal_oz = water_goal_oz(latest_weight, me_user.water_goal_oz if me_user else None)

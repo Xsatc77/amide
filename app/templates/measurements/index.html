@@ -33,22 +33,33 @@
 {% if active_tab == 'measurements' %}
 {% macro silhouette_text(pt) %}{% if pt.value is none %}No data{% elif pt.side %}{{ pt.side }} only: {{ pt.value }} in{% else %}{{ pt.value }} in{% endif %}{% if pt.delta is not none %} ({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }}){% endif %}{% endmacro %}
 
+{% macro silhouette_circle(cx, cy, pt) %}
+<circle cx="{{ cx }}" cy="{{ cy }}" r="5" class="silhouette-point" role="button" tabindex="0"
+  data-chart-key="{{ pt.chart_key }}" data-label="{{ pt.label }}"
+  data-value="{{ pt.value if pt.value is not none else '' }}"
+  data-prior="{{ pt.prior if pt.prior is not none else '' }}"
+  data-delta="{{ pt.delta if pt.delta is not none else '' }}"
+  data-as-of="{{ pt.as_of.strftime('%b') ~ ' ' ~ pt.as_of.day|string ~ ', ' ~ pt.as_of.year|string if pt.as_of else '' }}"
+  data-side="{{ pt.side or '' }}"
+  aria-label="{{ pt.label }}: {{ silhouette_text(pt) }}"></circle>
+{% endmacro %}
+
 {% macro silhouette_point(key, pt, shape) %}
 {% set slot = shape.label_slots[key] %}
 {% set anchors = shape.points[key] %}
 {% if pt.value is not none %}
   {% if pt.side == 'R' %}
     <line x1="{{ anchors.r[0] }}" y1="{{ anchors.r[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
-    <circle cx="{{ anchors.r[0] }}" cy="{{ anchors.r[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+    {{ silhouette_circle(anchors.r[0], anchors.r[1], pt) }}
   {% elif pt.side == 'L' %}
     <line x1="{{ anchors.l[0] }}" y1="{{ anchors.l[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
-    <circle cx="{{ anchors.l[0] }}" cy="{{ anchors.l[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+    {{ silhouette_circle(anchors.l[0], anchors.l[1], pt) }}
   {% else %}
     <line x1="{{ anchors.l[0] }}" y1="{{ anchors.l[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
-    <circle cx="{{ anchors.l[0] }}" cy="{{ anchors.l[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+    {{ silhouette_circle(anchors.l[0], anchors.l[1], pt) }}
     {% if anchors.r %}
     <line x1="{{ anchors.r[0] }}" y1="{{ anchors.r[1] }}" x2="{{ slot[0] }}" y2="{{ slot[1] }}" class="silhouette-leader"></line>
-    <circle cx="{{ anchors.r[0] }}" cy="{{ anchors.r[1] }}" r="5" class="silhouette-point"><title>{{ pt.label }}: {{ silhouette_text(pt) }}</title></circle>
+    {{ silhouette_circle(anchors.r[0], anchors.r[1], pt) }}
     {% endif %}
   {% endif %}
 {% endif %}
@@ -84,23 +95,31 @@
       {% endfor %}
     </div>
     {% set overview_metrics = charts.series | selectattr('chart') | list %}
-    {% if overview_metrics or charts.bp or charts.bmi or charts.bf %}
+    {% set overview_avgs = charts.bilateral_avg | selectattr('chart') | list %}
+    {% if overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf %}
     <label class="field">
       <span>Metric</span>
       <select id="overview-metric-select">
         {% for s in overview_metrics %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
+        {% for s in overview_avgs %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
         {% if charts.bp %}<option value="bp">Blood pressure</option>{% endif %}
         {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
         {% if charts.bf %}<option value="bf">Body fat %</option>{% endif %}
       </select>
     </label>
+    {% set shown = namespace(done=false) %}
     <div id="overview-chart-slot">
       {% for s in overview_metrics %}
-      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if loop.first else ' hidden' }}>{{ line_chart(s.chart, s.label) }}</div>
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label) }}</div>
+      {% set shown.done = true %}
       {% endfor %}
-      {% if charts.bp %}<div class="overview-chart-panel" data-metric="bp"{{ '' if not overview_metrics else ' hidden' }}>{{ bp_chart(charts.bp) }}</div>{% endif %}
-      {% if charts.bmi %}<div class="overview-chart-panel" data-metric="bmi" hidden>{{ line_chart(charts.bmi, 'BMI') }}</div>{% endif %}
-      {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf" hidden>{{ line_chart(charts.bf, 'Body fat %') }}</div>{% endif %}
+      {% for s in overview_avgs %}
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label) }}</div>
+      {% set shown.done = true %}
+      {% endfor %}
+      {% if charts.bp %}<div class="overview-chart-panel" data-metric="bp"{{ '' if not shown.done else ' hidden' }}>{{ bp_chart(charts.bp) }}</div>{% set shown.done = true %}{% endif %}
+      {% if charts.bmi %}<div class="overview-chart-panel" data-metric="bmi"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bmi, 'BMI') }}</div>{% set shown.done = true %}{% endif %}
+      {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bf, 'Body fat %') }}</div>{% set shown.done = true %}{% endif %}
     </div>
     {% else %}
     <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
@@ -118,6 +137,7 @@
           {{ silhouette_point(key, pt, silhouette_shape) }}
         {% endfor %}
       </svg>
+      <div id="silhouette-tooltip" class="silhouette-tooltip" hidden role="status"></div>
     </div>
   </section>
   {% endif %}

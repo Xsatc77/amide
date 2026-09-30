@@ -700,15 +700,23 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .body-silhouette circle[data-site] { cursor: pointer; }
 
 /* ---------- measurement silhouette (Weight & Measurements page) ---------- */
-.silhouette-wrap { max-width: 460px; margin: 0 auto; }
+.silhouette-wrap { max-width: 460px; margin: 0 auto; position: relative; }
 .overview-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px; }
 .overview-chart-section .field { max-width: 260px; margin-bottom: 10px; }
 .overview-chart-panel .card { margin: 0; }
 .silhouette-leader { stroke: var(--border); stroke-width: 1; }
-.silhouette-point { fill: currentColor; }
+.silhouette-point { fill: currentColor; cursor: pointer; }
+.silhouette-point:hover, .silhouette-point:focus-visible { fill: var(--accent); outline: none; }
 .silhouette-label-name { font-size: 11px; fill: var(--muted); }
 .silhouette-label-value { font-size: 13px; font-weight: 600; fill: var(--text); }
 .silhouette-label-asof { font-size: 10px; fill: var(--muted); }
+.silhouette-tooltip {
+  position: absolute; z-index: 5; pointer-events: none; max-width: 220px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: var(--shadow); padding: 8px 10px; font-size: 0.82rem; line-height: 1.4;
+}
+.silhouette-tooltip strong { display: block; font-size: 0.88rem; margin-bottom: 2px; }
+.silhouette-tooltip .muted { font-size: 0.78rem; }
 
 /* Shared base for both the SVG's per-site <circle>s (painted by app/static/js/dosing.js) and the
    dialog's own <i class="site-dot ..."> legend swatches -- a <circle> already has its own size via
