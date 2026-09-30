@@ -1,10 +1,12 @@
-{# Week: 7 day columns x AM / PM / Bedtime / Any time rows; one block per protocol per slot. #}
+{# Week: 7 day columns x AM / PM / Bedtime / Any time rows; one small mark per dose item. #}
 <div class="cal-week" role="grid" aria-label="{{ title }}">
   <div class="cal-week-head" role="row">
     <span></span>
     {% for d in days %}
     <a class="cal-week-day {{ 'cal-today' if d == today }}" href="{{ url('day', d) }}">
       <span class="small muted">{{ d.strftime('%a') }}</span> <strong>{{ d.strftime('%b') }} {{ d.day }}</strong>
+      {% if d in workout_dates %}<span class="cal-icon" title="Workout scheduled">🏋</span>{% endif %}
+      {% if d in fitness_test_dates %}<span class="cal-icon" title="Fitness Test completed">🏆</span>{% endif %}
     </a>
     {% endfor %}
   </div>
@@ -13,7 +15,8 @@
     <div class="cal-slot-label">{{ slot.label }}</div>
     {% for entries in cells[key] %}
     <div class="cal-week-cell {{ 'cal-today' if days[loop.index0] == today }}">
-      {% for occ, items in entries %}<button type="button" class="cal-block c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"><span class="adherence-dot adherence-{{ adherence.get((occ.protocol_id | string) ~ '|' ~ occ.date.isoformat(), 'upcoming') }}"></span><strong>{{ occ.protocol_name }}</strong><span>{{ items | length }} dose{{ '' if items | length == 1 else 's' }}</span></button>{% endfor %}
+      {% for occ, it in entries %}<button type="button" class="cal-mark c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}">
+        <span class="adherence-dot adherence-{{ item_adherence.get((it.protocol_item_id, occ.date), 'upcoming') }}"></span>{{ initials(occ.protocol_name) }} {{ it.peptide }}</button>{% endfor %}
     </div>
     {% endfor %}
   </div>

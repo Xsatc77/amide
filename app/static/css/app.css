@@ -637,15 +637,19 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-daynum:hover { background: var(--accent-soft); }
 .cal-day-bg.cal-today + .cal-daynum { background: var(--accent); color: var(--accent-text); }
 .cal-day-bg.cal-out + .cal-daynum { color: var(--muted); font-weight: 400; }
-.cal-bar {
-  position: relative; z-index: 1; display: grid; grid-template-columns: repeat(var(--days), minmax(0, 1fr));
-  margin: 2px 3px; border-radius: 5px; background: var(--c); color: var(--ct); overflow: hidden;
+.cal-mark {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: 3px; justify-self: stretch;
+  margin: 1px 3px; padding: 1px 5px; border: 0; border-radius: 5px; background: var(--c); color: var(--ct);
+  font: inherit; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; overflow: hidden;
 }
-.cal-bar-title { position: absolute; inset: 0 6px; display: flex; align-items: center; font-size: 0.72rem; font-weight: 700;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-.cal-bar-day { border: 0; background: transparent; cursor: pointer; padding: 0; }
-.cal-bar-day:hover, .cal-bar-day:focus-visible { background: rgb(255 255 255 / 25%); outline: none; }
-.cal-more { grid-row: 6; z-index: 1; align-self: center; margin-left: 6px; font-size: 0.72rem; font-weight: 600; }
+.cal-mark:hover, .cal-mark:focus-visible { filter: brightness(1.08); outline: none; }
+.cal-day-foot {
+  grid-row: 6; z-index: 1; display: flex; align-items: center; justify-content: flex-start;
+  padding: 0 3px; font-size: 0.72rem; line-height: 1;
+}
+.cal-icon { line-height: 1; }
+.cal-icon-end { margin-left: auto; }
+.cal-more { font-size: 0.72rem; font-weight: 600; margin-left: 4px; }
 
 /* Week */
 .cal-week { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
@@ -658,14 +662,10 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-slot-label { padding: 10px 8px; font-size: 0.8rem; font-weight: 700; color: var(--muted); background: var(--bg); }
 .cal-week-cell { min-height: 64px; padding: 6px; border-left: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
 .cal-week-cell.cal-today { background: color-mix(in srgb, var(--accent-soft) 30%, transparent); }
-.cal-block {
-  font: inherit; text-align: left; cursor: pointer; border: 0; border-radius: 6px; padding: 5px 7px;
-  background: var(--c); color: var(--ct); display: flex; flex-direction: column; font-size: 0.8rem; line-height: 1.25;
-}
-.cal-block strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-block:hover { filter: brightness(1.08); }
+.cal-week-cell .cal-mark { width: 100%; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Day */
+.cal-day-extras { display: flex; gap: 8px; margin-bottom: 16px; }
 .cal-day-section { margin-bottom: 20px; }
 .cal-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .cal-card {
@@ -683,11 +683,11 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-due-list { list-style: none; margin: 0; padding: 12px 20px; display: flex; flex-direction: column; gap: 10px; }
 .cal-due-list li { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); }
 .cal-due-dose { font-weight: 600; }
-.adherence-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
-.adherence-on_time { background: #2e7d32; }
-.adherence-late { background: #f9a825; }
-.adherence-missed { background: #c62828; }
-.adherence-upcoming { background: #90a4ae; }
+.adherence-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; flex-shrink: 0; }
+.adherence-on_time { background: var(--tier-beginner); }
+.adherence-late { background: var(--ribbon); }
+.adherence-missed { background: var(--danger); }
+.adherence-upcoming { background: var(--muted); }
 
 /* ---------- dose status tags (Protocol page dose-history table) ---------- */
 .status-on_time { background: var(--ribbon); color: var(--ribbon-text); }

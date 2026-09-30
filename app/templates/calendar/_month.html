@@ -1,4 +1,5 @@
-{# Month grid: week-number column + 7 days. Each protocol is a coloured line (lane); consecutive days join. #}
+{# Month grid: week-number column + 7 days. Each day gets its own independent stack of up to 4
+   dose-item marks (sorted AM -> PM -> Bedtime -> Any), never a bar spanning multiple days. #}
 <div class="cal-month" role="grid" aria-label="{{ title }}">
   <div class="cal-month-head" role="row">
     <span class="cal-wk-head" title="Week of the year">Wk</span>
@@ -8,21 +9,22 @@
   <div class="cal-month-row" role="row">
     <a class="cal-wk" href="{{ url('week', row.week_start) }}" title="Week {{ row.week_no }}">{{ row.week_no }}</a>
     {% for d in row.days %}
+    {% set day_col = loop.index + 1 %}
     <div class="cal-day-bg {{ 'cal-today' if d == today }} {{ 'cal-out' if d.month != anchor.month }}" data-date="{{ d.isoformat() }}"
-         style="grid-column: {{ loop.index + 1 }}"></div>
-    <a class="cal-daynum" href="{{ url('day', d) }}" style="grid-column: {{ loop.index + 1 }}"
+         style="grid-column: {{ day_col }}"></div>
+    <a class="cal-daynum" href="{{ url('day', d) }}" style="grid-column: {{ day_col }}"
        aria-label="{{ d.strftime('%A, %B') }} {{ d.day }}">{{ d.day }}</a>
-    {% if d in workout_dates %}<span class="small" style="grid-column: {{ loop.index + 1 }}" title="Workout scheduled">🏋</span>{% endif %}
+    {% for m in row.marks.get(d, []) %}
+    <button type="button" class="cal-mark c{{ m.color }}" style="grid-column: {{ day_col }}; grid-row: {{ loop.index + 1 }}"
+      data-key="{{ m.protocol_id }}|{{ d.isoformat() }}"
+      aria-label="{{ m.protocol_name }}, {{ d.strftime('%B') }} {{ d.day }}">
+      <span class="adherence-dot adherence-{{ item_adherence.get((m.protocol_item_id, d), 'upcoming') }}"></span>{{ m.initials }}</button>
     {% endfor %}
-    {% for b in row.bars %}
-    <div class="cal-bar c{{ b.color }}" style="grid-column: {{ b.col_start + 2 }} / {{ b.col_end + 3 }}; grid-row: {{ b.lane + 2 }}; --days: {{ b.dates | length }}">
-      <span class="cal-bar-title">{{ b.name }}</span>
-      {% for d in b.dates %}<button type="button" class="cal-bar-day" data-key="{{ b.protocol_id }}|{{ d.isoformat() }}"
-        aria-label="{{ b.name }}, {{ d.strftime('%B') }} {{ d.day }}"><span class="adherence-dot adherence-{{ adherence.get((b.protocol_id | string) ~ '|' ~ d.isoformat(), 'upcoming') }}"></span></button>{% endfor %}
+    <div class="cal-day-foot" style="grid-column: {{ day_col }}">
+      {% if d in workout_dates %}<span class="cal-icon" title="Workout scheduled">🏋</span>{% endif %}
+      {% if row.overflow.get(d) %}<a class="cal-more" href="{{ url('day', d) }}" title="{{ row.overflow[d] }} more">+{{ row.overflow[d] }}</a>{% endif %}
+      {% if d in fitness_test_dates %}<span class="cal-icon cal-icon-end" title="Fitness Test completed">🏆</span>{% endif %}
     </div>
-    {% endfor %}
-    {% for col, n in row.more.items() %}
-    <a class="cal-more" href="{{ url('day', row.days[col]) }}" style="grid-column: {{ col + 2 }}">+{{ n }} more</a>
     {% endfor %}
   </div>
   {% endfor %}

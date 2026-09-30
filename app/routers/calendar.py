@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import current_user_id
-from app.calendar.layout import month_rows, month_weeks
+from app.calendar.layout import initials, month_rows, month_weeks
 from app.calendar.schedule import DueItem, Occurrence, as_needed, occurrences, week_number, week_start
 from app.db import get_session
 from app.models import DoseLog, DoseStatus, Protocol, ProtocolItem, TimeOfDay
@@ -74,9 +74,15 @@ def _item_status(item_logs: list[DoseLog], occ_date: date, today: date) -> str:
     return "on_time"
 
 
-def _adherence(session: Session, uid: int, occs: list[Occurrence], today: date) -> dict[str, str]:
-    """One of 'on_time' | 'late' | 'missed' | 'upcoming' per '{protocol_id}|{date}' key -- an
-    aggregate across every item due that occurrence, per the spec's calendar-color rules.
+def _adherence(session: Session, uid: int, occs: list[Occurrence],
+               today: date) -> tuple[dict[str, str], dict[tuple[int, date], str]]:
+    """Two views of the same per-item logs: an aggregate 'on_time'|'late'|'missed'|'upcoming' per
+    '{protocol_id}|{date}' key (the worst status across every item due that occurrence -- used by
+    the Day view's one-card-per-protocol dot and the click-through detail dialog), and a second,
+    finer-grained dict keyed by (protocol_item_id, date) giving each individual due item's own
+    status (used by the Month/Week views' per-item marks, so a logged AM dose and a silently missed
+    PM dose on the same protocol/day show as two differently-colored marks instead of collapsing to
+    one aggregate dot).
 
     Logs are grouped by (protocol_item_id, scheduled_date) rather than (protocol_id,
     scheduled_date): grouping by protocol alone would let one logged item on a multi-item day mask
@@ -86,7 +92,7 @@ def _adherence(session: Session, uid: int, occs: list[Occurrence], today: date) 
     """
     protocol_ids = {o.protocol_id for o in occs}
     if not protocol_ids:
-        return {}
+        return {}, {}
     logs = session.scalars(
         select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.protocol_id.in_(protocol_ids))).all()
     by_key: dict[tuple[int, date], list[DoseLog]] = {}
@@ -94,16 +100,18 @@ def _adherence(session: Session, uid: int, occs: list[Occurrence], today: date) 
         by_key.setdefault((log.protocol_item_id, log.scheduled_date), []).append(log)
 
     precedence = {"missed": 0, "late": 1, "upcoming": 2, "on_time": 3}
-    result = {}
+    aggregate, per_item = {}, {}
     for occ in occs:
-        item_statuses = [
-            _item_status(by_key.get((item.protocol_item_id, occ.date), []), occ.date, today)
-            for item in occ.items
-        ]
-        status = min(item_statuses, key=lambda s: precedence[s]) if item_statuses else \
+        item_statuses = []
+        for item in occ.items:
+            key = (item.protocol_item_id, occ.date)
+            status = _item_status(by_key.get(key, []), occ.date, today)
+            per_item[key] = status
+            item_statuses.append(status)
+        agg = min(item_statuses, key=lambda s: precedence[s]) if item_statuses else \
             ("missed" if occ.date < today else "upcoming")
-        result[f"{occ.protocol_id}|{occ.date.isoformat()}"] = status
-    return result
+        aggregate[f"{occ.protocol_id}|{occ.date.isoformat()}"] = agg
+    return aggregate, per_item
 
 
 @router.get("/calendar")
@@ -143,19 +151,21 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
         title = f"{anchor:%A, %B} {anchor.day}, {anchor.year}"
 
     occs = occurrences(protocols, first, last)
-    adherence = _adherence(session, uid, occs, today)
+    adherence, item_adherence = _adherence(session, uid, occs, today)
     ctx |= {"title": title, "prev_url": _url(view, prev), "next_url": _url(view, nxt),
             "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors)},
-            "adherence": adherence}
+            "adherence": adherence, "item_adherence": item_adherence, "initials": initials}
 
-    from app.routers.workouts import scheduled_workout_dates  # deferred: avoid a module-load cycle
+    from app.routers.fitness_test import fitness_test_logged_dates  # deferred: mirrors workouts' own
+    from app.routers.workouts import scheduled_workout_dates  # deferred imports, same reasoning
     ctx["workout_dates"] = scheduled_workout_dates(session, uid, first, last)
+    ctx["fitness_test_dates"] = fitness_test_logged_dates(session, uid, first, last)
 
     if view == "month":
         ctx["rows"] = month_rows(weeks, occs, colors)
     elif view == "week":
         days = [first + timedelta(days=i) for i in range(7)]
-        cells = {key: [[(o, _by_slot(o, slot)) for o in occs if o.date == d and _by_slot(o, slot)] for d in days]
+        cells = {key: [[(o, it) for o in occs if o.date == d for it in _by_slot(o, slot)] for d in days]
                  for slot, key in SLOTS}
         ctx |= {"days": days, "cells": cells}
     else:

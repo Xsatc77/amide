@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 
 from app.models import FitnessTestExerciseName, FitnessTestResult
+from app.routers.fitness_test import fitness_test_logged_dates
 
 
 def test_log_a_fitness_test_result(client, db):
@@ -58,3 +59,13 @@ def test_malformed_fitness_test_input_is_a_422_and_saves_nothing(client, db, for
     r = client.post("/fitness-test", data=form, follow_redirects=False)
     assert r.status_code == 422
     assert db.scalars(select(FitnessTestResult)).all() == []
+
+
+def test_fitness_test_logged_dates_only_returns_dates_actually_logged(db):
+    db.add(FitnessTestResult(owner_id=1, exercise=FitnessTestExerciseName.MAX_PUSHUPS,
+                             value=20, tested_at=date(2026, 1, 8)))
+    db.add(FitnessTestResult(owner_id=1, exercise=FitnessTestExerciseName.MAX_SITUPS,
+                             value=15, tested_at=date(2026, 1, 20)))  # outside the queried range
+    db.commit()
+    dates = fitness_test_logged_dates(db, 1, date(2026, 1, 1), date(2026, 1, 10))
+    assert dates == {date(2026, 1, 8)}

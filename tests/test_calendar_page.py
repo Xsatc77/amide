@@ -65,10 +65,28 @@ def test_month_view(client):
     # Week number column links to the week; day numbers link to the day.
     assert 'href="/calendar?view=week&date=2026-09-20"' in t and ">39<" in t
     assert 'href="/calendar?view=day&date=2026-09-22"' in t
-    # Daily protocol draws bars titled with its name; each day in a bar is clickable.
-    assert "Heal" in t and f'data-key="{pid}|2026-09-22"' in t
+    # Daily protocol gets its own mark every day, never one bar spanning the whole run: "Heal"'s
+    # auto-derived initials ("HE") appear on each of two consecutive days, each independently
+    # clickable to the same protocol's detail dialog.
+    assert t.count(">HE</button>") >= 2 or t.count(">HE<") >= 2
+    assert f'data-key="{pid}|2026-09-22"' in t and f'data-key="{pid}|2026-09-23"' in t
     # Prev / next / today navigation.
     assert 'href="/calendar?view=month&date=2026-08-15"' in t and 'href="/calendar?view=month&date=2026-10-15"' in t
+
+
+def test_month_view_marks_dont_merge_across_days(client):
+    """The old bar-per-protocol layout merged every consecutive due day into one spanning bar --
+    the redesign gives each day its own independent mark instead, so a daily protocol shows a
+    separate clickable mark on every single day it's due, not one wide bar."""
+    make(client, name="Solo", items={
+        "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am",
+    })
+    t = page(client, view="month", date="2026-09-15")
+    with SessionLocal() as s:
+        pid = s.scalar(select(Protocol.id).where(Protocol.name == "Solo"))
+    for d in ("2026-09-01", "2026-09-02", "2026-09-03"):
+        assert f'data-key="{pid}|{d}"' in t
 
 
 def test_week_view(client):
@@ -132,3 +150,22 @@ def test_month_view_marks_a_day_with_a_scheduled_workout(client, db, me):
 
     body = client.get("/calendar").text
     assert "Workout scheduled" in body
+
+
+def test_month_view_marks_a_day_a_fitness_test_was_completed(client, db, me):
+    from app.models import FitnessTestExerciseName, FitnessTestResult
+    db.add(FitnessTestResult(owner_id=me, exercise=FitnessTestExerciseName.MAX_PUSHUPS,
+                             value=20, tested_at=date.today()))
+    db.commit()
+    body = client.get("/calendar").text
+    assert "Fitness Test completed" in body
+
+
+def test_month_view_overflows_past_four_marks_in_one_day(client):
+    for i in range(6):
+        make(client, name=f"P{i}", items={
+            "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+            "items-0-frequency": "daily", "items-0-time_of_day": "am",
+        })
+    t = page(client, view="month", date="2026-09-15")
+    assert re.search(r'class="cal-more"[^>]*>\+2<', t)

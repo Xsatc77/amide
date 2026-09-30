@@ -25,6 +25,18 @@ _LABELS = {
 _RETEST_AFTER_DAYS = 28
 
 
+def fitness_test_logged_dates(session: Session, uid: int, start: date, end: date) -> set[date]:
+    """Every date in [start, end] this owner actually logged a Fitness Test result -- used only for
+    a plain Calendar marker. Unlike a workout's schedule, a Fitness Test has no "due" date (the
+    28-day retest is a soft suggestion, never a hard schedule -- see the spec), so there is nothing
+    to project onto a future date; only past/logged dates are ever marked."""
+    dates = session.scalars(
+        select(FitnessTestResult.tested_at).where(
+            FitnessTestResult.owner_id == uid, FitnessTestResult.tested_at.between(start, end))
+    ).all()
+    return set(dates)
+
+
 def _charts_and_suggestions(session: Session, uid: int) -> list[dict]:
     from app.routers.measurements import _chart  # deferred: avoid a module-load cycle
 

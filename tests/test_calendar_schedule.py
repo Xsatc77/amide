@@ -97,29 +97,51 @@ def test_month_weeks():
     assert all(len(w) == 7 and w[0].weekday() == 6 for w in weeks)  # Sunday first
 
 
-# ---------------------------------------------------------------- month bars
+# ---------------------------------------------------------------- month marks
 
-def test_bars_join_consecutive_days_per_week_row():
+def test_marks_are_per_day_not_spanning():
     daily = proto(1, "Daily", start=date(2026, 9, 2), end=date(2026, 9, 10))
     weekly = proto(2, "Weekly", items=[item(freq=Frequency.WEEKLY)])
     weeks = layout.month_weeks(date(2026, 9, 1))
     occs = schedule.occurrences([daily, weekly], weeks[0][0], weeks[-1][-1])
     rows = layout.month_rows(weeks, occs, colors={1: 0, 2: 1})
     first_row = rows[0]  # Aug 30 - Sep 5
-    bars = [(b.protocol_id, b.col_start, b.col_end, b.lane) for b in first_row.bars]
-    assert (1, 3, 6, 1) in bars  # Wed Sep 2 .. Sat Sep 5 as one bar (lane order: first appearance)
-    assert (2, 2, 2, 0) in bars  # weekly: Tue Sep 1 alone
-    second = [(b.protocol_id, b.col_start, b.col_end) for b in rows[1].bars]
-    assert (1, 0, 4) in second   # Sun Sep 6 .. Thu Sep 10
-    assert rows[1].bars[0].dates[0] == date(2026, 9, 6) or rows[1].bars[1].dates[0] == date(2026, 9, 6)
+    # Daily is due Sep 2-5 within this row: one independent day's worth of marks each day, not one
+    # bar spanning all four days.
+    assert [m.protocol_id for m in first_row.marks[date(2026, 9, 2)]] == [1]
+    assert [m.protocol_id for m in first_row.marks[date(2026, 9, 5)]] == [1]
+    assert 1 not in [m.protocol_id for m in first_row.marks[date(2026, 9, 1)]]  # Daily hasn't started yet
+    # Weekly is due Sep 1 alone this row.
+    assert [m.protocol_id for m in first_row.marks[date(2026, 9, 1)]] == [2]
     assert first_row.week_no == 36
 
 
-def test_lanes_overflow():
+def test_marks_sorted_by_time_of_day():
+    p = proto(1, "Stack", items=[
+        item("PM-dose", tod=TimeOfDay.PM, pid=1, item_id=1),
+        item("AM-dose", tod=TimeOfDay.AM, pid=2, item_id=2),
+        item("Bedtime-dose", tod=TimeOfDay.BEDTIME, pid=3, item_id=3),
+    ])
+    weeks = layout.month_weeks(date(2026, 9, 1))
+    occs = schedule.occurrences([p], weeks[0][0], weeks[-1][-1])
+    rows = layout.month_rows(weeks, occs, colors={1: 0})
+    day = date(2026, 9, 1)
+    marks = next(r.marks[day] for r in rows if r.marks.get(day))
+    assert [m.protocol_item_id for m in marks] == [2, 1, 3]  # AM, PM, Bedtime
+
+
+def test_marks_overflow_past_the_cap():
     protos = [proto(i, f"P{i}") for i in range(1, 7)]
     weeks = layout.month_weeks(date(2026, 9, 1))
     occs = schedule.occurrences(protos, weeks[0][0], weeks[-1][-1])
-    rows = layout.month_rows(weeks, occs, colors={i: i % 8 for i in range(1, 7)}, max_lanes=4)
+    rows = layout.month_rows(weeks, occs, colors={i: i % 8 for i in range(1, 7)}, max_marks=4)
     row = rows[1]
-    assert max(b.lane for b in row.bars) == 3
-    assert row.more == {c: 2 for c in range(7)}
+    a_day = row.days[3]
+    assert len(row.marks[a_day]) == 4
+    assert row.overflow[a_day] == 2
+
+
+def test_initials():
+    assert layout.initials("Weight Loss") == "WL"
+    assert layout.initials("Testosterone") == "TE"
+    assert layout.initials("Muscle Building Stack") == "MBS"

@@ -1,5 +1,11 @@
 {# Day: a card per protocol in each time-of-day section. #}
 <div class="cal-day">
+  {% if anchor in workout_dates or anchor in fitness_test_dates %}
+  <div class="cal-day-extras">
+    {% if anchor in workout_dates %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">🏋</span> Workout scheduled</span>{% endif %}
+    {% if anchor in fitness_test_dates %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">🏆</span> Fitness Test completed</span>{% endif %}
+  </div>
+  {% endif %}
   {% if nothing %}
   <div class="empty"><p><strong>Nothing due.</strong></p><p class="muted">No active or scheduled protocol has a dose on this day.</p></div>
   {% endif %}
