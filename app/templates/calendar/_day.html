@@ -14,8 +14,9 @@
     <h2 class="section-title">{{ slot.label }}</h2>
     <div class="cal-card-grid">
       {% for occ, items in entries %}
-      <button type="button" class="cal-card c{{ colors.get(occ.protocol_id, 0) }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}">
-        <span class="adherence-dot adherence-{{ adherence.get((occ.protocol_id | string) ~ '|' ~ occ.date.isoformat(), 'upcoming') }}"></span>
+      {% set status = adherence.get((occ.protocol_id | string) ~ '|' ~ occ.date.isoformat(), 'upcoming') %}
+      <button type="button" class="cal-card cal-status-{{ status }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"
+        aria-label="{{ occ.protocol_name }}, {{ status | replace('_', ' ') }}">
         <strong class="cal-card-title">{{ occ.protocol_name }}</strong>
         <ul class="dose-list">
           {% for i in items %}<li><strong>{{ i.peptide }}</strong> — {{ dose_text(i) }}{% if i.step %} · step {{ i.step }}{% endif %} · {{ i.route }}{% if i.inventory %} · <span class="muted">{{ i.inventory }}</span>{% endif %}</li>{% endfor %}

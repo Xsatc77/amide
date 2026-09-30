@@ -15,10 +15,10 @@
     <a class="cal-daynum" href="{{ url('day', d) }}" style="grid-column: {{ day_col }}"
        aria-label="{{ d.strftime('%A, %B') }} {{ d.day }}">{{ d.day }}</a>
     {% for m in row.marks.get(d, []) %}
-    <button type="button" class="cal-mark c{{ m.color }}" style="grid-column: {{ day_col }}; grid-row: {{ loop.index + 1 }}"
+    {% set status = item_adherence.get((m.protocol_item_id, d), 'upcoming') %}
+    <button type="button" class="cal-mark cal-status-{{ status }}" style="grid-column: {{ day_col }}; grid-row: {{ loop.index + 1 }}"
       data-key="{{ m.protocol_id }}|{{ d.isoformat() }}"
-      aria-label="{{ m.protocol_name }}, {{ d.strftime('%B') }} {{ d.day }}">
-      <span class="adherence-dot adherence-{{ item_adherence.get((m.protocol_item_id, d), 'upcoming') }}"></span>{{ m.initials }}</button>
+      aria-label="{{ m.protocol_name }}, {{ d.strftime('%B') }} {{ d.day }}, {{ status | replace('_', ' ') }}">{{ m.initials }}</button>
     {% endfor %}
     <div class="cal-day-foot" style="grid-column: {{ day_col }}">
       {% if d in workout_dates %}<span class="cal-icon" title="Workout scheduled">🏋</span>{% endif %}

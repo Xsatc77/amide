@@ -775,6 +775,17 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .c3 { --c: #fb7185; --ct: #3a0a14; } .c4 { --c: #fbbf24; --ct: #2f1d00; } .c5 { --c: #4ade80; --ct: #052e14; }
   .c6 { --c: #fb923c; --ct: #3a1402; } .c7 { --c: #cbd5e1; --ct: #111827; }
 }
+/* Adherence status colors -- reuse the same --c/--ct custom props the protocol palette above
+   sets, so .cal-mark/.cal-card/.cal-dialog need no CSS changes at all: Month/Week/Day just apply
+   one of these classes instead of a protocol-color class, since status is now the dominant color
+   cue on every view (not just a small dot as before). */
+.cal-status-on_time { --c: var(--tier-beginner); --ct: #fff; }
+.cal-status-late { --c: var(--ribbon); --ct: var(--ribbon-text); }
+.cal-status-missed { --c: var(--danger); --ct: #fff; }
+.cal-status-upcoming { --c: var(--muted); --ct: #fff; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 16px; font-size: 0.8rem; color: var(--muted); }
+.cal-legend-item { display: flex; align-items: center; gap: 6px; }
+.cal-legend-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--c); }
 .cal-head { align-items: center; flex-wrap: wrap; }
 .cal-controls { display: flex; gap: 6px; align-items: center; }
 .cal-controls select { font: inherit; color: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
@@ -844,11 +855,6 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-due-list { list-style: none; margin: 0; padding: 12px 20px; display: flex; flex-direction: column; gap: 10px; }
 .cal-due-list li { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); }
 .cal-due-dose { font-weight: 600; }
-.adherence-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; flex-shrink: 0; }
-.adherence-on_time { background: var(--tier-beginner); }
-.adherence-late { background: var(--ribbon); }
-.adherence-missed { background: var(--danger); }
-.adherence-upcoming { background: var(--muted); }
 
 /* ---------- dose status tags (Protocol page dose-history table) ---------- */
 .status-on_time { background: var(--ribbon); color: var(--ribbon-text); }

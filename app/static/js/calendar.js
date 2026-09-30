@@ -13,7 +13,7 @@
     $("cal-dialog-title").textContent = occ.name;
     $("cal-dialog-date").textContent = occ.date;
     $("cal-dialog-edit").href = occ.edit_url;
-    dialog.className = `dialog cal-dialog c${occ.color}`;
+    dialog.className = `dialog cal-dialog cal-status-${occ.status}`;
     $("cal-dialog-items").replaceChildren(...occ.items.map((i) => {
       const li = document.createElement("li");
       const head = document.createElement("strong");

@@ -21,6 +21,13 @@
   </form>
 </div>
 
+<div class="cal-legend" aria-label="Status colors">
+  <span class="cal-legend-item"><span class="cal-legend-swatch cal-status-on_time"></span>On time</span>
+  <span class="cal-legend-item"><span class="cal-legend-swatch cal-status-late"></span>Late</span>
+  <span class="cal-legend-item"><span class="cal-legend-swatch cal-status-missed"></span>Missed</span>
+  <span class="cal-legend-item"><span class="cal-legend-swatch cal-status-upcoming"></span>Upcoming</span>
+</div>
+
 {% if view == 'month' %}{% include "calendar/_month.html" %}
 {% elif view == 'week' %}{% include "calendar/_week.html" %}
 {% else %}{% include "calendar/_day.html" %}{% endif %}

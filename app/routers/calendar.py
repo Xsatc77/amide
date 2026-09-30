@@ -45,11 +45,13 @@ def _item_json(item: DueItem) -> dict:
             "time": item.time_of_day.label, "route": item.route, "inventory": item.inventory}
 
 
-def _details(occs: list[Occurrence], colors: dict[int, int]) -> dict:
+def _details(occs: list[Occurrence], colors: dict[int, int], adherence: dict[str, str]) -> dict:
     return {
         f"{o.protocol_id}|{o.date.isoformat()}": {
             "name": o.protocol_name, "date": f"{o.date:%A, %B} {o.date.day}, {o.date.year}",
-            "color": colors.get(o.protocol_id, 0), "edit_url": f"/protocols/{o.protocol_id}/edit",
+            "color": colors.get(o.protocol_id, 0),
+            "status": adherence.get(f"{o.protocol_id}|{o.date.isoformat()}", "upcoming"),
+            "edit_url": f"/protocols/{o.protocol_id}/edit",
             "items": [_item_json(i) for i in o.items],
         }
         for o in occs
@@ -153,7 +155,7 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     occs = occurrences(protocols, first, last)
     adherence, item_adherence = _adherence(session, uid, occs, today)
     ctx |= {"title": title, "prev_url": _url(view, prev), "next_url": _url(view, nxt),
-            "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors)},
+            "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors, adherence)},
             "adherence": adherence, "item_adherence": item_adherence, "initials": initials}
 
     from app.routers.fitness_test import fitness_test_logged_dates  # deferred: mirrors workouts' own
