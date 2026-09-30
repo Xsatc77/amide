@@ -213,6 +213,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 - **Expanded Time of Day options** (parked during the Phase 10 Calendar redesign brainstorm, 2026-09-30, so it isn't missed — this is a real data-model change to the dosing/protocol Time of Day concept, not a cosmetic tweak, and deserves its own brainstorm/spec cycle before implementation): Fasting, Waking (immediately after waking), AM (first half of day), Pre-Workout (up to 1hr before), Post-Workout (up to 1hr after), PM (second half of day), Before Bed (up to 1hr before), Bedtime, Any. Slots collapse from the bottom up when unused — e.g. no Waking entries means AM takes the first position; no Before Bed/Bedtime entries means Any moves up rather than leaving a gap.
 - Pre-planned stacks: Top 10 Stacks PDF, "Celebrity Stacks" — *note: overlaps with Library's "26 or so Premade Protocols" below, same underlying content*
 - Printable protocol view
+- **"How many vials do I need?" calculator**, on the protocol-item level — given a protocol's dose/frequency/duration, work out how many vials to order from a vendor. Needs its own inputs (vial size, concentration/reconstitution, order lead time, etc.) — parked 2026-09-30 pending a brainstorm on what those inputs should be.
 
 **Body Outline**
 - Labs form: list every marker with an inline entry box instead of select-then-add; an "Add Marker" button for anything not listed; integer-only entries (positive/negative, `<`/`>` accepted, 0 is valid)
