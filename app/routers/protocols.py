@@ -11,7 +11,8 @@ from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.models import (
     WEEKDAY_LETTERS, WEEKDAY_NAMES, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
-    Protocol, ProtocolGoal, ProtocolItem, Route, Share, ShareCategory, TimeOfDay, TitrationStep, User,
+    Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
+    User,
 )
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
@@ -257,6 +258,8 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
             frequency=it.frequency, every_n_days=it.every_n_days, weekdays=it.weekdays,
             time_of_day=it.time_of_day, route=it.route, inventory_item_id=it.inventory_item_id, notes=it.notes,
             steps=[TitrationStep(start_week=s.start_week, end_week=s.end_week, dose=s.dose) for s in it.steps],
+            cycle_offs=[ProtocolItemCycleOff(start_week=c.start_week, end_week=c.end_week)
+                       for c in it.cycle_offs],
         )
         p.items.append(new_item)
         new_items.append(new_item)

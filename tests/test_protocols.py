@@ -240,6 +240,15 @@ def test_new_builder_embeds_merged_suggestions(client, db):
     assert form_action(r.text) == "/protocols"
 
 
+def test_saving_a_protocol_persists_cycle_offs(client, db):
+    # items-1 (BPC-157) has no titration steps in valid_form, so its cycle-off can't collide.
+    client.post("/protocols", data=valid_form(db, **{
+        "items-1-cycle_offs-0-start_week": "6", "items-1-cycle_offs-0-weeks": "3",
+    }))
+    p = db.scalar(select(Protocol).where(Protocol.name == "Recomp"))
+    assert [(c.start_week, c.end_week) for c in p.items[1].cycle_offs] == [(6, 8)]
+
+
 def test_create_protocol(client, db):
     r = client.post("/protocols", data=valid_form(db), follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/protocols"

@@ -40,6 +40,24 @@ def make_sample_data(client):
     assert r.status_code in (200, 303), f"Protocols POST failed: {r.status_code}"
 
 
+def test_backup_round_trips_cycle_offs(client, db):
+    from app.models import ProtocolItemCycleOff
+    client.post("/protocols", data={
+        "name": "Cycled Backup", "start_date": "2026-09-01", "weeks": "12", "goal": "fat-loss",
+        "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am", "items-0-route": "subq",
+        "items-0-cycle_offs-0-start_week": "4", "items-0-cycle_offs-0-weeks": "3",
+    })
+    export = client.get("/backup/export.json").json()
+    with SessionLocal() as s:
+        s.query(Protocol).filter_by(name="Cycled Backup").delete()
+        s.commit()
+    client.post("/backup/import", files={"file": ("backup.json", json.dumps(export), "application/json")})
+    with SessionLocal() as s:
+        p = s.scalar(select(Protocol).where(Protocol.name == "Cycled Backup"))
+        assert [(c.start_week, c.end_week) for c in p.items[0].cycle_offs] == [(4, 6)]
+
+
 def test_backup_page_has_export_and_import_links(client):
     r = client.get("/backup")
     assert r.status_code == 200

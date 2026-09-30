@@ -18,7 +18,7 @@ from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
     Category, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Protocol, ProtocolGoal, ProtocolItem,
-    Route, Sale, StorageLocation, TimeOfDay, TitrationStep,
+    ProtocolItemCycleOff, Route, Sale, StorageLocation, TimeOfDay, TitrationStep,
 )
 from app.routers.protocols import _find_or_create_peptide
 from app.templating import templates
@@ -73,6 +73,7 @@ def _protocol_row(p: Protocol) -> dict:
                 "frequency": it.frequency.value, "every_n_days": it.every_n_days, "weekdays": it.weekdays,
                 "time_of_day": it.time_of_day.value, "route": it.route.value, "notes": it.notes,
                 "steps": [{"start_week": s.start_week, "end_week": s.end_week, "dose": s.dose} for s in it.steps],
+                "cycle_offs": [{"start_week": c.start_week, "end_week": c.end_week} for c in it.cycle_offs],
             }
             for it in p.items
         ],
@@ -226,6 +227,8 @@ def _import_protocol_row(session: Session, uid: int, row: dict) -> None:
             notes=item.get("notes"),
             steps=[TitrationStep(start_week=s["start_week"], end_week=s.get("end_week"), dose=s["dose"])
                   for s in item.get("steps", [])],
+            cycle_offs=[ProtocolItemCycleOff(start_week=c["start_week"], end_week=c["end_week"])
+                       for c in item.get("cycle_offs", [])],
         ))
     session.add(p)
 
