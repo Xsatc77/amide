@@ -607,6 +607,12 @@ a.btn { display: inline-block; text-decoration: none; }
 /* Line the label and remove button up with the inputs, which sit under a small heading. */
 .step-row > .small { padding-top: 34px; }
 .step-row > .btn-icon { margin-top: 26px; }
+/* Cycle on/off is its own always-visible control (unlike .steps above) -- cycling is a scheduling
+   concept independent of whether titration is on, so it gets no .titration-on gating. */
+.cycle-offs { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.cycle-off-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: start; margin: 8px 0; }
+.cycle-off-row > .small { padding-top: 34px; }
+.cycle-off-row > .btn-icon { margin-top: 26px; }
 
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
 .end-row { display: flex; align-items: center; gap: 8px; }

@@ -19,13 +19,15 @@
   let uid = 0;
   const newItem = (fields = {}) => ({
     uid: ++uid, peptide_id: "", new_name: "", dose: "", dose_unit: "mg", frequency: "daily", every_n_days: "",
-    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", steps: [],
+    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", steps: [], cycle_offs: [],
     // Blank values from a re-shown form fall back to the defaults above.
     ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== "")),
   });
 
   let goals = [...data.state.goals];
-  let items = data.state.items.map((it) => newItem({ ...it, steps: it.steps.map((s) => ({ ...s })) }));
+  let items = data.state.items.map((it) => newItem({
+    ...it, steps: it.steps.map((s) => ({ ...s })), cycle_offs: (it.cycle_offs || []).map((c) => ({ ...c })),
+  }));
   let errors = { ...data.errors };
 
   // ------------------------------------------------------------ helpers
@@ -206,6 +208,23 @@
         onclick: () => { it.steps.splice(j, 1); changed(); } }, "×"));
   }
 
+  function cycleOffRow(it, i, j, off) {
+    const p = `items-${i}-cycle_offs-${j}`;
+    const num = (name, value, placeholder) => h("input", {
+      name: `${p}-${name}`, type: "number", min: "1", step: "1", inputmode: "numeric", value, placeholder,
+      "aria-label": name.replace("_", " "), oninput: (e) => (off[name] = e.target.value),
+      // The "+ Cycle off"/"+ Cycle on" label depends on whether this row's "weeks" is filled in --
+      // re-render on blur/Enter (not oninput, which would rebuild the DOM and drop focus mid-keystroke).
+      onchange: () => changed(),
+    });
+    return h("div", { class: "cycle-off-row" },
+      h("span", { class: "small muted", text: `Off ${j + 1}` }),
+      h("div", { class: "field" }, h("span", { class: "small", text: "Starts week" }), num("start_week", off.start_week, "")),
+      h("div", { class: "field" }, h("span", { class: "small", text: "Weeks off" }), num("weeks", off.weeks, "")),
+      h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": "Remove cycle-off",
+        onclick: () => { it.cycle_offs.splice(j, 1); changed(); } }, "×"));
+  }
+
   function itemCard(it, i) {
     const p = `items-${i}`;
     const set = (name) => (v) => { it[name] = v; };
@@ -266,7 +285,19 @@
           const next = last && last.end_week ? String(Number(last.end_week) + 1) : last ? "" : "1";
           it.steps.push({ start_week: next, end_week: "", dose: "" });
           changed();
-        } }, "+ Add step")));
+        } }, "+ Add step")),
+      it.frequency === "as_needed" ? null : h("div", { class: "cycle-offs" },
+        h("div", { class: "steps-head" }, h("strong", { class: "small", text: "Cycle on/off" })),
+        it.cycle_offs.map((c, j) => cycleOffRow(it, i, j, c)),
+        h("button", { type: "button", class: "btn btn-ghost", onclick: () => {
+          const lastOff = it.cycle_offs[it.cycle_offs.length - 1];
+          const lastStep = it.steps[it.steps.length - 1];
+          const afterOff = lastOff ? Number(lastOff.start_week) + Number(lastOff.weeks) : 0;
+          const afterStep = lastStep && lastStep.end_week ? Number(lastStep.end_week) + 1 : 0;
+          const next = Math.max(afterOff, afterStep, 1);
+          it.cycle_offs.push({ start_week: String(next), weeks: "" });
+          changed();
+        } }, it.cycle_offs.length && !it.cycle_offs[it.cycle_offs.length - 1].weeks ? "+ Cycle on" : "+ Cycle off")));
     syncFreq();
     return card;
   }
