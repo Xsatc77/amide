@@ -103,6 +103,9 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     }
     due = [(occ, item) for occ, item in all_due if item.protocol_item_id not in logged_ids]
 
+    from app.routers.workouts import workouts_due_today
+    workout_days_due = workouts_due_today(session, uid, today)
+
     # Built from all_due (not the logged-filtered `due`) so the recommended-site data for an item
     # already logged today still surfaces on the page -- e.g. right after logging, so the JS/tests
     # reading this blob can see the mirrored recommendation for that peptide's *next* dose, even
@@ -154,7 +157,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
 
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
-        "volume_text": volume_text, "empty_vial": empty_vial,
+        "volume_text": volume_text, "empty_vial": empty_vial, "workout_days_due": workout_days_due,
     })
 
 

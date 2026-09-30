@@ -663,3 +663,43 @@ def test_0023_adds_sheet_sections_simple(tmp_path):
     with sqlite3.connect(db) as c:
         peptide_cols = {r[1] for r in c.execute("pragma table_info(peptides)")}
         assert "sheet_sections_simple" not in peptide_cols
+
+
+def test_0024_creates_workout_tables(tmp_path):
+    db = tmp_path / "l.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0023")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute(
+            "select name from sqlite_master where type='table'")}
+        for t in ("workout_plans", "workout_plan_days", "workout_exercises",
+                  "workout_logs", "workout_exercise_logs", "fitness_test_results"):
+            assert t in tables, t
+        c.execute("insert into users(id, username, username_key, password_hash, is_admin, totp_enabled, failed_attempts, created_at) "
+                  "values (1, 'tester', 'tester', 'x', 0, 0, 0, '2026-01-01')")
+        c.execute(
+            "insert into workout_plans(id, owner_id, name, source, started_on, created_at) "
+            "values (1, 1, 'Test Plan', 'manual', '2026-01-01', '2026-01-01')")
+        c.execute(
+            "insert into workout_plan_days(id, plan_id, position, label) "
+            "values (1, 1, 0, 'Day 1')")
+        c.execute(
+            "insert into workout_exercises(id, day_id, position, name) "
+            "values (1, 1, 0, 'Push-up')")
+        c.execute(
+            "insert into workout_logs(id, owner_id, plan_day_id, log_date, completed_at) "
+            "values (1, 1, 1, '2026-01-08', '2026-01-08')")
+        c.execute(
+            "insert into workout_exercise_logs(id, workout_log_id, exercise_id, completed) "
+            "values (1, 1, 1, 1)")
+        c.execute(
+            "insert into fitness_test_results(id, owner_id, exercise, value, tested_at) "
+            "values (1, 1, 'max_pushups', 20, '2026-01-01')")
+    command.downgrade(cfg, "0023")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute(
+            "select name from sqlite_master where type='table'")}
+        for t in ("workout_plans", "workout_plan_days", "workout_exercises",
+                  "workout_logs", "workout_exercise_logs", "fitness_test_results"):
+            assert t not in tables, t

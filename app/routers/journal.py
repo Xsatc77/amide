@@ -55,6 +55,22 @@ def doses_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
     ]
 
 
+def workouts_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
+    """That owner's completed workouts on that date. Query-time only, same ownership-check
+    reasoning as doses_for: for a shared entry, owner_id must be the entry's own owner, not the
+    viewer -- the viewer's access is already gated by the sharing query."""
+    from app.models import WorkoutLog  # deferred: avoid a module-load cycle with app.routers.workouts
+    rows = session.scalars(
+        select(WorkoutLog).where(WorkoutLog.owner_id == owner_id, WorkoutLog.log_date == entry_date)
+    ).all()
+    return [
+        {"label": r.plan_day.label,
+         "completed_count": sum(1 for el in r.exercise_logs if el.completed),
+         "total_count": len(r.exercise_logs)}
+        for r in rows
+    ]
+
+
 def _local_time_str(dt: datetime, tz_name: str | None) -> str:
     """`dt` (stored/naive-UTC, mirroring app/routers/settings.py's `_format_last_login`) formatted
     as HH:MM in `tz_name` when given, else left as UTC."""
@@ -64,7 +80,7 @@ def _local_time_str(dt: datetime, tz_name: str | None) -> str:
     return aware.strftime("%H:%M")
 
 
-def _entry_view(entry: JournalEntry, doses: list[dict], owner_name: str | None = None,
+def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], owner_name: str | None = None,
                 viewer_tz: str | None = None) -> dict:
     return {
         "date": entry.entry_date,
@@ -80,6 +96,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], owner_name: str | None =
             for qn in entry.quick_notes
         ],
         "doses": doses,
+        "workouts": workouts,
     }
 
 
@@ -98,10 +115,12 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
     if owner_ids:
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
 
-    views = [_entry_view(e, doses_for(session, e.owner_id, e.entry_date), viewer_tz=viewer_tz)
+    views = [_entry_view(e, doses_for(session, e.owner_id, e.entry_date),
+                         workouts_for(session, e.owner_id, e.entry_date), viewer_tz=viewer_tz)
             for e in own_entries]
     views += [
-        _entry_view(e, doses_for(session, e.owner_id, e.entry_date), owner_name=owner_names.get(e.owner_id),
+        _entry_view(e, doses_for(session, e.owner_id, e.entry_date),
+                   workouts_for(session, e.owner_id, e.entry_date), owner_name=owner_names.get(e.owner_id),
                    viewer_tz=viewer_tz)
         for e in shared_entries
     ]
@@ -113,7 +132,8 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
     # a row here, since merely opening the dialog/viewing the tab must not touch the database.
     today_row = session.scalar(_journal_query(viewer_uid).where(JournalEntry.entry_date == date.today()))
     today_entry = (
-        _entry_view(today_row, doses_for(session, viewer_uid, date.today()), viewer_tz=viewer_tz)
+        _entry_view(today_row, doses_for(session, viewer_uid, date.today()),
+                   workouts_for(session, viewer_uid, date.today()), viewer_tz=viewer_tz)
         if today_row is not None else None
     )
 

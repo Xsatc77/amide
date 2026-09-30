@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% set active_nav = "fitness_test" %}
+{% block title %}Fitness Test{% endblock %}
+
+{% block content %}
+<div class="page-head"><div><h1>Fitness Test</h1></div></div>
+
+{% for e in exercises %}
+<section class="lib-section">
+  <h2 class="section-title">{{ e.label }}</h2>
+  {% if e.suggest_retest %}
+  <p class="note">It's been a while — consider a retest for {{ e.label }}.</p>
+  {% endif %}
+  {% if e.chart %}
+  <svg viewBox="0 0 {{ e.chart.width }} {{ e.chart.height }}" class="measurement-chart" role="img" aria-label="{{ e.label }} over time">
+    <polyline points="{{ e.chart.poly }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+  </svg>
+  {% else %}
+  <p class="muted small">Log at least two results to see a trend.</p>
+  {% endif %}
+</section>
+{% endfor %}
+
+<form method="post" action="/fitness-test">
+  <label>Date <input type="date" name="tested_at" value="{{ today }}" required></label>
+  {% for e in exercises %}
+  <label>{{ e.label }} <input type="number" step="0.1" name="{{ e.key }}"></label>
+  {% endfor %}
+  <button type="submit" class="btn btn-primary">Log a new test</button>
+</form>
+{% endblock %}

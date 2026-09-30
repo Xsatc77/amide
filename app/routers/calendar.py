@@ -148,6 +148,9 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
             "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors)},
             "adherence": adherence}
 
+    from app.routers.workouts import scheduled_workout_dates  # deferred: avoid a module-load cycle
+    ctx["workout_dates"] = scheduled_workout_dates(session, uid, first, last)
+
     if view == "month":
         ctx["rows"] = month_rows(weeks, occs, colors)
     elif view == "week":

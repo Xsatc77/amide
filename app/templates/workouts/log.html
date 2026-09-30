@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set active_nav = "workouts" %}
+{% block title %}Log: {{ day.label }}{% endblock %}
+
+{% block content %}
+<div class="page-head"><div><h1>{{ day.label }}</h1><p class="muted">{{ log_date }}</p></div></div>
+
+<form method="post" action="/workouts/day/{{ day.id }}/log">
+  <input type="hidden" name="log_date" value="{{ log_date }}">
+  <table class="lib-table">
+    <thead><tr><th>Done</th><th>Exercise</th><th>Sets/Reps</th><th>Weight</th><th>Reps done</th></tr></thead>
+    <tbody>
+      {% for ex in day.exercises %}
+      {% set p = prior.get(ex.id) %}
+      <tr>
+        <td><input type="checkbox" name="completed[{{ ex.id }}]"{% if p and p.completed %} checked{% endif %}></td>
+        <td>{{ ex.name }}</td>
+        <td>{{ ex.sets_text or '—' }} × {{ ex.reps_text or '—' }}</td>
+        <td>
+          <input type="number" step="0.1" name="weight_value[{{ ex.id }}]" value="{{ '%g' | format(p.weight_value) if p and p.weight_value is not none else '' }}" style="width: 5em">
+          <select name="weight_unit[{{ ex.id }}]">
+            {% for u in units %}<option value="{{ u.value }}"{% if p and p.weight_unit == u %} selected{% endif %}>{{ u.label }}</option>{% endfor %}
+          </select>
+        </td>
+        <td><input type="number" name="reps_value[{{ ex.id }}]" value="{{ p.reps_value if p and p.reps_value is not none else '' }}" style="width: 4em"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
+{% endblock %}

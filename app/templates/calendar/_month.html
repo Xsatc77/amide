@@ -12,6 +12,7 @@
          style="grid-column: {{ loop.index + 1 }}"></div>
     <a class="cal-daynum" href="{{ url('day', d) }}" style="grid-column: {{ loop.index + 1 }}"
        aria-label="{{ d.strftime('%A, %B') }} {{ d.day }}">{{ d.day }}</a>
+    {% if d in workout_dates %}<span class="small" style="grid-column: {{ loop.index + 1 }}" title="Workout scheduled">🏋</span>{% endif %}
     {% endfor %}
     {% for b in row.bars %}
     <div class="cal-bar c{{ b.color }}" style="grid-column: {{ b.col_start + 2 }} / {{ b.col_end + 3 }}; grid-row: {{ b.lane + 2 }}; --days: {{ b.dates | length }}">

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% set active_nav = "workouts" %}
+{% block title %}{{ plan.name if plan else "New Workout Plan" }}{% endblock %}
+
+{#- One exercise row. `idx` is the day's form index (or the literal "__I__" placeholder inside the
+    shared row template, which workouts.js replaces with the owning day's index). Every row always
+    submits all five fields, blank or not, so the parallel exercise_*[N][] arrays stay aligned --
+    a row added in the browser posts an empty exercise_id (a new row), never an omitted one. -#}
+{% macro exercise_row(idx, ex=None) %}
+<tr data-exercise-row>
+  <td>
+    <input type="hidden" name="exercise_id[{{ idx }}][]" value="{{ ex.id if ex else '' }}">
+    <input type="text" name="exercise_name[{{ idx }}][]" value="{{ ex.name if ex else '' }}" aria-label="Exercise">
+  </td>
+  <td><input type="text" name="exercise_sets[{{ idx }}][]" value="{{ (ex.sets_text or '') if ex else '' }}" aria-label="Sets"></td>
+  <td><input type="text" name="exercise_reps[{{ idx }}][]" value="{{ (ex.reps_text or '') if ex else '' }}" aria-label="Reps"></td>
+  <td><input type="text" name="exercise_rest[{{ idx }}][]" value="{{ (ex.rest_text or '') if ex else '' }}" aria-label="Rest"></td>
+  <td><button type="button" class="btn btn-ghost" data-action="remove-exercise" title="Remove exercise">&times;</button></td>
+</tr>
+{% endmacro %}
+
+{#- One day fieldset. `idx` as above ("__I__" inside the shared day template). -#}
+{% macro day_fieldset(idx, number, day=None) %}
+<fieldset class="lib-section" data-day>
+  <legend>Day <span data-day-number>{{ number }}</span></legend>
+  <input type="hidden" name="day_id[]" value="{{ day.id if day else '' }}">
+  <label>Label <input type="text" name="day_label[]" value="{{ day.label if day else '' }}" placeholder="e.g. Upper Body"></label>
+  {#- Log any saved day on any date, scheduled or not (e.g. right after a PDF import). -#}
+  {% if day %}<a class="btn btn-ghost" href="/workouts/day/{{ day.id }}/log">Log</a>{% endif %}
+  <button type="button" class="btn btn-ghost" data-action="remove-day">Remove day</button>
+  <table class="lib-table">
+    <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Rest</th><th></th></tr></thead>
+    <tbody data-exercise-rows>
+      {% if day %}
+      {% for ex in day.exercises %}{{ exercise_row(idx, ex) }}{% endfor %}
+      {% else %}
+      {{ exercise_row(idx) }}
+      {% endif %}
+    </tbody>
+  </table>
+  <button type="button" class="btn" data-action="add-exercise">+ Add exercise</button>
+</fieldset>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head"><div><h1>{{ plan.name if plan else "New Workout Plan" }}</h1></div></div>
+
+<form method="post" action="{{ '/workouts/' ~ plan.id if plan else '/workouts' }}" id="workout-plan-form"
+      {% if not plan %}data-new-plan{% endif %}{% if has_logged_history %} data-has-logged-history{% endif %}>
+  <label>Plan name <input type="text" name="name" value="{{ plan.name if plan else '' }}" required></label>
+
+  <div id="days">
+    {% for day in days %}{{ day_fieldset(loop.index0, loop.index, day) }}{% endfor %}
+  </div>
+  <button type="button" class="btn" data-action="add-day">+ Add day</button>
+
+  {% if has_logged_history %}
+  <p class="alert">Removing a day or exercise below will also delete any logged history for it.</p>
+  {% endif %}
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
+
+<template id="workout-day-template">{{ day_fieldset("__I__", "") }}</template>
+<template id="workout-exercise-row-template">{{ exercise_row("__I__") }}</template>
+
+{% if plan %}
+<form method="post" action="/workouts/{{ plan.id }}/schedule">
+  <h2 class="section-title">Schedule</h2>
+  {% for day in plan.days %}
+  <fieldset class="lib-section">
+    <legend>{{ day.label }}</legend>
+    {% for letter, name in weekday_choices %}
+    <label><input type="checkbox" name="weekdays[{{ day.id }}][]" value="{{ letter }}"{% if day.weekdays and letter in day.weekdays %} checked{% endif %}> {{ name }}</label>
+    {% endfor %}
+  </fieldset>
+  {% endfor %}
+  <button type="submit" class="btn">Save schedule</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/workouts.js') }}" defer></script>
+{% endblock %}

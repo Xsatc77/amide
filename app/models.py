@@ -965,3 +965,97 @@ class LabResult(Base):
     range_high: Mapped[float | None] = mapped_column(Float)
 
     panel: Mapped["LabPanel"] = relationship(back_populates="results")
+
+
+# ---------------------------------------------------------------- exercise
+
+class WorkoutSource(str, enum.Enum):
+    PDF = "pdf"
+    MANUAL = "manual"
+
+
+class WeightUnit(LabeledEnum):
+    LB = ("lb", "lb")
+    KG = ("kg", "kg")
+
+
+class WorkoutPlan(Base):
+    __tablename__ = "workout_plans"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    source: Mapped[WorkoutSource] = mapped_column(_enum_column(WorkoutSource))
+    source_pdf_filename: Mapped[str | None] = mapped_column(String(100))
+    started_on: Mapped[date] = mapped_column(Date)
+    ended_on: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    days: Mapped[list["WorkoutPlanDay"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="WorkoutPlanDay.position")
+
+
+class WorkoutPlanDay(Base):
+    __tablename__ = "workout_plan_days"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("workout_plans.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    label: Mapped[str] = mapped_column(String(200))
+    weekdays: Mapped[str | None] = mapped_column(String(7))  # subset of WEEKDAY_LETTERS, e.g. "MWF"
+
+    plan: Mapped["WorkoutPlan"] = relationship(back_populates="days")
+    exercises: Mapped[list["WorkoutExercise"]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True, order_by="WorkoutExercise.position")
+
+
+class WorkoutExercise(Base):
+    __tablename__ = "workout_exercises"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day_id: Mapped[int] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(200))
+    sets_text: Mapped[str | None] = mapped_column(String(50))
+    reps_text: Mapped[str | None] = mapped_column(String(50))
+    rest_text: Mapped[str | None] = mapped_column(String(50))
+
+
+class WorkoutLog(Base):
+    """One completed instance of a WorkoutPlanDay, on a specific calendar date."""
+    __tablename__ = "workout_logs"
+    __table_args__ = (UniqueConstraint("plan_day_id", "log_date", name="uq_workout_log_day_date"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    plan_day_id: Mapped[int] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="CASCADE"))
+    log_date: Mapped[date] = mapped_column(Date, index=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    plan_day: Mapped["WorkoutPlanDay"] = relationship()
+    exercise_logs: Mapped[list["WorkoutExerciseLog"]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True)
+
+
+class WorkoutExerciseLog(Base):
+    __tablename__ = "workout_exercise_logs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workout_log_id: Mapped[int] = mapped_column(ForeignKey("workout_logs.id", ondelete="CASCADE"), index=True)
+    exercise_id: Mapped[int] = mapped_column(ForeignKey("workout_exercises.id", ondelete="CASCADE"))
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    weight_value: Mapped[float | None] = mapped_column(Float)
+    weight_unit: Mapped[WeightUnit | None] = mapped_column(_enum_column(WeightUnit))
+    reps_value: Mapped[int | None] = mapped_column(Integer)
+
+
+class FitnessTestExerciseName(str, enum.Enum):
+    MAX_PUSHUPS = "max_pushups"
+    MAX_SITUPS = "max_situps"
+    MAX_BODYWEIGHT_SQUATS = "max_bodyweight_squats"
+    PLANK_HOLD_SECONDS = "plank_hold_seconds"
+
+
+class FitnessTestResult(Base):
+    __tablename__ = "fitness_test_results"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    exercise: Mapped[FitnessTestExerciseName] = mapped_column(_enum_column(FitnessTestExerciseName))
+    value: Mapped[float] = mapped_column(Float)
+    tested_at: Mapped[date] = mapped_column(Date, index=True)
