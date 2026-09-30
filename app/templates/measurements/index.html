@@ -5,16 +5,18 @@
 {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 
 {% macro range_select(tab, current_range, idprefix) %}
-<form class="range-controls" method="get" action="/measurements">
-  <input type="hidden" name="tab" value="{{ tab }}">
-  <label class="sr-only" for="{{ idprefix }}-range-select">Chart range</label>
-  <select name="range" id="{{ idprefix }}-range-select" class="range-select">
-    {% for opt in charts.range_options %}
-    <option value="{{ opt }}" {{ 'selected' if current_range == opt }}>{{ charts.range_labels[opt] }}</option>
-    {% endfor %}
-  </select>
-  <noscript><button type="submit" class="btn">Show</button></noscript>
-</form>
+<div class="field range-field">
+  <span>Range</span>
+  <form class="range-controls" method="get" action="/measurements">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <select name="range" id="{{ idprefix }}-range-select" aria-label="Chart range">
+      {% for opt in charts.range_options %}
+      <option value="{{ opt }}" {{ 'selected' if current_range == opt }}>{{ charts.range_labels[opt] }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn">Show</button></noscript>
+  </form>
+</div>
 {% endmacro %}
 
 {% macro line_chart(chart, label, stroke='currentColor') %}
@@ -24,7 +26,8 @@
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
     {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
     <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
-    {% for cx, cy in chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}"></circle>{% endfor %}
+    {% for cx, cy in chart.points %}{% set d, v = chart.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}" class="chart-point"
+      data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }}"></circle>{% endfor %}
   </svg>
   <p class="muted">{{ chart.min_d.strftime('%b') }} {{ chart.min_d.day }}, {{ chart.min_d.year }} – {{ chart.max_d.strftime('%b') }} {{ chart.max_d.day }}, {{ chart.max_d.year }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
 </div>
@@ -89,9 +92,11 @@
   <h3>Blood pressure</h3>
   <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
     <polyline points="{{ bp.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
-    {% for cx, cy in bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)"></circle>{% endfor %}
+    {% for cx, cy in bp.points_a %}{% set d, v = bp.raw_a[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)" class="chart-point"
+      data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }} systolic"></circle>{% endfor %}
     <polyline points="{{ bp.poly_b }}" fill="none" stroke="var(--info)" stroke-width="2" stroke-dasharray="4 3"></polyline>
-    {% for cx, cy in bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--info)"></circle>{% endfor %}
+    {% for cx, cy in bp.points_b %}{% set d, v = bp.raw_b[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--info)" class="chart-point"
+      data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }} diastolic"></circle>{% endfor %}
   </svg>
   <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ bp.min_d.strftime('%b') }} {{ bp.min_d.day }}, {{ bp.min_d.year }} – {{ bp.max_d.strftime('%b') }} {{ bp.max_d.day }}, {{ bp.max_d.year }}</p>
 </div>
@@ -135,32 +140,29 @@
       {% if charts.bmi %}<div class="overview-chart-panel" data-metric="bmi"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bmi, 'BMI') }}</div>{% set shown.done = true %}{% endif %}
       {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bf, 'Body fat %') }}</div>{% set shown.done = true %}{% endif %}
     </div>
+    <div id="chart-tooltip" class="chart-tooltip" hidden role="status"></div>
     {% else %}
     <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
     {% endif %}
   </section>
   {% endif %}
 
-  {% if silhouette %}
   <section class="overview-body-section" aria-labelledby="silhouette-heading">
     <h2 id="silhouette-heading" class="section-title">Body Silhouette</h2>
     <div class="silhouette-wrap">
       <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
         <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
-        {% for key, pt in silhouette.items() %}
+        {% for key, pt in (silhouette or {}).items() %}
           {{ silhouette_point(key, pt, silhouette_shape) }}
         {% endfor %}
       </svg>
       <div id="silhouette-tooltip" class="silhouette-tooltip" hidden role="status"></div>
     </div>
+    <div class="entry-cta-row">
+      <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log a measurement</button>
+    </div>
   </section>
-  {% endif %}
 </div>
-
-<section aria-labelledby="entry-heading">
-  <h2 id="entry-heading" class="section-title">Log a measurement</h2>
-  <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log a measurement</button>
-</section>
 
 {% if charts %}
 <section aria-labelledby="charts-heading">

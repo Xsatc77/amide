@@ -329,7 +329,7 @@ def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 
     min_d, max_d = min(dates), max(dates)
     min_v, max_v = min(values + band_values), max(values + band_values)
     coords = _scaled_points(points, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
-    result = {"width": width, "height": height, "points": coords,
+    result = {"width": width, "height": height, "points": coords, "raw": points,
              "poly": " ".join(f"{x},{y}" for x, y in coords), "band": None,
              "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
     if band:
@@ -356,6 +356,7 @@ def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, f
     a = _scaled_points(points_a, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
     b = _scaled_points(points_b, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
     return {"width": width, "height": height, "points_a": a, "points_b": b,
+           "raw_a": points_a, "raw_b": points_b,
            "poly_a": " ".join(f"{x},{y}" for x, y in a), "poly_b": " ".join(f"{x},{y}" for x, y in b),
            "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
 

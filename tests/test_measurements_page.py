@@ -41,6 +41,29 @@ def test_measurements_page_loads_with_empty_state(client, db, me):
         _clear_measurements(me)
 
 
+def test_log_a_measurement_button_renders_even_with_zero_measurements(client, db, me):
+    """Regression: the button briefly lived inside the same conditional as the Body Silhouette's
+    actual data points, so a first-time user with no measurements yet -- exactly who most needs
+    it -- got no button anywhere on the page."""
+    try:
+        t = client.get("/measurements").text
+        assert 'data-action="open-measurement-dialog"' in t
+        assert 'id="silhouette-heading"' in t  # the outline itself still renders, just empty
+    finally:
+        _clear_measurements(me)
+
+
+def test_chart_points_carry_date_and_value_for_the_hover_tooltip(client, db, me):
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-20", "weight_lbs": "181"})
+        client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "180"})
+        t = client.get("/measurements").text
+        assert 'class="chart-point"' in t
+        assert 'data-date="Sep 28, 2026"' in t and 'data-value="180.0"' in t
+    finally:
+        _clear_measurements(me)
+
+
 def test_new_measurement_entry_all_fields_optional(client, db, me):
     try:
         r = client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "180"},
@@ -554,7 +577,7 @@ def test_entry_dialog_has_a_mini_silhouette_with_positioned_inputs(client, db, m
 def test_chart_range_is_a_dropdown_not_tab_links(client, db, me):
     try:
         t = client.get("/measurements?range=1yr").text
-        assert '<select name="range" id="overview-range-select" class="range-select">' in t
+        assert '<select name="range" id="overview-range-select" aria-label="Chart range">' in t
         assert '<option value="1yr" selected>1 Year</option>' in t
         assert 'role="tablist" aria-label="Chart range"' not in t
     finally:

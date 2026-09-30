@@ -4,7 +4,7 @@
   // ---- Chart range: submit its form on change (mirrors calendar.js's view-select pattern) ----
   // A plain GET-form <select> already works with JS disabled via the <noscript> Show button next
   // to it; this just removes the extra click when JS is available.
-  document.querySelectorAll(".range-select").forEach((sel) => {
+  document.querySelectorAll(".range-controls select").forEach((sel) => {
     sel.addEventListener("change", () => sel.form.submit());
   });
 
@@ -37,6 +37,25 @@
     } catch { /* private browsing / storage disabled -- fall back to the default selection */ }
     syncPanels();
     select.addEventListener("change", () => selectMetric(select.value));
+  }
+
+  // ---- Overview chart: hover a plotted point to see its exact date and value ----
+  const chartTooltip = document.getElementById("chart-tooltip");
+  const chartSlot = document.getElementById("overview-chart-slot");
+  if (chartTooltip && chartSlot) {
+    chartSlot.addEventListener("mouseover", (e) => {
+      const pt = e.target.closest(".chart-point");
+      if (!pt) return;
+      chartTooltip.textContent = `${pt.dataset.date}: ${pt.dataset.value}`;
+      chartTooltip.hidden = false;
+      const r = pt.getBoundingClientRect();
+      chartTooltip.style.left = `${r.left + r.width / 2}px`;
+      chartTooltip.style.top = `${r.top}px`;
+      chartTooltip.style.transform = "translate(-50%, calc(-100% - 8px))";
+    });
+    chartSlot.addEventListener("mouseout", (e) => {
+      if (e.target.closest(".chart-point")) chartTooltip.hidden = true;
+    });
   }
 
   // ---- Log-a-measurement dialog: open/close (mirrors labs.js's open-lab-panel pattern) ----
