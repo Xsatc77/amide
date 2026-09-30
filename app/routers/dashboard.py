@@ -148,9 +148,26 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
 
     schedule = None
     adherence_pct = None
+    water = None
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
         adherence_pct = _adherence_pct(session, effective_uid, today)
+
+        # Same computation as the Macros tab's own Water goal -- reused via deferred import
+        # (measurements.py imports this module's own helpers at load time, so importing the other
+        # direction up top would be circular) rather than duplicating the water_goal_oz/water_pace
+        # call and the "most recent non-null weight" lookup a second time.
+        from app.models import BodyMeasurement
+        from app.routers.measurements import _field_current_and_delta
+        from app.measurements.calculations import water_goal_oz, water_pace
+        entries = session.scalars(
+            select(BodyMeasurement).where(BodyMeasurement.owner_id == effective_uid)
+            .order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())).all()
+        latest_weight, _, _, weight_as_of = _field_current_and_delta(entries, "weight_lbs")
+        if latest_weight is not None:
+            viewer = session.get(User, effective_uid)
+            goal_oz = water_goal_oz(latest_weight, viewer.water_goal_oz if viewer else None)
+            water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": weight_as_of}
 
     alerts = None
     cost_snapshot = None
@@ -209,6 +226,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "alerts": alerts,
         "cost_snapshot": cost_snapshot,
         "adherence_pct": adherence_pct,
+        "water": water,
         "today": today,
         "viewer_id": effective_uid,
         "shared_with_me": _shared_with_me(session, uid),

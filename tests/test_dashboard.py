@@ -58,6 +58,27 @@ def test_dashboard_shows_todays_schedule(client, db):
     assert "Retatrutide" in t
 
 
+def test_dashboard_shows_water_goal_from_latest_weight(client, db):
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        s.add(BodyMeasurement(owner_id=uid, measured_at=date.today(), weight_lbs=200))
+        s.commit()
+    try:
+        t = client.get("/dashboard").text
+        assert 'id="dash-water-heading"' in t
+        assert "100" in t  # default water goal: 200/2
+    finally:
+        with SessionLocal() as s:
+            s.query(BodyMeasurement).filter_by(owner_id=uid).delete()
+            s.commit()
+
+
+def test_dashboard_hides_water_goal_with_no_weight_logged(client, db):
+    t = client.get("/dashboard").text
+    assert 'id="dash-water-heading"' not in t
+
+
 def test_dashboard_low_stock_alert_respects_explicit_zero(client, db):
     with SessionLocal() as s:
         uid = s.scalar(select(User.id).where(User.username_key == "tester"))

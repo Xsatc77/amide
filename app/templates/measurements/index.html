@@ -191,18 +191,6 @@
 </section>
 {% endif %}
 
-{% if water %}
-<section aria-labelledby="water-heading">
-  <h2 id="water-heading" class="section-title">Water goal</h2>
-  <p>
-    <strong>{{ water.goal_oz }} oz/day</strong>
-    <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups per hour, or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles per hour, to pace it over 16 waking hours)</span>
-    {% if water.weight_as_of %}
-    <span class="muted">(based on your weight as of {{ water.weight_as_of.strftime('%b') }} {{ water.weight_as_of.day }}, {{ water.weight_as_of.year }})</span>
-    {% endif %}
-  </p>
-</section>
-{% endif %}
 
 {% macro mini_input(name, pos, placeholder) %}
 <label class="mini-field {{ 'has-error' if errors[name] }}" style="left: {{ (pos[0] / 320 * 100) | round(2) }}%; top: {{ (pos[1] / 440 * 100) | round(2) }}%;">
@@ -368,6 +356,19 @@
   </div>
   {% endif %}
 </section>
+
+{% if water %}
+<section aria-labelledby="water-heading">
+  <h2 id="water-heading" class="section-title">Water goal</h2>
+  <p>
+    <strong>{{ water.goal_oz }} oz/day</strong>
+    <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups per hour, or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles per hour, to pace it over 16 waking hours)</span>
+    {% if water.weight_as_of %}
+    <span class="muted">(based on your weight as of {{ water.weight_as_of.strftime('%b') }} {{ water.weight_as_of.day }}, {{ water.weight_as_of.year }})</span>
+    {% endif %}
+  </p>
+</section>
+{% endif %}
 
 {% elif active_tab == 'journal' %}
 <section aria-labelledby="journal-heading">

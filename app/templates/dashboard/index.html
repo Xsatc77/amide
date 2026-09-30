@@ -84,6 +84,15 @@
 </section>
 {% endif %}
 
+{% if water %}
+<section aria-labelledby="dash-water-heading">
+  <h2 id="dash-water-heading" class="section-title">Water goal</h2>
+  <p><strong>{{ water.goal_oz }} oz/day</strong>
+    <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr)</span>
+  </p>
+</section>
+{% endif %}
+
 {% if show_quick_capture %}
 <section aria-labelledby="quick-capture-heading">
   <h2 id="quick-capture-heading" class="section-title">Journal</h2>

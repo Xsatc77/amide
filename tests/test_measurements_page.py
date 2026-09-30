@@ -336,12 +336,25 @@ def test_macros_tab_shows_floor_notice_when_calories_floored(client, db):
         _clear_body_profile()
 
 
-def test_water_goal_and_pace_shown_on_measurements_tab(client, db):
+def test_water_goal_and_pace_shown_on_macros_tab(client, db):
+    tester = _tester_id()
+    try:
+        client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "200"})
+        t = client.get("/measurements?tab=macros").text
+        assert 'id="water-heading"' in t
+        assert "100" in t  # default water goal: 200/2
+    finally:
+        _clear_measurements(tester)
+
+
+def test_water_goal_not_shown_on_measurements_tab(client, db):
+    """Moved to the Macros tab (and the Dashboard) per the owner's own request -- it belongs
+    alongside calorie/macro targets, not the raw tape-measurement entries."""
     tester = _tester_id()
     try:
         client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "200"})
         t = client.get("/measurements").text
-        assert "100" in t  # default water goal: 200/2
+        assert 'id="water-heading"' not in t
     finally:
         _clear_measurements(tester)
 
@@ -532,7 +545,7 @@ def test_water_goal_uses_earlier_weight_after_weight_only_then_tape_measure_only
     try:
         client.post("/measurements", data={"measured_at": "2026-09-20", "weight_lbs": "200"})
         client.post("/measurements", data={"measured_at": "2026-09-27", "waist_in": "34"})
-        t = client.get("/measurements").text
+        t = client.get("/measurements?tab=macros").text
         assert "100" in t  # 200/2 default water goal, still computed from the earlier weight
 
         client.post("/settings/body-profile", data={
@@ -608,7 +621,7 @@ def test_water_pace_shows_both_cups_and_bottles_per_hour(client, db):
     tester = _tester_id()
     try:
         client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "200"})
-        t = client.get("/measurements").text.lower()
+        t = client.get("/measurements?tab=macros").text.lower()
         assert "cups per hour" in t and "bottles per hour" in t
     finally:
         _clear_measurements(tester)
