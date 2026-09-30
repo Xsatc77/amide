@@ -701,6 +701,9 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 
 /* ---------- measurement silhouette (Weight & Measurements page) ---------- */
 .silhouette-wrap { max-width: 460px; margin: 0 auto; }
+.overview-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px; }
+.overview-chart-section .field { max-width: 260px; margin-bottom: 10px; }
+.overview-chart-panel .card { margin: 0; }
 .silhouette-leader { stroke: var(--border); stroke-width: 1; }
 .silhouette-point { fill: currentColor; }
 .silhouette-label-name { font-size: 11px; fill: var(--muted); }
@@ -808,7 +811,8 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .cal-month-head, .cal-month-row { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
   .cal-month-row { grid-template-rows: 26px repeat(4, 16px) 18px; }
   .cal-month-head span { padding: 6px 2px; text-align: center; font-size: 0.65rem; }
-  .cal-bar-title { font-size: 0.6rem; inset: 0 3px; }
+  .cal-mark { font-size: 0.6rem; padding: 1px 3px; }
+  .overview-row { grid-template-columns: 1fr; }
   .cal-daynum { margin-left: 2px; font-size: 0.78rem; }
   .cal-more { font-size: 0.6rem; margin-left: 2px; }
   .cal-controls { width: 100%; }

@@ -703,3 +703,26 @@ def test_0024_creates_workout_tables(tmp_path):
         for t in ("workout_plans", "workout_plan_days", "workout_exercises",
                   "workout_logs", "workout_exercise_logs", "fitness_test_results"):
             assert t not in tables, t
+
+
+def test_0025_adds_heart_rate_bpm(tmp_path):
+    db = tmp_path / "m.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0024")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into users(username,username_key,password_hash,is_admin,totp_enabled,"
+                  "failed_attempts,created_at) values ('A','a','x',0,0,0,'2026-09-30')")
+        uid = c.execute("select id from users where username='A'").fetchone()[0]
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        body_cols = {r[1] for r in c.execute("pragma table_info(body_measurements)")}
+        assert "heart_rate_bpm" in body_cols
+        c.execute("insert into body_measurements(owner_id, measured_at, heart_rate_bpm, created_at) "
+                  "values (?, '2026-09-30', 62, '2026-09-30')", (uid,))
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into body_measurements(owner_id, measured_at, heart_rate_bpm, created_at) "
+                      "values (?, '2026-09-30', -1, '2026-09-30')", (uid,))
+    command.downgrade(cfg, "0024")
+    with sqlite3.connect(db) as c:
+        body_cols = {r[1] for r in c.execute("pragma table_info(body_measurements)")}
+        assert "heart_rate_bpm" not in body_cols

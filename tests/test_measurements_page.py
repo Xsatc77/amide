@@ -58,6 +58,7 @@ def test_new_measurement_entry_full_session(client, db, me):
     try:
         r = client.post("/measurements", data={
             "measured_at": "2026-09-28", "weight_lbs": "180", "systolic": "120", "diastolic": "80",
+            "heart_rate_bpm": "62",
             "neck_in": "15.5", "waist_in": "34", "hips_in": "38",
             "biceps_l_in": "16", "biceps_r_in": "16.3",
             "forearm_l_in": "12", "forearm_r_in": "12.1",
@@ -69,6 +70,7 @@ def test_new_measurement_entry_full_session(client, db, me):
             tester = s.scalar(select(User).where(User.username_key == "tester"))
             [bm] = s.scalars(select(BodyMeasurement).where(BodyMeasurement.owner_id == tester.id)).all()
             assert bm.biceps_l_in == 16.0 and bm.biceps_r_in == 16.3
+            assert bm.heart_rate_bpm == 62
     finally:
         _clear_measurements(me)
 
@@ -266,6 +268,38 @@ def test_charts_reject_unknown_range_falls_back_to_default(client, db, me):
     try:
         r = client.get("/measurements?range=bogus")
         assert r.status_code == 200  # never a 500 on a garbage query param
+    finally:
+        _clear_measurements(me)
+
+
+def test_overview_chart_lists_every_trackable_metric_and_heart_rate(client, db, me):
+    try:
+        with SessionLocal() as s:
+            tester = s.scalar(select(User).where(User.username_key == "tester"))
+            s.add(BodyMeasurement(owner_id=tester.id, measured_at=date(2026, 9, 28), weight_lbs=180,
+                                  heart_rate_bpm=62, systolic=120, diastolic=80))
+            s.commit()
+        t = client.get("/measurements").text
+        assert '<select id="overview-metric-select">' in t
+        assert '<option value="weight_lbs">Weight (lbs)</option>' in t
+        assert '<option value="heart_rate_bpm">Heart Rate (bpm)</option>' in t
+        assert '<option value="bp">Blood pressure</option>' in t
+        # Only the first metric's panel starts visible; every other panel is hidden until chosen.
+        assert 'class="overview-chart-panel" data-metric="weight_lbs">' in t
+        assert 'class="overview-chart-panel" data-metric="heart_rate_bpm" hidden' in t
+    finally:
+        _clear_measurements(me)
+
+
+def test_overview_and_body_silhouette_sit_in_the_same_top_row(client, db, me):
+    try:
+        with SessionLocal() as s:
+            tester = s.scalar(select(User).where(User.username_key == "tester"))
+            s.add(BodyMeasurement(owner_id=tester.id, measured_at=date(2026, 9, 28), weight_lbs=180))
+            s.commit()
+        t = client.get("/measurements").text
+        row = t[t.index('class="overview-row"'):t.index('id="charts-heading"')]
+        assert "overview-chart-section" in row and "overview-body-section" in row
     finally:
         _clear_measurements(me)
 

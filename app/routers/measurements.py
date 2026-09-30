@@ -30,6 +30,7 @@ RANGE_LABELS = {"7d": "7 Days", "14d": "14 Days", "1mo": "1 Month", "3mo": "3 Mo
 # Series rendered as one small SVG line chart each, in this order.
 CHART_FIELDS = (
     ("weight_lbs", "Weight (lbs)"),
+    ("heart_rate_bpm", "Heart Rate (bpm)"),
     ("neck_in", "Neck (in)"),
     ("waist_in", "Waist (in)"),
     ("hips_in", "Hips (in)"),
@@ -64,7 +65,7 @@ FLOAT_FIELDS = (
     "biceps_l_in", "biceps_r_in", "forearm_l_in", "forearm_r_in",
     "quad_l_in", "quad_r_in", "calf_l_in", "calf_r_in",
 )
-INT_FIELDS = ("systolic", "diastolic")
+INT_FIELDS = ("systolic", "diastolic", "heart_rate_bpm")
 
 
 def _measurement_query(uid: int):

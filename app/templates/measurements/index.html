@@ -59,47 +59,78 @@
 {% endif %}
 {% endmacro %}
 
-{% if silhouette %}
-<section aria-labelledby="silhouette-heading">
-  <h2 id="silhouette-heading" class="section-title">Body silhouette</h2>
-  <div class="silhouette-wrap">
-    <svg viewBox="0 0 320 440" class="body-silhouette" aria-label="Body measurement diagram">
-      <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
-      {% for key, pt in silhouette.items() %}
-        {{ silhouette_point(key, pt, silhouette_shape) }}
-      {% endfor %}
-    </svg>
-  </div>
-</section>
+{% macro bp_chart(bp) %}
+{% if bp %}
+<div class="card">
+  <h3>Blood pressure</h3>
+  <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
+    <polyline points="{{ bp.poly_a }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+    {% for cx, cy in bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+    <polyline points="{{ bp.poly_b }}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"></polyline>
+    {% for cx, cy in bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
+  </svg>
+  <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ bp.min_d.strftime('%b') }} {{ bp.min_d.day }}, {{ bp.min_d.year }} – {{ bp.max_d.strftime('%b') }} {{ bp.max_d.day }}, {{ bp.max_d.year }}</p>
+</div>
 {% endif %}
+{% endmacro %}
+
+<div class="overview-row">
+  {% if charts %}
+  <section class="overview-chart-section" aria-labelledby="overview-heading">
+    <h2 id="overview-heading" class="section-title">Overview</h2>
+    <div class="tabs" role="tablist" aria-label="Chart range">
+      {% for opt in charts.range_options %}
+      <a href="/measurements?tab=measurements&range={{ opt }}" class="tab {{ 'active' if charts.range == opt }}" role="tab" aria-selected="{{ 'true' if charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
+      {% endfor %}
+    </div>
+    {% set overview_metrics = charts.series | selectattr('chart') | list %}
+    {% if overview_metrics or charts.bp or charts.bmi or charts.bf %}
+    <label class="field">
+      <span>Metric</span>
+      <select id="overview-metric-select">
+        {% for s in overview_metrics %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
+        {% if charts.bp %}<option value="bp">Blood pressure</option>{% endif %}
+        {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
+        {% if charts.bf %}<option value="bf">Body fat %</option>{% endif %}
+      </select>
+    </label>
+    <div id="overview-chart-slot">
+      {% for s in overview_metrics %}
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if loop.first else ' hidden' }}>{{ line_chart(s.chart, s.label) }}</div>
+      {% endfor %}
+      {% if charts.bp %}<div class="overview-chart-panel" data-metric="bp"{{ '' if not overview_metrics else ' hidden' }}>{{ bp_chart(charts.bp) }}</div>{% endif %}
+      {% if charts.bmi %}<div class="overview-chart-panel" data-metric="bmi" hidden>{{ line_chart(charts.bmi, 'BMI') }}</div>{% endif %}
+      {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf" hidden>{{ line_chart(charts.bf, 'Body fat %') }}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if silhouette %}
+  <section class="overview-body-section" aria-labelledby="silhouette-heading">
+    <h2 id="silhouette-heading" class="section-title">Body silhouette</h2>
+    <div class="silhouette-wrap">
+      <svg viewBox="0 0 320 440" class="body-silhouette" aria-label="Body measurement diagram">
+        <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
+        {% for key, pt in silhouette.items() %}
+          {{ silhouette_point(key, pt, silhouette_shape) }}
+        {% endfor %}
+      </svg>
+    </div>
+  </section>
+  {% endif %}
+</div>
 
 {% if charts %}
 <section aria-labelledby="charts-heading">
-  <h2 id="charts-heading" class="section-title">Charts</h2>
-  <div class="tabs" role="tablist" aria-label="Chart range">
-    {% for opt in charts.range_options %}
-    <a href="/measurements?tab=measurements&range={{ opt }}" class="tab {{ 'active' if charts.range == opt }}" role="tab" aria-selected="{{ 'true' if charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
-    {% endfor %}
-  </div>
-
+  <h2 id="charts-heading" class="section-title">All measurements</h2>
   <div class="dashboard-placeholders">
     {% for s in charts.series %}
       {{ line_chart(s.chart, s.label) }}
     {% endfor %}
-
-    {% if charts.bp %}
-    <div class="card">
-      <h3>Blood pressure</h3>
-      <svg viewBox="0 0 {{ charts.bp.width }} {{ charts.bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
-        <polyline points="{{ charts.bp.poly_a }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
-        {% for cx, cy in charts.bp.points_a %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
-        <polyline points="{{ charts.bp.poly_b }}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"></polyline>
-        {% for cx, cy in charts.bp.points_b %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5"></circle>{% endfor %}
-      </svg>
-      <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ charts.bp.min_d.strftime('%b') }} {{ charts.bp.min_d.day }}, {{ charts.bp.min_d.year }} – {{ charts.bp.max_d.strftime('%b') }} {{ charts.bp.max_d.day }}, {{ charts.bp.max_d.year }}</p>
-    </div>
-    {% endif %}
-
+    {{ bp_chart(charts.bp) }}
     {{ line_chart(charts.bmi, 'BMI') }}
     {% if charts.bf %}
       {{ line_chart(charts.bf, 'Body fat %') }}
@@ -153,6 +184,11 @@
         <span>Diastolic</span>
         <input name="diastolic" type="number" step="1" min="0" inputmode="numeric" value="{{ form.diastolic or '' }}">
         {{ err('diastolic') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.heart_rate_bpm }}">
+        <span>Heart Rate (bpm)</span>
+        <input name="heart_rate_bpm" type="number" step="1" min="0" inputmode="numeric" value="{{ form.heart_rate_bpm or '' }}">
+        {{ err('heart_rate_bpm') }}
       </label>
       <label class="field {{ 'has-error' if errors.neck_in }}">
         <span>Neck (in)</span>
@@ -636,6 +672,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ static_url('js/measurements.js') }}" defer></script>
 <script src="{{ static_url('js/journal.js') }}" defer></script>
 <script src="{{ static_url('js/labs.js') }}" defer></script>
 {% endblock %}
