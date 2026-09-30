@@ -806,6 +806,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .topbar { padding: 10px 16px; gap: 12px; }
   .page { padding: 16px; }
   .btn-add { position: fixed; right: 16px; bottom: 16px; z-index: 5; border-radius: 999px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .btn-add.btn-add-secondary { bottom: 76px; }
   .table-wrap { background: none; border: 0; }
   .inv-table thead { display: none; }
   .inv-table, .inv-table tbody, .inv-table tr, .inv-table td { display: block; width: 100%; }
