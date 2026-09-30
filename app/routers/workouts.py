@@ -80,25 +80,49 @@ def _get_own_day(session: Session, plan_day_id: int, uid: int) -> WorkoutPlanDay
 
 
 def save_workout_plan(session: Session, plan: WorkoutPlan, name: str, days_data: list[dict]) -> WorkoutPlan:
-    """Write `name` and fully replace `plan`'s days/exercises from `days_data` (the parser's own
-    output shape). Mirrors save_protocol's clear-and-rebuild idiom -- simplest way to reconcile
-    arbitrary add/remove/reorder from either the manual editor or a re-parsed PDF."""
+    """Write `name` and reconcile `plan`'s days/exercises against `days_data` by row id.
+
+    Each day/exercise dict may carry an "id" (the editor posts every existing row's real id as a
+    hidden input; the PDF parser's output and rows added in the browser have none):
+      - an entry whose id matches one of this plan's existing rows updates that row in place
+        (label/position, or name/sets/reps/rest/position) -- never touching a day's `weekdays`;
+      - an entry with no id (or an id that isn't one of this plan's own rows) creates a new row;
+      - an existing row whose id isn't posted back at all is removed (delete-orphan), which
+        cascades away that row's logged history -- the one intentionally destructive case,
+        since the user removed the day/exercise itself.
+
+    This supersedes the earlier clear-and-rebuild approach, which destroyed every day's
+    `weekdays` schedule and (via the ON DELETE CASCADE foreign keys) all logged workout history
+    on *any* save, even one that only fixed a typo."""
     plan.name = name
-    plan.days.clear()
-    session.flush()
-    plan.days = [
-        WorkoutPlanDay(
-            position=i, label=d["label"] or f"Day {i + 1}",
-            exercises=[
-                WorkoutExercise(
-                    position=j, name=ex["name"], sets_text=ex.get("sets_text"),
-                    reps_text=ex.get("reps_text"), rest_text=ex.get("rest_text"))
-                for j, ex in enumerate(d["exercises"])
-            ],
-        )
-        for i, d in enumerate(days_data)
-    ]
+    # pop() so a (malformed) post repeating one id can never map two entries onto the same row.
+    existing_days = {d.id: d for d in plan.days if d.id is not None}
+    new_days = []
+    for i, d in enumerate(days_data):
+        day = existing_days.pop(d.get("id"), None) or WorkoutPlanDay()
+        day.position = i
+        day.label = d["label"] or f"Day {i + 1}"
+        _reconcile_exercises(day, d["exercises"])
+        new_days.append(day)
+    for day in existing_days.values():  # not posted back: the user removed it
+        plan.days.remove(day)
+    plan.days = new_days
     return plan
+
+
+def _reconcile_exercises(day: WorkoutPlanDay, exercises_data: list[dict]) -> None:
+    """save_workout_plan's per-day counterpart: same update-by-id / create / remove rules."""
+    existing = {ex.id: ex for ex in day.exercises if ex.id is not None}
+    new_exercises = []
+    for j, data in enumerate(exercises_data):
+        ex = existing.pop(data.get("id"), None) or WorkoutExercise()
+        ex.position = j
+        ex.name = data["name"]
+        ex.sets_text = data.get("sets_text")
+        ex.reps_text = data.get("reps_text")
+        ex.rest_text = data.get("rest_text")
+        new_exercises.append(ex)
+    day.exercises = new_exercises  # any existing exercise not in this list is delete-orphaned
 
 
 def _activate(session: Session, plan: WorkoutPlan, uid: int) -> None:
@@ -113,22 +137,36 @@ def _activate(session: Session, plan: WorkoutPlan, uid: int) -> None:
 
 def _days_from_form(form: dict) -> tuple[str, list[dict]]:
     """Parses the editor form's bracketed-array field names (day_label[], exercise_name[N][],
-    etc.) into (name, days_data) matching save_workout_plan's expected shape."""
+    etc.) into (name, days_data) matching save_workout_plan's expected shape, including each
+    row's posted id (day_id[] / exercise_id[N][], blank for a row added in the browser)."""
     name = form.get("name", ["Untitled Plan"])[0]
     labels = form.get("day_label[]", [])
+    day_ids = form.get("day_id[]", [])
     days = []
     for i, label in enumerate(labels):
+        ex_ids = form.get(f"exercise_id[{i}][]", [])
         ex_names = form.get(f"exercise_name[{i}][]", [])
         ex_sets = form.get(f"exercise_sets[{i}][]", [])
         ex_reps = form.get(f"exercise_reps[{i}][]", [])
         ex_rest = form.get(f"exercise_rest[{i}][]", [])
         exercises = [
-            {"name": ex_names[j], "sets_text": ex_sets[j] or None,
-             "reps_text": ex_reps[j] or None, "rest_text": ex_rest[j] or None}
+            {"id": _form_id(ex_ids, j), "name": ex_names[j].strip(),
+             "sets_text": _at(ex_sets, j) or None, "reps_text": _at(ex_reps, j) or None,
+             "rest_text": _at(ex_rest, j) or None}
             for j in range(len(ex_names)) if ex_names[j].strip()
         ]
-        days.append({"label": label, "exercises": exercises})
+        days.append({"id": _form_id(day_ids, i), "label": label.strip(), "exercises": exercises})
     return name, days
+
+
+def _at(values: list[str], i: int) -> str:
+    return values[i] if i < len(values) else ""
+
+
+def _form_id(values: list[str], i: int) -> int | None:
+    """A posted row id, or None for a blank/missing/non-numeric one (a new row)."""
+    raw = _at(values, i).strip()
+    return int(raw) if raw.isdigit() else None
 
 
 @router.get("/workouts")
