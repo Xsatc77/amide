@@ -102,6 +102,40 @@ def test_dashboard_body_panel_shows_empty_state_with_no_measurements(client, db)
     assert "No weight logged yet." in t
 
 
+def test_dashboard_shows_workout_week_strip_with_seven_days(client, db):
+    t = client.get("/dashboard").text
+    assert 'id="workout-week-heading"' in t
+    assert t.count("workout-day-label") == 7
+    for label in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+        assert f">{label}<" in t
+
+
+def test_dashboard_workout_week_marks_a_logged_day_done(client, db, me):
+    from app.models import WorkoutLog, WorkoutPlan, WorkoutPlanDay, WorkoutSource
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    with SessionLocal() as s:
+        plan = WorkoutPlan(owner_id=me, name="Dash Week Plan", source=WorkoutSource.MANUAL,
+                           started_on=monday)
+        s.add(plan)
+        s.flush()
+        day = WorkoutPlanDay(plan_id=plan.id, position=0, label="Full body", weekdays="M")
+        s.add(day)
+        s.flush()
+        s.add(WorkoutLog(owner_id=me, plan_day_id=day.id, log_date=monday))
+        s.commit()
+        plan_id, day_id = plan.id, day.id
+    try:
+        t = client.get("/dashboard").text
+        assert "workout-day-done" in t
+    finally:
+        with SessionLocal() as s:
+            s.query(WorkoutLog).filter_by(plan_day_id=day_id).delete()
+            s.query(WorkoutPlanDay).filter_by(plan_id=plan_id).delete()
+            s.query(WorkoutPlan).filter_by(id=plan_id).delete()
+            s.commit()
+
+
 def test_log_water_creates_entry_shown_on_next_dashboard_load(client, db):
     from app.models import BodyMeasurement, WaterLog
     with SessionLocal() as s:

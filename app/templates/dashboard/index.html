@@ -21,6 +21,8 @@
 <svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
 {% elif name == 'link' %}
 <svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+{% elif name == 'dumbbell' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11"></path><path d="M21 21l-1.5-1.5"></path><path d="M3 3l1.5 1.5"></path><path d="M18 3l3 3-2.5 2.5-3-3z"></path><path d="M3 18l3 3 2.5-2.5-3-3z"></path></svg>
 {% endif %}
 {% endmacro %}
 
@@ -120,6 +122,23 @@
   {% else %}
   <p class="muted">No doses logged yet.</p>
   {% endif %}
+</section>
+{% endif %}
+
+{% if workout_week %}
+<section class="card dash-panel" aria-labelledby="workout-week-heading" style="--panel-accent: var(--goal-glp1-weight);">
+  <div class="panel-head">
+    {{ panel_icon('dumbbell') }}
+    <h2 id="workout-week-heading" class="section-title"><a class="panel-title-link" href="/workouts">Workouts this week</a></h2>
+  </div>
+  <div class="workout-week-row">
+    {% for day in workout_week %}
+    <div class="workout-day {{ 'workout-day-today' if day.is_today }}" title="{{ day.date.strftime('%b') }} {{ day.date.day }}: {{ day.status }}">
+      <span class="workout-day-dot workout-day-{{ day.status }}"></span>
+      <span class="workout-day-label">{{ day.label }}</span>
+    </div>
+    {% endfor %}
+  </div>
 </section>
 {% endif %}
 

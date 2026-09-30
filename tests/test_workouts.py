@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 
 import pytest
@@ -7,7 +7,7 @@ from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from sqlalchemy import select
 
-from app.models import WorkoutPlan, WorkoutSource
+from app.models import WorkoutLog, WorkoutPlan, WorkoutPlanDay, WorkoutSource
 
 
 def _plan_form(**overrides):
@@ -480,3 +480,56 @@ def test_new_plan_page_has_add_day_control(client, db):
     r = client.get("/workouts/new")
     assert r.status_code == 200
     assert 'data-action="add-day"' in r.text
+
+
+def test_week_status_marks_rest_done_missed_and_upcoming(client, db, me):
+    from app.routers.workouts import week_status
+
+    today = date(2026, 3, 11)  # a Wednesday
+    monday = today - timedelta(days=today.weekday())
+    plan = WorkoutPlan(owner_id=me, name="Week Status Plan", source=WorkoutSource.MANUAL,
+                       started_on=monday)
+    db.add(plan)
+    db.flush()
+    # Scheduled Mon/Wed/Fri ("MWF"); Monday gets logged (done), Wednesday (today) and Friday do not.
+    day = WorkoutPlanDay(plan_id=plan.id, position=0, label="Full body", weekdays="MWF")
+    db.add(day)
+    db.flush()
+    db.add(WorkoutLog(owner_id=me, plan_day_id=day.id, log_date=monday))
+    db.commit()
+
+    try:
+        days = week_status(db, me, today)
+        assert days[0]["status"] == "done"  # Monday, logged
+        assert days[1]["status"] == "rest"  # Tuesday, not scheduled
+        assert days[2]["status"] == "upcoming" and days[2]["is_today"]  # Wednesday (today)
+        assert days[3]["status"] == "rest"  # Thursday
+        assert days[4]["status"] == "upcoming"  # Friday, scheduled but in the future
+        assert [d["label"] for d in days] == ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    finally:
+        db.query(WorkoutLog).filter_by(plan_day_id=day.id).delete()
+        db.query(WorkoutPlanDay).filter_by(plan_id=plan.id).delete()
+        db.query(WorkoutPlan).filter_by(id=plan.id).delete()
+        db.commit()
+
+
+def test_week_status_marks_a_past_scheduled_unlogged_day_as_missed(client, db, me):
+    from app.routers.workouts import week_status
+
+    today = date(2026, 3, 11)  # a Wednesday
+    monday = today - timedelta(days=today.weekday())
+    plan = WorkoutPlan(owner_id=me, name="Missed Day Plan", source=WorkoutSource.MANUAL,
+                       started_on=monday)
+    db.add(plan)
+    db.flush()
+    day = WorkoutPlanDay(plan_id=plan.id, position=0, label="Full body", weekdays="M")
+    db.add(day)
+    db.commit()
+
+    try:
+        days = week_status(db, me, today)
+        assert days[0]["status"] == "missed"  # Monday, scheduled but never logged, already past
+    finally:
+        db.query(WorkoutPlanDay).filter_by(plan_id=plan.id).delete()
+        db.query(WorkoutPlan).filter_by(id=plan.id).delete()
+        db.commit()

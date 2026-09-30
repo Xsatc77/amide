@@ -49,6 +49,34 @@ def workouts_due_today(session: Session, uid: int, today: date_type) -> list[Wor
     return [d for d in due if d.id not in logged_day_ids]
 
 
+def week_status(session: Session, uid: int, today: date_type) -> list[dict]:
+    """This calendar week (Mon-Sun) as a 7-day schedule strip for the Dashboard -- a day keeps
+    showing its outcome after it's logged, rather than a "due today" list item disappearing the
+    moment it's done (an early-morning workout would otherwise leave the panel looking empty for
+    the rest of the day)."""
+    monday = today - timedelta(days=today.weekday())
+    week_end = monday + timedelta(days=6)
+    scheduled = scheduled_workout_dates(session, uid, monday, week_end)
+    logged_dates = {
+        wl.log_date for wl in session.scalars(
+            select(WorkoutLog).where(WorkoutLog.owner_id == uid,
+                                     WorkoutLog.log_date >= monday, WorkoutLog.log_date <= week_end))
+    }
+    days = []
+    for i in range(7):
+        d = monday + timedelta(days=i)
+        if d not in scheduled:
+            status = "rest"
+        elif d in logged_dates:
+            status = "done"
+        elif d < today:
+            status = "missed"
+        else:
+            status = "upcoming"
+        days.append({"date": d, "label": _WEEKDAY_NAMES[i], "status": status, "is_today": d == today})
+    return days
+
+
 def scheduled_workout_dates(session: Session, uid: int, start: date_type, end: date_type) -> set[date_type]:
     """Every date in [start, end] on which an Active plan has a day scheduled -- regardless of
     whether it's already been logged (unlike workouts_due_today, which is specifically "still

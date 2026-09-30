@@ -151,9 +151,15 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     adherence_pct = None
     water = None
     body_panel = None
+    workout_week = None
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
         adherence_pct = _adherence_pct(session, effective_uid, today)
+
+        # A 7-day Mon-Sun strip, not a "due today" list -- see week_status's own docstring for why
+        # (a day stays visible with its outcome instead of vanishing once it's logged).
+        from app.routers.workouts import week_status
+        workout_week = week_status(session, effective_uid, today)
 
         # Same computation as the Macros tab's own Water goal, plus the same Weight chart/Body
         # Silhouette the Measurements page's Overview row shows -- reused via deferred import
@@ -249,6 +255,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "adherence_pct": adherence_pct,
         "water": water,
         "body_panel": body_panel,
+        "workout_week": workout_week,
         "today": today,
         "viewer_id": effective_uid,
         "shared_with_me": _shared_with_me(session, uid),
