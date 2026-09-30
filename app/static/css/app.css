@@ -401,18 +401,50 @@ section + section { margin-top: 36px; }
 .panel-stat { font-size: 2rem; font-weight: 700; color: var(--panel-accent, var(--text)); line-height: 1.1; margin: 0; }
 .panel-stat-sub { margin: 4px 0 0; }
 
-/* Three regions: the Weight chart/other panels flank a big centered Body Silhouette instead of
-   everything living in one long masonry list -- the owner's own "surround the body" request.
-   Left/right columns reuse .dashboard-grid's masonry packing; at their narrower width it settles
-   to a single column on its own; Integrations drops out of the flow entirely into its own
-   low-key row at the very bottom, out of the main line of sight. */
-.dashboard-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px) minmax(0, 1fr); gap: 16px; align-items: start; }
-.dashboard-center { display: flex; flex-direction: column; align-items: center; }
-.dash-chart-slot { display: inline-block; width: 100%; break-inside: avoid; margin: 0 0 16px; }
+/* An explicit named-area grid, per the owner's exact layout request, rather than the masonry
+   packing used elsewhere: pairing Water with Cost snapshot and Journal with Weight in the same
+   row means they share that row's height automatically (grid's own default stretch), and Body
+   spans all 4 left/right rows so it stretches down to their combined height, no extra sizing
+   rules needed for any of that.
+     Schedule / Body / Alerts
+     Workouts / Body / Adherence
+     Water    / Body / Cost
+     Journal  / Body / Weight
+     .        / Integrations / .
+   Falls back to a plain stacked column (DOM order) below 900px, since a 3-column arrangement
+   this specific has no sensible narrow-screen equivalent. */
+.dashboard-layout {
+  display: grid; gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px) minmax(0, 1fr);
+  grid-template-areas:
+    "schedule body alerts"
+    "workouts body adherence"
+    "water body cost"
+    "journal body weight"
+    ".  integrations .";
+}
+.dash-area-schedule { grid-area: schedule; }
+.dash-area-workouts { grid-area: workouts; }
+.dash-area-water { grid-area: water; }
+.dash-area-journal { grid-area: journal; }
+.dash-area-body { grid-area: body; }
+.dash-area-alerts { grid-area: alerts; }
+.dash-area-adherence { grid-area: adherence; }
+.dash-area-cost { grid-area: cost; }
+.dash-area-weight { grid-area: weight; }
+.dash-area-integrations { grid-area: integrations; opacity: 0.85; }
+
+.dash-panel-tall { display: flex; flex-direction: column; height: 100%; }
+.dash-silhouette-center { flex: 1; display: flex; align-items: center; justify-content: center; }
 .dash-silhouette { width: 340px; margin: 0 auto; }
-@media (max-width: 900px) { .dashboard-layout { grid-template-columns: 1fr; } .dash-silhouette { width: 280px; } }
-.dashboard-footer-row { display: flex; justify-content: center; margin-top: 16px; }
-.dashboard-footer-row .dash-panel { max-width: 320px; width: 100%; opacity: 0.85; }
+.dash-chart-slot { height: 100%; }
+.dash-chart-slot .card { height: 100%; margin: 0; }
+
+@media (max-width: 900px) {
+  .dashboard-layout { display: flex; flex-direction: column; }
+  .dash-panel-tall { height: auto; }
+  .dash-silhouette { width: 280px; }
+}
 
 /* The Water goal panel "fills like a glass" toward its daily ounces goal -- an absolutely
    positioned fill sits behind the panel's own content (z-index 0 vs 1), growing from the bottom

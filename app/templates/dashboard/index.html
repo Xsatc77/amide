@@ -44,10 +44,9 @@
 {% endif %}
 
 <div class="dashboard-layout">
-<div class="dashboard-grid dashboard-col-left">
 
 {% if show_personal_data %}
-<section class="card dash-panel" aria-labelledby="schedule-heading" style="--panel-accent: var(--accent);">
+<section class="card dash-panel dash-area-schedule" aria-labelledby="schedule-heading" style="--panel-accent: var(--accent);">
   <div class="panel-head">
     {{ panel_icon('calendar') }}
     <h2 id="schedule-heading" class="section-title"><a class="panel-title-link" href="/today">Today's Schedule</a></h2>
@@ -65,8 +64,27 @@
 </section>
 {% endif %}
 
+{% if body_panel %}
+<section class="card dash-panel dash-area-body dash-panel-tall" aria-labelledby="body-panel-heading" style="--panel-accent: var(--accent);">
+  <div class="panel-head">
+    {{ panel_icon('activity') }}
+    <h2 id="body-panel-heading" class="section-title"><a class="panel-title-link" href="/measurements">Body</a></h2>
+  </div>
+  <div class="dash-silhouette-center">
+    <div class="silhouette-wrap dash-silhouette">
+      <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
+        <path d="{{ body_panel.silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
+        {% for key, pt in (body_panel.silhouette or {}).items() %}
+          {{ silhouette_point(key, pt, body_panel.silhouette_shape) }}
+        {% endfor %}
+      </svg>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 {% if show_inventory %}
-<section class="card dash-panel" aria-labelledby="alerts-heading" style="--panel-accent: var(--danger);">
+<section class="card dash-panel dash-area-alerts" aria-labelledby="alerts-heading" style="--panel-accent: var(--danger);">
   <div class="panel-head">
     {{ panel_icon('alert') }}
     <h2 id="alerts-heading" class="section-title"><a class="panel-title-link" href="/inventory">Alerts</a></h2>
@@ -90,77 +108,8 @@
 </section>
 {% endif %}
 
-{% if show_cost_snapshot %}
-<section class="card dash-panel" aria-labelledby="cost-heading" style="--panel-accent: var(--ribbon);">
-  <div class="panel-head">
-    {{ panel_icon('dollar') }}
-    <h2 id="cost-heading" class="section-title"><a class="panel-title-link" href="/inventory">Cost snapshot</a></h2>
-  </div>
-  {% if not cost_snapshot %}
-  <p class="muted">No cost data yet.</p>
-  {% else %}
-  <table class="inv-table">
-    <thead><tr><th>Peptide</th><th>Cost / vial</th><th>Cost / dose</th></tr></thead>
-    <tbody>
-      {% for row in cost_snapshot %}
-      <tr><td>{{ row.peptide }}</td><td>{{ row.cost_per_vial | money }}</td>
-        <td>{{ row.cost_per_dose | money if row.cost_per_dose is not none else '—' }}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-</section>
-{% endif %}
-
-{% if body_panel %}
-<section class="dash-chart-slot" aria-labelledby="weight-chart-heading">
-  {% if body_panel.chart %}
-  {{ line_chart(body_panel.chart, 'Weight (lbs)') }}
-  {% else %}
-  <div class="card"><h3 id="weight-chart-heading">Weight (lbs)</h3><p class="muted">No weight logged yet.</p></div>
-  {% endif %}
-</section>
-{% endif %}
-
-</div>
-
-<div class="dashboard-center">
-{% if body_panel %}
-<section class="card dash-panel" aria-labelledby="body-panel-heading" style="--panel-accent: var(--accent);">
-  <div class="panel-head">
-    {{ panel_icon('activity') }}
-    <h2 id="body-panel-heading" class="section-title"><a class="panel-title-link" href="/measurements">Body</a></h2>
-  </div>
-  <div class="silhouette-wrap dash-silhouette">
-    <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
-      <path d="{{ body_panel.silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
-      {% for key, pt in (body_panel.silhouette or {}).items() %}
-        {{ silhouette_point(key, pt, body_panel.silhouette_shape) }}
-      {% endfor %}
-    </svg>
-  </div>
-</section>
-{% endif %}
-</div>
-
-<div class="dashboard-grid dashboard-col-right">
-
-{% if show_personal_data %}
-<section class="card dash-panel" aria-labelledby="adherence-heading" style="--panel-accent: var(--tier-beginner);">
-  <div class="panel-head">
-    {{ panel_icon('check') }}
-    <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
-  </div>
-  {% if adherence_pct is not none %}
-  <p class="panel-stat">{{ adherence_pct }}%</p>
-  {% else %}
-  <p class="muted">No doses logged yet.</p>
-  {% endif %}
-</section>
-{% endif %}
-
 {% if workout_week %}
-<section class="card dash-panel" aria-labelledby="workout-week-heading" style="--panel-accent: var(--goal-glp1-weight);">
+<section class="card dash-panel dash-area-workouts" aria-labelledby="workout-week-heading" style="--panel-accent: var(--goal-glp1-weight);">
   <div class="panel-head">
     {{ panel_icon('dumbbell') }}
     <h2 id="workout-week-heading" class="section-title"><a class="panel-title-link" href="/workouts">Workouts this week</a></h2>
@@ -176,8 +125,22 @@
 </section>
 {% endif %}
 
+{% if show_personal_data %}
+<section class="card dash-panel dash-area-adherence" aria-labelledby="adherence-heading" style="--panel-accent: var(--tier-beginner);">
+  <div class="panel-head">
+    {{ panel_icon('check') }}
+    <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
+  </div>
+  {% if adherence_pct is not none %}
+  <p class="panel-stat">{{ adherence_pct }}%</p>
+  {% else %}
+  <p class="muted">No doses logged yet.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if water %}
-<section class="card dash-panel water-panel" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info); --water-pct: {{ water.pct }}%;">
+<section class="card dash-panel water-panel dash-area-water" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info); --water-pct: {{ water.pct }}%;">
   <div class="water-fill"></div>
   <div class="water-panel-content">
     <div class="panel-head">
@@ -218,8 +181,30 @@
 </dialog>
 {% endif %}
 
+{% if show_cost_snapshot %}
+<section class="card dash-panel dash-area-cost" aria-labelledby="cost-heading" style="--panel-accent: var(--ribbon);">
+  <div class="panel-head">
+    {{ panel_icon('dollar') }}
+    <h2 id="cost-heading" class="section-title"><a class="panel-title-link" href="/inventory">Cost snapshot</a></h2>
+  </div>
+  {% if not cost_snapshot %}
+  <p class="muted">No cost data yet.</p>
+  {% else %}
+  <table class="inv-table">
+    <thead><tr><th>Peptide</th><th>Cost / vial</th><th>Cost / dose</th></tr></thead>
+    <tbody>
+      {% for row in cost_snapshot %}
+      <tr><td>{{ row.peptide }}</td><td>{{ row.cost_per_vial | money }}</td>
+        <td>{{ row.cost_per_dose | money if row.cost_per_dose is not none else '—' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if show_quick_capture %}
-<section class="card dash-panel" aria-labelledby="quick-capture-heading" style="--panel-accent: var(--goal-skin-beauty);">
+<section class="card dash-panel dash-area-journal" aria-labelledby="quick-capture-heading" style="--panel-accent: var(--goal-skin-beauty);">
   <div class="panel-head">
     {{ panel_icon('edit') }}
     <h2 id="quick-capture-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=journal">Journal</a></h2>
@@ -234,17 +219,24 @@
 </section>
 {% endif %}
 
-</div>
-</div>
+{% if body_panel %}
+<section class="dash-chart-slot dash-area-weight" aria-labelledby="weight-chart-heading">
+  {% if body_panel.chart %}
+  {{ line_chart(body_panel.chart, 'Weight (lbs)') }}
+  {% else %}
+  <div class="card"><h3 id="weight-chart-heading">Weight (lbs)</h3><p class="muted">No weight logged yet.</p></div>
+  {% endif %}
+</section>
+{% endif %}
 
-<div class="dashboard-footer-row">
-<section class="card dash-panel" aria-labelledby="integrations-heading">
+<section class="card dash-panel dash-area-integrations" aria-labelledby="integrations-heading">
   <div class="panel-head">
     {{ panel_icon('link') }}
     <h2 id="integrations-heading" class="section-title">Health app integrations</h2>
   </div>
   <p class="muted">Coming in a future update.</p>
 </section>
+
 </div>
 {% endblock %}
 
