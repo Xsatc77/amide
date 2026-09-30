@@ -16,6 +16,11 @@
   --ribbon-strong: #92400e;
   --info: #1d4ed8;
   --info-soft: #dbeafe;
+  /* Library dosage-tier bar (Beginner/Intermediate/Advanced) -- see Phase 10's foundation pass.
+     Adapted per colorway below, same pattern as --accent/--danger/--ribbon. */
+  --tier-beginner: #16a34a;
+  --tier-intermediate: #eab308;
+  --tier-advanced: #dc2626;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px rgb(16 24 40 / 8%);
   color-scheme: light;
@@ -61,6 +66,9 @@
     --ribbon-strong: #fcd34d;
     --info: #93c5fd;
     --info-soft: #172554;
+    --tier-beginner: #4ade80;
+    --tier-intermediate: #fbbf24;
+    --tier-advanced: #f87171;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
     color-scheme: dark;
   }
@@ -75,6 +83,7 @@
   --danger: #b42318; --danger-soft: #fee4e2;
   --ribbon: #facc15; --ribbon-text: #3b2f00; --ribbon-soft: #fef3c7; --ribbon-strong: #92400e;
   --info: #1d4ed8; --info-soft: #dbeafe;
+  --tier-beginner: #16a34a; --tier-intermediate: #eab308; --tier-advanced: #dc2626;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px rgb(16 24 40 / 8%);
   color-scheme: light;
 }
@@ -84,6 +93,7 @@
   --danger: #f97066; --danger-soft: #3b1512;
   --ribbon: #facc15; --ribbon-text: #2a2100; --ribbon-soft: #3a2f0a; --ribbon-strong: #fcd34d;
   --info: #93c5fd; --info-soft: #172554;
+  --tier-beginner: #4ade80; --tier-intermediate: #fbbf24; --tier-advanced: #f87171;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
   color-scheme: dark;
 }
@@ -96,6 +106,7 @@
   --ribbon: #FFDD00; --ribbon-text: #1B3B6F; --ribbon-soft: color-mix(in srgb, #FFF3B0 60%, white);
   --ribbon-strong: color-mix(in srgb, #FF9F1C 80%, black);
   --info: #1B3B6F; --info-soft: color-mix(in srgb, #1B3B6F 15%, white);
+  --tier-beginner: #2E7D32; --tier-intermediate: #E8B400; --tier-advanced: #C1272D;
   --shadow: 0 1px 2px rgb(27 59 111 / 10%), 0 8px 24px rgb(27 59 111 / 12%);
   color-scheme: light;
 }
@@ -108,6 +119,7 @@
   --ribbon: #FFE400; --ribbon-text: #272727; --ribbon-soft: color-mix(in srgb, #FFE400 25%, #272727);
   --ribbon-strong: color-mix(in srgb, #FFE400 70%, black);
   --info: #93c5fd; --info-soft: #172554;
+  --tier-beginner: #22C55E; --tier-intermediate: #FFD400; --tier-advanced: #FF3B3B;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
   color-scheme: dark;
 }
@@ -120,6 +132,7 @@
   --ribbon: #FFCB9A; --ribbon-text: #2C3531; --ribbon-soft: color-mix(in srgb, #FFCB9A 25%, #2C3531);
   --ribbon-strong: color-mix(in srgb, #D9B08C 75%, black);
   --info: #93c5fd; --info-soft: #172554;
+  --tier-beginner: #4ADE80; --tier-intermediate: #E9C46A; --tier-advanced: #E63946;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
   color-scheme: dark;
 }
@@ -132,6 +145,7 @@
   --ribbon: #facc15; --ribbon-text: #2a2100; --ribbon-soft: color-mix(in srgb, #facc15 20%, #1F1515);
   --ribbon-strong: #fcd34d;
   --info: #93c5fd; --info-soft: #172554;
+  --tier-beginner: #4CAF50; --tier-intermediate: #facc15; --tier-advanced: #D32F2F;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 40%);
   color-scheme: dark;
 }
@@ -144,6 +158,7 @@
   --ribbon: #FACA78; --ribbon-text: #794A3A; --ribbon-soft: color-mix(in srgb, #FACA78 35%, white);
   --ribbon-strong: color-mix(in srgb, #F57F5B 70%, black);
   --info: #1d4ed8; --info-soft: #dbeafe;
+  --tier-beginner: #6B8E23; --tier-intermediate: #FACA78; --tier-advanced: #C1440E;
   --shadow: 0 1px 2px rgb(121 74 58 / 10%), 0 8px 24px rgb(121 74 58 / 12%);
   color-scheme: light;
 }
@@ -155,6 +170,7 @@
   --danger: #b42318; --danger-soft: #fee4e2;
   --ribbon: #facc15; --ribbon-text: #3b2f00; --ribbon-soft: #fef3c7; --ribbon-strong: #92400e;
   --info: #083E67; --info-soft: color-mix(in srgb, #083E67 12%, white);
+  --tier-beginner: #15D67B; --tier-intermediate: #facc15; --tier-advanced: #C0392B;
   --shadow: 0 1px 2px rgb(8 62 103 / 8%), 0 8px 24px rgb(8 62 103 / 10%);
   color-scheme: light;
 }
@@ -164,6 +180,10 @@
   --danger: #000000; --danger-soft: #ffffff;
   --ribbon: #000000; --ribbon-text: #ffffff; --ribbon-soft: #ffffff; --ribbon-strong: #000000;
   --info: #000000; --info-soft: #ffffff;
+  /* Intentional exception to this theme's black/white rule -- see Phase 10's foundation-pass
+     design note: color-coding is the entire point of the tier bar, so it keeps real color here
+     while every other token in this theme stays strictly monochrome. */
+  --tier-beginner: #008000; --tier-intermediate: #B8860B; --tier-advanced: #CC0000;
   --shadow: 0 0 0 2px #000000;
   color-scheme: light;
 }
