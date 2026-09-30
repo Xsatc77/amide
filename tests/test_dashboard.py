@@ -79,6 +79,75 @@ def test_dashboard_hides_water_goal_with_no_weight_logged(client, db):
     assert 'id="dash-water-heading"' not in t
 
 
+def test_dashboard_shows_body_panel_with_weight_chart(client, db):
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        s.add(BodyMeasurement(owner_id=uid, measured_at=date.today(), weight_lbs=180))
+        s.commit()
+    try:
+        t = client.get("/dashboard").text
+        assert 'id="body-panel-heading"' in t
+        assert "Weight (lbs)" in t
+        assert "No weight logged yet." not in t
+    finally:
+        with SessionLocal() as s:
+            s.query(BodyMeasurement).filter_by(owner_id=uid).delete()
+            s.commit()
+
+
+def test_dashboard_body_panel_shows_empty_state_with_no_measurements(client, db):
+    t = client.get("/dashboard").text
+    assert 'id="body-panel-heading"' in t
+    assert "No weight logged yet." in t
+
+
+def test_log_water_creates_entry_shown_on_next_dashboard_load(client, db):
+    from app.models import BodyMeasurement, WaterLog
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        s.add(BodyMeasurement(owner_id=uid, measured_at=date.today(), weight_lbs=200))
+        s.commit()
+    try:
+        r = client.post("/dashboard/water/log", data={"ounces": "16"}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/dashboard"
+        t = client.get("/dashboard").text
+        assert "16 oz logged today (16%)" in t  # goal is 100 (200/2); 16/100 = 16%
+    finally:
+        with SessionLocal() as s:
+            s.query(WaterLog).filter_by(owner_id=uid).delete()
+            s.query(BodyMeasurement).filter_by(owner_id=uid).delete()
+            s.commit()
+
+
+def test_log_water_ignores_blank_or_invalid_amount(client, db):
+    from app.models import WaterLog
+    client.post("/dashboard/water/log", data={"ounces": ""}, follow_redirects=False)
+    client.post("/dashboard/water/log", data={"ounces": "not-a-number"}, follow_redirects=False)
+    client.post("/dashboard/water/log", data={"ounces": "-5"}, follow_redirects=False)
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        assert s.query(WaterLog).filter_by(owner_id=uid).count() == 0
+
+
+def test_log_water_button_hidden_on_a_shared_dashboard(client, db, me):
+    from app.models import BodyMeasurement
+    other_id = _register_other("DashWaterA")
+    with SessionLocal() as s:
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+        s.add(BodyMeasurement(owner_id=other_id, measured_at=date.today(), weight_lbs=150))
+        s.commit()
+    try:
+        t = html.unescape(client.get(f"/dashboard?viewer_id={other_id}").text)
+        assert 'id="dash-water-heading"' in t
+        assert "open-water-dialog" not in t
+    finally:
+        with SessionLocal() as s:
+            s.query(Share).filter_by(owner_id=other_id, grantee_id=me).delete()
+            s.query(BodyMeasurement).filter_by(owner_id=other_id).delete()
+            s.commit()
+
+
 def test_dashboard_low_stock_alert_respects_explicit_zero(client, db):
     with SessionLocal() as s:
         uid = s.scalar(select(User.id).where(User.username_key == "tester"))

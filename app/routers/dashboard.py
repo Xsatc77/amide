@@ -5,6 +5,7 @@ import types
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -13,8 +14,8 @@ from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
 from app.db import get_session
 from app.models import (
-    ActiveVial, Category, DoseLog, DoseStatus, InventoryItem, Order, OrderItem, Protocol,
-    ProtocolItem, Share, ShareCategory, User,
+    ActiveVial, BodyMeasurement, Category, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
+    Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog,
 )
 from app.protocols.status import Status, protocol_status
 from app.routers.protocols import get_today
@@ -149,25 +150,45 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     schedule = None
     adherence_pct = None
     water = None
+    body_panel = None
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
         adherence_pct = _adherence_pct(session, effective_uid, today)
 
-        # Same computation as the Macros tab's own Water goal -- reused via deferred import
+        # Same computation as the Macros tab's own Water goal, plus the same Weight chart/Body
+        # Silhouette the Measurements page's Overview row shows -- reused via deferred import
         # (measurements.py imports this module's own helpers at load time, so importing the other
-        # direction up top would be circular) rather than duplicating the water_goal_oz/water_pace
-        # call and the "most recent non-null weight" lookup a second time.
-        from app.models import BodyMeasurement
-        from app.routers.measurements import _field_current_and_delta
+        # direction up top would be circular) rather than duplicating that logic a second time.
+        from app.routers.measurements import (
+            DEFAULT_RANGE, RANGE_DAYS, _chart, _field_current_and_delta, _silhouette_points,
+            _silhouette_shape,
+        )
         from app.measurements.calculations import water_goal_oz, water_pace
         entries = session.scalars(
             select(BodyMeasurement).where(BodyMeasurement.owner_id == effective_uid)
             .order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())).all()
         latest_weight, _, _, weight_as_of = _field_current_and_delta(entries, "weight_lbs")
+        viewer = session.get(User, effective_uid)
         if latest_weight is not None:
-            viewer = session.get(User, effective_uid)
             goal_oz = water_goal_oz(latest_weight, viewer.water_goal_oz if viewer else None)
-            water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": weight_as_of}
+            consumed_oz = session.scalar(
+                select(func.sum(WaterLog.ounces)).where(
+                    WaterLog.owner_id == effective_uid, WaterLog.logged_at == today)) or 0
+            water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": weight_as_of,
+                    "consumed_oz": consumed_oz,
+                    "pct": min(100, round(100 * consumed_oz / goal_oz)) if goal_oz else 0}
+
+        # Always rendered (like Schedule/Alerts' own "nothing yet" states) rather than hidden
+        # outright with no data -- fixed to the Overview's own default range/metric (Weight),
+        # since the Dashboard is a glance, not the interactive metric/range picker the full
+        # Measurements page has.
+        cutoff = today - timedelta(days=RANGE_DAYS[DEFAULT_RANGE])
+        windowed = [e for e in entries if e.measured_at >= cutoff]
+        body_panel = {
+            "chart": _chart([(e.measured_at, e.weight_lbs) for e in windowed if e.weight_lbs is not None]),
+            "silhouette": _silhouette_points(entries) if entries else None,
+            "silhouette_shape": _silhouette_shape(viewer.sex.value if viewer and viewer.sex else None),
+        }
 
     alerts = None
     cost_snapshot = None
@@ -227,6 +248,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "cost_snapshot": cost_snapshot,
         "adherence_pct": adherence_pct,
         "water": water,
+        "body_panel": body_panel,
         "today": today,
         "viewer_id": effective_uid,
         "shared_with_me": _shared_with_me(session, uid),
@@ -246,3 +268,20 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # for adding a note to someone else's journal.
         "show_quick_capture": effective_uid == uid,
     })
+
+
+@router.post("/dashboard/water/log")
+async def log_water(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+                    uid: int = Depends(current_user_id)):
+    """Always writes as the signed-in user (uid), never a viewed effective_uid -- same rule as the
+    Journal quick-capture. A blank/non-numeric/non-positive amount is a silent no-op, matching the
+    quick-note's own "bounce back as if nothing was submitted" behavior for bad input."""
+    form = await request.form()
+    try:
+        ounces = float(form.get("ounces", ""))
+    except (TypeError, ValueError):
+        ounces = None
+    if ounces is not None and ounces > 0:
+        session.add(WaterLog(owner_id=uid, logged_at=today, ounces=ounces))
+        session.commit()
+    return RedirectResponse("/dashboard", status_code=303)

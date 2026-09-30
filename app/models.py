@@ -885,6 +885,21 @@ class BodyMeasurement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class WaterLog(Base):
+    """One "+ Log water" tap from the Dashboard's Water goal panel. Several rows accumulate per
+    day -- the panel sums today's rows against the goal rather than this table holding one
+    running total, so a day's history stays a normal append-only log like DoseLog."""
+    __tablename__ = "water_logs"
+    __table_args__ = (
+        CheckConstraint("ounces > 0", name="ck_water_log_ounces_pos"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    logged_at: Mapped[date] = mapped_column(Date, index=True)
+    ounces: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class JournalEntry(Base):
     """One row per user per calendar day. Auto-created by the first quick note of the day if no
     full entry exists yet (mood/energy/sleep_quality/side effects left null/empty); a full-form
