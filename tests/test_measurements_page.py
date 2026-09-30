@@ -485,6 +485,24 @@ def test_weight_field_has_info_tooltip(client, db, me):
         _clear_measurements(me)
 
 
+def test_entry_form_fields_use_the_scoped_beside_label_layout(client, db, me):
+    try:
+        t = client.get("/measurements").text
+        assert 'class="grid measurement-entry-grid"' in t
+    finally:
+        _clear_measurements(me)
+
+
+def test_chart_range_is_a_dropdown_not_tab_links(client, db, me):
+    try:
+        t = client.get("/measurements?range=1yr").text
+        assert '<select name="range" id="overview-range-select" class="range-select">' in t
+        assert '<option value="1yr" selected>1 Year</option>' in t
+        assert 'role="tablist" aria-label="Chart range"' not in t
+    finally:
+        _clear_measurements(me)
+
+
 def test_water_pace_shows_both_cups_and_bottles_per_hour(client, db):
     tester = _tester_id()
     try:

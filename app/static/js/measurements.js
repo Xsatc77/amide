@@ -1,6 +1,13 @@
-// Weight & Measurements: the Overview chart's metric dropdown, and the Body silhouette's hover
-// tooltip + click-through into that same chart.
+// Weight & Measurements: the chart-range dropdown(s), the Overview chart's metric dropdown, and
+// the Body silhouette's hover tooltip + click-through into that same chart.
 (() => {
+  // ---- Chart range: submit its form on change (mirrors calendar.js's view-select pattern) ----
+  // A plain GET-form <select> already works with JS disabled via the <noscript> Show button next
+  // to it; this just removes the extra click when JS is available.
+  document.querySelectorAll(".range-select").forEach((sel) => {
+    sel.addEventListener("change", () => sel.form.submit());
+  });
+
   // ---- Overview chart: metric dropdown ----
   // All metrics' charts are already rendered server-side (the same data the "All measurements"
   // grid below uses) -- this just toggles which one is visible, so switching metrics is instant

@@ -4,6 +4,19 @@
 
 {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 
+{% macro range_select(tab, current_range, idprefix) %}
+<form class="range-controls" method="get" action="/measurements">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <label class="sr-only" for="{{ idprefix }}-range-select">Chart range</label>
+  <select name="range" id="{{ idprefix }}-range-select" class="range-select">
+    {% for opt in charts.range_options %}
+    <option value="{{ opt }}" {{ 'selected' if current_range == opt }}>{{ charts.range_labels[opt] }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit" class="btn">Show</button></noscript>
+</form>
+{% endmacro %}
+
 {% macro line_chart(chart, label, stroke='currentColor') %}
 {% if chart %}
 <div class="card">
@@ -89,11 +102,7 @@
   {% if charts %}
   <section class="overview-chart-section" aria-labelledby="overview-heading">
     <h2 id="overview-heading" class="section-title">Overview</h2>
-    <div class="tabs" role="tablist" aria-label="Chart range">
-      {% for opt in charts.range_options %}
-      <a href="/measurements?tab=measurements&range={{ opt }}" class="tab {{ 'active' if charts.range == opt }}" role="tab" aria-selected="{{ 'true' if charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
-      {% endfor %}
-    </div>
+    {{ range_select('measurements', charts.range, 'overview') }}
     {% set overview_metrics = charts.series | selectattr('chart') | list %}
     {% set overview_avgs = charts.bilateral_avg | selectattr('chart') | list %}
     {% if overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf %}
@@ -184,7 +193,7 @@
 <section aria-labelledby="entry-heading">
   <h2 id="entry-heading" class="section-title">Log a measurement</h2>
   <form method="post" action="/measurements" class="settings-form" novalidate>
-    <div class="grid">
+    <div class="grid measurement-entry-grid">
       <label class="field {{ 'has-error' if errors.measured_at }}">
         <span>Date</span>
         <input name="measured_at" type="date" value="{{ form.measured_at or today }}">
@@ -611,11 +620,7 @@
 {% if lab_charts.series %}
 <section aria-labelledby="labs-charts-heading">
   <h2 id="labs-charts-heading" class="section-title">Charts</h2>
-  <div class="tabs" role="tablist" aria-label="Chart range">
-    {% for opt in charts.range_options %}
-    <a href="/measurements?tab=labs&range={{ opt }}" class="tab {{ 'active' if lab_charts.range == opt }}" role="tab" aria-selected="{{ 'true' if lab_charts.range == opt else 'false' }}">{{ charts.range_labels[opt] }}</a>
-    {% endfor %}
-  </div>
+  {{ range_select('labs', lab_charts.range, 'labs') }}
   <div class="dashboard-placeholders">
     {% for c in lab_charts.series %}
       {{ line_chart(c.chart, c.marker_label) }}

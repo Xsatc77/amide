@@ -312,6 +312,12 @@ form.inline { display: inline; }
 .field input[type="file"] { padding: 6px; }
 .field textarea { resize: vertical; }
 .field.has-error input:not([type="checkbox"]), .field.has-error select, .field.has-error textarea { border-color: var(--danger); }
+.measurement-entry-grid .field { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+.measurement-entry-grid .field > span { flex: 0 0 auto; min-width: 120px; }
+.measurement-entry-grid .field input { max-width: 90px; flex: 0 0 auto; }
+.measurement-entry-grid .field small.error { flex-basis: 100%; }
+.range-controls { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.range-select { font: inherit; color: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .error { color: var(--danger); }
 .alert { margin: 16px 20px 0; padding: 10px 12px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-weight: 500; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
