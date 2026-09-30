@@ -2,6 +2,26 @@
 {% set active_nav = "dashboard" %}
 {% block title %}Dashboard{% endblock %}
 
+{% macro panel_icon(name) %}
+{% if name == 'calendar' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+{% elif name == 'alert' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+{% elif name == 'dollar' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+{% elif name == 'check' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+{% elif name == 'droplet' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+{% elif name == 'edit' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>
+{% elif name == 'activity' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+{% elif name == 'link' %}
+<svg class="panel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+{% endif %}
+{% endmacro %}
+
 {% block content %}
 <div class="page-head"><h1>Dashboard</h1></div>
 
@@ -19,9 +39,14 @@
 </form>
 {% endif %}
 
+<div class="dashboard-grid">
+
 {% if show_personal_data %}
-<section aria-labelledby="schedule-heading">
-  <h2 id="schedule-heading" class="section-title">Today's Schedule</h2>
+<section class="card dash-panel" aria-labelledby="schedule-heading" style="--panel-accent: var(--accent);">
+  <div class="panel-head">
+    {{ panel_icon('calendar') }}
+    <h2 id="schedule-heading" class="section-title"><a class="panel-title-link" href="/today">Today's Schedule</a></h2>
+  </div>
   {% if not schedule %}
   <p class="muted">Nothing scheduled today.</p>
   {% else %}
@@ -32,13 +57,15 @@
     {% endfor %}
   </ul>
   {% endif %}
-  <a href="/today" class="btn btn-ghost">View full Today page</a>
 </section>
 {% endif %}
 
 {% if show_inventory %}
-<section aria-labelledby="alerts-heading">
-  <h2 id="alerts-heading" class="section-title">Alerts</h2>
+<section class="card dash-panel" aria-labelledby="alerts-heading" style="--panel-accent: var(--danger);">
+  <div class="panel-head">
+    {{ panel_icon('alert') }}
+    <h2 id="alerts-heading" class="section-title"><a class="panel-title-link" href="/inventory">Alerts</a></h2>
+  </div>
   {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment %}
   {% if not has_alerts %}
   <p class="muted">Nothing needs attention.</p>
@@ -59,8 +86,11 @@
 {% endif %}
 
 {% if show_cost_snapshot %}
-<section aria-labelledby="cost-heading">
-  <h2 id="cost-heading" class="section-title">Cost snapshot</h2>
+<section class="card dash-panel" aria-labelledby="cost-heading" style="--panel-accent: var(--ribbon);">
+  <div class="panel-head">
+    {{ panel_icon('dollar') }}
+    <h2 id="cost-heading" class="section-title"><a class="panel-title-link" href="/inventory">Cost snapshot</a></h2>
+  </div>
   {% if not cost_snapshot %}
   <p class="muted">No cost data yet.</p>
   {% else %}
@@ -78,44 +108,63 @@
 {% endif %}
 
 {% if show_personal_data %}
-<section aria-labelledby="adherence-heading">
-  <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
-  <p>{{ (adherence_pct | string) + '%' if adherence_pct is not none else 'No doses logged yet.' }}</p>
+<section class="card dash-panel" aria-labelledby="adherence-heading" style="--panel-accent: var(--tier-beginner);">
+  <div class="panel-head">
+    {{ panel_icon('check') }}
+    <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
+  </div>
+  {% if adherence_pct is not none %}
+  <p class="panel-stat">{{ adherence_pct }}%</p>
+  {% else %}
+  <p class="muted">No doses logged yet.</p>
+  {% endif %}
 </section>
 {% endif %}
 
 {% if water %}
-<section aria-labelledby="dash-water-heading">
-  <h2 id="dash-water-heading" class="section-title">Water goal</h2>
-  <p><strong>{{ water.goal_oz }} oz/day</strong>
-    <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr)</span>
-  </p>
+<section class="card dash-panel" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info);">
+  <div class="panel-head">
+    {{ panel_icon('droplet') }}
+    <h2 id="dash-water-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=macros">Water goal</a></h2>
+  </div>
+  <p class="panel-stat">{{ water.goal_oz }} <span class="panel-stat-sub small">oz/day</span></p>
+  <p class="muted panel-stat-sub">about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr</p>
 </section>
 {% endif %}
 
 {% if show_quick_capture %}
-<section aria-labelledby="quick-capture-heading">
-  <h2 id="quick-capture-heading" class="section-title">Journal</h2>
-  <div class="card">
-    <form method="post" action="/journal/quick-note" class="quick-capture-form">
-      <label class="field">
-        <span class="sr-only">Quick note</span>
-        <input name="text" type="text" maxlength="500" placeholder="Quick note (e.g. how you're feeling right now)">
-      </label>
-      <button type="submit" class="btn btn-primary">Add</button>
-    </form>
-    <a href="/measurements?tab=journal" class="btn btn-ghost">View Journal</a>
+<section class="card dash-panel" aria-labelledby="quick-capture-heading" style="--panel-accent: var(--goal-skin-beauty);">
+  <div class="panel-head">
+    {{ panel_icon('edit') }}
+    <h2 id="quick-capture-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=journal">Journal</a></h2>
   </div>
+  <form method="post" action="/journal/quick-note" class="quick-capture-form">
+    <label class="field">
+      <span class="sr-only">Quick note</span>
+      <input name="text" type="text" maxlength="500" placeholder="Quick note (e.g. how you're feeling right now)">
+    </label>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
 </section>
 {% endif %}
 
-<section class="dashboard-placeholders">
-  {% if show_personal_data %}
-  <div class="card">
-    <h3>Weight & Measurements</h3>
-    <a href="/measurements" class="btn btn-ghost">View Weight & Measurements</a>
+{% if show_personal_data %}
+<section class="card dash-panel" aria-labelledby="weight-heading">
+  <div class="panel-head">
+    {{ panel_icon('activity') }}
+    <h2 id="weight-heading" class="section-title"><a class="panel-title-link" href="/measurements">Weight & Measurements</a></h2>
   </div>
-  {% endif %}
-  <div class="card"><h3>Health app integrations</h3><p class="muted">Coming in a future update.</p></div>
+  <p class="muted">Track weight, body measurements, and macros.</p>
 </section>
+{% endif %}
+
+<section class="card dash-panel" aria-labelledby="integrations-heading">
+  <div class="panel-head">
+    {{ panel_icon('link') }}
+    <h2 id="integrations-heading" class="section-title">Health app integrations</h2>
+  </div>
+  <p class="muted">Coming in a future update.</p>
+</section>
+
+</div>
 {% endblock %}
