@@ -754,6 +754,8 @@ class ProtocolItem(Base):
     inventory_item: Mapped[InventoryItem | None] = relationship()
     steps: Mapped[list["TitrationStep"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True, order_by="TitrationStep.start_week")
+    cycle_offs: Mapped[list["ProtocolItemCycleOff"]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True, order_by="ProtocolItemCycleOff.start_week")
 
 
 class TitrationStep(Base):
@@ -769,6 +771,22 @@ class TitrationStep(Base):
     start_week: Mapped[int] = mapped_column(Integer)
     end_week: Mapped[int | None] = mapped_column(Integer)
     dose: Mapped[float] = mapped_column(Float)
+
+
+class ProtocolItemCycleOff(Base):
+    """A week-range, relative to the protocol's start_date, during which this item is never due --
+    regardless of its frequency or any titration step that would otherwise apply. "On" is simply
+    "not covered by any row here"; there is no separate "on" row type."""
+    __tablename__ = "protocol_item_cycle_offs"
+    __table_args__ = (
+        CheckConstraint("start_week >= 1", name="ck_cycle_off_start_week"),
+        CheckConstraint("end_week >= start_week", name="ck_cycle_off_end_week"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    protocol_item_id: Mapped[int] = mapped_column(ForeignKey("protocol_items.id", ondelete="CASCADE"))
+    start_week: Mapped[int] = mapped_column(Integer)
+    end_week: Mapped[int] = mapped_column(Integer)
 
 
 # ---------------------------------------------------------------- accounts

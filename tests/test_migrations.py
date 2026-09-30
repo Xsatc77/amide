@@ -726,3 +726,29 @@ def test_0025_adds_heart_rate_bpm(tmp_path):
     with sqlite3.connect(db) as c:
         body_cols = {r[1] for r in c.execute("pragma table_info(body_measurements)")}
         assert "heart_rate_bpm" not in body_cols
+
+
+def test_0027_adds_protocol_item_cycle_offs(tmp_path):
+    db = tmp_path / "n.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0026")
+    with sqlite3.connect(db) as c:
+        peptide_id = c.execute("select id from peptides where name='BPC-157'").fetchone()[0]
+        c.execute("insert into protocols(id, name, start_date, paused, titration_enabled, created_at, updated_at) "
+                  "values (1, 'Mine', '2026-09-22', 0, 0, '2026-09-22', '2026-09-22')")
+        c.execute("insert into protocol_items(id, protocol_id, peptide_id, position, dose_unit, frequency, "
+                  "time_of_day, route) values (1, 1, ?, 0, 'mg', 'weekly', 'any', 'subq')", (peptide_id,))
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "protocol_item_cycle_offs" in tables
+        c.execute("insert into protocol_item_cycle_offs(protocol_item_id, start_week, end_week) "
+                  "values (1, 4, 6)")
+        assert c.execute("select start_week, end_week from protocol_item_cycle_offs").fetchone() == (4, 6)
+        with pytest.raises(sqlite3.IntegrityError):
+            c.execute("insert into protocol_item_cycle_offs(protocol_item_id, start_week, end_week) "
+                      "values (1, 2, 1)")  # end_week < start_week
+    command.downgrade(cfg, "0026")
+    with sqlite3.connect(db) as c:
+        tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
+        assert "protocol_item_cycle_offs" not in tables
