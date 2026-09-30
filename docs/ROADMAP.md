@@ -169,7 +169,7 @@ A dedicated visual-polish pass, pulled together from items across the owner's 20
 - **Library:** color the dosage-tier bar Green/Yellow/Red (Beginner/Intermediate/Advanced); yellow/black caution-style borders on Side Effects, Contraindications, and Drug Interactions — *the dosing-tier coloring was originally flagged during the peptide-sheet-import spec as "for the Library Redesign phase," which shipped without it; this is that dropped item*
 - **Calendar:** a legend for status colors on every view; month view colors the whole day-bar (not just a dot) and colors a clicked card's top edge to match status; week view gets a colored banner instead of a dot; day view gets a colored left-edge accent instead of a dot; replace the body-silhouette site-picker art (described as "still the blob")
 - ✅ *Overview chart shipped, 2026-09-30* — a single chart driven by a metric dropdown (every measurement field, BMI, Body fat %, Blood pressure, plus new Heart Rate tracking) sits beside the Body silhouette at the top of the Measurements page, switching client-side with no round-trip; the existing 7-day-to-lifetime range selector now drives it too. The full grid of every metric's own small chart stays below, unchanged, for at-a-glance scanning.
-- **Still open:** moving the body silhouette's measurement lines to the right of the body with hover-for-last-two-values and click-to-drive-the-Overview-chart -- a separate, more involved interactive redesign of the silhouette itself, not yet built.
+- ✅ *Body silhouette interactivity shipped, 2026-09-30* — all 7 labels moved to one right-hand column; hovering a point shows a custom tooltip with the last two measurements and the delta; clicking jumps the Overview chart to that body part's history (a new averaged "<Location> (avg)" option for the 4 bilateral locations, so an averaged point jumps to the same average it's showing, never an arbitrary side).
 - **Inventory:** style the "New Order" button to match "+ Add Item"
 - **Body Outline (entry forms):** smaller entry boxes placed beside their labels; day-range as a dropdown instead of text links
 - **General:** a color/accent pass across the app, tighter visual grouping — the owner's own "overall beautification" note
@@ -221,7 +221,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 - *(Entry-box sizing/placement and day-range dropdown moved to Phase 10 — Beautification)*
 
 **Charts & Graphs**
-- Body outline: move measurement lines to the right of the body with hover showing last two measurements + delta; click changes the chart to that body part's history — *still open, see Phase 10's Charts item*
+- *(Body outline label repositioning, hover, and click-through shipped in Phase 10 — Beautification, 2026-09-30)*
 - Historical labs backfill
 - AI-assisted lab-result interpretation (MedGemma or similar) — *see MedGemma below; this is the same proposal*
 - *(Overview chart dropdown + readability shipped in Phase 10 — Beautification, 2026-09-30)*
