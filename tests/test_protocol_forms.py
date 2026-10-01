@@ -110,11 +110,18 @@ def test_cycle_offs_cannot_overlap_each_other():
     assert "items-0-cycle_offs-1-start_week" in e
 
 
-def test_cycle_off_cannot_overlap_a_titration_step():
+def test_cycle_off_may_overlap_a_titration_step():
+    """Unlike two cycle-offs overlapping each other, a cycle-off is allowed to overlap a titration
+    step -- is_due() already makes the cycle-off win regardless (Task 2's own tests cover that), so
+    there's nothing to protect against here. The validation used to forbid this, which made the
+    single most common titration shape in this app (a ramp-up step, then an open-ended "onward"
+    step) make any later cycle-off impossible to add at all -- a real bug a whole-branch review
+    caught, fixed by removing the check rather than the shape."""
     _, e = parse_protocol_form(base(titration="1",
-        items__0__steps__0__start_week="1", items__0__steps__0__end_week="6", items__0__steps__0__dose="1",
-        items__0__cycle_offs__0__start_week="4", items__0__cycle_offs__0__weeks="2"), **IDS)
-    assert "items-0-cycle_offs-0-start_week" in e
+        items__0__steps__0__start_week="1", items__0__steps__0__end_week="4", items__0__steps__0__dose="1",
+        items__0__steps__1__start_week="5", items__0__steps__1__end_week="", items__0__steps__1__dose="2",
+        items__0__cycle_offs__0__start_week="9", items__0__cycle_offs__0__weeks="2"), **IDS)
+    assert e == {}
 
 
 def test_cycle_off_not_offered_state_still_round_trips_when_absent():

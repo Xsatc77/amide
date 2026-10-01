@@ -249,10 +249,17 @@ def _parse_steps(item_state: dict, prefix: str, titration: bool, errors: dict) -
     return [step for _, step in parsed]
 
 
-def _parse_cycle_offs(item_state: dict, prefix: str, errors: dict,
-                      steps: list[ParsedStep]) -> list["ParsedCycleOff"]:
+def _parse_cycle_offs(item_state: dict, prefix: str, errors: dict) -> list["ParsedCycleOff"]:
     """Cycle-offs are always validated (unlike steps, which are only validated when titration is
-    on) -- cycling is independent of the titration toggle."""
+    on) -- cycling is independent of the titration toggle.
+
+    A cycle-off may overlap a titration step -- deliberately not checked here. is_due() already
+    makes the cycle-off win regardless of what any step says for that week (see
+    app/calendar/schedule.py), so there's nothing to protect against. An earlier version of this
+    function forbade the overlap, which made the single most common titration shape in this app (a
+    ramp-up step, then an open-ended "onward" step covering every week after it) make any later
+    cycle-off impossible to add at all -- caught in whole-branch review and fixed by dropping the
+    check rather than the shape."""
     parsed: list[tuple[int, ParsedCycleOff]] = []
     for j, raw in enumerate(item_state["cycle_offs"]):
         if not any(raw.values()):
@@ -272,13 +279,6 @@ def _parse_cycle_offs(item_state: dict, prefix: str, errors: dict,
     for (ja, a), (jb, b) in zip(parsed, parsed[1:]):
         if b.start_week <= a.end_week:
             errors[f"{prefix}-cycle_offs-{jb}-start_week"] = "Overlaps the previous cycle-off."
-
-    for j, off in parsed:
-        for k, step in enumerate(steps):
-            step_end = step.end_week if step.end_week is not None else off.end_week
-            if off.start_week <= step_end and step.start_week <= off.end_week:
-                errors[f"{prefix}-cycle_offs-{j}-start_week"] = "Overlaps a titration step."
-                break
 
     return [off for _, off in parsed]
 
@@ -373,7 +373,7 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             inventory_item_id=inventory_item_id,
             notes=notes,
             steps=steps,
-            cycle_offs=_parse_cycle_offs(raw, key, errors, steps),
+            cycle_offs=_parse_cycle_offs(raw, key, errors),
         ))
 
     if not items:

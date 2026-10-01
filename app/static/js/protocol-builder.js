@@ -213,9 +213,6 @@
     const num = (name, value, placeholder) => h("input", {
       name: `${p}-${name}`, type: "number", min: "1", step: "1", inputmode: "numeric", value, placeholder,
       "aria-label": name.replace("_", " "), oninput: (e) => (off[name] = e.target.value),
-      // The "+ Cycle off"/"+ Cycle on" label depends on whether this row's "weeks" is filled in --
-      // re-render on blur/Enter (not oninput, which would rebuild the DOM and drop focus mid-keystroke).
-      onchange: () => changed(),
     });
     return h("div", { class: "cycle-off-row" },
       h("span", { class: "small muted", text: `Off ${j + 1}` }),
@@ -268,7 +265,7 @@
               value: it.dose, placeholder: "not set", "aria-label": "Dose", oninput: (e) => set("dose")(e.target.value) }),
             select(`${p}-dose_unit`, data.options.dose_unit, it.dose_unit, (v) => { it.dose_unit = v; changed(); }))),
         field("Frequency", select(`${p}-frequency`, data.options.frequency, it.frequency,
-          (v) => { it.frequency = v; syncFreq(); })),
+          (v) => { it.frequency = v; changed(); })),
         everyN,
         weekdays,
         field("Time of day", select(`${p}-time_of_day`, data.options.time_of_day, it.time_of_day, set("time_of_day"))),
@@ -290,14 +287,19 @@
         h("div", { class: "steps-head" }, h("strong", { class: "small", text: "Cycle on/off" })),
         it.cycle_offs.map((c, j) => cycleOffRow(it, i, j, c)),
         h("button", { type: "button", class: "btn btn-ghost", onclick: () => {
+          // Resuming dosing after an off period needs no action here at all -- is_due() already
+          // picks it back up on schedule the week the off period ends (see app/calendar/schedule.py).
+          // Ramping the dose back in is just "+ Add step" above, independently -- a cycle-off is
+          // allowed to overlap a step's range, so there's no ordering requirement between them.
+          // This button always does one thing: start another off period.
           const lastOff = it.cycle_offs[it.cycle_offs.length - 1];
           const lastStep = it.steps[it.steps.length - 1];
-          const afterOff = lastOff ? Number(lastOff.start_week) + Number(lastOff.weeks) : 0;
+          const afterOff = lastOff ? Number(lastOff.start_week) + Number(lastOff.weeks || 0) : 0;
           const afterStep = lastStep && lastStep.end_week ? Number(lastStep.end_week) + 1 : 0;
           const next = Math.max(afterOff, afterStep, 1);
           it.cycle_offs.push({ start_week: String(next), weeks: "" });
           changed();
-        } }, it.cycle_offs.length && !it.cycle_offs[it.cycle_offs.length - 1].weeks ? "+ Cycle on" : "+ Cycle off")));
+        } }, "+ Cycle off")));
     syncFreq();
     return card;
   }

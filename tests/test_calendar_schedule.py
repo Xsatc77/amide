@@ -102,6 +102,25 @@ def test_cycle_off_does_not_affect_the_before_start_date_early_return():
     assert due_dates(p, before_start, before_start) == []
 
 
+def test_cycle_off_overlapping_a_titration_step_still_suppresses_dosing():
+    """A cycle-off is allowed to overlap a titration step's own week range (the form no longer
+    forbids it -- see test_protocol_forms.py's test_cycle_off_may_overlap_a_titration_step). The
+    off period must still win for every week it covers, even mid-step, and the step's dose must
+    still apply normally just before and after it."""
+    from types import SimpleNamespace as NS
+    offs = [NS(start_week=2, end_week=3)]
+    steps = [NS(start_week=1, end_week=None, dose=100.0)]  # one open-ended step covering weeks 1+
+    p = proto(start=date(2026, 9, 1), titration=True,
+              items=[item(freq=Frequency.DAILY, steps=steps, cycle_offs=offs)])
+    week1_day = date(2026, 9, 1)
+    week2_day = date(2026, 9, 1) + timedelta(days=7)   # inside the overlapping off period
+    week4_day = date(2026, 9, 1) + timedelta(days=21)  # after it, step still applies
+    assert due_dates(p, week1_day, week1_day) == [week1_day]
+    assert due_dates(p, week2_day, week2_day) == []
+    [occ] = schedule.occurrences([p], week4_day, week4_day)
+    assert (occ.items[0].dose, occ.items[0].step) == (100.0, 1)
+
+
 def test_titration_step_right_after_a_cycle_off_fires_on_its_own_schedule():
     """The step that resumes dosing after an off period must fire exactly on its own start_week --
     not shifted later because of the gap before it, and not skipped."""
