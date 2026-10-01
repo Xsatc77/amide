@@ -18,7 +18,7 @@ from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
     Category, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Protocol, ProtocolGoal, ProtocolItem,
-    ProtocolItemCycleOff, Route, Sale, StorageLocation, TimeOfDay, TitrationStep,
+    ProtocolItemCycleOff, PurchasingUnit, Route, Sale, StorageLocation, TimeOfDay, TitrationStep,
 )
 from app.routers.protocols import _find_or_create_peptide
 from app.templating import templates
@@ -35,7 +35,8 @@ def _iso(d) -> str | None:
 def _inventory_row(i: InventoryItem) -> dict:
     return {
         "name": i.name, "category": i.category.value, "count": i.count, "vial_size_mg": i.vial_size_mg,
-        "vial_size_unit": i.vial_size_unit.value, "medium": i.medium.value if i.medium else None,
+        "vial_size_unit": i.vial_size_unit.value, "purchasing_unit": i.purchasing_unit.value,
+        "medium": i.medium.value if i.medium else None,
         "volume_ml": i.volume_ml, "units_per_package": i.units_per_package,
         "storage": i.storage.value if i.storage else None,
         "cost": i.cost, "vendor": i.vendor, "notes": i.notes,
@@ -169,7 +170,8 @@ def _import_inventory_row(session: Session, uid: int, row: dict) -> None:
     item = InventoryItem(
         owner_id=uid, name=row["name"], category=Category(row.get("category") or "Medicine"),
         count=row.get("count", 1), vial_size_mg=row.get("vial_size_mg"),
-        vial_size_unit=DoseUnit(row.get("vial_size_unit") or "mg"), medium=medium,
+        vial_size_unit=DoseUnit(row.get("vial_size_unit") or "mg"),
+        purchasing_unit=PurchasingUnit(row.get("purchasing_unit") or "individual"), medium=medium,
         volume_ml=row.get("volume_ml"), units_per_package=row.get("units_per_package"),
         storage=StorageLocation(row["storage"]) if row.get("storage") else None,
         cost_cents=round(row["cost"] * 100) if row.get("cost") is not None else None,

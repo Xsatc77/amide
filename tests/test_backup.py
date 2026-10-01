@@ -58,6 +58,22 @@ def test_backup_round_trips_cycle_offs(client, db):
         assert [(c.start_week, c.end_week) for c in p.items[0].cycle_offs] == [(4, 6)]
 
 
+def test_backup_round_trips_purchasing_unit(client, db):
+    client.post("/inventory", data={
+        "name": "Kit Item", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "5", "order_date": "2026-09-01",
+        "purchasing_unit": "kit_of_10",
+    })
+    export = client.get("/backup/export.json").json()
+    with SessionLocal() as s:
+        s.query(InventoryItem).filter_by(name="Kit Item").delete()
+        s.commit()
+    client.post("/backup/import", files={"file": ("backup.json", json.dumps(export), "application/json")})
+    with SessionLocal() as s:
+        item = s.scalar(select(InventoryItem).where(InventoryItem.name == "Kit Item"))
+        assert item.purchasing_unit.value == "kit_of_10"
+
+
 def test_backup_page_has_export_and_import_links(client):
     r = client.get("/backup")
     assert r.status_code == 200
