@@ -525,6 +525,10 @@ section + section { margin-top: 36px; }
 .dose-list .step { color: var(--accent); font-weight: 600; margin-top: 1px; }
 .protocol-dates { margin: 0; }
 .protocol-card-actions { display: flex; flex-wrap: wrap; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: auto; }
+/* Bottom-right corner, a different corner from the top-left status ribbon so they never collide. */
+.totals-btn { position: absolute; bottom: 10px; right: 10px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 6px; }
+.totals-btn:hover { color: var(--accent); background: var(--accent-soft); }
+#course-totals-body table { margin-top: 12px; }
 
 /* 8 goals: two rows of four on wide screens, two columns on tablets, one on phones. */
 .goal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }

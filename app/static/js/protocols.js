@@ -53,3 +53,58 @@
     })
   );
 })();
+
+// Total course quantities popup: one shared dialog, populated from the page's embedded JSON.
+(() => {
+  const dialog = document.getElementById("course-totals-dialog");
+  if (!dialog) return;
+  const body = document.getElementById("course-totals-body");
+  const allTotals = JSON.parse(document.getElementById("course-totals-data").textContent);
+
+  function fmt(n) {
+    return n === null || n === undefined ? "" : String(Math.round(n * 100) / 100);
+  }
+
+  function render(protocolId) {
+    const totals = allTotals[String(protocolId)];
+    if (totals === null || totals === undefined) {
+      body.replaceChildren(Object.assign(document.createElement("p"), {
+        className: "muted",
+        textContent: "Set an end date on this protocol to see its total course quantities.",
+      }));
+      return;
+    }
+    const table = document.createElement("table");
+    table.className = "inv-table";
+    const thead = document.createElement("thead");
+    thead.innerHTML = "<tr><th>Peptide</th><th>Total</th><th>Vials</th><th>BAC water</th></tr>";
+    const tbody = document.createElement("tbody");
+    for (const t of totals) {
+      const tr = document.createElement("tr");
+      const totalCell = t.as_needed || t.total_amount === null ? (t.note || "") : `${fmt(t.total_amount)} ${t.unit}`;
+      const vialsCell = t.vials_estimate === null ? (t.note || "—") : String(t.vials_estimate);
+      const bacCell = t.bac_water_ml === null ? "—" : `${fmt(t.bac_water_ml)} mL`;
+      tr.innerHTML = `<td>${t.peptide}</td><td>${totalCell}</td><td>${vialsCell}</td><td>${bacCell}</td>`;
+      tbody.append(tr);
+    }
+    table.append(thead, tbody);
+    const caption = document.createElement("p");
+    caption.className = "muted small";
+    caption.textContent = "Estimated using 1.5 mL bacteriostatic water per vial.";
+    body.replaceChildren(table, caption);
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".totals-btn");
+    if (btn) {
+      render(btn.dataset.protocolId);
+      dialog.showModal();
+      return;
+    }
+    if (e.target.closest("[data-close]") && dialog.open) dialog.close();
+  });
+
+  let mousedownOnBackdrop = false;
+  dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
+  dialog.addEventListener("click", (e) => { if (mousedownOnBackdrop && e.target === dialog) dialog.close(); });
+})();
