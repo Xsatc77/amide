@@ -752,3 +752,21 @@ def test_0027_adds_protocol_item_cycle_offs(tmp_path):
     with sqlite3.connect(db) as c:
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
         assert "protocol_item_cycle_offs" not in tables
+
+
+def test_0028_adds_purchasing_unit(tmp_path):
+    db = tmp_path / "o.db"
+    cfg = _cfg(db)
+    command.upgrade(cfg, "0027")
+    with sqlite3.connect(db) as c:
+        c.execute("insert into inventory_items(name, count, created_at, updated_at) "
+                  "values ('Old', 2, '2026-09-30', '2026-09-30')")
+    command.upgrade(cfg, "head")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+        assert "purchasing_unit" in cols
+        assert c.execute("select purchasing_unit from inventory_items where name='Old'").fetchone()[0] == "individual"
+    command.downgrade(cfg, "0027")
+    with sqlite3.connect(db) as c:
+        cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+    assert "purchasing_unit" not in cols

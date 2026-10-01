@@ -255,6 +255,11 @@ class VendorFavorite(Base):
     vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="CASCADE"), index=True)
 
 
+class PurchasingUnit(LabeledEnum):
+    INDIVIDUAL = ("individual", "Individual vial")
+    KIT_OF_10 = ("kit_of_10", "Kit of 10 vials")
+
+
 class InventoryItem(Base):
     """One line of stock: e.g. "BPC-157, 5 vials of 10 mg, lyophilized"."""
 
@@ -274,6 +279,9 @@ class InventoryItem(Base):
     # backward compatibility even though it's no longer always mg.
     vial_size_mg: Mapped[float | None] = mapped_column(Float)
     vial_size_unit: Mapped[DoseUnit] = mapped_column(_enum_column(DoseUnit), default=DoseUnit.MG)
+    # Only meaningful for Category.MEDICINE (same gate vial_size_mg/medium already use) -- drives
+    # an as-needed protocol item's flat course-total quantity (1 vial vs. a 10-vial kit).
+    purchasing_unit: Mapped["PurchasingUnit"] = mapped_column(_enum_column(PurchasingUnit), default=PurchasingUnit.INDIVIDUAL)
     medium: Mapped[Medium | None] = mapped_column(
         Enum(Medium, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
     )
