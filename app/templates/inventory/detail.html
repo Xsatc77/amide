@@ -75,6 +75,14 @@
         {{ ierr('vial_size_mg') }}
       </div>
 
+      <label {{ icls('purchasing_unit') }} data-field="purchasing_unit">
+        <span>Purchasing unit</span>
+        <select name="purchasing_unit">
+          {% for u in purchasing_units %}<option value="{{ u.value }}" {{ 'selected' if ef.purchasing_unit == u.value }}>{{ u.label }}</option>{% endfor %}
+        </select>
+        {{ ierr('purchasing_unit') }}
+      </label>
+
       <label {{ icls('volume_ml') }} data-field="volume_ml">
         <span>Volume (mL)</span>
         <input name="volume_ml" type="number" min="0" step="any" inputmode="decimal" value="{{ ef.volume_ml }}">

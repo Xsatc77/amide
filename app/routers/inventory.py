@@ -16,8 +16,8 @@ from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fie
 from app.inventory.vendors import resolve_vendor
 from app.models import (
     ActiveVial, Category, ContactMethodType, DispensingMethod, DoseUnit, InventoryItem, Medium,
-    Order, OrderItem, PaymentMethodType, Sale, Share, ShareCategory, StorageLocation, User, Vendor,
-    VendorContact, VendorPaymentMethod,
+    Order, OrderItem, PaymentMethodType, PurchasingUnit, Sale, Share, ShareCategory, StorageLocation,
+    User, Vendor, VendorContact, VendorPaymentMethod,
 )
 from app.templating import shortdate, templates
 from app.vendors.resolve import resolve_contact_method_type, resolve_payment_method_type
@@ -25,7 +25,7 @@ from app.vendors.resolve import resolve_contact_method_type, resolve_payment_met
 router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
-ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "medium",
+ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium",
               "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
@@ -155,6 +155,7 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         values["medium"] = None
         values["vial_size_mg"] = None
         values["vial_size_unit"] = DoseUnit.MG
+        values["purchasing_unit"] = PurchasingUnit.INDIVIDUAL
         values["volume_ml"] = None
         values["units_per_package"] = None
         return values, errors
@@ -170,6 +171,8 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         values["medium"] = _parse_choice(Medium, raw["medium"], None, "medium", errors)
         values["vial_size_mg"] = _parse_positive_float(raw["vial_size_mg"], "vial_size_mg", "Amount", errors)
         values["vial_size_unit"] = _parse_choice(DoseUnit, raw["vial_size_unit"], DoseUnit.MG, "vial_size_unit", errors)
+        values["purchasing_unit"] = _parse_choice(PurchasingUnit, raw.get("purchasing_unit", ""),
+                                                   PurchasingUnit.INDIVIDUAL, "purchasing_unit", errors)
         values["volume_ml"] = _parse_positive_float(raw["volume_ml"], "volume_ml", "Volume", errors)
         values["units_per_package"] = None
         if raw["units_per_package"]:
@@ -186,6 +189,7 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         values["medium"] = None
         values["vial_size_mg"] = None
         values["vial_size_unit"] = DoseUnit.MG
+        values["purchasing_unit"] = PurchasingUnit.INDIVIDUAL
         values["volume_ml"] = None
         values["units_per_package"] = None
 
@@ -488,6 +492,7 @@ def _form_values(item: InventoryItem) -> dict:
         "count": str(item.count),
         "vial_size_mg": num(item.vial_size_mg),
         "vial_size_unit": item.vial_size_unit.value,
+        "purchasing_unit": item.purchasing_unit.value,
         "medium": item.medium.value if item.medium else "",
         "volume_ml": num(item.volume_ml),
         "units_per_package": "" if item.units_per_package is None else str(item.units_per_package),
@@ -608,6 +613,7 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
         "storage_locations": list(StorageLocation),
         "mediums": list(Medium),
         "dose_units": list(DoseUnit),
+        "purchasing_units": list(PurchasingUnit),
         "medium_rules": {
             m.value: {
                 "required": sorted(required_fields_for(m)),
@@ -675,6 +681,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "edit_data": {i.id: _form_values(i) for i in items if i.owner_id == uid},
             "mediums": list(Medium),
             "dose_units": list(DoseUnit),
+            "purchasing_units": list(PurchasingUnit),
             "storage_locations": list(StorageLocation),
             "medium_rules": {
                 m.value: {

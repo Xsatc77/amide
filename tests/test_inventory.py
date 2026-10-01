@@ -2138,3 +2138,42 @@ def test_staleness_no_with_neither_file_nor_url_is_a_422(client, db):
         assert v.price_list_url == "https://old.example/still-here"
         assert v.price_list_updated_at == date(2026, 1, 1)
         assert s.query(InventoryItem).filter_by(name="Silent Noop Item").count() == 0
+
+
+def test_purchasing_unit_defaults_to_individual(client, db):
+    client.post("/inventory", data={
+        "name": "BPC-157", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "5", "order_date": "2026-09-01",
+    }, follow_redirects=False)
+    [item] = _items(db)
+    assert item.purchasing_unit.value == "individual"
+
+
+def test_purchasing_unit_can_be_set_to_kit_of_10(client, db):
+    client.post("/inventory", data={
+        "name": "Tirzepatide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "5", "order_date": "2026-09-01",
+        "purchasing_unit": "kit_of_10",
+    }, follow_redirects=False)
+    [item] = _items(db)
+    assert item.purchasing_unit.value == "kit_of_10"
+
+
+def test_purchasing_unit_round_trips_on_edit(client, db):
+    client.post("/inventory", data={
+        "name": "Semaglutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "5",
+        "quantity": "5", "order_date": "2026-09-01",
+    }, follow_redirects=False)
+    [item] = _items(db)
+    client.post(f"/inventory/{item.id}", data={
+        "name": "Semaglutide", "medium": "Lyophilized", "vial_size_mg": "5", "purchasing_unit": "kit_of_10",
+    }, follow_redirects=False)
+    [item] = _items(db)
+    assert item.purchasing_unit.value == "kit_of_10"
+
+
+def test_supply_item_always_defaults_purchasing_unit_to_individual(client, db):
+    client.post("/inventory", data={"name": "Syringes", "category": "Supply", "count": "50"},
+               follow_redirects=False)
+    [item] = _items(db)
+    assert item.purchasing_unit.value == "individual"

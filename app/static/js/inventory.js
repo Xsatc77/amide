@@ -8,7 +8,7 @@
   const coaInput = dialog.querySelector('input[name="coa"]');
   const preview = dialog.querySelector("[data-coa-preview]");
   const fields = [
-    "name", "category", "count", "vial_size_mg", "vial_size_unit", "medium", "volume_ml",
+    "name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium", "volume_ml",
     "units_per_package", "storage", "cost", "vendor", "notes",
   ];
   const rules = JSON.parse(document.getElementById("inv-rules").textContent);
@@ -71,7 +71,7 @@
     dialog.dataset.mode = item ? "edit" : "add";
     for (const f of fields) {
       if (f === "category") continue;  // radios, set below
-      form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : f === "vial_size_unit" ? "mg" : "";
+      form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : f === "vial_size_unit" ? "mg" : f === "purchasing_unit" ? "individual" : "";
     }
     const category = item ? item.category : "Medicine";
     form.querySelectorAll('input[name="category"]').forEach((r) => { r.checked = r.value === category; });

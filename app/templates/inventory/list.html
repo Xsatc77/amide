@@ -210,6 +210,14 @@
           {{ err('vial_size_mg') }}
         </div>
 
+        <label {{ cls('purchasing_unit') }} data-field="purchasing_unit" data-field-group="medium-only">
+          <span>Purchasing unit</span>
+          <select name="purchasing_unit">
+            {% for u in purchasing_units %}<option value="{{ u.value }}" {{ 'selected' if f.purchasing_unit == u.value }}>{{ u.label }}</option>{% endfor %}
+          </select>
+          {{ err('purchasing_unit') }}
+        </label>
+
         <label {{ cls('volume_ml') }} data-field="volume_ml" data-field-group="medium-only" hidden>
           <span>Volume (mL)</span>
           <input name="volume_ml" type="number" min="0" step="any" inputmode="decimal" value="{{ f.volume_ml }}" placeholder="e.g. 2">
