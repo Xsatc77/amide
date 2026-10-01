@@ -1,7 +1,7 @@
 from datetime import date
 from types import SimpleNamespace as NS
 
-from app.models import DoseUnit, Frequency, PurchasingUnit
+from app.models import DoseUnit, Frequency, Medium, PurchasingUnit
 from app.protocols.course_totals import compute_course_totals
 
 
@@ -16,8 +16,10 @@ def proto(start=date(2026, 1, 1), end=date(2026, 1, 14), titration=False, items=
     return NS(start_date=start, end_date=end, titration_enabled=titration, items=items or [peptide_item()])
 
 
-def inv(id=1, vial_size_mg=100.0, vial_size_unit=DoseUnit.MG, purchasing_unit=PurchasingUnit.INDIVIDUAL):
-    return NS(id=id, vial_size_mg=vial_size_mg, vial_size_unit=vial_size_unit, purchasing_unit=purchasing_unit)
+def inv(id=1, vial_size_mg=100.0, vial_size_unit=DoseUnit.MG, purchasing_unit=PurchasingUnit.INDIVIDUAL,
+        medium=Medium.LYOPHILIZED):
+    return NS(id=id, vial_size_mg=vial_size_mg, vial_size_unit=vial_size_unit, purchasing_unit=purchasing_unit,
+              medium=medium)
 
 
 def test_no_end_date_means_no_totals():
@@ -83,3 +85,25 @@ def test_titration_and_cycle_off_both_apply_across_the_course():
     [total] = compute_course_totals(p, {})
     # Weeks 1-2: 14 days * 100 = 1400. Week 3: 0 (cycled off). Week 4: 7 days * 200 = 1400.
     assert total.total_amount == 2800.0
+
+
+def test_far_future_end_date_does_not_crash():
+    # A protocol can technically save an end_date right at the limit of what `date` can represent;
+    # the day-by-day walk must not raise OverflowError stepping past date.max.
+    p = proto(start=date(2026, 1, 1), end=date.max,
+              items=[peptide_item(dose=250.0, unit=DoseUnit.MCG, inventory_item_id=1)])
+    inventory = {1: inv()}
+    [total] = compute_course_totals(p, inventory)
+    assert total.vials_estimate is None
+    assert "too long" in total.note.lower()
+
+
+def test_non_lyophilized_medium_skips_vial_and_bac_math():
+    # A Pill's vial_size_mg means "amount per pill" (see app/inventory/rules.py) -- running the
+    # same mg/vial-size division on it produces a meaningless "vial" count and makes up BAC water
+    # for an item that's never reconstituted.
+    p = proto(items=[peptide_item(dose=250.0, unit=DoseUnit.MCG, inventory_item_id=1)])
+    inventory = {1: inv(vial_size_mg=5.0, vial_size_unit=DoseUnit.MG, medium=Medium.PILL)}
+    [total] = compute_course_totals(p, inventory)
+    assert total.vials_estimate is None and total.bac_water_ml is None
+    assert "lyophilized" in total.note.lower()

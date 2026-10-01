@@ -11,10 +11,13 @@ from datetime import timedelta
 
 from app.calculator.reconstitution import _DOSE_UNITS_TO_MG
 from app.calendar.schedule import is_due
-from app.models import Frequency, PurchasingUnit
+from app.models import Frequency, Medium, PurchasingUnit
 from app.protocols.status import current_step, current_week
 
 _BAC_WATER_ML_PER_VIAL = 1.5
+# A course longer than this isn't a realistic protocol -- cap it so a stray far-future end_date
+# (the form has no upper bound) can't overflow date's range or make the list page crawl.
+_MAX_COURSE_DAYS = 3660
 
 
 @dataclass
@@ -32,6 +35,8 @@ def _days(first, last):
     day = first
     while day <= last:
         yield day
+        if day == last:
+            break
         day += timedelta(days=1)
 
 
@@ -56,6 +61,11 @@ def _as_needed_total(item, inventory_by_id: dict) -> ItemTotal:
 
 
 def _scheduled_total(item, protocol, inventory_by_id: dict) -> ItemTotal:
+    unit = item.dose_unit.value
+
+    if (protocol.end_date - protocol.start_date).days > _MAX_COURSE_DAYS:
+        return ItemTotal(item.peptide.name, unit, False, None, None, None, "Course is too long to total")
+
     total = 0.0
     for day in _days(protocol.start_date, protocol.end_date):
         if is_due(item, protocol.start_date, day):
@@ -63,7 +73,6 @@ def _scheduled_total(item, protocol, inventory_by_id: dict) -> ItemTotal:
             if dose is not None:
                 total += dose
 
-    unit = item.dose_unit.value
     inv = inventory_by_id.get(item.inventory_item_id) if item.inventory_item_id else None
     dose_factor = _DOSE_UNITS_TO_MG.get(unit)
 
@@ -71,6 +80,9 @@ def _scheduled_total(item, protocol, inventory_by_id: dict) -> ItemTotal:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "No inventory item linked")
     if dose_factor is None:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "IU — vial count not calculable")
+    if inv.medium is not Medium.LYOPHILIZED:
+        return ItemTotal(item.peptide.name, unit, False, total, None, None,
+                         "Vial and BAC water estimates only apply to Lyophilized items")
     vial_factor = _DOSE_UNITS_TO_MG.get(inv.vial_size_unit.value)
     if not inv.vial_size_mg or vial_factor is None:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "Inventory item has no vial size set")

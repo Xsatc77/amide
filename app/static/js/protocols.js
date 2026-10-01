@@ -84,7 +84,11 @@
       const totalCell = t.as_needed || t.total_amount === null ? (t.note || "") : `${fmt(t.total_amount)} ${t.unit}`;
       const vialsCell = t.vials_estimate === null ? (t.note || "—") : String(t.vials_estimate);
       const bacCell = t.bac_water_ml === null ? "—" : `${fmt(t.bac_water_ml)} mL`;
-      tr.innerHTML = `<td>${t.peptide}</td><td>${totalCell}</td><td>${vialsCell}</td><td>${bacCell}</td>`;
+      for (const text of [t.peptide, totalCell, vialsCell, bacCell]) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        tr.append(td);
+      }
       tbody.append(tr);
     }
     table.append(thead, tbody);
