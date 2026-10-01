@@ -360,3 +360,22 @@ def test_goal_cards_use_their_own_color(client):
     body = resp.text
     assert "var(--goal-fat-loss)" in body
     assert "var(--goal-sleep-recovery)" in body
+
+
+def test_list_page_embeds_course_totals_json(client, db):
+    client.post("/protocols", data=valid_form(db))
+    r = client.get("/protocols")
+    assert r.status_code == 200
+    assert 'id="course-totals-data"' in r.text
+    assert '"Retatrutide"' in r.text
+
+
+def test_list_page_course_totals_is_none_without_an_end_date(client, db):
+    client.post("/protocols", data=valid_form(db, end_date="", weeks=""))
+    r = client.get("/protocols")
+    assert r.status_code == 200
+    import json, re
+    m = re.search(r'id="course-totals-data"[^>]*>(.*?)</script>', r.text, re.S)
+    data = json.loads(m.group(1))
+    [(_, totals)] = data.items()
+    assert totals is None

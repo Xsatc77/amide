@@ -14,6 +14,7 @@ from app.models import (
     Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
     User,
 )
+from app.protocols.course_totals import compute_course_totals
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
@@ -132,9 +133,20 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
     shared_views = [_view(p, today, owner_name=owner_names.get(p.owner_id)) for p in shared_protocols]
 
+    inventory_by_id = {i.id: i for i in session.scalars(
+        select(InventoryItem).where(InventoryItem.owner_id == uid))}
+    course_totals = {
+        v["p"].id: [
+            {"peptide": t.peptide, "unit": t.unit, "as_needed": t.as_needed, "total_amount": t.total_amount,
+             "vials_estimate": t.vials_estimate, "bac_water_ml": t.bac_water_ml, "note": t.note}
+            for t in totals
+        ] if (totals := compute_course_totals(v["p"], inventory_by_id)) is not None else None
+        for v in views
+    }
+
     return templates.TemplateResponse(request, "protocols/list.html",
                                       {"active_views": active, "saved_views": saved, "shared_views": shared_views,
-                                       "goals": GOALS, "statuses": list(Status)})
+                                       "goals": GOALS, "statuses": list(Status), "course_totals": course_totals})
 
 
 # ---------------------------------------------------------------- builder
