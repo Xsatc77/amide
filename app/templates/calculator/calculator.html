@@ -21,7 +21,7 @@
       <div class="grid">
         {% if data.inventory %}
         <label class="field span-2">
-          <span>From inventory <span class="muted small">(lyophilized items only)</span></span>
+          <span>From Inventory <span class="muted small">(lyophilized items only)</span></span>
           <select id="calc-inventory">
             <option value="">— Choose an item —</option>
             {% for i in data.inventory %}<option value="{{ i.id }}" data-vial-mg="{{ '%g' % i.vial_mg }}"{{ ' selected' if selected_item_id == i.id else '' }}>{{ i.name }} ({{ '%g' % i.vial_mg }} mg)</option>{% endfor %}
@@ -29,7 +29,7 @@
         </label>
         {% endif %}
         <label class="field">
-          <span>Vial amount (mg)</span>
+          <span>Vial Amount (mg)</span>
           <input id="calc-vial" type="number" min="0" step="any" inputmode="decimal" value="{{ state.vial_mg }}">
         </label>
         <div class="field">
@@ -40,10 +40,10 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>BAC water</legend>
+      <legend>BAC Water</legend>
       <div class="grid">
         <label class="field">
-          <span>Water added (mL)</span>
+          <span>Water Added (mL)</span>
           <input id="calc-water" type="number" min="0" step="any" inputmode="decimal" value="{{ state.water_ml }}">
         </label>
         <div class="field">
@@ -58,7 +58,7 @@
       <div class="grid">
         {% if data.protocol_doses %}
         <label class="field span-2">
-          <span>From a protocol</span>
+          <span>From A Protocol</span>
           <select id="calc-protocol-dose">
             <option value="">— Choose a dose —</option>
             {% for p in data.protocol_doses %}<option value="{{ p.dose }}|{{ p.unit }}">{{ p.protocol }} — {{ p.peptide }} ({{ '%g' % p.dose }} {{ p.unit }})</option>{% endfor %}
@@ -66,7 +66,7 @@
         </label>
         {% endif %}
         <label class="field">
-          <span>Dose amount</span>
+          <span>Dose Amount</span>
           <input id="calc-dose" type="number" min="0" step="any" inputmode="decimal" value="{{ state.dose_value }}">
         </label>
         <label class="field">
@@ -90,7 +90,7 @@
   </form>
 
   <div class="calc-reconstitute" id="calc-reconstitute" hidden>
-    <button type="button" class="btn btn-primary" id="calc-reconstitute-btn">Reconstitute this vial</button>
+    <button type="button" class="btn btn-primary" id="calc-reconstitute-btn">Reconstitute This Vial</button>
   </div>
 
   <div class="calc-result builder-step">
