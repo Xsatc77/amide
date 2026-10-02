@@ -37,8 +37,8 @@
 {% macro bp_chart(bp) %}
 {% if bp %}
 <div class="card">
-  <h3>Blood pressure</h3>
-  <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood pressure over time">
+  <h3>Blood Pressure</h3>
+  <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood Pressure over time">
     <polyline points="{{ bp.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
     {% for cx, cy in bp.points_a %}{% set d, v = bp.raw_a[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)" class="chart-point"
       data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }} systolic"></circle>{% endfor %}
