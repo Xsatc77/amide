@@ -157,7 +157,11 @@
       onmousedown: (e) => { e.preventDefault(); choose(m); },
     }, m.peptide
       ? [h("strong", { text: m.peptide.name }),
-         h("span", { class: "small muted", text: [m.peptide.card_class, m.peptide.aliases].filter(Boolean).join(" · ") })]
+         h("span", { class: "small muted", text: [
+           m.peptide.card_class,
+           m.peptide.aliases,
+           m.peptide.library_specifications ? `Available: ${m.peptide.library_specifications}` : null
+         ].filter(Boolean).join(" · ") })]
       : [h("span", { text: `Add "${m.newName}" as a new peptide` })])));
     els.addList.hidden = false;
     els.addInput.setAttribute("aria-expanded", "true");

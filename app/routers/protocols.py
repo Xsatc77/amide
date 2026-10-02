@@ -156,9 +156,22 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
     stacks: dict[str, list[int]] = {g.slug: [] for g in GOALS}
     for gp in session.scalars(select(GoalPeptide).order_by(GoalPeptide.goal, GoalPeptide.position)):
         stacks.setdefault(gp.goal, []).append(gp.peptide_id)
-    peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()
+
+    # Get inventory items (linked to this user)
     inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
                                 .order_by(InventoryItem.name)).all()
+    inventory_peptide_ids = {i.peptide_id for i in inventory if i.peptide_id}
+
+    # Get all peptides, sorted: inventory first, then library (with specs), then others
+    all_peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()
+
+    # Sort: inventory peptides first, then ones with library_specifications, then others
+    def peptide_sort_key(p: Peptide) -> tuple:
+        has_inventory = p.id in inventory_peptide_ids
+        has_specs = p.library_specifications is not None
+        return (not has_inventory, not has_specs, p.name.lower())
+
+    peptides = sorted(all_peptides, key=peptide_sort_key)
 
     def choices(enum_cls):
         return [[m.value, m.label] for m in enum_cls]
@@ -170,7 +183,7 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
         "goals": [{"slug": g.slug, "label": g.label, "description": g.description} for g in GOALS],
         "stacks": stacks,
         "peptides": [{"id": pp.id, "name": pp.name, "aliases": pp.aliases, "card_class": pp.card_class,
-                      "card_number": pp.card_number} for pp in peptides],
+                      "card_number": pp.card_number, "library_specifications": pp.library_specifications} for pp in peptides],
         "inventory": [
             {"id": i.id, "name": i.name, "vial_size_mg": i.vial_size_mg, "medium": i.medium.value if i.medium else None}
             for i in inventory

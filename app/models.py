@@ -634,6 +634,9 @@ class Peptide(Base):
     # Standard vial size from library card for course totals fallback when no inventory is linked.
     normally_supplied_amount: Mapped[float | None] = mapped_column(Float)
     normally_supplied_unit: Mapped[DoseUnit | None] = mapped_column(_enum_column(DoseUnit))
+    # Comma-separated available specifications from price lists (e.g., "5mg, 10mg, 15mg, 20mg")
+    # Used to prioritize commonly-available peptides in Protocol Builder selector.
+    library_specifications: Mapped[str | None] = mapped_column(Text)
 
     dosing_tiers: Mapped[list["PeptideDosingTier"]] = relationship(
         back_populates="peptide", cascade="all, delete-orphan")
