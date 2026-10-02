@@ -668,12 +668,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .lib-section.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .lib-section-caution {
   border: 1px solid var(--border);
-  border-left: 8px solid transparent;
-  background:
-    repeating-linear-gradient(45deg, #ffff00 0, #ffff00 10px, #000000 10px, #000000 20px) 0 0 / 8px 100% no-repeat,
-    linear-gradient(to bottom, white, white);
-  background-origin: border-box, padding-box;
-  background-clip: border-box, padding-box;
+  border-left: 4px solid #ffff00;
 }
 .lib-section-caution .section-title { color: var(--ribbon-strong); }
 .tier-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
