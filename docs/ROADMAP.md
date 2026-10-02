@@ -258,6 +258,32 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 
 ---
 
+## Known Limitations
+
+### Library Peptide Naming Inconsistency
+**Context:** Vendor price lists and the peptide library use inconsistent naming conventions for the same compound.
+
+**Example:** AOD-9604 appears as:
+- "AOD-9604" (hyphenated)
+- "AOD9604" (no space)
+- "AOD 9604" (spaced)
+
+**Impact:** Creates duplicate entries when importing price lists if names aren't normalized. Can fragment library data and confuse user searches.
+
+**Mitigation Applied:**
+- Added data consolidation script for existing duplicates
+- Consolidated AOD-9604 variants to canonical hyphenated format
+- Merged library specifications from all variants
+
+**Future Fix (Roadmap Item — Phase TBD):**
+Implement preprocessing in the price list parser to normalize peptide names:
+- Strip leading/trailing whitespace
+- Normalize spacing (spaces → hyphens)  
+- Case normalization
+- Implement fuzzy matching for import deduplication to catch minor name variations
+
+---
+
 ## Open questions (decisions for the owner)
 
 1. **Cost:** is it *total paid for the line* or *price per unit*? (Today it's a single "Cost" field. Per-unit vs. total matters for cost-per-dose math.)
