@@ -672,6 +672,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   border-image: repeating-linear-gradient(45deg, #ffff00 0, #ffff00 10px, #000000 10px, #000000 20px) 1;
   border-image-slice: 0 0 0 1;
   border-radius: var(--radius);
+  overflow: hidden;
 }
 .lib-section-caution .section-title { color: var(--ribbon-strong); }
 .tier-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
