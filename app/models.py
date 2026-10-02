@@ -631,6 +631,9 @@ class Peptide(Base):
     sheet_sections_simple: Mapped[dict | None] = mapped_column(JSON)
     tags: Mapped[list | None] = mapped_column(JSON)
     summary: Mapped[str | None] = mapped_column(Text)
+    # Standard vial size from library card for course totals fallback when no inventory is linked.
+    normally_supplied_amount: Mapped[float | None] = mapped_column(Float)
+    normally_supplied_unit: Mapped[DoseUnit | None] = mapped_column(_enum_column(DoseUnit))
 
     dosing_tiers: Mapped[list["PeptideDosingTier"]] = relationship(
         back_populates="peptide", cascade="all, delete-orphan")

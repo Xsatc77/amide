@@ -60,7 +60,7 @@ def _as_needed_total(item, inventory_by_id: dict) -> ItemTotal:
                      note=note)
 
 
-def _scheduled_total(item, protocol, inventory_by_id: dict) -> ItemTotal:
+def _scheduled_total(item, protocol, inventory_by_id: dict, normally_supplied_by_id: dict | None = None) -> ItemTotal:
     unit = item.dose_unit.value
 
     if (protocol.end_date - protocol.start_date).days > _MAX_COURSE_DAYS:
@@ -76,30 +76,44 @@ def _scheduled_total(item, protocol, inventory_by_id: dict) -> ItemTotal:
     inv = inventory_by_id.get(item.inventory_item_id) if item.inventory_item_id else None
     dose_factor = _DOSE_UNITS_TO_MG.get(unit)
 
-    if inv is None:
-        return ItemTotal(item.peptide.name, unit, False, total, None, None, "No inventory item linked")
     if dose_factor is None:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "IU — vial count not calculable")
-    if inv.medium is not Medium.LYOPHILIZED:
-        return ItemTotal(item.peptide.name, unit, False, total, None, None,
-                         "Vial and BAC water estimates only apply to Lyophilized items")
-    vial_factor = _DOSE_UNITS_TO_MG.get(inv.vial_size_unit.value)
-    if not inv.vial_size_mg or vial_factor is None:
+
+    # Use inventory item if linked; fall back to library card normally-supplied vial size
+    vial_size_amount = None
+    vial_size_unit = None
+    if inv is not None:
+        if inv.medium is not Medium.LYOPHILIZED:
+            return ItemTotal(item.peptide.name, unit, False, total, None, None,
+                             "Vial and BAC water estimates only apply to Lyophilized items")
+        vial_size_amount = inv.vial_size_mg
+        vial_size_unit = inv.vial_size_unit
+    elif normally_supplied_by_id:
+        normally_supplied = normally_supplied_by_id.get(item.peptide.id)
+        if normally_supplied and normally_supplied.normally_supplied_amount and normally_supplied.normally_supplied_unit:
+            vial_size_amount = normally_supplied.normally_supplied_amount
+            vial_size_unit = normally_supplied.normally_supplied_unit
+
+    if vial_size_amount is None or vial_size_unit is None:
+        return ItemTotal(item.peptide.name, unit, False, total, None, None, "No inventory item linked")
+
+    vial_factor = _DOSE_UNITS_TO_MG.get(vial_size_unit.value)
+    if not vial_factor:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "Inventory item has no vial size set")
 
     total_mg = total * dose_factor
-    vial_mg = inv.vial_size_mg * vial_factor
+    vial_mg = vial_size_amount * vial_factor
     vials_estimate = math.ceil(total_mg / vial_mg - 1e-9)
     bac_water_ml = vials_estimate * _BAC_WATER_ML_PER_VIAL
     return ItemTotal(item.peptide.name, unit, False, total, vials_estimate, bac_water_ml, None)
 
 
-def compute_course_totals(protocol, inventory_by_id: dict) -> list[ItemTotal] | None:
+def compute_course_totals(protocol, inventory_by_id: dict, normally_supplied_by_id: dict | None = None) -> list[ItemTotal] | None:
     """None when `protocol.end_date` is None -- an ongoing protocol has no course to total."""
     if protocol.end_date is None:
         return None
     return [
         _as_needed_total(item, inventory_by_id) if item.frequency is Frequency.AS_NEEDED
-        else _scheduled_total(item, protocol, inventory_by_id)
+        else _scheduled_total(item, protocol, inventory_by_id, normally_supplied_by_id)
         for item in protocol.items
     ]

@@ -107,3 +107,17 @@ def test_non_lyophilized_medium_skips_vial_and_bac_math():
     [total] = compute_course_totals(p, inventory)
     assert total.vials_estimate is None and total.bac_water_ml is None
     assert "lyophilized" in total.note.lower()
+
+
+def test_falls_back_to_normally_supplied_vial_size_when_no_inventory():
+    # 14 days * 250 mcg = 3500 mcg total = 3.5 mg; normally supplied at 5mg per vial = 1 vial.
+    # Peptide has no inventory link, but library card says "normally supplied at 5mg".
+    item = peptide_item(dose=250.0, unit=DoseUnit.MCG, inventory_item_id=None)
+    item.peptide.id = 1  # Assign an id to the peptide
+    p = proto(items=[item])
+    peptide_with_spec = NS(normally_supplied_amount=5.0, normally_supplied_unit=DoseUnit.MG)
+    normally_supplied = {item.peptide.id: peptide_with_spec}
+    [total] = compute_course_totals(p, {}, normally_supplied)
+    assert total.total_amount == 3500.0  # in mcg (the item's dose_unit)
+    assert total.vials_estimate == 1
+    assert total.bac_water_ml == 1.5
