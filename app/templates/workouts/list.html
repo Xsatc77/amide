@@ -5,11 +5,12 @@
 {% block content %}
 <div class="page-head">
   <div><h1>Workouts</h1></div>
-  <div>
+  <div style="display: flex; gap: 0.5rem; align-items: center;">
     <a class="btn btn-primary" href="/workouts/new">New plan</a>
     <a class="btn btn-primary" href="https://www.muscleandstrength.com/workout-routines" target="_blank">Find a Workout</a>
-    <form method="post" action="/workouts/upload" enctype="multipart/form-data" style="display: inline;">
-      <label>Import a PDF <input type="file" name="pdf" accept="application/pdf" required></label>
+    <div style="flex: 1;"></div>
+    <form method="post" action="/workouts/upload" enctype="multipart/form-data" style="display: inline; display: flex; gap: 0.5rem; align-items: center;">
+      <label style="margin: 0;">Import a PDF <input type="file" name="pdf" accept="application/pdf" required></label>
       <button type="submit" class="btn">Upload</button>
     </form>
   </div>
