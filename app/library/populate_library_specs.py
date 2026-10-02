@@ -20,8 +20,8 @@ def populate_from_price_list(session: Session, pdf_path: str | Path) -> dict[str
 
     # Exclude non-peptide items (solvents, supplies, etc.)
     exclude_keywords = [
-        'water', 'sterile', 'bacteriostatic', 'acetic', 'solvent',
-        'ingredient', 'supply', 'acid', 'lemon bottle'
+        'water', 'sterile', 'bacteriostatic', 'acetic acid', 'solvent',
+        'supply', 'lemon bottle', 'syringe'
     ]
 
     for name, specs in sorted(specs_by_name.items()):
