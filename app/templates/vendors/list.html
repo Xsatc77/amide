@@ -12,7 +12,7 @@
 
 <div class="tabs" role="tablist" aria-label="Sort vendors">
   <a href="/vendors?sort=alpha" class="tab {{ 'active' if sort != 'recent' }}" role="tab" aria-selected="{{ 'true' if sort != 'recent' else 'false' }}">Alphabetical</a>
-  <a href="/vendors?sort=recent" class="tab {{ 'active' if sort == 'recent' }}" role="tab" aria-selected="{{ 'true' if sort == 'recent' else 'false' }}">Most recent order</a>
+  <a href="/vendors?sort=recent" class="tab {{ 'active' if sort == 'recent' }}" role="tab" aria-selected="{{ 'true' if sort == 'recent' else 'false' }}">Most Recent Order</a>
 </div>
 
 {% if not vendors %}
@@ -56,6 +56,9 @@
             <button type="submit" class="btn btn-ghost">Favorite</button>
           </form>
           {% endif %}
+          <form method="post" action="/vendors/{{ v.id }}/delete" class="inline" data-confirm="Delete this vendor? This can't be undone.">
+            <button type="submit" class="btn btn-ghost btn-danger">Delete</button>
+          </form>
         </td>
       </tr>
       {% endfor %}

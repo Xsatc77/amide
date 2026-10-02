@@ -107,6 +107,17 @@ def unfavorite_vendor(vendor_id: int, next: str = "/vendors", session: Session =
     return RedirectResponse(next, status_code=303)
 
 
+@router.post("/vendors/{vendor_id}/delete")
+def delete_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
+                  uid: int = Depends(current_user_id)):
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None:
+        raise HTTPException(404, "Vendor not found")
+    session.delete(vendor)
+    session.commit()
+    return RedirectResponse(next, status_code=303)
+
+
 # ---------------------------------------------------------------- detail page / Purchase History
 
 def _visible_order_lines_for_vendor(session: Session, vendor_id: int, uid: int):
