@@ -139,7 +139,8 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
     course_totals = {
         v["p"].id: [
             {"peptide": t.peptide, "unit": t.unit, "as_needed": t.as_needed, "total_amount": t.total_amount,
-             "vials_estimate": t.vials_estimate, "bac_water_ml": t.bac_water_ml, "note": t.note}
+             "vials_estimate": t.vials_estimate, "bac_water_ml": t.bac_water_ml, "note": t.note,
+             "library_specifications": t.library_specifications}
             for t in totals
         ] if (totals := compute_course_totals(v["p"], inventory_by_id, normally_supplied_by_id)) is not None else None
         for v in views
