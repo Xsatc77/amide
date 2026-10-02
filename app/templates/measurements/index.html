@@ -68,9 +68,9 @@
         <select id="overview-metric-select">
           {% for s in overview_metrics %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
           {% for s in overview_avgs %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
-          {% if charts.bp %}<option value="bp">Blood pressure</option>{% endif %}
+          {% if charts.bp %}<option value="bp">Blood Pressure</option>{% endif %}
           {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
-          {% if charts.bf %}<option value="bf">Body fat %</option>{% endif %}
+          {% if charts.bf %}<option value="bf">Body Fat %</option>{% endif %}
         </select>
       </label>
       {% endif %}
@@ -89,7 +89,7 @@
       {% endfor %}
       {% if charts.bp %}<div class="overview-chart-panel" data-metric="bp"{{ '' if not shown.done else ' hidden' }}>{{ bp_chart(charts.bp) }}</div>{% set shown.done = true %}{% endif %}
       {% if charts.bmi %}<div class="overview-chart-panel" data-metric="bmi"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bmi, 'BMI') }}</div>{% set shown.done = true %}{% endif %}
-      {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bf, 'Body fat %') }}</div>{% set shown.done = true %}{% endif %}
+      {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bf, 'Body Fat %') }}</div>{% set shown.done = true %}{% endif %}
     </div>
     <div id="chart-tooltip" class="chart-tooltip" hidden role="status"></div>
     {% else %}
@@ -109,14 +109,14 @@
       <div id="silhouette-tooltip" class="silhouette-tooltip" hidden role="status"></div>
     </div>
     <div class="entry-cta-row" style="margin-left: {{ bicep_l_pct }}%;">
-      <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log a measurement</button>
+      <button type="button" class="btn btn-primary" data-action="open-measurement-dialog">+ Log A Measurement</button>
     </div>
   </section>
 </div>
 
 {% if charts %}
 <section aria-labelledby="charts-heading">
-  <h2 id="charts-heading" class="section-title">All measurements</h2>
+  <h2 id="charts-heading" class="section-title">All Measurements</h2>
   <div class="dashboard-placeholders">
     {% for s in charts.series %}
       {{ line_chart(s.chart, s.label) }}
@@ -124,10 +124,10 @@
     {{ bp_chart(charts.bp) }}
     {{ line_chart(charts.bmi, 'BMI') }}
     {% if charts.bf %}
-      {{ line_chart(charts.bf, 'Body fat %') }}
+      {{ line_chart(charts.bf, 'Body Fat %') }}
     {% elif charts.bf_status == 'insufficient' %}
     <div class="card">
-      <h3>Body fat %</h3>
+      <h3>Body Fat %</h3>
       <p class="muted">Not enough data to calculate body fat % -- check that waist is greater than neck (and, for a female profile, that hips are logged too).</p>
     </div>
     {% endif %}
@@ -150,7 +150,7 @@
 <dialog id="measurement-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
   <form method="post" action="/measurements" class="settings-form" novalidate>
     <header class="dialog-head">
-      <h2>Log a measurement</h2>
+      <h2>Log A Measurement</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
     {% if errors %}
@@ -204,7 +204,7 @@
     </div>
 
     <div class="dialog-submit-row">
-      <button type="submit" class="btn btn-primary">Log a measurement</button>
+      <button type="submit" class="btn btn-primary">Log A Measurement</button>
     </div>
   </form>
 </dialog>
