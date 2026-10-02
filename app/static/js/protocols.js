@@ -77,8 +77,9 @@
     const table = document.createElement("table");
     table.className = "inv-table";
     const thead = document.createElement("thead");
-    thead.innerHTML = "<tr><th>Peptide</th><th>Total</th><th>Vial Size</th><th>Vials</th><th>BAC water</th></tr>";
+    thead.innerHTML = "<tr><th>Peptide</th><th>Total</th><th>Vial Size</th><th>Vials</th><th>Bac Water</th></tr>";
     const tbody = document.createElement("tbody");
+    let totalBacWater = 0;
     for (const t of totals) {
       const tr = document.createElement("tr");
 
@@ -139,6 +140,9 @@
       const bacTd = document.createElement("td");
       bacTd.className = "bac-cell";
       bacTd.textContent = t.bac_water_ml === null ? "—" : `${fmt(t.bac_water_ml)} mL`;
+      if (t.bac_water_ml !== null) {
+        totalBacWater += t.bac_water_ml;
+      }
       tr.append(bacTd);
 
       tbody.append(tr);
@@ -146,7 +150,7 @@
     table.append(thead, tbody);
     const caption = document.createElement("p");
     caption.className = "muted small";
-    caption.textContent = "Estimated using 1.5 mL bacteriostatic water per vial.";
+    caption.textContent = `Estimated using 1.5 mL bacteriostatic water per vial. Total BAC Water Needed: ${fmt(totalBacWater)} mL`;
     body.replaceChildren(table, caption);
   }
 
