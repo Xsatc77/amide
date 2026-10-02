@@ -10,7 +10,7 @@ from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.models import (
-    WEEKDAY_LETTERS, WEEKDAY_NAMES, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
+    WEEKDAY_LETTERS, WEEKDAY_NAMES, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
     Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
     User,
 )
@@ -158,8 +158,8 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
     for gp in session.scalars(select(GoalPeptide).order_by(GoalPeptide.goal, GoalPeptide.position)):
         stacks.setdefault(gp.goal, []).append(gp.peptide_id)
 
-    # Get inventory items (linked to this user)
-    inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
+    # Get inventory items (linked to this user) - only Medicines (not BAC Water or Supplies)
+    inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid, InventoryItem.category == Category.MEDICINE)
                                 .order_by(InventoryItem.name)).all()
 
     # Get all peptides, sorted alphabetically
