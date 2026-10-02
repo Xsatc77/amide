@@ -141,7 +141,7 @@
       bacTd.className = "bac-cell";
       bacTd.textContent = t.bac_water_ml === null ? "—" : `${fmt(t.bac_water_ml)} mL`;
       if (t.bac_water_ml !== null) {
-        totalBacWater += t.bac_water_ml;
+        totalBacWater += parseFloat(t.bac_water_ml) || 0;
       }
       tr.append(bacTd);
 
@@ -161,6 +161,7 @@
     if (!vialSizeStr) {
       row.querySelector(".vials-cell").textContent = "—";
       row.querySelector(".bac-cell").textContent = "—";
+      recalculateTotalBacWater();
       return;
     }
 
@@ -173,6 +174,7 @@
     if (doseFactor === undefined) {
       row.querySelector(".vials-cell").textContent = "—";
       row.querySelector(".bac-cell").textContent = "—";
+      recalculateTotalBacWater();
       return;
     }
 
@@ -182,6 +184,7 @@
     if (!match) {
       row.querySelector(".vials-cell").textContent = "—";
       row.querySelector(".bac-cell").textContent = "—";
+      recalculateTotalBacWater();
       return;
     }
 
@@ -192,6 +195,7 @@
     if (vialFactor === undefined) {
       row.querySelector(".vials-cell").textContent = "—";
       row.querySelector(".bac-cell").textContent = "—";
+      recalculateTotalBacWater();
       return;
     }
 
@@ -202,6 +206,27 @@
 
     row.querySelector(".vials-cell").textContent = String(vialsEstimate);
     row.querySelector(".bac-cell").textContent = `${fmt(bacWaterMl)} mL`;
+    recalculateTotalBacWater();
+  }
+
+  function recalculateTotalBacWater() {
+    const table = body.querySelector("table");
+    if (!table) return;
+    const bacCells = table.querySelectorAll(".bac-cell");
+    let total = 0;
+    bacCells.forEach(cell => {
+      const text = cell.textContent.trim();
+      if (text !== "—") {
+        const value = parseFloat(text);
+        if (!isNaN(value)) {
+          total += value;
+        }
+      }
+    });
+    const caption = body.querySelector("p");
+    if (caption) {
+      caption.textContent = `Estimated using 1.5 mL bacteriostatic water per vial. Total BAC Water Needed: ${fmt(total)} mL`;
+    }
   }
 
   document.addEventListener("click", (e) => {
