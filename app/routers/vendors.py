@@ -80,6 +80,26 @@ def list_vendors(request: Request, sort: str = "alpha", session: Session = Depen
     })
 
 
+@router.post("/vendors")
+async def create_vendor(request: Request, session: Session = Depends(get_session),
+                       uid: int = Depends(current_user_id)):
+    form = await request.form()
+    name = str(form.get("name") or "").strip()
+
+    if not name:
+        return RedirectResponse("/vendors", status_code=303)
+
+    # Check for duplicate name
+    existing = session.scalar(select(Vendor).where(Vendor.name == name))
+    if existing is not None:
+        return RedirectResponse("/vendors", status_code=303)
+
+    vendor = Vendor(name=name)
+    session.add(vendor)
+    session.commit()
+    return RedirectResponse(f"/vendors/{vendor.id}", status_code=303)
+
+
 # ---------------------------------------------------------------- favorite toggle
 
 @router.post("/vendors/{vendor_id}/favorite")

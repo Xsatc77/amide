@@ -53,9 +53,20 @@
   if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
 })();
 
-// Vendors list page: confirmation for delete actions.
+// Vendors list page: confirmation for delete actions + add vendor dialog.
 document.querySelectorAll("form[data-confirm]").forEach((f) =>
   f.addEventListener("submit", (e) => {
     if (!confirm(f.dataset.confirm)) e.preventDefault();
   })
 );
+
+const addVendorDialog = document.getElementById("add-vendor-dialog");
+if (addVendorDialog) {
+  document.querySelector('[data-action="open-add-vendor"]').addEventListener("click", () => {
+    addVendorDialog.querySelector("#add-vendor-form").reset();
+    addVendorDialog.showModal();
+  });
+  addVendorDialog.querySelectorAll('[data-action="close-add-vendor"]').forEach((btn) =>
+    btn.addEventListener("click", () => addVendorDialog.close())
+  );
+}

@@ -8,6 +8,7 @@
     <h1>Vendors</h1>
     <p class="muted">{{ vendors | length }} vendor{{ '' if vendors | length == 1 else 's' }}</p>
   </div>
+  <button type="button" class="btn btn-primary" data-action="open-add-vendor">+ Add Vendor</button>
 </div>
 
 <div class="tabs" role="tablist" aria-label="Sort vendors">
@@ -66,4 +67,21 @@
   </table>
 </div>
 {% endif %}
+
+<dialog id="add-vendor-dialog" class="dialog">
+  <form method="post" action="/vendors" id="add-vendor-form">
+    <header class="dialog-head">
+      <h2>Add Vendor</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-add-vendor" aria-label="Close">×</button>
+    </header>
+    <div class="field">
+      <label for="vendor-name">Vendor Name</label>
+      <input type="text" id="vendor-name" name="name" required maxlength="255">
+    </div>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-add-vendor">Cancel</button>
+      <button type="submit" class="btn btn-primary">Add Vendor</button>
+    </footer>
+  </form>
+</dialog>
 {% endblock %}
