@@ -52,3 +52,10 @@
   // `form`, so just reopen as-is.
   if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
 })();
+
+// Vendors list page: confirmation for delete actions.
+document.querySelectorAll("form[data-confirm]").forEach((f) =>
+  f.addEventListener("submit", (e) => {
+    if (!confirm(f.dataset.confirm)) e.preventDefault();
+  })
+);
