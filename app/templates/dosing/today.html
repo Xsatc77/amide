@@ -79,7 +79,7 @@
 
 {% if workout_days_due %}
 <section class="lib-section">
-  <h2 class="section-title">Workouts due today</h2>
+  <h2 class="section-title">Workouts Due Today</h2>
   <ul class="plain-list">
     {% for day in workout_days_due %}
     <li><a href="/workouts/day/{{ day.id }}/log">{{ day.label }}</a></li>
