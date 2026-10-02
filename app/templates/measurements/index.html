@@ -547,6 +547,7 @@
   <tr data-lab-row>
     <td>
       <select name="marker[]" data-lab-marker-select>
+        <option value=""></option>
         {% for m in lab_markers %}
         <option value="{{ m.name }}">{{ m.value }}</option>
         {% endfor %}
