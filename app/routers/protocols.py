@@ -160,7 +160,7 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
     # Get inventory items (linked to this user)
     inventory = session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)
                                 .order_by(InventoryItem.name)).all()
-    inventory_peptide_ids = {i.peptide_id for i in inventory if i.peptide_id}
+    inventory_peptide_ids = {i.peptide.id for i in inventory if i.peptide}
 
     # Get all peptides, sorted: inventory first, then library (with specs), then others
     all_peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()

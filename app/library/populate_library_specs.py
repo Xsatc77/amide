@@ -3,7 +3,7 @@
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from app.models import Peptide, DoseUnit
+from app.models import Peptide, PeptideSource, DoseUnit
 from app.library.price_list_parser import parse_price_list_pdf
 
 
@@ -43,7 +43,7 @@ def populate_from_price_list(session: Session, pdf_path: str | Path) -> dict[str
             peptide = Peptide(
                 name=name,
                 library_specifications=specs,
-                source=1  # CUSTOM source
+                source=PeptideSource.CUSTOM
             )
             session.add(peptide)
             stats['created'] += 1
