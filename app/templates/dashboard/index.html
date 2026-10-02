@@ -112,7 +112,7 @@
 <section class="card dash-panel dash-area-workouts" aria-labelledby="workout-week-heading" style="--panel-accent: var(--goal-glp1-weight);">
   <div class="panel-head">
     {{ panel_icon('dumbbell') }}
-    <h2 id="workout-week-heading" class="section-title"><a class="panel-title-link" href="/workouts">Workouts this week</a></h2>
+    <h2 id="workout-week-heading" class="section-title"><a class="panel-title-link" href="/workouts">Workouts This Week</a></h2>
   </div>
   <div class="workout-week-row">
     {% for day in workout_week %}
@@ -129,7 +129,7 @@
 <section class="card dash-panel dash-area-adherence" aria-labelledby="adherence-heading" style="--panel-accent: var(--tier-beginner);">
   <div class="panel-head">
     {{ panel_icon('check') }}
-    <h2 id="adherence-heading" class="section-title">Adherence (last 30 days)</h2>
+    <h2 id="adherence-heading" class="section-title">Adherence (Last 30 Days)</h2>
   </div>
   {% if adherence_pct is not none %}
   <p class="panel-stat">{{ adherence_pct }}%</p>
@@ -145,7 +145,7 @@
   <div class="water-panel-content">
     <div class="panel-head">
       {{ panel_icon('droplet') }}
-      <h2 id="dash-water-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=macros">Water goal</a></h2>
+      <h2 id="dash-water-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=macros">Water Goal</a></h2>
     </div>
     <p class="panel-stat">{{ water.goal_oz }} <span class="panel-stat-sub small">oz/day</span></p>
     <p class="muted panel-stat-sub">{{ '%g'|format(water.consumed_oz) }} oz logged today ({{ water.pct }}%)</p>
@@ -185,7 +185,7 @@
 <section class="card dash-panel dash-area-cost" aria-labelledby="cost-heading" style="--panel-accent: var(--ribbon);">
   <div class="panel-head">
     {{ panel_icon('dollar') }}
-    <h2 id="cost-heading" class="section-title"><a class="panel-title-link" href="/inventory">Cost snapshot</a></h2>
+    <h2 id="cost-heading" class="section-title"><a class="panel-title-link" href="/inventory">Cost Snapshot</a></h2>
   </div>
   {% if not cost_snapshot %}
   <p class="muted">No cost data yet.</p>
@@ -222,9 +222,9 @@
 {% if body_panel %}
 <section class="dash-chart-slot dash-area-weight" aria-labelledby="weight-chart-heading">
   {% if body_panel.chart %}
-  {{ line_chart(body_panel.chart, 'Weight (lbs)') }}
+  {{ line_chart(body_panel.chart, 'Weight (Lbs)') }}
   {% else %}
-  <div class="card"><h3 id="weight-chart-heading">Weight (lbs)</h3><p class="muted">No weight logged yet.</p></div>
+  <div class="card"><h3 id="weight-chart-heading">Weight (Lbs)</h3><p class="muted">No weight logged yet.</p></div>
   {% endif %}
 </section>
 {% endif %}
@@ -232,7 +232,7 @@
 <section class="card dash-panel dash-area-integrations" aria-labelledby="integrations-heading">
   <div class="panel-head">
     {{ panel_icon('link') }}
-    <h2 id="integrations-heading" class="section-title">Health app integrations</h2>
+    <h2 id="integrations-heading" class="section-title">Health App Integrations</h2>
   </div>
   <p class="muted">Coming in a future update.</p>
 </section>
