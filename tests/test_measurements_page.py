@@ -403,7 +403,7 @@ def test_overview_chart_lists_every_trackable_metric_and_heart_rate(client, db, 
         assert '<select id="overview-metric-select">' in t
         assert '<option value="weight_lbs">Weight (lbs)</option>' in t
         assert '<option value="heart_rate_bpm">Heart Rate (bpm)</option>' in t
-        assert '<option value="bp">Blood pressure</option>' in t
+        assert '<option value="bp">Blood Pressure</option>' in t
         # Only the first metric's panel starts visible; every other panel is hidden until chosen.
         assert 'class="overview-chart-panel" data-metric="weight_lbs">' in t
         assert 'class="overview-chart-panel" data-metric="heart_rate_bpm" hidden' in t

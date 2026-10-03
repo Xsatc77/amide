@@ -95,21 +95,22 @@ def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
     return round(100 * on_time_or_late / total_due)
 
 
-def _in_transit_groups(session: Session, orders: list) -> list[dict]:
-    """Group in-transit orders by shipment, with their line items and inventory details."""
-    groups = []
-    for order in orders:
-        if order.arrival_date is not None:  # Skip arrived orders
-            continue
-        if not order.items:  # Skip orders with no line items
-            continue
-        lines = []
-        for line in order.items:
-            item = session.get(InventoryItem, line.inventory_item_id)
-            lines.append((item, line))
-        if lines:
-            groups.append({"order": order, "lines": lines})
-    return groups
+def _in_transit_groups(session: Session, uid: int) -> list[dict]:
+    """Unarrived orders grouped by order, same scope as the Inventory page's In-transit table:
+    only `uid`'s own Medicine / BAC Water lines (an order can span users' items; never expose
+    another user's line)."""
+    rows = session.execute(
+        select(InventoryItem, OrderItem)
+        .join(OrderItem, OrderItem.inventory_item_id == InventoryItem.id)
+        .join(Order, OrderItem.order_id == Order.id)
+        .where(InventoryItem.owner_id == uid,
+               InventoryItem.category.in_([Category.MEDICINE, Category.BAC_WATER]),
+               Order.arrival_date.is_(None))
+        .order_by(Order.order_date.desc(), Order.id.desc(), OrderItem.id)).all()
+    by_order: dict[int, list] = {}
+    for item, line in rows:
+        by_order.setdefault(line.order_id, []).append((item, line))
+    return [{"order": lines[0][1].order, "lines": lines} for lines in by_order.values()]
 
 
 def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:
@@ -236,8 +237,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         order_ids = {li.order_id for li in session.scalars(
             select(OrderItem).join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
             .where(InventoryItem.owner_id == effective_uid))}
-        orders = session.scalars(select(Order).where(Order.id.in_(order_ids)).options(
-            selectinload(Order.items))).all() if order_ids else []
+        orders = session.scalars(select(Order).where(Order.id.in_(order_ids))).all() if order_ids else []
 
         # Sealed-stock expiration: InventoryItem.expiration_date is dead -- nothing in the app
         # writes it (see app/routers/inventory.py's ITEM_FIELDS). The real per-lot expiration lives
@@ -260,7 +260,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
         }
-        in_transit_groups = _in_transit_groups(session, orders)
+        in_transit_groups = _in_transit_groups(session, effective_uid)
         # Cost snapshot enumerates the viewer's *active protocols* (which peptides they're
         # currently running) -- that's PERSONAL_DATA information, not INVENTORY, even though the
         # widget lives in the Inventory-gated section. An Inventory-only grantee must not be able

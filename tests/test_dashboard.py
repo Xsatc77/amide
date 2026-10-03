@@ -88,7 +88,7 @@ def test_dashboard_shows_body_panel_with_weight_chart(client, db):
     try:
         t = client.get("/dashboard").text
         assert 'id="body-panel-heading"' in t
-        assert "Weight (lbs)" in t
+        assert "Weight (Lbs)" in t
         assert "No weight logged yet." not in t
     finally:
         with SessionLocal() as s:
@@ -348,10 +348,10 @@ def test_dashboard_expiration_alert_ignores_lot_on_unarrived_order(client, db):
         _checked_in_order_item(s, uid, "InTransitPeptide", date.today() + timedelta(days=1),
                                arrival_date=None)
     t = html.unescape(client.get("/dashboard").text)
-    # The item itself still appears (it's flagged low-stock, since available_count is 0 while
-    # in transit) -- what must NOT happen is an *expiration* alert for it, since its only
-    # expiration_date lives on a line whose order hasn't arrived.
-    assert t.count("InTransitPeptide") == 1
+    # The item appears twice: flagged low-stock (available_count is 0 while in transit) and listed
+    # in the Items In Shipment card. What must NOT happen is an *expiration* alert for it, since
+    # its only expiration_date lives on a line whose order hasn't arrived.
+    assert t.count("InTransitPeptide") == 2
     assert "expiring soon" not in t
 
 
@@ -428,3 +428,50 @@ def test_cost_snapshot_shown_for_own_dashboard_regardless_of_shares(client, db, 
             s.query(Share).filter_by(owner_id=me, grantee_id=other_id,
                                      category=ShareCategory.INVENTORY).delete()
             s.commit()
+
+
+# ---------------------------------------------------------------- Items In Shipment card
+
+def _shipment_card(client) -> str:
+    t = html.unescape(client.get("/dashboard").text)
+    return t[t.index('id="shipment-heading"'):]
+
+
+def test_shipment_card_lists_unarrived_orders_only(client, db):
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        _checked_in_order_item(s, uid, "ShippingPeptide", None, arrival_date=None)
+        _checked_in_order_item(s, uid, "ArrivedPeptide", None, arrival_date=date.today())
+    card = _shipment_card(client)
+    assert "ShippingPeptide" in card
+    assert "ArrivedPeptide" not in card
+
+
+def test_shipment_card_shows_empty_state_when_nothing_in_transit(client, db):
+    assert "Nothing in transit." in _shipment_card(client)
+
+
+def test_shipment_card_excludes_supplies(client, db):
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        item = _checked_in_order_item(s, uid, "ShippingSyringes", None, arrival_date=None)
+        item.category = Category.SUPPLY
+        s.commit()
+    assert "ShippingSyringes" not in _shipment_card(client)
+
+
+def test_shipment_card_never_shows_another_users_line_on_the_same_order(client, db):
+    other_id = _register_other("shipother")
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        mine = _checked_in_order_item(s, uid, "MyShippingPeptide", None, arrival_date=None)
+        theirs = InventoryItem(owner_id=other_id, name="TheirShippingPeptide", category=Category.MEDICINE,
+                               medium=Medium.LYOPHILIZED, vial_size_mg=10)
+        s.add(theirs)
+        s.flush()
+        order_id = s.scalar(select(OrderItem.order_id).where(OrderItem.inventory_item_id == mine.id))
+        s.add(OrderItem(order_id=order_id, inventory_item_id=theirs.id, quantity=1))
+        s.commit()
+    card = _shipment_card(client)
+    assert "MyShippingPeptide" in card
+    assert "TheirShippingPeptide" not in card

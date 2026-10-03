@@ -2,7 +2,7 @@ import html
 from datetime import date
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db import SessionLocal
 from app.main import app
@@ -483,3 +483,35 @@ def test_cross_task_new_vendor_then_edit_price_list_then_staleness_prompt_appear
     m = re.search(rf'<option value="{vendor_id}"[^>]*>', t)
     assert m is not None
     assert 'data-has-price-list="1"' in m.group(0)
+
+
+# ---------------------------------------------------------------- add / delete vendor
+
+def test_add_vendor_records_creator_and_redirects_to_detail(client, me, db):
+    r = client.post("/vendors", data={"name": "Brand New Vendor"}, follow_redirects=False)
+    with SessionLocal() as s:
+        vendor = s.scalar(select(Vendor).where(Vendor.name == "Brand New Vendor"))
+    assert vendor is not None and vendor.created_by_id == me
+    assert r.status_code == 303 and r.headers["location"] == f"/vendors/{vendor.id}"
+
+
+def test_add_vendor_ignores_blank_and_duplicate_names(client, db):
+    _make_vendor("Existing Vendor")
+    client.post("/vendors", data={"name": "   "}, follow_redirects=False)
+    client.post("/vendors", data={"name": "existing vendor"}, follow_redirects=False)
+    with SessionLocal() as s:
+        assert s.scalar(select(func.count()).select_from(Vendor)) == 1
+
+
+def test_delete_vendor_removes_it_and_keeps_order_history(client, me, db):
+    vendor_id = _make_vendor("Doomed Vendor")
+    _, order_id = _order_for_vendor(me, vendor_id, date(2026, 1, 5), "KeptItem")
+    r = client.post(f"/vendors/{vendor_id}/delete", follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(Vendor, vendor_id) is None
+        assert s.get(Order, order_id) is not None
+
+
+def test_delete_nonexistent_vendor_404s(client, db):
+    assert client.post("/vendors/999999/delete", follow_redirects=False).status_code == 404

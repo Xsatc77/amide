@@ -135,7 +135,9 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
 
     inventory_by_id = {i.id: i for i in session.scalars(
         select(InventoryItem).where(InventoryItem.owner_id == uid))}
-    normally_supplied_by_id = {p.id: p for p in session.scalars(select(Peptide))}
+    peptide_ids = {it.peptide_id for v in views for it in v["p"].items}
+    normally_supplied_by_id = {p.id: p for p in session.scalars(
+        select(Peptide).where(Peptide.id.in_(peptide_ids)))} if peptide_ids else {}
     course_totals = {
         v["p"].id: [
             {"peptide": t.peptide, "unit": t.unit, "as_needed": t.as_needed, "total_amount": t.total_amount,

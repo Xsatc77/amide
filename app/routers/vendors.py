@@ -94,7 +94,7 @@ async def create_vendor(request: Request, session: Session = Depends(get_session
     if existing is not None:
         return RedirectResponse("/vendors", status_code=303)
 
-    vendor = Vendor(name=name)
+    vendor = Vendor(name=name, created_by_id=uid)
     session.add(vendor)
     session.commit()
     return RedirectResponse(f"/vendors/{vendor.id}", status_code=303)

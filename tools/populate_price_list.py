@@ -28,7 +28,7 @@ def main():
     session = SessionLocal()
     try:
         stats = populate_from_price_list(session, pdf_path)
-        print(f"✓ Created: {stats['created']}, Updated: {stats['updated']}, Skipped: {stats['skipped']}")
+        print(f"Updated: {stats['updated']}, Unmatched (no library card with that exact name): {stats['unmatched']}")
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)

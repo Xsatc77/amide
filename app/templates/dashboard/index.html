@@ -203,35 +203,6 @@
 </section>
 {% endif %}
 
-{% if show_inventory and in_transit_groups %}
-<section class="card dash-panel dash-area-shipment" aria-labelledby="shipment-heading" style="--panel-accent: var(--ribbon);">
-  <div class="panel-head">
-    {{ panel_icon('link') }}
-    <h2 id="shipment-heading" class="section-title"><a class="panel-title-link" href="/inventory#in-transit">Items In Shipment</a></h2>
-  </div>
-  <div class="table-wrap">
-    <table class="inv-table">
-      <thead><tr><th>Items</th><th>Ordered</th><th>Shipped</th><th>Tracking</th><th></th></tr></thead>
-      <tbody>
-        {% for group in in_transit_groups %}
-        <tr>
-          <td>
-            {% for item, li in group.lines %}
-            <div><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}</div>
-            {% endfor %}
-          </td>
-          <td>{{ group.order.order_date | shortdate }}</td>
-          <td>{{ group.order.shipped_date | shortdate or '—' }}</td>
-          <td>{% if group.order.tracking_site %}<a href="{{ group.order.tracking_site }}" target="_blank" rel="noopener">{{ group.order.tracking_number or 'Track' }}</a>{% else %}{{ group.order.tracking_number or '—' }}{% endif %}</td>
-          <td><a href="/inventory/{{ group.lines[0][0].id }}" class="btn btn-ghost">Check in</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% endif %}
-
 {% if show_quick_capture %}
 <section class="card dash-panel dash-panel-tall dash-area-journal" aria-labelledby="quick-capture-heading" style="--panel-accent: var(--goal-skin-beauty);">
   <div class="panel-head">
@@ -254,6 +225,39 @@
   {{ line_chart(body_panel.chart, 'Weight (Lbs)') }}
   {% else %}
   <div class="card"><h3 id="weight-chart-heading">Weight (Lbs)</h3><p class="muted">No weight logged yet.</p></div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if show_inventory %}
+<section class="card dash-panel dash-area-shipment" aria-labelledby="shipment-heading" style="--panel-accent: var(--ribbon);">
+  <div class="panel-head">
+    {{ panel_icon('link') }}
+    <h2 id="shipment-heading" class="section-title"><a class="panel-title-link" href="/inventory#in-transit">Items In Shipment</a></h2>
+  </div>
+  {% if in_transit_groups %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Items</th><th>Ordered</th><th>Shipped</th><th>Tracking</th><th></th></tr></thead>
+      <tbody>
+        {% for group in in_transit_groups %}
+        <tr>
+          <td>
+            {% for item, li in group.lines %}
+            <div><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}</div>
+            {% endfor %}
+          </td>
+          <td>{{ group.order.order_date | shortdate }}</td>
+          <td>{{ group.order.shipped_date | shortdate or '—' }}</td>
+          <td>{% if group.order.tracking_site %}<a href="{{ group.order.tracking_site }}" target="_blank" rel="noopener">{{ group.order.tracking_number or 'Track' }}</a>{% else %}{{ group.order.tracking_number or '—' }}{% endif %}</td>
+          <td><a href="/inventory/{{ group.lines[0][0].id }}" class="btn btn-ghost">Check in</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nothing in transit.</p>
   {% endif %}
 </section>
 {% endif %}

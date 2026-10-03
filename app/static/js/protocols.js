@@ -77,7 +77,7 @@
     const table = document.createElement("table");
     table.className = "inv-table";
     const thead = document.createElement("thead");
-    thead.innerHTML = "<tr><th>Peptide</th><th>Total</th><th>Vial Size</th><th>Vials</th><th>Bac Water</th></tr>";
+    thead.innerHTML = "<tr><th>Peptide</th><th>Total</th><th>Vial Size</th><th>Vials</th><th>BAC Water</th></tr>";
     const tbody = document.createElement("tbody");
     let totalBacWater = 0;
     for (const t of totals) {

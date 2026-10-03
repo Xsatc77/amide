@@ -3,50 +3,27 @@
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from app.models import Peptide, PeptideSource, DoseUnit
+from app.models import Peptide
 from app.library.price_list_parser import parse_price_list_pdf
 
 
-def populate_from_price_list(session: Session, pdf_path: str | Path) -> dict[str, str]:
+def populate_from_price_list(session: Session, pdf_path: str | Path) -> dict[str, int]:
+    """Annotate existing library cards with the specs a price list offers.
+
+    Never creates a Peptide: a price-list name with no exact match on an existing card is counted
+    as 'unmatched' and left alone, so a vendor's spelling variants can't spawn duplicate library
+    cards. Returns {'updated', 'unmatched'} counts.
     """
-    Parse a price list PDF and populate Peptide.library_specifications.
-
-    Returns a dict with 'created', 'updated', and 'skipped' counts.
-    """
-    pdf_path = Path(pdf_path)
-    specs_by_name = parse_price_list_pdf(pdf_path)
-
-    stats = {'created': 0, 'updated': 0, 'skipped': 0}
-
-    # Exclude non-peptide items (solvents, supplies, etc.)
-    exclude_keywords = [
-        'water', 'sterile', 'bacteriostatic', 'acetic acid', 'solvent',
-        'supply', 'lemon bottle', 'syringe'
-    ]
+    specs_by_name = parse_price_list_pdf(Path(pdf_path))
+    stats = {'updated': 0, 'unmatched': 0}
 
     for name, specs in sorted(specs_by_name.items()):
-        # Skip items matching exclude keywords
-        name_lower = name.lower()
-        if any(keyword in name_lower for keyword in exclude_keywords):
-            stats['skipped'] += 1
-            continue
-
-        # Find or create peptide
         peptide = session.query(Peptide).filter_by(name=name).first()
-
-        if peptide:
-            # Update existing peptide
-            peptide.library_specifications = specs
-            stats['updated'] += 1
-        else:
-            # Create new peptide
-            peptide = Peptide(
-                name=name,
-                library_specifications=specs,
-                source=PeptideSource.CUSTOM
-            )
-            session.add(peptide)
-            stats['created'] += 1
+        if peptide is None:
+            stats['unmatched'] += 1
+            continue
+        peptide.library_specifications = specs
+        stats['updated'] += 1
 
     session.commit()
     return stats

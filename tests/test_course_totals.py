@@ -7,7 +7,7 @@ from app.protocols.course_totals import compute_course_totals
 
 def peptide_item(name="BPC-157", dose=250.0, unit=DoseUnit.MCG, freq=Frequency.DAILY, every_n=None,
                  weekdays=None, steps=(), cycle_offs=(), inventory_item_id=None):
-    return NS(id=1, peptide=NS(name=name), dose=dose, dose_unit=unit, frequency=freq,
+    return NS(id=1, peptide=NS(name=name, library_specifications=None), dose=dose, dose_unit=unit, frequency=freq,
               every_n_days=every_n, weekdays=weekdays, steps=list(steps), cycle_offs=list(cycle_offs),
               inventory_item_id=inventory_item_id)
 

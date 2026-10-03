@@ -271,9 +271,8 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 **Impact:** Creates duplicate entries when importing price lists if names aren't normalized. Can fragment library data and confuse user searches.
 
 **Mitigation Applied:**
-- Added data consolidation script for existing duplicates
-- Consolidated AOD-9604 variants to canonical hyphenated format
-- Merged library specifications from all variants
+- AOD-9604 variants were consolidated to the canonical hyphenated format (one-off; no script is kept in the repo)
+- The price-list importer (`tools/populate_price_list.py`) only annotates existing library cards by exact name and never creates new ones, so spelling variants stay unmatched instead of becoming duplicate cards
 
 **Future Fix (Roadmap Item — Phase TBD):**
 Implement preprocessing in the price list parser to normalize peptide names:
