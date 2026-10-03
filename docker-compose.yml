@@ -1,12 +1,37 @@
+version: '3.8'
+
 services:
   amide:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: amide
     ports:
-      # Port on your machine : port inside the container (leave the 8000).
-      # Change the host port with AMIDE_PORT in a .env file next to this one.
+      # Host port : Container port (leave 8000 as-is)
+      # Override host port by setting AMIDE_PORT in .env file
       - "${AMIDE_PORT:-1707}:8000"
+    environment:
+      # Database connection
+      - DATABASE_URL=sqlite:////data/amide.db
+      # Security - MUST change in production
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      # Environment mode
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      # Application settings
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
-      # The database and all uploaded files live here. Back this folder up.
+      # Persistent data: database, uploaded COAs, and other files
+      # IMPORTANT: Back this folder up regularly
       - ./data:/data
+      # Optional: Mount source for development hot-reload
+      - ./app:/app/app:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/dashboard"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Uncomment to see full logs during development
+    # stdin_open: true
+    # tty: true
