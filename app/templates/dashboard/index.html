@@ -251,9 +251,9 @@
 {% if body_panel %}
 <section class="dash-chart-slot dash-area-weight" aria-labelledby="weight-chart-heading">
   {% if body_panel.chart %}
-  {{ line_chart(body_panel.chart, 'Weight (Lbs)') }}
+  {{ line_chart(body_panel.chart, panel_icon('dumbbell') + ' Weight (Lbs)') }}
   {% else %}
-  <div class="card"><h3 id="weight-chart-heading">Weight (Lbs)</h3><p class="muted">No weight logged yet.</p></div>
+  <div class="card"><h3 id="weight-chart-heading">{{ panel_icon('dumbbell') }} Weight (Lbs)</h3><p class="muted">No weight logged yet.</p></div>
   {% endif %}
 </section>
 {% endif %}
