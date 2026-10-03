@@ -77,6 +77,7 @@ def list_vendors(request: Request, sort: str = "alpha", session: Session = Depen
         "favorite_ids": favorite_ids,
         "recent_dates": recent_dates,
         "sort": sort,
+        "is_admin": bool(session.get(User, uid).is_admin),
     })
 
 
@@ -130,6 +131,10 @@ def unfavorite_vendor(vendor_id: int, next: str = "/vendors", session: Session =
 @router.post("/vendors/{vendor_id}/delete")
 def delete_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
                   uid: int = Depends(current_user_id)):
+    # Vendors are shared by every user, so only an admin may remove one (404, not 403, matching
+    # settings' _require_admin: don't reveal the action exists).
+    if not session.get(User, uid).is_admin:
+        raise HTTPException(404)
     vendor = session.get(Vendor, vendor_id)
     if vendor is None:
         raise HTTPException(404, "Vendor not found")

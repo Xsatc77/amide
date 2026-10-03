@@ -57,9 +57,11 @@
             <button type="submit" class="btn btn-ghost">Favorite</button>
           </form>
           {% endif %}
+          {% if is_admin %}
           <form method="post" action="/vendors/{{ v.id }}/delete" class="inline" data-confirm="Delete this vendor? This can't be undone.">
             <button type="submit" class="btn btn-ghost btn-danger">Delete</button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

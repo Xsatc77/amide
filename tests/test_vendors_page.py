@@ -515,3 +515,13 @@ def test_delete_vendor_removes_it_and_keeps_order_history(client, me, db):
 
 def test_delete_nonexistent_vendor_404s(client, db):
     assert client.post("/vendors/999999/delete", follow_redirects=False).status_code == 404
+
+
+def test_non_admin_cannot_delete_a_vendor_and_gets_no_delete_button(client, db):
+    vendor_id = _make_vendor("Protected Vendor")
+    other = _logged_in_client("vendornonadmin")
+    assert other.post(f"/vendors/{vendor_id}/delete", follow_redirects=False).status_code == 404
+    with SessionLocal() as s:
+        assert s.get(Vendor, vendor_id) is not None
+    assert "Delete this vendor?" not in other.get("/vendors").text
+    assert "Delete this vendor?" in client.get("/vendors").text

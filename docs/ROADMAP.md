@@ -175,6 +175,8 @@ A dedicated visual-polish pass, pulled together from items across the owner's 20
 - ✅ *Body silhouette interactivity shipped, 2026-09-30* — all 7 labels moved to one right-hand column; hovering a point shows a custom tooltip with the last two measurements and the delta; clicking jumps the Overview chart to that body part's history (a new averaged "<Location> (avg)" option for the 4 bilateral locations, so an averaged point jumps to the same average it's showing, never an arbitrary side).
 - ✅ *Inventory shipped, 2026-09-30* — "New order" now matches "+ Add item"'s styling (btn-primary + icon), with the two floating buttons stacked on mobile instead of overlapping.
 - ✅ *Body Outline entry forms shipped, 2026-09-30* — measurement fields now sit label-beside-input with a narrower box (scoped to this one form, not the app-wide field style); the day-range control is a real dropdown on both the Measurements and Labs sub-tabs.
+- **Workouts page button spacing (open, 2026-10-03):** the gap between the "Choose File" control and the Upload button on the Import-a-PDF form is too wide (the native file input's "No file chosen" text takes the space). Layout is currently inline-styled flexbox; replace with a proper CSS class and tighten that gap.
+- **Library caution-tape rounded corners (open, 2026-10-03):** the yellow/black stripe on the left edge of Side Effects / Contraindications / Drug Interactions cards works (`.lib-section-caution`, `border-image`), but `border-image` ignores `border-radius`, so the stripe has square corners against the card's rounded ones. Find a way to round them (e.g. mask/clip-path or a layered gradient instead of `border-image`).
 - **General (deferred, 2026-09-30):** a color/accent pass across the app, tighter visual grouping — the owner's own "overall beautification" note. Left open on purpose: every other Phase 10 item named a specific page/feature to fix; this one didn't, so it's parked until there's a concrete target instead of a vague pass.
 
 ---
@@ -280,6 +282,17 @@ Implement preprocessing in the price list parser to normalize peptide names:
 - Normalize spacing (spaces → hyphens)  
 - Case normalization
 - Implement fuzzy matching for import deduplication to catch minor name variations
+
+### Library cards created by the old price-list importer (clean up in the Library edit phase)
+**Context:** An early version of `populate_library_specs.py` created a new custom Peptide card for every price-list name that didn't exactly match an existing card. The importer no longer creates cards, but the ones it already made are still in the local database (backed up 2026-10-03 as `data/amide.db.bak-2026-10-03`).
+
+**To clean up:**
+- 53 unreferenced `custom` cards: ids 220 ("Disp") and 222–274 (vendor spellings such as "BPC157", "Samaglutide", "TB2(BT)", "RelaxatlonPM").
+- `B-12` (id 221) is also importer-created but a protocol uses it; re-point that protocol before removing it.
+- HGH duplicates: id 106 "HGH 191AA" (sheet) and id 243 "HGH 191AA (Somatropin)" (custom) — merge into one card; ties into the naming-inconsistency work above.
+
+### Course Totals: "normally supplied" vial-size fallback (parked)
+`Peptide.normally_supplied_amount` / `normally_supplied_unit` exist (migration 0029) and Course Totals reads them when a protocol item has no linked inventory item, but no library card has them set and nothing writes them, so the fallback never fires. Parked for the Library edit phase, which would add the field to the card editor. The vial-size selector in the Total Course Quantities popup is what drives the BAC Water estimate today.
 
 ---
 
