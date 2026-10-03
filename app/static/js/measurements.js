@@ -11,12 +11,10 @@
   // ---- Overview chart: metric dropdown ----
   // All metrics' charts are already rendered server-side (the same data the "All measurements"
   // grid below uses) -- this just toggles which one is visible, so switching metrics is instant
-  // and needs no round-trip. The chosen metric is remembered per-browser (localStorage) so it
-  // survives a reload/range change, matching this codebase's other client-side "remember what I
-  // picked" conveniences.
+  // and needs no round-trip. Nothing is stored in the browser, so a reload or range change
+  // returns to the default metric.
   const select = document.getElementById("overview-metric-select");
   const panels = document.querySelectorAll(".overview-chart-panel");
-  const STORAGE_KEY = "amide-overview-metric";
 
   function syncPanels() {
     panels.forEach((p) => { p.hidden = p.dataset.metric !== select.value; });
@@ -26,15 +24,10 @@
     if (![...panels].some((p) => p.dataset.metric === key)) return false;
     select.value = key;
     syncPanels();
-    try { localStorage.setItem(STORAGE_KEY, key); } catch { /* non-fatal */ }
     return true;
   }
 
   if (select) {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) selectMetric(saved);
-    } catch { /* private browsing / storage disabled -- fall back to the default selection */ }
     syncPanels();
     select.addEventListener("change", () => selectMetric(select.value));
   }
