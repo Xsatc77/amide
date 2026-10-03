@@ -95,6 +95,23 @@ def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
     return round(100 * on_time_or_late / total_due)
 
 
+def _in_transit_groups(session: Session, orders: list) -> list[dict]:
+    """Group in-transit orders by shipment, with their line items and inventory details."""
+    groups = []
+    for order in orders:
+        if order.arrival_date is not None:  # Skip arrived orders
+            continue
+        if not order.lines:  # Skip orders with no line items
+            continue
+        lines = []
+        for line in order.lines:
+            item = session.get(InventoryItem, line.inventory_item_id)
+            lines.append((item, line))
+        if lines:
+            groups.append({"order": order, "lines": lines})
+    return groups
+
+
 def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid).options(
@@ -200,6 +217,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
 
     alerts = None
     cost_snapshot = None
+    in_transit_groups = None
     show_cost_snapshot = False
     if ShareCategory.INVENTORY in categories:
         threshold_items = session.scalars(
@@ -218,7 +236,8 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         order_ids = {li.order_id for li in session.scalars(
             select(OrderItem).join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
             .where(InventoryItem.owner_id == effective_uid))}
-        orders = session.scalars(select(Order).where(Order.id.in_(order_ids))).all() if order_ids else []
+        orders = session.scalars(select(Order).where(Order.id.in_(order_ids)).options(
+            selectinload(Order.lines))).all() if order_ids else []
 
         # Sealed-stock expiration: InventoryItem.expiration_date is dead -- nothing in the app
         # writes it (see app/routers/inventory.py's ITEM_FIELDS). The real per-lot expiration lives
@@ -241,6 +260,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
         }
+        in_transit_groups = _in_transit_groups(session, orders)
         # Cost snapshot enumerates the viewer's *active protocols* (which peptides they're
         # currently running) -- that's PERSONAL_DATA information, not INVENTORY, even though the
         # widget lives in the Inventory-gated section. An Inventory-only grantee must not be able
@@ -260,6 +280,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "workout_week": workout_week,
         "today": today,
         "viewer_id": effective_uid,
+        "in_transit_groups": in_transit_groups,
         "shared_with_me": _shared_with_me(session, uid),
         # Separate flags rather than reusing `schedule`/`adherence_pct is None` to mean "not
         # shared" -- `_adherence_pct` already returns None for "no doses logged in the window,"
