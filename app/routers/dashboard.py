@@ -101,10 +101,10 @@ def _in_transit_groups(session: Session, orders: list) -> list[dict]:
     for order in orders:
         if order.arrival_date is not None:  # Skip arrived orders
             continue
-        if not order.lines:  # Skip orders with no line items
+        if not order.items:  # Skip orders with no line items
             continue
         lines = []
-        for line in order.lines:
+        for line in order.items:
             item = session.get(InventoryItem, line.inventory_item_id)
             lines.append((item, line))
         if lines:
@@ -237,7 +237,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             select(OrderItem).join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
             .where(InventoryItem.owner_id == effective_uid))}
         orders = session.scalars(select(Order).where(Order.id.in_(order_ids)).options(
-            selectinload(Order.lines))).all() if order_ids else []
+            selectinload(Order.items))).all() if order_ids else []
 
         # Sealed-stock expiration: InventoryItem.expiration_date is dead -- nothing in the app
         # writes it (see app/routers/inventory.py's ITEM_FIELDS). The real per-lot expiration lives
