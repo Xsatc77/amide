@@ -154,6 +154,7 @@ Firm up the base before anything depends on it.
   - *Apple Health* has no web API. Realistic options: import Apple Health's `export.zip`, or an **iOS Shortcut** that posts data to Amide's API. (Possibly https://www.healthyapps.dev/  or some sort of Webhooks app?)
   - *Google Health Connect* is on-device only (same approach: companion Shortcut/app or file import).
   - *Withings, Fitbit, Oura, Hume*: check each for an available cloud API; OAuth connectors where possible.
+  - *Renpho Smart Scales* (added 2026-10-03): feed weight, body fat %, and BMI into the Measurements page automatically. Renpho's app is cloud-based and no official public API is known (verify before building). Candidate routes, safest first: (1) rely on the Renpho app's own sync to Apple Health / Health Connect and reuse the Shortcut or export-import path above; (2) import a CSV export from the Renpho app; (3) an unofficial cloud API, which would need the user's Renpho login and could break without notice.
   - Requires **personal API tokens** in Amide.
 - Charts correlating any metric against doses/protocols
 - Multi-user / household support (if wanted)
