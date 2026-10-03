@@ -416,12 +416,13 @@ section + section { margin-top: 36px; }
 .dashboard-layout {
   display: grid; gap: 16px; align-items: stretch;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 420px) minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto;
   grid-template-areas:
     "schedule body alerts"
     "workouts body adherence"
     "water body cost"
     "journal body weight"
+    "shipment shipment shipment"
     ".  integrations .";
 }
 /* Every direct child stretches to fill both its row's height and its column's width (the grid
@@ -444,6 +445,7 @@ section + section { margin-top: 36px; }
 .dash-area-adherence { grid-area: adherence; }
 .dash-area-cost { grid-area: cost; }
 .dash-area-weight { grid-area: weight; }
+.dash-area-shipment { grid-area: shipment; }
 .dash-area-integrations { grid-area: integrations; opacity: 0.85; }
 
 .dash-panel-tall { display: flex; flex-direction: column; }
