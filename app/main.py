@@ -9,9 +9,10 @@ from app import config
 from app.auth import gate
 from app.db import SessionLocal
 from app.food.foods import load_starter
+from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
-    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_api, inventory, journal, labs, legal, library,
+    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labs, legal, library,
     measurements, price_alerts, protocols, settings, vendors, workout_insights, workouts,
 )
 
@@ -22,7 +23,9 @@ async def lifespan(_: FastAPI):
     upgrade_db()
     with SessionLocal() as session:
         load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
+    task = worker.start()
     yield
+    await worker.stop(task)
 
 
 app = FastAPI(title="Amide", lifespan=lifespan)
@@ -37,6 +40,7 @@ app.include_router(measurements.router)
 app.include_router(body_photos.router)
 app.include_router(food.router)
 app.include_router(ingest_api.router)
+app.include_router(ingest_admin.router)
 app.include_router(journal.router)
 app.include_router(labs.router)
 app.include_router(calendar.router)

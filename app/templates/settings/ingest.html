@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% set active_nav = "settings" %}
+{% block title %}Price list inbox{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Price list inbox</h1>
+    <p class="muted">Price lists the watcher found in chat groups. Confident ones import by themselves and can be undone; the rest wait here.</p>
+  </div>
+  <a class="btn btn-ghost" href="/settings#admin">Back to Settings</a>
+</div>
+
+<section class="builder-step">
+  <h2 class="section-title">Tokens</h2>
+  <p class="muted small">The watcher program presents a token to hand lists to Amide. A token can only hand over lists; it cannot read anything.</p>
+  {% if new_secret %}
+  <div class="notice-box">
+    <p><strong>Copy this token now: it is shown only once.</strong> ({{ new_label }})</p>
+    <p><code>{{ new_secret }}</code></p>
+  </div>
+  {% endif %}
+  <form method="post" action="/settings/ingest/tokens" class="settings-form inline-form">
+    <label class="field"><span>Label</span><input name="label" maxlength="60" placeholder="Home computer"></label>
+    <button type="submit" class="btn btn-primary">Create token</button>
+  </form>
+  {% if tokens %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Label</th><th>Starts with</th><th>Last used</th><th></th></tr></thead>
+    <tbody>
+    {% for t in tokens %}
+      <tr>
+        <td>{{ t.label }}</td><td><code>{{ t.prefix }}&hellip;</code></td>
+        <td>{{ t.last_used_at.strftime('%Y-%m-%d %H:%M') + ' UTC' if t.last_used_at else 'Never' }}</td>
+        <td>{% if t.revoked_at %}<span class="muted">Revoked</span>{% else %}
+          <form method="post" action="/settings/ingest/tokens/{{ t.id }}/revoke"><button type="submit" class="btn btn-ghost btn-danger btn-small">Revoke</button></form>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+</section>
+
+<section class="builder-step">
+  <h2 class="section-title">Groups</h2>
+  <p class="muted small">Groups the watcher can see. Map each to a vendor and switch it on; automatic import needs both.</p>
+  {% if not sources %}
+  <p class="muted">No groups yet. They appear here once the watcher has registered them.</p>
+  {% else %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Group</th><th>Vendor</th><th>Default warehouse</th><th>On</th><th>State</th><th></th></tr></thead>
+    <tbody>
+    {% for s in sources %}
+      <tr>
+        <form method="post" action="/settings/ingest/sources/{{ s.id }}" id="src{{ s.id }}"></form>
+        <td>{{ s.title }}</td>
+        <td><select name="vendor_id" form="src{{ s.id }}">
+          <option value="">(none)</option>
+          {% for v in vendors %}<option value="{{ v.id }}" {{ 'selected' if v.id == s.vendor_id }}>{{ v.name }}</option>{% endfor %}
+        </select></td>
+        <td><select name="default_warehouse" form="src{{ s.id }}">
+          <option value="" {{ 'selected' if not s.default_warehouse }}>(not set)</option>
+          <option value="us" {{ 'selected' if s.default_warehouse == 'us' }}>US</option>
+          <option value="china" {{ 'selected' if s.default_warehouse == 'china' }}>China</option>
+        </select></td>
+        <td><input type="checkbox" name="enabled" form="src{{ s.id }}" {{ 'checked' if s.enabled }}></td>
+        <td>{% if s.state == 'gone' %}<span class="error">No longer active{% if s.state_reason %}: {{ s.state_reason }}{% endif %}</span>{% else %}Active{% endif %}</td>
+        <td>
+          <button type="submit" form="src{{ s.id }}" class="btn btn-primary btn-small">Save</button>
+          {% if not s.vendor_id %}<button type="submit" form="src{{ s.id }}" name="new_vendor" value="1" class="btn btn-ghost btn-small">Make a vendor named like the group</button>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+</section>
+
+<section class="builder-step">
+  <h2 class="section-title">Received</h2>
+  <div class="tabs" role="tablist" aria-label="Filter by status">
+    <a href="/settings/ingest" class="tab {{ 'active' if not status }}">All</a>
+    {% for st in statuses %}<a href="/settings/ingest?status={{ st }}" class="tab {{ 'active' if status == st }}">{{ st.replace('_', ' ') }}</a>{% endfor %}
+  </div>
+  {% if not items %}
+  <p class="muted">Nothing received yet.</p>
+  {% endif %}
+  {% for i in items %}
+  {% set src = source_by_id.get(i.source_id) %}
+  <article class="builder-step">
+    <p><strong>{{ src.title if src else 'Unknown group' }}</strong> &middot; {{ i.kind }}{% if i.filename %} &middot; {{ i.filename }}{% endif %}
+      &middot; <span class="pill">{{ i.status.replace('_', ' ') }}</span>
+      <span class="muted small">{{ i.received_at.strftime('%Y-%m-%d %H:%M') }} UTC</span></p>
+    {% if i.reason %}<p class="small">{{ i.reason }}</p>{% endif %}
+    {% if i.rows_found is not none %}<p class="muted small">{{ i.rows_found }} rows read{% if i.rows_matched is not none %}, {{ i.rows_matched }} matched a library card{% endif %}.</p>{% endif %}
+    {% if i.caption %}<p class="muted small">&ldquo;{{ i.caption[:300] }}&rdquo;</p>{% endif %}
+    {% if i.status in ('needs_review', 'failed') %}
+    <form method="post" action="/settings/ingest/items/{{ i.id }}/approve" class="settings-form inline-form">
+      <label class="field"><span>Vendor</span><select name="vendor_id">
+        {% for v in vendors %}<option value="{{ v.id }}" {{ 'selected' if v.id == (i.vendor_id or (src.vendor_id if src else none)) }}>{{ v.name }}</option>{% endfor %}
+      </select></label>
+      <label class="field"><span>Warehouse</span><select name="warehouse">
+        <option value="us" {{ 'selected' if i.warehouse == 'us' }}>US</option>
+        <option value="china" {{ 'selected' if i.warehouse != 'us' }}>China</option>
+      </select></label>
+      <label class="field"><span>List date</span><input type="date" name="list_date" value="{{ (i.list_date or i.received_at.date()).isoformat() }}"></label>
+      <button type="submit" class="btn btn-primary">Approve and import</button>
+    </form>
+    <form method="post" action="/settings/ingest/items/{{ i.id }}/reject" class="inline-form"><button type="submit" class="btn btn-ghost btn-danger">Reject</button></form>
+    {% if i.stored_file %}<a class="btn btn-ghost" href="/settings/ingest/items/{{ i.id }}/original">Download original</a>{% endif %}
+    {% elif i.status == 'imported' %}
+    <p class="small">Imported for {{ i.warehouse | upper }}, dated {{ i.list_date }}.
+      {% if i.vendor_id %}<a href="/vendors/{{ i.vendor_id }}">Open the vendor</a>{% endif %}</p>
+    <form method="post" action="/settings/ingest/items/{{ i.id }}/undo" class="inline-form"><button type="submit" class="btn btn-ghost btn-danger">Undo this import</button></form>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}
