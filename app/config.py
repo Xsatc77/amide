@@ -15,6 +15,10 @@ PRICE_LIST_DIR = UPLOAD_DIR / "price_lists"
 LAB_REPORT_DIR = UPLOAD_DIR / "lab_reports"
 WORKOUT_PDF_DIR = UPLOAD_DIR / "workout_pdfs"
 WALLET_QR_DIR = UPLOAD_DIR / "wallet_qr"
+BODY_PHOTO_DIR = UPLOAD_DIR / "body_photos"
+PHOTO_UNLOCK_MINUTES = 10
+PHOTO_MAX_SIDE = 2000
+PHOTO_MAX_PIXELS = 50_000_000
 # Imported peptide cards (private): cards.json plus one image per card.
 LIBRARY_DIR = DATA_DIR / "library"
 CARDS_DIR = LIBRARY_DIR / "cards"
@@ -41,3 +45,4 @@ def ensure_dirs() -> None:
     LAB_REPORT_DIR.mkdir(parents=True, exist_ok=True)
     WORKOUT_PDF_DIR.mkdir(parents=True, exist_ok=True)
     WALLET_QR_DIR.mkdir(parents=True, exist_ok=True)
+    BODY_PHOTO_DIR.mkdir(parents=True, exist_ok=True)

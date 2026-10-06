@@ -248,6 +248,7 @@ class VendorPaymentMethod(Base):
 
 
 WALLET_COINS = ("BTC", "ETH", "USDC", "USDT")
+BODY_PHOTO_ANGLES = ("front", "side", "back", "other")
 
 
 class VendorWallet(Base):
@@ -916,6 +917,7 @@ class User(Base):
     default_discard_days: Mapped[int | None] = mapped_column(Integer)
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
+    photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     sex: Mapped[BiologicalSex | None] = mapped_column(_enum_column(BiologicalSex))
     birth_date: Mapped[date | None] = mapped_column(Date)
     height_in: Mapped[float | None] = mapped_column(Float)
@@ -959,6 +961,7 @@ class LoginSession(Base):
     twofa_pending: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime)
     last_seen: Mapped[datetime] = mapped_column(DateTime)
+    photo_unlocked_until: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped[User | None] = relationship()
 
@@ -1018,6 +1021,21 @@ class WaterLog(Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     logged_at: Mapped[date] = mapped_column(Date, index=True)
     ounces: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BodyPhoto(Base):
+    """A private progress photo, owner-only. `filename` is a random name of a JPEG in config.BODY_PHOTO_DIR."""
+    __tablename__ = "body_photos"
+    __table_args__ = (
+        CheckConstraint("angle IS NULL OR angle IN ('front', 'side', 'back', 'other')", name="ck_body_photo_angle"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    taken_on: Mapped[date] = mapped_column(Date)
+    angle: Mapped[str | None] = mapped_column(String(10))
+    note: Mapped[str | None] = mapped_column(String(200))
+    filename: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
