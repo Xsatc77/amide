@@ -922,6 +922,7 @@ class User(Base):
     activity_level: Mapped[ActivityLevel | None] = mapped_column(_enum_column(ActivityLevel))
     macro_goal: Mapped[MacroGoal | None] = mapped_column(_enum_column(MacroGoal))
     diet_preset: Mapped[DietPreset | None] = mapped_column(_enum_column(DietPreset))
+    life_stage: Mapped[str | None] = mapped_column(String(20))  # a key of app.measurements.tdee.LIFE_STAGES; women only
     custom_protein_pct: Mapped[int | None] = mapped_column(Integer)
     custom_carb_pct: Mapped[int | None] = mapped_column(Integer)
     custom_fat_pct: Mapped[int | None] = mapped_column(Integer)

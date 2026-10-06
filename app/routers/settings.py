@@ -13,6 +13,7 @@ from app import uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
+from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
 from app.models import (
     ActivityLevel, BiologicalSex, Colorway, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
@@ -51,7 +52,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
         "other_users": other_users, "my_shares": my_shares,
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
-        "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset),
+        "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset), "life_stages": LIFE_STAGES,
     }
     if me.is_admin:
         users = user_rows(session)
@@ -249,6 +250,9 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
     activity_level = _parse_enum("activity_level", ActivityLevel)
     macro_goal = _parse_enum("macro_goal", MacroGoal)
     diet_preset = _parse_enum("diet_preset", DietPreset)
+    life_stage = _raw("life_stage") or None
+    if life_stage is not None and life_stage not in LIFE_STAGES:
+        errors["life_stage"] = "Pick a value from the list."
 
     birth_date = None
     raw_birth_date = _raw("birth_date")
@@ -306,6 +310,7 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
     me.activity_level = activity_level
     me.macro_goal = macro_goal
     me.diet_preset = diet_preset
+    me.life_stage = life_stage
     me.custom_protein_pct = custom_protein_pct
     me.custom_carb_pct = custom_carb_pct
     me.custom_fat_pct = custom_fat_pct

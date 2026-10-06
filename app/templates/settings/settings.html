@@ -136,6 +136,16 @@
             </select>
             {{ err('sex') }}
           </label>
+          <label class="field {{ 'has-error' if errors.life_stage }}">
+            <span>Life stage (optional, women)</span>
+            <select name="life_stage">
+              <option value="">None</option>
+              {% for key, stage in life_stages.items() %}
+              <option value="{{ key }}" {{ 'selected' if me.life_stage == key }}>{{ stage.label }}</option>
+              {% endfor %}
+            </select>
+            {{ err('life_stage') }}
+          </label>
           <label class="field {{ 'has-error' if errors.birth_date }}">
             <span>Birth date</span>
             <input name="birth_date" type="date" value="{{ me.birth_date or '' }}">
