@@ -255,6 +255,62 @@ class VendorFavorite(Base):
     vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="CASCADE"), index=True)
 
 
+class Warehouse(LabeledEnum):
+    US = ("us", "US")
+    CHINA = ("china", "China")
+
+
+class WarehouseSource(LabeledEnum):
+    FILENAME = ("filename", "Filename")
+    TEXT = ("text", "List text")
+    ASSUMED = ("assumed", "Assumed")
+    MANUAL = ("manual", "Set manually")
+
+
+class PriceList(Base):
+    """One imported vendor price list. Reference data (like the peptide library), not scoped to a user."""
+
+    __tablename__ = "price_lists"
+    __table_args__ = (UniqueConstraint("source_filename", name="uq_price_list_source_filename"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vendor_name: Mapped[str] = mapped_column(String(200))  # kept even if the vendor row is later deleted
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"), index=True)
+    warehouse: Mapped[Warehouse] = mapped_column(_enum_column(Warehouse), default=Warehouse.CHINA)
+    warehouse_source: Mapped[WarehouseSource] = mapped_column(
+        _enum_column(WarehouseSource), default=WarehouseSource.ASSUMED)
+    list_date: Mapped[date] = mapped_column(Date)
+    source_filename: Mapped[str] = mapped_column(String(300))
+    shipping_note: Mapped[str | None] = mapped_column(Text)  # the vendor's own wording, not interpreted
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    items: Mapped[list["PriceListItem"]] = relationship(
+        back_populates="price_list", cascade="all, delete-orphan")
+
+
+class PriceListItem(Base):
+    """One product line of a price list. A pack is a kit (exactly 10 vials) or a box (fewer). Per-vial cost is
+    pack_price / pack_size (computed, not stored)."""
+
+    __tablename__ = "price_list_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    price_list_id: Mapped[int] = mapped_column(ForeignKey("price_lists.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str | None] = mapped_column(String(30))
+    product_name: Mapped[str | None] = mapped_column(String(300))
+    peptide_id: Mapped[int | None] = mapped_column(ForeignKey("peptides.id", ondelete="SET NULL"), index=True)
+    vial_amount: Mapped[float] = mapped_column(Float)
+    vial_unit: Mapped[str] = mapped_column(String(10))  # mg | mcg | IU | ml | mg/ml
+    pack_size: Mapped[int | None] = mapped_column(Integer)  # vials in the pack the price buys
+    pack_price: Mapped[float | None] = mapped_column(Float)
+    pack_type: Mapped[str | None] = mapped_column(String(10))  # "kit" (exactly 10 vials) | "box" (fewer) | None
+    extra_prices: Mapped[dict | None] = mapped_column(JSON)  # other price columns by header, e.g. {"10kits+": 173}
+    flags: Mapped[list | None] = mapped_column(JSON)
+
+    price_list: Mapped["PriceList"] = relationship(back_populates="items")
+
+
 class PurchasingUnit(LabeledEnum):
     INDIVIDUAL = ("individual", "Individual vial")
     KIT_OF_10 = ("kit_of_10", "Kit of 10 vials")
