@@ -17,6 +17,8 @@ from app.models import User
 
 # Always reachable.
 OPEN_PREFIXES = ("/static/", "/branding/")
+# These routes authenticate themselves with an ingest token and never accept a session.
+TOKEN_PREFIXES = ("/api/ingest/",)
 OPEN_PATHS = {"/healthz", "/notice"}
 # Reachable once the notice is accepted, signed in or not.
 SIGN_IN_PATHS = {"/welcome", "/register", "/login", "/login/2fa", "/logout", "/session/ping"}
@@ -46,7 +48,7 @@ def install(app: FastAPI) -> None:
 
         if request.method in UNSAFE_METHODS and not _same_origin(request):
             return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
-        if path.startswith(OPEN_PREFIXES) or path == "/healthz":
+        if path.startswith(OPEN_PREFIXES + TOKEN_PREFIXES) or path == "/healthz":
             return await call_next(request)
 
         now = sessions.now_utc()
