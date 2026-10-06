@@ -160,3 +160,45 @@ def test_a_wrapped_name_inside_one_tall_row_is_joined():
              w("$99", 1060, 280, 80), w("ZX10", 150, 380), w("10mg*10vials", 800, 380, 160), w("$60", 1060, 380, 80)]
     table = table_from_words(words)
     assert table[2][1] == "Borealin 10mg+ Quillamine 10mg"
+
+
+def stocked(rows, header=True):
+    """A list with warehouse stock columns between the specification and the price (x = 1200, 1410, 1620, price 1800)."""
+    words = []
+    if header:
+        words += [w("Product Name", 450, 60), w("SPC", 800, 60), w("USA 1 Warehouse", 1200, 60, 200), w("USA 3 Warehouse", 1410, 60, 200),
+                  w("USA 4 Warehouse", 1620, 60, 200), w("Price (USD)", 1800, 60, 140)]
+    for i, (code, name, spec, stock, price) in enumerate(rows):
+        y = 120 + i * 46
+        words += [w(code, 150, y), w(name, 450, y), w(spec, 800, y, 160)]
+        words += [w(str(n), x, y, 40) for n, x in zip(stock, (1200, 1410, 1620))] + [w(str(price), 1800, y, 60)]
+    return words
+
+
+STOCKED = [("ZX5", "Zorvex", "5mg*10vials", (0, 845, 0), 44), ("ZX10", "Zorvex", "10mg*10vials", (6332, 0, 0), 55),
+           ("QU5", "Quillamine", "5mg*10vials", (0, 0, 45), 129)]
+
+
+def test_stock_columns_before_the_price_are_kept_apart_from_the_price():
+    table = table_from_words(stocked(STOCKED))
+    assert table[0] == ["Code", "Name", "Specification", "Stock", "Stock", "Stock", "Price"]
+    assert [row[-1] for row in table[1:]] == ["44", "55", "129"]
+    assert [row[3:6] for row in table[1:]] == [["0", "845", "0"], ["6332", "0", "0"], ["0", "0", "45"]]
+
+
+def test_stock_columns_are_not_read_as_prices_or_price_tiers(tmp_path):
+    rows = read_pdf(picture_pdf(tmp_path), recognize=lambda image: stocked(STOCKED)).rows
+    assert [(r.code, r.pack_price, r.extra_prices) for r in rows] == [("ZX5", 44.0, {}), ("ZX10", 55.0, {}), ("QU5", 129.0, {})]
+
+
+def test_with_no_header_the_last_column_is_the_price():
+    table = table_from_words(stocked(STOCKED, header=False))
+    assert [row[-1] for row in table[1:]] == ["44", "55", "129"]
+
+
+def test_a_specification_wrapped_onto_two_lines_is_one_row():
+    words = stocked(STOCKED)
+    words += [w("TE250", 150, 300), w("Zorvex T", 450, 300), w("10ml*250mg/ml*", 800, 288, 160), w("2vials", 800, 312, 160),
+              w("1399", 1200, 300, 60), w("0", 1410, 300, 40), w("0", 1620, 300, 40), w("54", 1800, 300, 60)]
+    table = table_from_words(words)
+    assert table[-1][2] == "10ml*250mg/ml* 2vials" and table[-1][-1] == "54" and len(table) == 1 + 4

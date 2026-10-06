@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-_SPEC_WORD = re.compile(r"\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)\S*?\d+\s*vials?\b", re.IGNORECASE)
+_SPEC_WORD = re.compile(r"\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)\S*?\s*\d+\s*vials?\b", re.IGNORECASE)
+_PRICE_HEADER = re.compile(r"price|usd|cost|\$", re.IGNORECASE)
 _SPEC_PARTS = re.compile(r"(\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)(?:\s*/\s*ml)?)\s*\S?\s*(\d+)\s*(vials?)", re.IGNORECASE)
 _TRAILING_DOLLAR = re.compile(r"^(\d[\d,.]*)\$(/\d*\s*vials?)?$", re.IGNORECASE)
 _MAX_PAGES = 30
@@ -137,9 +138,42 @@ def _split_columns(left: list[Word], page_width: float) -> float | None:
     return middle if gap >= page_width * 0.1 else None
 
 
+def _join_wrapped_specs(words: list[Word]) -> list[Word]:
+    """A specification cell that wraps ("10ml*250mg/ml*" over "2vials") becomes one word."""
+    out = list(words)
+    for a in sorted(words, key=lambda w: w.cy):
+        if a not in out or _SPEC_WORD.search(a.text):
+            continue
+        for b in out:
+            if b is a or not 0 < b.cy - a.cy <= a.height * 1.8 or abs(b.cx - a.cx) > max(a.x1 - a.x0, b.x1 - b.x0):
+                continue
+            if _SPEC_WORD.search(f"{a.text} {b.text}") and not _SPEC_WORD.search(b.text):
+                out.remove(a)
+                out.remove(b)
+                out.append(Word(min(a.x0, b.x0), a.y0, max(a.x1, b.x1), b.y1, f"{a.text} {b.text}"))
+                break
+    return out
+
+
+def _value_columns(words: list[Word]) -> list[list[Word]]:
+    """Words right of the specification column grouped into columns by their horizontal centers, left to right."""
+    if not words:
+        return []
+    split = statistics.median(w.x1 - w.x0 for w in words) * 2
+    columns: list[list[Word]] = []
+    for word in sorted(words, key=lambda w: w.cx):
+        if columns and word.cx - statistics.mean(x.cx for x in columns[-1]) <= split:
+            columns[-1].append(word)
+        else:
+            columns.append([word])
+    return columns
+
+
 def table_from_words(words: list[Word]) -> list[list[str]] | None:
-    """Rows of [code, name, specification, price] (or without the code column) with a header row, or None when the
-    words do not hold at least two priced lines."""
+    """Rows of [code, name, specification, (stock columns,) price] (the code column only when there is one) with a
+    header row, or None when the words do not hold at least two priced lines. Columns between the specification and
+    the price (warehouse stock counts) are labelled "Stock" so they are never read as prices."""
+    words = _join_wrapped_specs(words)
     anchors = sorted((w for w in words if _SPEC_WORD.search(w.text)), key=lambda w: w.cy)
     if len(anchors) < 2:
         return None
@@ -161,11 +195,20 @@ def table_from_words(words: list[Word]) -> list[list[str]] | None:
     name_words = [w for w in left if w not in code_words]
 
     count = len(anchors)
-    codes, prices = [[] for _ in range(count)], [[] for _ in range(count)]
+    codes = [[] for _ in range(count)]
     for word in code_words:
         codes[_nearest(anchors, word.cy)].append(word)
-    for word in right:
-        prices[_nearest(anchors, word.cy)].append(word)
+
+    columns = _value_columns(right)
+    headers = [[] for _ in columns]
+    if columns:  # words above the first row, under the column they sit over, say what each column holds
+        for word in (w for w in words if w.cy < top and w.x0 >= max(a.x1 for a in anchors) - 1):
+            headers[min(range(len(columns)), key=lambda i: abs(statistics.mean(c.cx for c in columns[i]) - word.cx))].append(word)
+    priced = [i for i, h in enumerate(headers) if _PRICE_HEADER.search(" ".join(w.text for w in h))] or [len(columns) - 1]
+    cells = [[[] for _ in range(count)] for _ in columns]
+    for k, column in enumerate(columns):
+        for word in column:
+            cells[k][_nearest(anchors, word.cy)].append(word)
 
     names = [[] for _ in range(count)]
     for word in name_words:
@@ -176,10 +219,12 @@ def table_from_words(words: list[Word]) -> list[list[str]] | None:
 
     with_codes = split is not None
     header = [_HEADER["code"]] if with_codes else []
-    header += [_HEADER["name"], _HEADER["spec"], _HEADER["price"]]
+    header += [_HEADER["name"], _HEADER["spec"]]
+    header += [_HEADER["price"] if k in priced else "Stock" for k in range(len(columns))]
     table = [header]
     for i, anchor in enumerate(anchors):
         row = [text(codes[i])] if with_codes else []
-        row += [text(names[i]), _clean_spec(anchor.text), _clean_price(text(prices[i]))]
+        row += [text(names[i]), _clean_spec(anchor.text)]
+        row += [_clean_price(text(cells[k][i])) if k in priced else text(cells[k][i]) for k in range(len(columns))]
         table.append(row)
     return table
