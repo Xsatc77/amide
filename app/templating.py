@@ -32,7 +32,7 @@ def mg(value: float | None) -> str:
 
 
 def shortdate(value: date | None) -> str:
-    return "" if value is None else f"{value:%b} {value.day}, {value.year}"
+    return "" if value is None else f"{value:%m/%d/%Y}"   # standard US format, everywhere
 
 
 templates.env.filters["money"] = money

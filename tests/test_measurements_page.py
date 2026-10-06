@@ -59,7 +59,7 @@ def test_chart_points_carry_date_and_value_for_the_hover_tooltip(client, db, me)
         client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "180"})
         t = client.get("/measurements").text
         assert 'class="chart-point"' in t
-        assert 'data-date="Sep 28, 2026"' in t and 'data-value="180.0"' in t
+        assert 'data-date="09/28/2026"' in t and 'data-value="180.0"' in t
     finally:
         _clear_measurements(me)
 

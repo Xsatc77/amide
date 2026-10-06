@@ -61,7 +61,7 @@ def test_a_workout_with_no_journal_entry_still_appears_as_its_own_row(client, db
     post_log(client, day, **{f"completed[{ex.id}]": "on", f"sets_value[{ex.id}]": "3", f"reps_value[{ex.id}]": "10"})
     assert db.scalar(select(JournalEntry).where(JournalEntry.entry_date == date.fromisoformat(DAY))) is None
     text = journal(client)
-    assert "Feb 2, 2026" in text and day.label in text
+    assert "02/02/2026" in text and day.label in text
 
 
 def test_other_peoples_workouts_never_appear_in_my_journal(client, db):

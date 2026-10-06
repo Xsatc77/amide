@@ -35,7 +35,7 @@
 {% endmacro %}
 
 {% block content %}
-<div class="page-head"><div><h1>{{ day.label }}</h1><p class="muted">{{ log_date }}</p></div></div>
+<div class="page-head"><div><h1>{{ day.label }}</h1><p class="muted">{{ log_date | shortdate }}</p></div></div>
 
 <form method="post" action="/workouts/day/{{ day.id }}/log" id="workout-log-form">
   <input type="hidden" name="log_date" value="{{ log_date }}">

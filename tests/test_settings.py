@@ -200,8 +200,8 @@ def test_admin_table_shows_last_login_in_admins_own_timezone(client, db, me):
         s.commit()
     t = text(client.get("/settings"))
     # 12:00 UTC on 2026-06-01 is 07:00 in America/Chicago (CDT, UTC-5) -- the UTC time must not appear as-is.
-    assert "2026-06-01 07:00" in t
-    assert "2026-06-01 12:00 UTC" not in t
+    assert "06/01/2026 07:00" in t
+    assert "06/01/2026 12:00 UTC" not in t
 
 
 def test_admin_routes_404_for_non_admin(nonadmin, db):

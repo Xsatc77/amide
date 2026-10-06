@@ -41,12 +41,12 @@
   <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood Pressure over time">
     <polyline points="{{ bp.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
     {% for cx, cy in bp.points_a %}{% set d, v = bp.raw_a[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)" class="chart-point"
-      data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }} systolic"></circle>{% endfor %}
+      data-date="{{ d | shortdate }}" data-value="{{ v }} systolic"></circle>{% endfor %}
     <polyline points="{{ bp.poly_b }}" fill="none" stroke="var(--info)" stroke-width="2" stroke-dasharray="4 3"></polyline>
     {% for cx, cy in bp.points_b %}{% set d, v = bp.raw_b[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--info)" class="chart-point"
-      data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }} diastolic"></circle>{% endfor %}
+      data-date="{{ d | shortdate }}" data-value="{{ v }} diastolic"></circle>{% endfor %}
   </svg>
-  <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ bp.min_d.strftime('%b') }} {{ bp.min_d.day }}, {{ bp.min_d.year }} – {{ bp.max_d.strftime('%b') }} {{ bp.max_d.day }}, {{ bp.max_d.year }}</p>
+  <p class="muted">Systolic (solid) / Diastolic (dashed) · {{ bp.min_d | shortdate }} – {{ bp.max_d | shortdate }}</p>
 </div>
 {% endif %}
 {% endmacro %}
@@ -229,7 +229,7 @@
       <tbody>
         {% for m in entries %}
         <tr>
-          <td data-label="Date">{{ m.measured_at.strftime('%b') }} {{ m.measured_at.day }}, {{ m.measured_at.year }}</td>
+          <td data-label="Date">{{ m.measured_at | shortdate }}</td>
           <td data-label="Weight (lbs)">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
           <td data-label="Waist (in)">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
         </tr>
@@ -256,7 +256,7 @@
       <tbody>
         {% for v in shared_views %}
         <tr>
-          <td data-label="Date">{{ v.m.measured_at.strftime('%b') }} {{ v.m.measured_at.day }}, {{ v.m.measured_at.year }}</td>
+          <td data-label="Date">{{ v.m.measured_at | shortdate }}</td>
           <td data-label="Weight (lbs)">{{ v.m.weight_lbs if v.m.weight_lbs is not none else '—' }}</td>
           <td data-label="Waist (in)">{{ v.m.waist_in if v.m.waist_in is not none else '—' }}</td>
           <td data-label="Shared by">{{ v.owner_name }}</td>
@@ -312,7 +312,7 @@
     <strong>{{ water.goal_oz }} oz/day</strong>
     <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups per hour, or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles per hour, to pace it over 16 waking hours)</span>
     {% if water.weight_as_of %}
-    <span class="muted">(based on your weight as of {{ water.weight_as_of.strftime('%b') }} {{ water.weight_as_of.day }}, {{ water.weight_as_of.year }})</span>
+    <span class="muted">(based on your weight as of {{ water.weight_as_of | shortdate }})</span>
     {% endif %}
   </p>
 </section>
@@ -451,7 +451,7 @@
       <tbody>
         {% for e in journal_entries %}
         <tr>
-          <td data-label="Date">{{ e.date.strftime('%b') }} {{ e.date.day }}, {{ e.date.year }}</td>
+          <td data-label="Date">{{ e.date | shortdate }}</td>
           <td data-label="Mood">{{ e.mood if e.mood is not none else '—' }}</td>
           <td data-label="Energy">{{ e.energy if e.energy is not none else '—' }}</td>
           <td data-label="Sleep">{{ e.sleep_quality if e.sleep_quality is not none else '—' }}</td>
@@ -612,7 +612,7 @@
   {% else %}
   {% for panel in panels %}
   <div class="card">
-    <h3>{{ panel.drawn_at.strftime('%b') }} {{ panel.drawn_at.day }}, {{ panel.drawn_at.year }}</h3>
+    <h3>{{ panel.drawn_at | shortdate }}</h3>
     {% if panel.owner_name %}<p class="muted">Shared by {{ panel.owner_name }}</p>{% endif %}
     {% if panel.notes %}<p>{{ panel.notes }}</p>{% endif %}
     {% if panel.report_filename %}

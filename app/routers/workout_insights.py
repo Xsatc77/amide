@@ -99,7 +99,7 @@ def _energy_context(session: Session, uid: int, goal: str, carb: str, range_key:
                "Workout": [per_day.get(d, 0) for d in days]}, line=[target] * window, width=720, height=260)
     for bar in chart["bars"]:
         burned = per_day.get(bar["label"], 0)
-        bar["tip"] = (f"{bar['label']:%a %b %d}: TDEE {report.tdee:,} kcal; workout about {round(burned)} kcal net "
+        bar["tip"] = (f"{bar['label']:%a %m/%d/%Y}: TDEE {report.tdee:,} kcal; workout about {round(burned)} kcal net "
                       f"({burned / report.tdee * 100:.0f}% of TDEE, estimated)")
     return {
         "status": "ok", "r": report, "goal": goal, "carb": carb, "cell": tdee.macro_cell(goal, carb, report.tdee),
@@ -146,10 +146,10 @@ def _progress_context(session: Session, uid: int, exercise: str, range_key: str)
 
     history = progress.exercise_history(rows, chosen)
     load_points = [(p.log_date, p.top_load_lb) for p in history if p.top_load_lb]
-    load_tips = [f"{p.log_date:%b %d, %Y}: top load {p.top_load_lb:,.0f} lb; about {p.net_kcal:,.0f} kcal net (estimated)"
+    load_tips = [f"{p.log_date:%m/%d/%Y}: top load {p.top_load_lb:,.0f} lb; about {p.net_kcal:,.0f} kcal net (estimated)"
                  for p in history if p.top_load_lb]
     volume_points = [(p.log_date, p.volume_lb) for p in history if p.volume_lb]
-    volume_tips = [f"{p.log_date:%b %d, %Y}: {p.volume_lb:,.0f} lb total volume; about {p.net_kcal:,.0f} kcal net (estimated)"
+    volume_tips = [f"{p.log_date:%m/%d/%Y}: {p.volume_lb:,.0f} lb total volume; about {p.net_kcal:,.0f} kcal net (estimated)"
                    for p in history if p.volume_lb]
 
     weeks, by_area = progress.weekly_volume_by_area(rows)
@@ -159,7 +159,7 @@ def _progress_context(session: Session, uid: int, exercise: str, range_key: str)
         for bar in weekly["bars"]:
             index = weeks.index(bar["label"])
             parts = ", ".join(f"{area} {values[index]:,.0f} lb" for area, values in by_area.items() if values[index])
-            bar["tip"] = f"Week of {bar['label']:%b %d}: {parts or 'no volume'}"
+            bar["tip"] = f"Week of {bar['label']:%m/%d/%Y}: {parts or 'no volume'}"
 
     equipment = progress.burn_by_equipment(rows)
     equipment_colors = color_map([name for name, _ in equipment])

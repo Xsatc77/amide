@@ -10,9 +10,9 @@
     {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
     <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
     {% for cx, cy in chart.points %}{% set d, v = chart.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}" class="chart-point"
-      data-date="{{ d.strftime('%b') ~ ' ' ~ d.day|string ~ ', ' ~ d.year|string }}" data-value="{{ v }}"></circle>{% endfor %}
+      data-date="{{ d | shortdate }}" data-value="{{ v }}"></circle>{% endfor %}
   </svg>
-  <p class="muted">{{ chart.min_d.strftime('%b') }} {{ chart.min_d.day }}, {{ chart.min_d.year }} – {{ chart.max_d.strftime('%b') }} {{ chart.max_d.day }}, {{ chart.max_d.year }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
+  <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
 </div>
 {% endif %}
 {% endmacro %}
@@ -25,7 +25,7 @@
   data-value="{{ pt.value if pt.value is not none else '' }}"
   data-prior="{{ pt.prior if pt.prior is not none else '' }}"
   data-delta="{{ pt.delta if pt.delta is not none else '' }}"
-  data-as-of="{{ pt.as_of.strftime('%b') ~ ' ' ~ pt.as_of.day|string ~ ', ' ~ pt.as_of.year|string if pt.as_of else '' }}"
+  data-as-of="{{ pt.as_of | shortdate }}"
   data-side="{{ pt.side or '' }}"
   aria-label="{{ pt.label }}: {{ silhouette_text(pt) }}"></circle>
 {% endmacro %}
@@ -52,6 +52,6 @@
 <text x="{{ slot[0] }}" y="{{ slot[1] - 6 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-name">{{ pt.label }}</text>
 <text x="{{ slot[0] }}" y="{{ slot[1] + 8 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-value {{ 'muted' if pt.value is none else 'trend-' ~ pt.trend if pt.trend else '' }}">{{ silhouette_text(pt) }}</text>
 {% if pt.as_of %}
-<text x="{{ slot[0] }}" y="{{ slot[1] + 20 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-asof muted">as of {{ pt.as_of.strftime('%b') }} {{ pt.as_of.day }}, {{ pt.as_of.year }}</text>
+<text x="{{ slot[0] }}" y="{{ slot[1] + 20 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-asof muted">as of {{ pt.as_of | shortdate }}</text>
 {% endif %}
 {% endmacro %}

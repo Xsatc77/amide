@@ -22,7 +22,7 @@ def _tip(point: PricePoint) -> str:
         pack = f"box of {point.pack_size}"
     else:
         pack = "pack"
-    return f"{point.list_date:%b %d, %Y} · ${point.per_vial:,.2f} per vial · ${point.pack_price:,.2f} {pack}"
+    return f"{point.list_date:%m/%d/%Y} · ${point.per_vial:,.2f} per vial · ${point.pack_price:,.2f} {pack}"
 
 
 def build_price_history(session: Session, vendor_id: int) -> dict | None:

@@ -36,8 +36,8 @@ def _format_last_login(last_login, tz_name: str | None) -> str:
     if tz_name:
         aware = last_login.replace(tzinfo=timezone.utc)
         local = aware.astimezone(zoneinfo.ZoneInfo(tz_name))
-        return f"{local.strftime('%Y-%m-%d %H:%M')} {tz_name}"
-    return last_login.strftime("%Y-%m-%d %H:%M UTC")
+        return f"{local.strftime('%m/%d/%Y %H:%M')} {tz_name}"
+    return last_login.strftime("%m/%d/%Y %H:%M UTC")
 
 
 def _render(request: Request, session: Session, *, errors: dict | None = None, status_code: int = 200):
