@@ -718,6 +718,9 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .lead { font-size: 1.05rem; }
 .quick-facts { display: flex; gap: 24px; flex-wrap: wrap; }
 .quick-facts dt { font-weight: 600; }
+.quick-facts .price-aside { margin-left: auto; align-self: baseline; }
+.price-range { color: var(--muted); font-size: 0.9em; white-space: nowrap; }
+.kv dd.with-aside { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .lib-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 72px; }
 .card-thumb { display: flex; flex-direction: column; gap: 6px; text-decoration: none; }
 .card-thumb img { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }

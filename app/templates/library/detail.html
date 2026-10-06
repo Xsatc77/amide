@@ -4,6 +4,8 @@
 
 {% macro bullets(items) %}{% if items %}<ul class="bullets">{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}{% endmacro %}
 
+{% macro price_range_text(r) %}{{ r.amount | dose_num }}{{ r.unit }} · {{ '$%.2f' | format(r.low) }}{% if r.high != r.low %} – {{ '$%.2f' | format(r.high) }}{% endif %} per vial · {{ r.lists }} list{{ '' if r.lists == 1 else 's' }}{% endmacro %}
+
 {% set is_sheet = p.source.value == "sheet" %}
 
 {% block content %}
@@ -38,12 +40,13 @@
     {% if is_sheet %}
       {% if p.summary %}<p class="lead">{{ p.summary }}</p>{% endif %}
 
-      {% if p.half_life_text or p.route_summary or p.cycle %}
+      {% if p.half_life_text or p.route_summary or p.cycle or price_range %}
       <section class="lib-section">
         <dl class="kv kv-tight quick-facts">
           {% if p.half_life_text %}<dt>Half-life</dt><dd>{{ p.half_life_text }}</dd>{% endif %}
           {% if p.route_summary %}<dt>Route</dt><dd>{{ p.route_summary }}</dd>{% endif %}
           {% if p.cycle %}<dt>Cycle</dt><dd>{{ p.cycle.on_weeks }}w on / {{ p.cycle.off_weeks }}w off</dd>{% endif %}
+          {% if price_range %}<div class="price-aside"><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></div>{% endif %}
         </dl>
       </section>
       {% endif %}
@@ -171,7 +174,13 @@
     {% if card.quick_info %}
     <section class="lib-section">
       <h2 class="section-title">Quick practical info</h2>
-      <dl class="kv">{% for k, v in card.quick_info.items() %}<dt>{{ k }}</dt><dd>{{ v or '—' }}</dd>{% endfor %}</dl>
+      {% set shown = namespace(price=false) %}
+      <dl class="kv">{% for k, v in card.quick_info.items() %}<dt>{{ k }}</dt>
+        {% if price_range and not shown.price and k | lower == 'half-life' %}{% set shown.price = true %}<dd class="with-aside"><span>{{ v or '—' }}</span><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></dd>
+        {% else %}<dd>{{ v or '—' }}</dd>{% endif %}
+        {% endfor %}
+        {% if price_range and not shown.price %}<dt>Price</dt><dd><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></dd>{% endif %}
+      </dl>
     </section>
     {% endif %}
 
