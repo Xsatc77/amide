@@ -122,7 +122,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("price_lists"), Tbl("price_list_items"), Tbl("price_alert_ignores", share_drop=True)),
         shareable=True, help="Imported vendor price lists and their items."),
     Section("ingest", "Price list inbox", INSTALLATION, (
-        Tbl("ingest_sources"), Tbl("ingest_items", file=("stored_file", "ingest"))),
+        Tbl("ingest_sources"), Tbl("ingest_topics"), Tbl("ingest_items", file=("stored_file", "ingest"))),
         help="The chat groups the price-list watcher follows, what it received, and the files still waiting for review. Whole-installation backups only."),
     Section("library", "Library", INSTALLATION, (
         Tbl("peptides"), Tbl("goal_peptides"), Tbl("peptide_cycles"), Tbl("peptide_dosing_tiers"),

@@ -1341,6 +1341,21 @@ class IngestSource(Base):
     state_changed_at: Mapped[datetime | None] = mapped_column(DateTime)
     alert_acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+    topics_only: Mapped[bool] = mapped_column(Boolean, default=False)           # follow only the ticked topics of a forum group
+    skip_words: Mapped[str | None] = mapped_column(String(1200))                # lists mentioning these words are set aside
+    follow_words: Mapped[str | None] = mapped_column(String(1200), default="price, warehouse")   # a new topic named like these starts ticked
+
+
+class IngestTopic(Base):
+    """A topic (named thread) of a forum group. New topics start ticked only when named like the group's follow words."""
+    __tablename__ = "ingest_topics"
+    __table_args__ = (UniqueConstraint("source_id", "topic_id", name="uq_ingest_topic"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("ingest_sources.id", ondelete="CASCADE"), index=True)
+    topic_id: Mapped[str] = mapped_column(String(32))
+    title: Mapped[str] = mapped_column(String(200))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
 
 
 class IngestItem(Base):
@@ -1374,6 +1389,8 @@ class IngestItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime)
     decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    topic_id: Mapped[str | None] = mapped_column(String(32))
+    topic_title: Mapped[str | None] = mapped_column(String(200))
 
 
 class DashboardDismissal(Base):
