@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app import config
 from app.db import get_session
 from app.goals import GOALS
-from app.library.price_lists.analysis import price_range
+from app.library.price_lists.analysis import price_range, rematch_items
 from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
 from app.models import DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolItem
 from app.templating import templates
@@ -111,6 +111,7 @@ async def library_update(peptide_id: int, request: Request, session: Session = D
         if goal not in current:
             last = session.scalar(select(func.max(GoalPeptide.position)).where(GoalPeptide.goal == goal))
             session.add(GoalPeptide(goal=goal, peptide_id=p.id, position=(last if last is not None else -1) + 1))
+    rematch_items(session)
     session.commit()
     return RedirectResponse(f"/library/{p.id}", status_code=303)
 

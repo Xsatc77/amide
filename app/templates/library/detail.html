@@ -141,6 +141,7 @@
     {% elif not card %}
     <div class="empty"><p><strong>No card imported for this peptide.</strong></p>
       <p class="muted">Peptides added by you or from the starter list have no card. Your own info is on the right.</p></div>
+    {% if price_range %}<p class="price-range" title="Price per vial across current vendor price lists">Price: {{ price_range_text(price_range) }}</p>{% endif %}
     {% else %}
     {% if card.applications %}
     <section class="lib-section">
@@ -182,6 +183,8 @@
         {% if price_range and not shown.price %}<dt>Price</dt><dd><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></dd>{% endif %}
       </dl>
     </section>
+    {% elif price_range %}
+    <section class="lib-section"><p class="price-range" title="Price per vial across current vendor price lists">Price: {{ price_range_text(price_range) }}</p></section>
     {% endif %}
 
     {% if card.regulatory %}

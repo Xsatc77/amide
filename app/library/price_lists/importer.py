@@ -60,6 +60,10 @@ def resolve_vendor(session: Session, vendor_name: str, list_date: date) -> tuple
     if vendor.price_list_updated_at is None or vendor.price_list_updated_at < list_date:
         vendor.price_list_updated_at = list_date
     session.flush()
+    # Lists orphaned when an earlier vendor of this name was deleted belong to this vendor again.
+    for orphan in session.scalars(select(PriceList).where(PriceList.vendor_id.is_(None))):
+        if vendor_key(orphan.vendor_name) == key:
+            orphan.vendor_id = vendor.id
     return vendor, created
 
 

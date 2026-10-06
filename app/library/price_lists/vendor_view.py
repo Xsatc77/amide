@@ -21,9 +21,8 @@ def _tip(point: PricePoint) -> str:
     elif point.pack_type == "box":
         pack = f"box of {point.pack_size}"
     else:
-        pack = "pack size not stated"
-    tip = f"{point.list_date:%b %d, %Y} · ${point.pack_price:,.2f} · {pack}"
-    return tip + (f" · ${point.per_vial:,.2f} per vial" if point.per_vial is not None else "")
+        pack = "pack"
+    return f"{point.list_date:%b %d, %Y} · ${point.per_vial:,.2f} per vial · ${point.pack_price:,.2f} {pack}"
 
 
 def build_price_history(session: Session, vendor_id: int) -> dict | None:
@@ -40,9 +39,14 @@ def build_price_history(session: Session, vendor_id: int) -> dict | None:
         ordered = sorted(product.series.items(), key=lambda kv: (_UNIT_ORDER.get(kv[0][1], 9), kv[0][0], kv[0][2]))
         labelled = []
         for (amount, unit, warehouse), points in ordered:
+            points = [p for p in points if p.per_vial is not None]  # a pack with no stated size has no per-vial price
+            if not points:
+                continue
             label = _size(amount, unit) + (f" · {_WAREHOUSE_LABEL.get(warehouse, warehouse)}" if two_warehouses else "")
             labelled.append((label, color[(amount, unit)], two_warehouses and warehouse == "us", points))
-        chart = multi_series_chart({label: [(p.list_date, p.pack_price) for p in points]
+        if not labelled:
+            continue
+        chart = multi_series_chart({label: [(p.list_date, p.per_vial) for p in points]
                                     for label, _, _, points in labelled})
         for label, hue, dashed, points in labelled:
             drawn = chart["series"][label]

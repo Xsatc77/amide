@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_session
@@ -16,6 +17,9 @@ async def ignore_new_peptide(request: Request, session: Session = Depends(get_se
         raise HTTPException(404)
     name = str((await request.form()).get("name") or "").strip()
     if name:
-        ignore_product(session, name)
-        session.commit()
+        try:
+            ignore_product(session, name)
+            session.commit()
+        except IntegrityError:  # a second click already ignored it
+            session.rollback()
     return RedirectResponse("/dashboard", status_code=303)

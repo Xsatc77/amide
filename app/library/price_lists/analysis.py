@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.library.matching import match_name, name_key
-from app.library.price_lists.importer import vendor_key
+from app.library.price_lists.importer import _SOURCE_RANK, vendor_key
 from app.models import Peptide, PriceAlertIgnore, PriceList, PriceListItem, Vendor
 
 SIZE_UNITS = ("mg", "mcg", "IU")
@@ -78,6 +78,11 @@ class ProductHistory:
     series: dict[tuple[float, str, str], list[PricePoint]]  # (vial amount, unit, warehouse) -> points by date
 
 
+def _cost(point: PricePoint) -> float:
+    """What a point is compared on when two share a date: per vial when known, so a kit and a box compare fairly."""
+    return point.per_vial if point.per_vial is not None else float("inf")
+
+
 def vendor_price_history(session: Session, vendor_id: int) -> list[ProductHistory]:
     """Every priced product a vendor has listed, with each vial size's dated prices (a China and a USA list are
     separate series). Products are keyed by their library card, or by name when no card matches."""
@@ -98,7 +103,7 @@ def vendor_price_history(session: Session, vendor_id: int) -> list[ProductHistor
         same_day = next((i for i, p in enumerate(points) if p.list_date == list_date), None)
         if same_day is None:
             points.append(point)
-        elif point.pack_price < points[same_day].pack_price:
+        elif _cost(point) < _cost(points[same_day]):
             points[same_day] = point
     for key, product in products.items():
         if product.peptide_id is None:
@@ -142,6 +147,25 @@ def new_peptides(session: Session) -> list[NewPeptide]:
         if match_name(name, cards) is None:
             out.append(NewPeptide(key, name, tuple(sorted(vendors, key=str.casefold))))
     return sorted(out, key=lambda n: n.name.casefold())
+
+
+def rematch_items(session: Session) -> int:
+    """Link stored items that matched no card at import time to the cards that exist now (a card or alias added
+    since). Returns how many were linked; the caller commits."""
+    cards = session.scalars(select(Peptide)).all()
+    items = session.scalars(select(PriceListItem).where(
+        PriceListItem.peptide_id.is_(None), PriceListItem.product_name.is_not(None))).all()
+    linked = 0
+    resolved: dict[str, int | None] = {}
+    for it in items:
+        if it.product_name not in resolved:
+            match = match_name(it.product_name, cards)
+            resolved[it.product_name] = (
+                min(match.cards, key=lambda c: (_SOURCE_RANK.get(c.source, 9), c.id)).id if match else None)
+        if resolved[it.product_name] is not None:
+            it.peptide_id = resolved[it.product_name]
+            linked += 1
+    return linked
 
 
 def ignore_product(session: Session, name: str) -> None:

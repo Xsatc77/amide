@@ -9,6 +9,7 @@ from app.auth.deps import current_user_id
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
+from app.library.price_lists.analysis import rematch_items
 from app.models import (
     WEEKDAY_LETTERS, WEEKDAY_NAMES, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
     Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
@@ -229,6 +230,7 @@ def _find_or_create_peptide(session: Session, name: str) -> Peptide:
     peptide = Peptide(name=name, source=PeptideSource.CUSTOM)
     session.add(peptide)
     session.flush()
+    rematch_items(session)
     return peptide
 
 
