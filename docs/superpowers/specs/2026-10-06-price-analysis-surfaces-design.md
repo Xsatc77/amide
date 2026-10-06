@@ -53,8 +53,8 @@ Pure functions over query results, unit-tested without a browser:
 - A new multi-series chart helper is added beside the existing single- and dual-series helpers; it is pure and
   tested.
 
-**Open decision:** the y-axis. Recommended: **pack price** as listed (what the owner pays), with per-vial cost
-in the hover. The alternative is per-vial cost on the axis, which makes kits and boxes comparable.
+**Decided (owner):** the y-axis is the **price per kit or box** as listed (what the owner pays), with the
+per-vial cost in the hover.
 
 ## B. Dashboard "NEW PEPTIDE ALERT"
 
@@ -78,8 +78,10 @@ products that appear in a *later* list.
 **Visibility:** the same viewers as the existing Alerts card (anyone who sees inventory alerts); vendors are
 shared across users.
 
-**Open decisions:** which definition of "new" (above: no library card, versus new to that vendor), and
-backlog versus silent baseline.
+**Decided (owner):** "new" means **no library card exists yet** (the definition above).
+
+**Open decision:** the first import: show the whole backlog once, or treat each vendor's first list as a
+silent baseline.
 
 ## C. Library card price range
 
