@@ -208,3 +208,68 @@ def test_pauses_between_groups_are_taken_so_telegram_is_not_hammered(tmp_path):
     runner, tg, amide, state, queue, slept = build(tmp_path, tg=tg, amide=FakeAmide(watch=["-100", "-200"]))
     poll(runner)
     assert slept and all(s > 0 for s in slept)
+
+
+# ---------------------------------------------------------------- review fixes
+
+def test_titles_are_registered_once_not_every_poll_and_again_when_they_change(tmp_path):
+    groups = [Group(str(-n), f"Group {n}") for n in range(1, 81)]
+    runner, tg, amide, *_ = build(tmp_path, tg=FakeTelegram(groups=groups), amide=FakeAmide(watch=[]))
+    poll(runner)
+    assert len(amide.registered) == 80
+    poll(runner)
+    assert len(amide.registered) == 80                                                      # nothing new: no requests spent
+    tg.groups[0] = Group("-1", "Renamed")
+    poll(runner)
+    assert amide.registered[-1] == ("-1", "Renamed") and len(amide.registered) == 81
+
+
+def test_a_busy_amide_during_registration_does_not_stop_reading_and_registration_resumes(tmp_path):
+    tg = FakeTelegram(groups=[Group("-100", "g"), Group("-200", "h")], messages={"-100": [msg("-100", 1, "hello")]})
+    amide = FakeAmide(watch=["-100"], register_busy=1)
+    runner, tg, amide, *_ = build(tmp_path, tg=tg, amide=amide)
+    poll(runner)
+    assert [p.message_id for p in amide.sent] == ["1"]                                      # the 429 on registering did not abort the poll
+    poll(runner)
+    assert ("-100", "g") in amide.registered and ("-200", "h") in amide.registered
+
+
+def test_the_telegram_connection_is_checked_every_poll_and_a_failure_is_survived(tmp_path):
+    tg = FakeTelegram(groups=[Group("-100", "g")], messages={"-100": [msg("-100", 1, "hello")]}, connect_fails=1)
+    runner, tg, amide, *_ = build(tmp_path, tg=tg)
+    poll(runner)
+    assert tg.connect_checks == 1 and amide.sent == []
+    poll(runner)
+    assert tg.connect_checks == 2 and [p.message_id for p in amide.sent] == ["1"]
+
+
+def test_a_message_whose_download_keeps_failing_is_sent_without_its_file_and_does_not_block_the_group(tmp_path):
+    tg = FakeTelegram(groups=[Group("-100", "g")], messages={"-100": [
+        msg("-100", 1, "price list attached", 30, files=[("a.pdf", "pdf", 5)]), msg("-100", 2, "later list", 20)]}, fail_downloads=True)
+    runner, tg, amide, state, *_ = build(tmp_path, tg=tg)
+    for _ in range(2):
+        poll(runner)
+    assert amide.sent == [] and state.chat("-100").last_id == 0                             # still retrying
+    poll(runner)
+    poll(runner)
+    assert [(p.message_id, p.files) for p in amide.sent] == [("1", []), ("2", [])]
+
+
+def test_an_unreadable_queue_item_is_set_aside_and_the_rest_deliver(tmp_path):
+    tg = FakeTelegram(groups=[Group("-100", "g")], messages={"-100": [msg("-100", 1, "one", 30), msg("-100", 2, "two", 20)]})
+    runner, tg, amide, state, queue, _ = build(tmp_path, tg=tg, amide=FakeAmide(watch=["-100"], outcomes=[Delivery("retry")]))
+    poll(runner)
+    (queue.oldest().folder / "meta.json").unlink()                                          # a half-deleted item
+    runner.now = lambda: NOW + timedelta(hours=1)
+    poll(runner)
+    assert [p.message_id for p in amide.sent] == ["2"] and len(queue) == 0 and (tmp_path / "queue" / "bad").is_dir()
+
+
+def test_an_albums_joined_captions_are_cut_to_the_servers_limit(tmp_path):
+    tg = FakeTelegram(groups=[Group("-100", "g")], messages={"-100": [msg("-100", 1, "x" * 5000, 30), msg("-100", 2, "y" * 5000, 30)]})
+    runner, tg, amide, *_ = build(tmp_path, tg=tg)
+    for m in tg.messages["-100"]:
+        m.grouped_id = 5
+        m.attachments = [Attachment("1.jpg", "image", 5)]
+    poll(runner)
+    assert len(amide.sent[0].text) <= 8000

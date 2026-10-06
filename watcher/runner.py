@@ -13,6 +13,8 @@ ALBUM_SETTLE_SECONDS = 5
 BACKOFF = (30, 60, 120, 300, 900)
 PAUSE_BETWEEN_GROUPS = 1.0
 STRIKES_TO_REPORT = 2
+MAX_DOWNLOAD_TRIES = 3
+MAX_TEXT = 8000                       # Amide refuses longer text
 
 
 def _utc_now() -> datetime:
@@ -30,6 +32,11 @@ class Runner:
     # ------------------------------------------------------------ one poll
 
     async def poll_once(self) -> None:
+        try:
+            await self.tg.ensure_connected()
+        except Exception as exc:
+            self.log.error("Telegram is not connected (%s); will try again", type(exc).__name__)
+            return
         try:
             watch = await self._register_and_list()
         except AmideAuthError:
@@ -69,8 +76,19 @@ class Runner:
         self.paused = True
 
     async def _register_and_list(self) -> list[str]:
+        today = self.now().date().isoformat()
+        busy = False
         for group in await self.tg.list_groups():
-            await self.amide.register(group.chat_id, group.title)
+            st = self.state.chat(group.chat_id)
+            if busy or (st.title == group.title and st.registered_on == today):
+                continue                                                  # only new, renamed or day-old titles cost a request
+            try:
+                await self.amide.register(group.chat_id, group.title)
+            except AmideUnavailable:
+                busy = True                                               # try again next poll; never stop the poll over it
+                continue
+            st.title, st.registered_on = group.title, today
+        self.state.save()
         return await self.amide.list_sources()
 
     # ------------------------------------------------------------ reading
@@ -88,7 +106,13 @@ class Runner:
         for batch in self._batches(messages):
             if self._unsettled(batch, now):
                 break
-            payload = await self._build(batch)
+            try:
+                payload = await self._build(batch)
+            except Exception as exc:
+                if not self._worth_another_try(st, batch[0].message_id, exc):
+                    payload = await self._build(batch, with_files=False)      # give up on the file, keep the words
+                else:
+                    raise
             if payload is not None:
                 self.queue.put(payload)
             st.last_id = batch[-1].message_id                              # only after the message is safely in the queue
@@ -110,13 +134,25 @@ class Runner:
     def _unsettled(batch: list[TgMessage], now: datetime) -> bool:
         return bool(batch[0].grouped_id) and (now - max(m.date for m in batch)).total_seconds() < ALBUM_SETTLE_SECONDS
 
-    async def _build(self, batch: list[TgMessage]) -> Payload | None:
+    def _worth_another_try(self, st, message_id: int, exc: Exception) -> bool:
+        if st.failed_id == message_id:
+            st.failed_count += 1
+        else:
+            st.failed_id, st.failed_count = message_id, 1
+        self.state.save()
+        if st.failed_count >= MAX_DOWNLOAD_TRIES:
+            self.log.error("Message %s could not be downloaded %s times (%s); sending it without the file", message_id, st.failed_count, type(exc).__name__)
+            st.failed_id = st.failed_count = 0
+            return False
+        return True
+
+    async def _build(self, batch: list[TgMessage], with_files: bool = True) -> Payload | None:
         limit = self.config.max_file_mb * 1024 * 1024
         files, texts = [], []
         for message in batch:
             if message.text.strip():
                 texts.append(message.text.strip())
-            for attachment in message.attachments:
+            for attachment in message.attachments if with_files else ():
                 if attachment.size > limit:
                     self.log.info("Skipped a file over the size limit in message %s", message.message_id)
                     continue
@@ -125,7 +161,7 @@ class Runner:
             return None
         first = batch[0]
         return Payload(chat_id=first.chat_id, message_id=str(first.message_id), album_id=str(first.grouped_id) if first.grouped_id else None,
-                       date=first.date.astimezone(timezone.utc).isoformat(), text="\n".join(texts), files=files)
+                       date=first.date.astimezone(timezone.utc).isoformat(), text="\n".join(texts)[:MAX_TEXT], files=files)
 
     # ------------------------------------------------------------ delivering
 
@@ -139,10 +175,16 @@ class Runner:
                     return
             if self._next_attempt is not None and self.now() < self._next_attempt:
                 return
-            outcome = await self.amide.send(item.payload())
+            try:
+                payload = item.payload()
+            except Exception as exc:                                      # a half-deleted or damaged item must not block the rest
+                self.log.error("A queued item was unreadable (%s); set aside", type(exc).__name__)
+                self.queue.quarantine(item)
+                continue
+            outcome = await self.amide.send(payload)
             if outcome.kind in ("delivered", "drop"):
                 if outcome.kind == "drop":
-                    self.log.warning("Amide refused message %s (%s); dropped", item.payload().message_id, outcome.detail)
+                    self.log.warning("Amide refused message %s (%s); dropped", payload.message_id, outcome.detail)
                 self.queue.remove(item)
                 self._failures, self._next_attempt = 0, None
             elif outcome.kind == "auth":

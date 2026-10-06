@@ -1,15 +1,22 @@
 """Stand-ins for Telegram and Amide so the runner is tested without a network."""
 
-from watcher.amide_client import AmideAuthError, Delivery
+from watcher.amide_client import AmideAuthError, AmideUnavailable, Delivery
 from watcher.ports import Access
 
 
 class FakeTelegram:
-    def __init__(self, groups=(), messages=None, downloads=None, access=None, fail_downloads=False):
+    def __init__(self, groups=(), messages=None, downloads=None, access=None, fail_downloads=False, connect_fails=0):
         self.groups, self.messages, self.downloads = list(groups), dict(messages or {}), dict(downloads or {})
         self.access, self.fail_downloads = {k: iter(v) for k, v in (access or {}).items()}, fail_downloads
         self.calls: list[tuple] = []
         self.detailed: list[tuple] = []
+        self.connect_fails, self.connect_checks = connect_fails, 0
+
+    async def ensure_connected(self):
+        self.connect_checks += 1
+        if self.connect_fails > 0:
+            self.connect_fails -= 1
+            raise ConnectionError("offline")
 
     async def list_groups(self):
         self.calls.append(("list_groups",))
@@ -35,12 +42,16 @@ class FakeTelegram:
 
 
 class FakeAmide:
-    def __init__(self, watch=(), outcomes=(), state_ok=()):
+    def __init__(self, watch=(), outcomes=(), state_ok=(), register_busy=0):
         self.watch, self.outcomes, self.state_ok = list(watch), iter(outcomes), iter(state_ok)
         self.registered, self.sent, self.states = [], [], []
         self.attempts = self.auth_checks = 0
+        self.register_busy = register_busy
 
     async def register(self, chat_id, title):
+        if self.register_busy > 0:
+            self.register_busy -= 1
+            raise AmideUnavailable("HTTP 429")
         self.registered.append((chat_id, title))
 
     async def list_sources(self):

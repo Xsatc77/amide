@@ -38,7 +38,15 @@ async def _poll(config: Config, *, forever: bool) -> int:
     from watcher.telethon_client import TelethonClient
     log = get_logger(config.log_path)
     tg = TelethonClient(config)
-    await tg.connect()
+    while True:                                            # at sign-in the network may not be up yet
+        try:
+            await tg.connect()
+            break
+        except Exception as exc:
+            log.error("Could not reach Telegram (%s)", type(exc).__name__)
+            if not forever:
+                return 1
+            await asyncio.sleep(30)
     try:
         if not await tg.is_authorized():
             log.error("Not signed in to Telegram. Run: python -m watcher login")

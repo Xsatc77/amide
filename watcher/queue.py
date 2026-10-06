@@ -23,11 +23,11 @@ class DiskQueue:
     def __init__(self, directory: Path, max_items: int = 500, max_bytes: int = 2 * 1024 ** 3):
         self.dir, self.max_items, self.max_bytes = Path(directory), max_items, max_bytes
         self.dir.mkdir(parents=True, exist_ok=True)
-        for leftover in self.dir.glob("*.tmp"):                  # an item that was being written when the program stopped
+        for leftover in list(self.dir.glob("*.tmp")) + list(self.dir.glob("*.del")):     # half-written or half-deleted items
             shutil.rmtree(leftover, ignore_errors=True)
 
     def _folders(self) -> list[Path]:
-        return sorted(p for p in self.dir.iterdir() if p.is_dir() and not p.name.endswith(".tmp"))
+        return sorted(p for p in self.dir.iterdir() if p.is_dir() and p.name.isdigit())
 
     def __len__(self) -> int:
         return len(self._folders())
@@ -59,7 +59,21 @@ class DiskQueue:
         return QueueItem(folders[0]) if folders else None
 
     def remove(self, item: QueueItem) -> None:
-        shutil.rmtree(item.folder, ignore_errors=True)
+        gone = item.folder.with_name(item.folder.name + ".del")          # one atomic rename takes it out of the queue at once
+        try:
+            os.replace(item.folder, gone)
+        except OSError:
+            return
+        shutil.rmtree(gone, ignore_errors=True)
+
+    def quarantine(self, item: QueueItem) -> None:
+        """Set an unreadable item aside so it cannot block the rest."""
+        bad = self.dir / "bad"
+        bad.mkdir(exist_ok=True)
+        try:
+            os.replace(item.folder, bad / item.folder.name)
+        except OSError:
+            shutil.rmtree(item.folder, ignore_errors=True)
 
     def size_bytes(self) -> int:
         return sum(f.stat().st_size for p in self._folders() for f in p.iterdir())

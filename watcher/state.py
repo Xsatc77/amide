@@ -12,6 +12,10 @@ class ChatState:
     started_at: str | None = None
     strikes: int = 0
     gone: bool = False
+    title: str | None = None            # the title last registered with Amide
+    registered_on: str | None = None    # the day it was registered (refreshed daily)
+    failed_id: int = 0                  # a message whose download keeps failing, and how many times
+    failed_count: int = 0
 
 
 class State:

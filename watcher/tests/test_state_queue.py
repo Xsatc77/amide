@@ -88,3 +88,14 @@ def test_sequence_numbers_keep_growing_after_removals(tmp_path):
     q.remove(q.oldest())
     q.put(payload(2))
     assert q.oldest().payload().message_id == "2"
+
+
+def test_remove_renames_first_so_a_locked_file_never_leaves_a_half_item(tmp_path, monkeypatch):
+    q = DiskQueue(tmp_path / "queue")
+    q.put(payload(1))
+    monkeypatch.setattr("shutil.rmtree", lambda *a, **k: None)                              # antivirus holds the files
+    q.remove(q.oldest())
+    assert len(q) == 0 and q.oldest() is None
+    monkeypatch.undo()
+    DiskQueue(tmp_path / "queue")
+    assert not list((tmp_path / "queue").glob("*.del"))

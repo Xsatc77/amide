@@ -3,6 +3,8 @@ reacts, joins, leaves or marks anything read."""
 
 from datetime import datetime, timezone
 
+from telethon import errors, types
+
 from watcher.config import Config
 from watcher.ports import Access, Attachment, Group, TgMessage
 
@@ -21,10 +23,15 @@ class TelethonClient:
         from telethon import TelegramClient
         self.config = config
         config.home.mkdir(parents=True, exist_ok=True)
-        self._client = TelegramClient(str(config.session_path), config.telegram_api_id, config.telegram_api_hash, flood_sleep_threshold=300)
+        self._client = TelegramClient(str(config.session_path), config.telegram_api_id, config.telegram_api_hash, flood_sleep_threshold=300,
+                                      connection_retries=-1, retry_delay=5)
 
     async def connect(self) -> None:
         await self._client.connect()
+
+    async def ensure_connected(self) -> None:
+        if not self._client.is_connected():                 # after a long outage Telethon stays disconnected until asked
+            await self._client.connect()
 
     async def is_authorized(self) -> bool:
         return await self._client.is_user_authorized()
@@ -48,9 +55,12 @@ class TelethonClient:
         out = []
         async for m in self._client.iter_messages(entity, reverse=True, **kwargs):
             attachments = []
-            if m.photo is not None:
+            media = getattr(m, "media", None)
+            if isinstance(m, types.MessageService):          # group photo changes, joins and the like are never price lists
+                continue
+            if m.photo is not None and isinstance(media, types.MessageMediaPhoto):     # not a link preview's picture
                 attachments.append(Attachment(filename=f"photo-{m.id}.jpg", kind="image", size=getattr(m.file, "size", 0) or 0))
-            elif m.document is not None and _kind(getattr(m.file, "mime_type", None)):
+            elif m.document is not None and isinstance(media, types.MessageMediaDocument) and _kind(getattr(m.file, "mime_type", None)):
                 attachments.append(Attachment(filename=m.file.name or f"file-{m.id}", kind=_kind(m.file.mime_type), size=m.file.size or 0))
             out.append(TgMessage(chat_id=str(chat_id), message_id=m.id, date=m.date.astimezone(timezone.utc), text=m.message or "",
                                  grouped_id=m.grouped_id, attachments=attachments, raw=m))
@@ -63,13 +73,15 @@ class TelethonClient:
         return data
 
     async def check_access(self, chat_id: str) -> Access:
-        from telethon import errors
         try:
+            full = await self._client.get_entity(int(chat_id))
+            if isinstance(full, (types.ChatForbidden, types.ChannelForbidden)) or (
+                    isinstance(full, types.Chat) and (full.deactivated or full.left or getattr(full, "migrated_to", None))):
+                return Access("gone", "the group was removed, upgraded to a supergroup, or this account left it")
             entity = await self._client.get_input_entity(int(chat_id))
             await self._client.get_messages(entity, limit=1)
             return Access("ok")
-        except (errors.ChannelPrivateError, errors.ChannelInvalidError, errors.ChatIdInvalidError, errors.PeerIdInvalidError,
-                errors.UserBannedInChannelError):
+        except (errors.ChannelPrivateError, errors.ChannelInvalidError, errors.ChatIdInvalidError, errors.PeerIdInvalidError):
             return Access("gone", "the group is private, deleted, or this account was removed")
         except Exception:                                    # flood waits, network trouble and anything else: not evidence of removal
             return Access("unknown")
