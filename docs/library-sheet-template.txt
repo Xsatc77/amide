@@ -1,0 +1,77 @@
+Full disclaimer
+{{NAME}}
+Icon reflects category theme only
+{{CATEGORY: one short phrase, e.g. Tissue Repair / Growth Hormone Secretagogue / Anabolic Steroid}}
+{{EVIDENCE LEVEL: exactly one of: Human trials / Early human data / Animal studies only / Anecdotal only}}
+Grade {{A, B, C or D: A = approved with strong human evidence, D = very little evidence}}
+{{TAG 1}}
+{{TAG 2}}
+{{TAG 3 (3 to 8 tags, one per line, short, e.g. Tissue Repair, FDA-Approved, Research Only, Tetrapeptide)}}
+{{NAME}}
+Also known as: {{alias 1, alias 2, brand names, common abbreviations, spellings used on vendor price lists}}
+{{HALF-LIFE, e.g. ~4 hours half-life  (or: Half-life not established)}}
+·
+{{ROUTE, e.g. Injection / Oral / Nasal / Topical}}
+·
+{{CYCLE SHORTHAND, e.g. 6w on / 4w off  (or: Continuous use)}}
+{{SUMMARY: one plain-language paragraph, 2 to 4 sentences, at least 25 words. What it is, what people use it for, and how strong the evidence is. Must not end with a question mark.}}
+What Is {{NAME}}?
+{{2 to 4 short paragraphs in plain language: what it is, where it comes from, what it is used for.}}
+How {{NAME}} Works
+{{2 to 3 short paragraphs in plain language: what it does in the body, no jargon without a plain explanation.}}
+{{NAME}} Benefits
+{{One benefit per line. Say who reported it and how strong the evidence is. 4 to 8 lines.}}
+{{NAME}} Side Effects
+{{One side effect per line, most common first. Say how common if known. 4 to 10 lines.}}
+Contraindications
+{{One per line: who should not use it. 3 to 8 lines.}}
+Drug Interactions
+{{One per line: what it should not be combined with, and why. Write "No well-documented interactions" if that is the true state of the evidence.}}
+Product Quality
+{{One per line: what to check on a vial or label (purity, testing, what a legitimate product looks like, common counterfeits or contamination problems). 3 to 6 lines.}}
+Is {{NAME}} Legal?
+{{1 to 3 sentences, United States first: approved drug, prescription only, unapproved research chemical, or controlled substance (name the schedule). Add one sentence on other major regions only if you verified it.}}
+Who Should Consider {{NAME}}
+{{One per line: the kinds of people or goals it is discussed for. Not a recommendation. 3 to 6 lines.}}
+{{NAME}} Dosage Guide
+Beginner
+{{dose, e.g. 250 mcg}}
+{{frequency, e.g. once daily, morning}}
+Intermediate
+{{dose}}
+{{frequency}}
+Advanced
+{{dose}}
+{{frequency}}
+Cycling Protocol
+ON PERIOD
+{{number}} weeks
+OFF PERIOD
+{{number}} weeks
+{{One sentence explaining the cycling note. Omit this whole Cycling Protocol section for continuous-use compounds.}}
+{{NAME}} Stacking Protocols
+Works with
+{{partner name, exactly as it appears in the library name list}}
+{{one sentence on why}}
+Avoid
+{{partner name, exactly as it appears in the library name list}}
+{{one sentence on why}}
+Recommended Monitoring
+TEST | WHEN | WHY | TARGET
+{{test name}} | {{when}} | {{why}} | {{target or normal range}}
+Pharmacokinetics
+BIOAVAILABILITY
+{{value, e.g. ~85% subcutaneous}}
+TMAX
+{{value, e.g. 1 to 2 hours}}
+Storage & Stability
+BEFORE RECONSTITUTION
+{{value}}
+AFTER RECONSTITUTION
+{{value}}
+TEMPERATURE
+{{value}}
+Related Peptides
+{{One per line, names exactly as in the library name list.}}
+Citations
+{{One per line: Author or Organization. Title. Source. Year. URL}}
