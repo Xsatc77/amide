@@ -1166,3 +1166,10 @@ fieldset[data-day] { min-width: 0; }
 .food-meal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .food-entries { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 6px; }
 .food-entries li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.food-inline { display: inline-flex; gap: 4px; align-items: center; }
+.food-inline input[type=number] { width: 70px; }
+.food-results { list-style: none; padding: 0; margin: 8px 0; max-height: 220px; overflow: auto; display: grid; gap: 4px; }
+.food-result { text-align: left; width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: pointer; }
+.food-foodform { display: flex; gap: 6px; flex-wrap: wrap; }
+.food-modes { display: flex; gap: 16px; margin-bottom: 12px; }
+.food-myfoods { margin-top: 16px; }

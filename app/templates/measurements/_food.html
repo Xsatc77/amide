@@ -89,10 +89,81 @@
     <ul class="food-entries">
       {% for en in meal.entries %}
       <li><span><strong>{{ en.name }}</strong> <span class="muted small">{{ en.servings | round(2) }} &times; {{ en.serving }}</span></span>
-        <span class="small">{{ en.calories | round | int }} kcal &middot; P {{ en.protein_g | round(1) }} &middot; C {{ en.carb_g | round(1) }} &middot; F {{ en.fat_g | round(1) }} &middot; fiber {{ en.fiber_g | round(1) }}</span></li>
+        <span class="small">{{ en.calories | round | int }} kcal &middot; P {{ en.protein_g | round(1) }} &middot; C {{ en.carb_g | round(1) }} &middot; F {{ en.fat_g | round(1) }} &middot; fiber {{ en.fiber_g | round(1) }}</span>
+        <form method="post" action="/food/log/{{ en.id }}/edit" class="food-inline">
+          <input type="hidden" name="date" value="{{ food_day.isoformat() }}">
+          <input type="number" name="servings" value="{{ en.servings | round(2) }}" min="0.1" max="50" step="0.1" aria-label="Servings">
+          <button type="submit" class="btn btn-ghost small">Update</button></form>
+        <form method="post" action="/food/log/{{ en.id }}/delete" class="food-inline" data-food-delete>
+          <input type="hidden" name="date" value="{{ food_day.isoformat() }}">
+          <button type="submit" class="btn btn-ghost small">Delete</button></form></li>
       {% endfor %}
     </ul>
     {% else %}<p class="muted small">Nothing logged.</p>{% endif %}
+    <button type="button" class="btn small" data-food-add data-meal="{{ meal.key }}">Add food</button>
   </div>
   {% endfor %}
+
+  <details class="food-myfoods">
+    <summary>My foods</summary>
+    {% if my_foods %}
+    <ul class="food-entries">
+      {% for f in my_foods %}
+      <li>
+        <form method="post" action="/food/foods/{{ f.id }}/edit" class="food-foodform">
+          <input type="hidden" name="date" value="{{ food_day.isoformat() }}">
+          <input name="name" value="{{ f.name }}" maxlength="120" aria-label="Name">
+          <input name="serving" value="{{ f.serving }}" maxlength="60" aria-label="Serving">
+          <input name="calories" type="number" step="0.1" min="0" value="{{ f.calories }}" aria-label="Calories">
+          <input name="protein_g" type="number" step="0.1" min="0" value="{{ f.protein_g }}" aria-label="Protein g">
+          <input name="carb_g" type="number" step="0.1" min="0" value="{{ f.carb_g }}" aria-label="Carbs g">
+          <input name="fat_g" type="number" step="0.1" min="0" value="{{ f.fat_g }}" aria-label="Fat g">
+          <input name="fiber_g" type="number" step="0.1" min="0" value="{{ f.fiber_g }}" aria-label="Fiber g">
+          <button type="submit" class="btn btn-ghost small">Save</button></form>
+        <form method="post" action="/food/foods/{{ f.id }}/delete" class="food-inline" data-food-delete>
+          <input type="hidden" name="date" value="{{ food_day.isoformat() }}">
+          <button type="submit" class="btn btn-ghost small">Delete</button></form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted small">Foods you create appear here.</p>{% endif %}
+  </details>
+  {% for key, message in (food_error or {}).items() %}{% if key not in ('diet_preset', 'macro_goal', 'custom') %}<p class="error small" role="alert">{{ message }}</p>{% endif %}{% endfor %}
 </section>
+
+<dialog id="food-dialog" class="dialog"{{ ' data-open-on-load' if food_error and not (food_error.keys() | select('in', ('diet_preset', 'macro_goal', 'custom')) | list) }}>
+  <div class="dialog-head"><h3>Add food</h3><button type="button" class="btn btn-ghost" data-food-close aria-label="Close">&times;</button></div>
+  <div class="form-section">
+    <div class="food-modes" role="tablist">
+      <label><input type="radio" name="food-mode" value="existing" checked> Find a food</label>
+      <label><input type="radio" name="food-mode" value="create"> Create a food</label>
+      <label><input type="radio" name="food-mode" value="quick"> Quick add</label>
+    </div>
+    <form method="post" action="/food/log" data-food-form>
+      <input type="hidden" name="date" value="{{ food_day.isoformat() }}">
+      <input type="hidden" name="meal" value="breakfast" data-food-meal>
+      <input type="hidden" name="mode" value="existing" data-food-mode>
+      <input type="hidden" name="food_id" value="" data-food-id>
+      <div data-food-pane="existing">
+        <label class="field"><span>Search foods</span><input type="search" data-food-search placeholder="egg, rice, chicken..." autocomplete="off"></label>
+        <ul class="food-results" data-food-results></ul>
+        <p class="muted small" data-food-picked></p>
+      </div>
+      <div data-food-pane="create" hidden>
+        <label class="field"><span>Name</span><input name="name" maxlength="120" disabled></label>
+        <label class="field"><span>Serving (for example 1 cup cooked)</span><input name="serving" maxlength="60" disabled></label>
+        <div class="grid">
+          <label class="field"><span>Calories</span><input name="calories" type="number" min="0" max="5000" step="0.1" disabled></label>
+          <label class="field"><span>Protein g</span><input name="protein_g" type="number" min="0" max="500" step="0.1" disabled></label>
+          <label class="field"><span>Carbs g</span><input name="carb_g" type="number" min="0" max="500" step="0.1" disabled></label>
+          <label class="field"><span>Fat g</span><input name="fat_g" type="number" min="0" max="500" step="0.1" disabled></label>
+          <label class="field"><span>Fiber g</span><input name="fiber_g" type="number" min="0" max="500" step="0.1" disabled></label>
+        </div>
+        <p class="muted small"><span data-food-quick-note hidden>A quick add logs these numbers once and is not saved as a food.</span><span data-food-create-note>Create saves this food to My foods and logs it.</span></p>
+      </div>
+      <label class="field"><span>Servings</span><input name="servings" type="number" min="0.1" max="50" step="0.1" value="1" required></label>
+      <div class="dialog-foot"><button type="submit" class="btn btn-primary">Add to log</button></div>
+    </form>
+  </div>
+</dialog>
+<script src="{{ static_url('js/food.js') }}" defer></script>
