@@ -1136,3 +1136,12 @@ fieldset[data-day] { min-width: 0; }
 .price-compare-price { flex: none; text-align: right; white-space: nowrap; }
 .price-compare-price strong { font-size: 1.2rem; }
 .price-compare-unit { color: var(--muted); font-size: 0.85rem; }
+
+/* ---------- body photos ---------- */
+.photos-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.photo-grid { list-style: none; margin: 12px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.photo-tile { display: flex; flex-direction: column; gap: 6px; }
+.photo-open { position: relative; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); cursor: pointer; aspect-ratio: 3 / 4; }
+.photo-open img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-hint { position: absolute; inset: auto 0 0 0; padding: 6px 8px; font-size: 0.8rem; text-align: center; background: rgb(0 0 0 / 55%); color: #fff; }
+.photo-unlocked { display: flex; align-items: center; gap: 10px; }

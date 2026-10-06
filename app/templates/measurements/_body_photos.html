@@ -1,0 +1,62 @@
+<section aria-labelledby="body-photos-heading" id="body-photos" class="body-photos"
+         data-mode="{{ 'code' if photo_2fa else 'click' }}" data-sharp="{{ '1' if photo_sharp else '0' }}"
+         data-seconds="{{ photo_seconds }}">
+  <div class="photos-head">
+    <h2 id="body-photos-heading" class="section-title">Body photos</h2>
+    <button type="button" class="btn btn-primary" data-photo-add>Add body photo</button>
+  </div>
+  <p class="muted small">Private to you: never shared with anyone. Photos stay blurred until you reveal them{{ ' with your authenticator code' if photo_2fa }}.</p>
+  {% if photo_sharp %}
+  <div class="note photo-unlocked" role="status">Unlocked: <strong data-photo-countdown>{{ photo_seconds // 60 }}:{{ '%02d' | format(photo_seconds % 60) }}</strong> left.
+    <button type="button" class="btn btn-ghost" data-photo-lock>Lock now</button></div>
+  {% endif %}
+  {% if photos %}
+  <ul class="photo-grid">
+    {% for p in photos %}
+    <li class="photo-tile">
+      <button type="button" class="photo-open" data-photo-id="{{ p.id }}" aria-label="Show the photo from {{ p.taken_on | shortdate }}">
+        <img src="/measurements/photos/{{ p.id }}/{{ 'full' if photo_sharp else 'preview' }}" alt="Body photo from {{ p.taken_on | shortdate }}" loading="lazy">
+        {% if not photo_sharp %}<span class="photo-hint">{{ 'Enter code to view' if photo_2fa else 'Click to reveal' }}</span>{% endif %}
+      </button>
+      <div class="photo-meta small"><strong>{{ p.taken_on | shortdate }}</strong>{% if p.angle %} &middot; {{ photo_angle_labels[p.angle] }}{% endif %}{% if p.note %}<br>{{ p.note }}{% endif %}</div>
+      <form method="post" action="/measurements/photos/{{ p.id }}/delete" data-photo-delete><button type="submit" class="btn btn-ghost small">Delete</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="empty muted">No body photos yet.</p>{% endif %}
+</section>
+
+<dialog id="photo-upload-dialog" class="dialog"{{ ' data-open-on-load' if open_photo_dialog or photo_error }}>
+  <form method="post" action="/measurements/photos" enctype="multipart/form-data" class="settings-form">
+    <div class="dialog-head"><h3>Add body photo</h3><button type="button" class="btn btn-ghost" data-photo-close aria-label="Close">&times;</button></div>
+    <div class="form-section">
+      <label class="field"><span>Photo</span><input type="file" name="file" accept="image/*,.heic,.heif" required></label>
+      {% if photo_error and photo_error.file %}<p class="error small">{{ photo_error.file }}</p>{% endif %}
+      <label class="field"><span>Date</span><input type="date" name="taken_on" value="{{ (photo_form or {}).get('taken_on') or today }}" max="{{ today }}"></label>
+      {% if photo_error and photo_error.taken_on %}<p class="error small">{{ photo_error.taken_on }}</p>{% endif %}
+      <label class="field"><span>Angle (optional)</span>
+        <select name="angle"><option value="">None</option>
+          {% for key, label in photo_angle_labels.items() %}<option value="{{ key }}" {{ 'selected' if (photo_form or {}).get('angle') == key }}>{{ label }}</option>{% endfor %}
+        </select></label>
+      {% if photo_error and photo_error.angle %}<p class="error small">{{ photo_error.angle }}</p>{% endif %}
+      <label class="field"><span>Note (optional)</span><input type="text" name="note" maxlength="200" value="{{ (photo_form or {}).get('note') or '' }}"></label>
+      {% if photo_error and photo_error.note %}<p class="error small">{{ photo_error.note }}</p>{% endif %}
+      <p class="muted small">Location and camera details are removed when the photo is saved. It stays blurred until you reveal it and is never shared.</p>
+    </div>
+    <div class="dialog-foot"><button type="submit" class="btn btn-primary">Save photo</button></div>
+  </form>
+</dialog>
+
+<dialog id="photo-unlock-dialog" class="dialog">
+  <form method="post" action="/measurements/photos/unlock" class="settings-form" data-photo-unlock-form>
+    <div class="dialog-head"><h3>Show body photos</h3><button type="button" class="btn btn-ghost" data-photo-close aria-label="Close">&times;</button></div>
+    <div class="form-section">
+      <label class="field"><span>6-digit code from your authenticator</span>
+        <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label>
+      <p class="error small" data-photo-unlock-error hidden></p>
+      <p class="muted small">Photos stay visible for 10 minutes after a correct code.</p>
+    </div>
+    <div class="dialog-foot"><button type="submit" class="btn btn-primary">Show photos</button></div>
+  </form>
+</dialog>
+<script src="{{ static_url('js/body-photos.js') }}" defer></script>

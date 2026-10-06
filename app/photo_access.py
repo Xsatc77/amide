@@ -2,12 +2,16 @@
 
 from datetime import datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import config
 from app.auth import sessions
-from app.models import LoginSession, User
+from app.models import BodyPhoto, LoginSession, User
 from app.routers.auth import check_code
+
+
+ANGLE_LABELS = {"front": "Front", "side": "Side", "back": "Back", "other": "Other"}
 
 
 def is_unlocked(row: LoginSession | None, now: datetime) -> bool:
@@ -48,3 +52,12 @@ def lock(db: Session, row: LoginSession | None) -> None:
     if row is not None:
         row.photo_unlocked_until = None
         db.commit()
+
+
+def page_context(session: Session, user: User, row: LoginSession | None, now: datetime) -> dict:
+    """What the Body photos section needs: the owner's photos (newest first) and the current lock state."""
+    photos = session.scalars(select(BodyPhoto).where(BodyPhoto.owner_id == user.id)
+                             .order_by(BodyPhoto.taken_on.desc(), BodyPhoto.id.desc())).all()
+    sharp = bool(user.photo_2fa_required) and is_unlocked(row, now)
+    return {"photos": photos, "photo_2fa": bool(user.photo_2fa_required), "photo_sharp": sharp,
+            "photo_seconds": seconds_left(row, now) if sharp else 0, "photo_angle_labels": ANGLE_LABELS}

@@ -5,11 +5,13 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import photo_access
+from app.auth import sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.calculations import (bmi, bmr, body_fat_pct, macros_for_preset,
                                            target_calories, tdee, water_goal_oz, water_pace)
-from app.models import BodyMeasurement, DietPreset, MacroGoal, Share, ShareCategory, User
+from app.models import BodyMeasurement, DietPreset, LoginSession, MacroGoal, Share, ShareCategory, User
 from app.routers import journal, labs
 from app.templating import templates
 
@@ -519,6 +521,10 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context.update(journal.journal_tab_context(session, uid))
     elif tab == "labs":
         context.update(labs.labs_tab_context(session, uid, range_key, window_start))
+    if tab == "measurements" and me_user:
+        login_row = session.get(LoginSession, request.state.session_id) if request.state.session_id else None
+        context.update(photo_access.page_context(session, me_user, login_row, sessions.now_utc()))
+        context["open_photo_dialog"] = request.query_params.get("add_photo") == "1"
     if extra:
         context.update(extra)
 
