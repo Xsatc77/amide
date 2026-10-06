@@ -35,7 +35,7 @@
     {% for c in contacts %}
     <li>
       <strong>{{ c.method_type_name }}:</strong>
-      {% if c.link %}<a href="{{ c.link }}">{{ c.value }}</a>{% else %}{{ c.value }}{% endif %}
+      {% if c.link %}<a href="{{ c.link }}"{% if c.link.startswith('https://') %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ c.value }}</a>{% else %}{{ c.value }}{% endif %}
     </li>
     {% endfor %}
   </ul>

@@ -70,3 +70,13 @@ def test_custom_method_type_has_no_link():
 def test_matching_is_case_insensitive_on_method_name():
     assert contact_link("email", "vendor@example.com") == "mailto:vendor@example.com"
     assert contact_link("EMAIL", "vendor@example.com") == "mailto:vendor@example.com"
+
+
+def test_messaging_links_accept_the_other_ways_people_write_them():
+    assert contact_link("WA", "+1 555 123 4567") == "https://wa.me/15551234567"
+    assert contact_link("WhatsApp Business", "+1 555 123 4567") == "https://wa.me/15551234567"
+    assert contact_link("WhatsApp", "no number yet") is None
+    assert contact_link("Telegram", "https://t.me/somehandle") == "https://t.me/somehandle"
+    assert contact_link("Telegram", "t.me/somehandle") == "https://t.me/somehandle"
+    assert contact_link("Telegram", "+1 555 123 4567") == "https://t.me/+15551234567"
+    assert contact_link("Telegram", "ab") is None
