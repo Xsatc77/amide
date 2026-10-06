@@ -21,7 +21,8 @@ NOT_BACKED_UP = {"sessions", "alembic_version"}
 
 # File directories attached to rows (and the library's own files), by key.
 FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "LAB_REPORT_DIR",
-             "workout_pdfs": "WORKOUT_PDF_DIR", "wallet_qr": "WALLET_QR_DIR"}
+             "workout_pdfs": "WORKOUT_PDF_DIR", "wallet_qr": "WALLET_QR_DIR",
+             "body_photos": "BODY_PHOTO_DIR"}
 
 PROFILE_COLUMNS = ("sex", "birth_date", "height_in", "activity_level", "macro_goal", "diet_preset", "life_stage",
                    "custom_protein_pct", "custom_carb_pct", "custom_fat_pct", "water_goal_oz", "timezone", "colorway",
@@ -89,6 +90,9 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
     Section("measurements", "Measurements and water", PERSON, (
         Tbl("body_measurements", "owner_id = :uid"),
         Tbl("water_logs", "owner_id = :uid")), help="Weigh-ins, tape measurements, blood pressure and water logs."),
+    Section("body_photos", "Body photos", PERSON, (
+        Tbl("body_photos", "owner_id = :uid", file=("filename", "body_photos")),),
+        help="Your progress photos with their image files. Never offered in a Share file."),
     Section("journal", "Journal", PERSON, (
         Tbl("journal_entries", "owner_id = :uid"),
         Tbl("journal_entry_side_effects", f"entry_id IN ({_ENTRIES})"),
@@ -118,7 +122,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
 
 # Order sections are loaded in: shared data first, so person rows can point at it, and inventory before protocols.
 LOAD_ORDER = ("library", "vendors", "price_lists", "profile", "inventory", "protocols", "workouts", "measurements",
-              "journal", "labs")
+              "body_photos", "journal", "labs")
 PERSON_SECTIONS = tuple(k for k in LOAD_ORDER if SECTIONS[k].level == PERSON)
 SHARED_SECTIONS = tuple(k for k in LOAD_ORDER if SECTIONS[k].level == INSTALLATION)
 SHAREABLE = tuple(k for k in LOAD_ORDER if SECTIONS[k].shareable)

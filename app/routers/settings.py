@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 import zoneinfo
 from datetime import date, timezone
 
-from app import uploads
+from app import body_photos, uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
 from app.models import (
-    ActivityLevel, BiologicalSex, Colorway, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
+    ActivityLevel, BiologicalSex, BodyPhoto, Colorway, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
     Protocol, Share, ShareCategory, User, Vendor,
 )
 from app.settings.rules import TIMEZONES, email_error, timezone_error
@@ -451,6 +451,10 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
         if panel.report_filename:
             report_filenames.append(panel.report_filename)
         session.delete(panel)
+    photo_filenames = []
+    for photo in session.scalars(select(BodyPhoto).where(BodyPhoto.owner_id == target.id)):
+        photo_filenames.append(photo.filename)
+        session.delete(photo)
     for protocol in session.scalars(select(Protocol).where(Protocol.owner_id == target.id)):
         session.delete(protocol)
     # Vendors are a shared resource now (see Vendor's docstring) -- keep the row, just clear
@@ -474,4 +478,6 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
         uploads.delete_coa(filename)
     for filename in report_filenames:
         uploads.delete_lab_report(filename)
+    for filename in photo_filenames:
+        body_photos.delete_file(filename)
     return RedirectResponse("/settings#admin", status_code=303)
