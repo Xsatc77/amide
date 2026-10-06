@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let the owner follow only chosen Telegram topics of a forum group, use the topic name as context, and set aside lists that mention skip words such as a region the owner cannot order from.
+**Goal:** Let the owner follow only chosen Telegram topics of a forum group (topics named like "US warehouse" or "Price List" are followed automatically), use the topic name as context, and set aside lists that mention skip words such as a region the owner cannot order from.
 
 **Architecture:** One migration adds topics, a per-group "selected topics only" switch, skip words and topic fields on items. Amide's token API carries topics both ways and re-checks every message's topic. Skip words and topic titles are applied in the existing processing step. The inbox gets a Follow control, topic ticks and a skip-words field. The watcher registers topics, reads only the enabled ones with a position per topic, and sends the topic with each message.
 
@@ -39,7 +39,7 @@
 **Files:** Create `migrations/versions/0041_ingest_topics.py`, `tests/test_ingest_topics.py`; Modify `app/models.py`, `app/backup/sections.py`.
 
 **Interfaces:**
-- Produces model `IngestTopic(id, source_id, topic_id: str, title: str, enabled: bool=False, created_at)`; columns `IngestSource.topics_only: bool = False`, `IngestSource.skip_words: str | None`; `IngestItem.topic_id: str | None`, `IngestItem.topic_title: str | None`.
+- Produces model `IngestTopic(id, source_id, topic_id: str, title: str, enabled: bool=False, created_at)`; columns `IngestSource.topics_only: bool = False`, `IngestSource.skip_words: str | None`, `IngestSource.follow_words: str | None` (default `price, warehouse`; a topic whose name contains one of these words starts ticked); `IngestItem.topic_id: str | None`, `IngestItem.topic_title: str | None`.
 
 - [ ] **Step 1: Write the failing tests** (`tests/test_ingest_topics.py`, first block)
 
@@ -53,7 +53,7 @@ from ingest_helpers import make_source
 
 def test_a_source_defaults_to_the_whole_group_with_no_skip_words(db):
     s = make_source(db)
-    assert (s.topics_only, s.skip_words) == (False, None)
+    assert (s.topics_only, s.skip_words, s.follow_words) == (False, None, "price, warehouse")
 
 
 def test_topics_are_unique_per_group_default_off_and_go_with_the_group(db):
@@ -102,7 +102,7 @@ def test_topics_and_skip_words_survive_a_backup_and_load(client, db, me):
 
 - [ ] **Step 2: Run to verify it fails** (`ImportError: IngestTopic`).
 
-- [ ] **Step 3: Implement.** `app/models.py`: add to `IngestSource` `topics_only: Mapped[bool] = mapped_column(Boolean, default=False)` and `skip_words: Mapped[str | None] = mapped_column(String(1200))`; to `IngestItem` `topic_id: Mapped[str | None] = mapped_column(String(32))` and `topic_title: Mapped[str | None] = mapped_column(String(200))`; new class after `IngestSource`:
+- [ ] **Step 3: Implement.** `app/models.py`: add to `IngestSource` `topics_only: Mapped[bool] = mapped_column(Boolean, default=False)`, `skip_words: Mapped[str | None] = mapped_column(String(1200))` and `follow_words: Mapped[str | None] = mapped_column(String(1200), default="price, warehouse")`; to `IngestItem` `topic_id: Mapped[str | None] = mapped_column(String(32))` and `topic_title: Mapped[str | None] = mapped_column(String(200))`; new class after `IngestSource`:
 ```python
 class IngestTopic(Base):
     """A topic (named thread) of a forum group. New topics are off until the administrator ticks them."""
@@ -115,7 +115,7 @@ class IngestTopic(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
 ```
-`migrations/versions/0041_ingest_topics.py` (revision `0041`, down `0040`): create `ingest_topics` (same columns, `ix_ingest_topics_source_id`, unique constraint `uq_ingest_topic`); `op.add_column('ingest_sources', sa.Column('topics_only', sa.Boolean(), nullable=False, server_default=sa.false()))`, `skip_words` String(1200) nullable; `op.add_column('ingest_items', ...)` for `topic_id` String(32) and `topic_title` String(200); `downgrade` drops them (use `op.batch_alter_table` for the drops). `app/backup/sections.py`: in the `ingest` section tuple add `Tbl("ingest_topics")` after `Tbl("ingest_sources")` (parents before children is handled by `ordered`).
+`migrations/versions/0041_ingest_topics.py` (revision `0041`, down `0040`): create `ingest_topics` (same columns, `ix_ingest_topics_source_id`, unique constraint `uq_ingest_topic`); `op.add_column('ingest_sources', sa.Column('topics_only', sa.Boolean(), nullable=False, server_default=sa.false()))`, `skip_words` String(1200) nullable, `follow_words` String(1200) nullable with `server_default='price, warehouse'` (existing groups get the default too); `op.add_column('ingest_items', ...)` for `topic_id` String(32) and `topic_title` String(200); `downgrade` drops them (use `op.batch_alter_table` for the drops). `app/backup/sections.py`: in the `ingest` section tuple add `Tbl("ingest_topics")` after `Tbl("ingest_sources")` (parents before children is handled by `ordered`).
 
 - [ ] **Step 4: Run to verify it passes** (new file, `tests/test_migrations.py`, `tests/test_backup_export.py`, `tests/test_ingest_backup.py`), then the full suite.
 
@@ -151,15 +151,22 @@ def mapped(db, **kw):
     return make_source(db, vendor=vendor, **kw)
 
 
-def test_the_watcher_registers_topics_which_start_off_and_titles_refresh(db, me):
+def test_the_watcher_registers_topics_ticking_those_named_like_the_follow_words_and_titles_refresh(db, me):
     secret = make_token(db, me)
     with anon_client() as c:
-        body = {"title": "Acme group", "topics": [{"id": "7", "title": "US Price List"}, {"id": 8, "title": "Chatter"}]}
+        body = {"title": "Acme group", "topics": [{"id": "7", "title": "US warehouse"}, {"id": 8, "title": "Chatter"}, {"id": 9, "title": "UK Price List"}]}
         assert c.put("/api/ingest/sources/-100777", json=body, headers=bearer(secret)).status_code == 200
         body["topics"][0]["title"] = "US Prices"
         c.put("/api/ingest/sources/-100777", json=body, headers=bearer(secret))
     rows = {t.topic_id: (t.title, t.enabled) for t in db.query(IngestTopic)}
-    assert rows == {"7": ("US Prices", False), "8": ("Chatter", False)}
+    assert rows == {"7": ("US Prices", True), "8": ("Chatter", False), "9": ("UK Price List", True)}   # titles refresh; a later rename never changes a tick
+    db.query(IngestTopic).delete()
+    src = db.query(IngestSource).one()
+    src.skip_words = "uk"
+    db.commit()
+    with anon_client() as c:
+        c.put("/api/ingest/sources/-100777", json=body, headers=bearer(secret))
+    assert {t.topic_id: t.enabled for t in db.query(IngestTopic)} == {"7": True, "8": False, "9": False}   # skip words win
 
 
 def test_bad_topic_lists_are_refused(db, me):
@@ -201,7 +208,7 @@ def test_a_message_from_an_unselected_topic_is_ignored_and_not_stored_and_a_sele
     assert right[0]["status"] == "received" and no_topic[0]["status"] == "ignored"       # a group that follows topics ignores topic-less messages
     item = db.query(IngestItem).one()
     assert (item.topic_id, item.topic_title) == ("7", "Topic 7")
-    assert db.query(IngestTopic).filter_by(topic_id="8").one().enabled is False           # an unknown topic is remembered, off
+    assert db.query(IngestTopic).filter_by(topic_id="8").one().enabled is False           # an unknown topic is remembered, ticked only if its name matches the follow words
 
 
 def test_a_whole_group_stores_the_topic_of_each_message_and_photos_of_different_topics_never_cluster(db, me):
@@ -218,7 +225,7 @@ def test_a_whole_group_stores_the_topic_of_each_message_and_photos_of_different_
 
 - [ ] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Implement.** `ingest_api.py`: a helper `_topics_from(body)` returns `[(id, title)]` or raises `HTTPException(422)` (list of dicts with `title` non-empty, `id` int or str matching `^[0-9]{1,32}$` after `str()`, at most 200). In `register_source` after the title upsert, for each `(topic_id, title)` upsert `IngestTopic` (existing: refresh title; new: `enabled=False`). `list_sources` builds each row `{"chat_id", "title", "topics": None if not s.topics_only else [t.topic_id for t in enabled topics ordered by id]}` (one query for all enabled topics grouped by source). `receive_message` reads `topic_id` (strip, at most 32) and `topic_title` (at most 200); if `source.topics_only`: when `topic_id` is empty or the topic row is missing or not enabled, create a missing topic row off (if `topic_id` given and `topic_title`), commit, and return `{"results": [{"status": "ignored", "reason": "topic not followed", "item_id": None}]}`; otherwise pass `topic_id`/`topic_title` to `store.ingest_message`. When the group is a whole group and `topic_id` is given and unknown, also create the topic row (off) so the owner can later select it, and refresh the title of a known one. `store.ingest_message`: new kwargs stored on each `IngestItem`; `_group_key` photo clustering query adds `IngestItem.topic_id == topic_id` (use `.is_(None)` when `topic_id` is None) so different topics never merge.
+- [ ] **Step 3: Implement.** `ingest_api.py`: a helper `_topics_from(body)` returns `[(id, title)]` or raises `HTTPException(422)` (list of dicts with `title` non-empty, `id` int or str matching `^[0-9]{1,32}$` after `str()`, at most 200). In `register_source` after the title upsert, for each `(topic_id, title)` upsert `IngestTopic` (existing: refresh the title only, never the tick; new: `enabled = skip.find_skip_word(follow_words, [title]) is not None and skip.find_skip_word(skip_words, [title]) is None`, using `skip.parse_skip_words` on the source's `follow_words` and `skip_words`). `list_sources` builds each row `{"chat_id", "title", "topics": None if not s.topics_only else [t.topic_id for t in enabled topics ordered by id]}` (one query for all enabled topics grouped by source). `receive_message` reads `topic_id` (strip, at most 32) and `topic_title` (at most 200); if `source.topics_only`: when `topic_id` is empty or the topic row is missing or not enabled, create a missing topic row off (if `topic_id` given and `topic_title`), commit, and return `{"results": [{"status": "ignored", "reason": "topic not followed", "item_id": None}]}`; otherwise pass `topic_id`/`topic_title` to `store.ingest_message`. When the group is a whole group and `topic_id` is given and unknown, also create the topic row (off) so the owner can later select it, and refresh the title of a known one. `store.ingest_message`: new kwargs stored on each `IngestItem`; `_group_key` photo clustering query adds `IngestItem.topic_id == topic_id` (use `.is_(None)` when `topic_id` is None) so different topics never merge.
 
 - [ ] **Step 4: Run to verify it passes**, then `tests/test_ingest_api.py`, then the full suite.
 
@@ -335,7 +342,7 @@ def find_skip_word(words: list[str], texts) -> str | None:
 
 **Files:** Modify `app/routers/ingest_admin.py`, `app/templates/settings/ingest.html`; extend `tests/test_ingest_topics.py` (admin tests use `client`, `other_client` from `photo_helpers`).
 
-**Interfaces:** `POST /settings/ingest/sources/{id}` additionally accepts `topics_only` (checkbox), `skip_words` (text), `topics` (repeated, values are `IngestTopic.id` of the ticked topics). A non-administrator still gets 404.
+**Interfaces:** `POST /settings/ingest/sources/{id}` additionally accepts `topics_only` (checkbox), `skip_words` (text), `follow_words` (text, same limits as skip words, "auto-follow words"), `topics` (repeated, values are `IngestTopic.id` of the ticked topics). A non-administrator still gets 404.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -360,6 +367,17 @@ def test_follow_selection_topic_ticks_and_skip_words_are_saved(client, db):
     db.expire_all()
     db.refresh(s)
     assert (s.topics_only, s.skip_words) == (False, None) and not any(t.enabled for t in db.query(IngestTopic))
+
+
+def test_follow_words_are_saved_and_the_groups_can_be_searched(client, db):
+    s = mapped(db, title="Acme Peptides")
+    mapped(db, chat_id="-2", title="Zephyr Labs")
+    client.post(f"/settings/ingest/sources/{s.id}", data={"vendor_id": str(s.vendor_id), "follow_words": "Price, ,warehouse, PRICE"})
+    db.expire_all()
+    db.refresh(s)
+    assert s.follow_words == "price, warehouse"
+    page = client.get("/settings/ingest?q=zeph").text
+    assert "Zephyr Labs" in page and "Acme Peptides" not in page
 
 
 def test_a_bad_skip_word_is_refused_and_another_groups_topic_cannot_be_ticked(client, db):
@@ -392,7 +410,7 @@ def test_only_the_administrator_can_change_topics_and_skip_words(client, db):
 
 - [ ] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Implement.** `update_source`: `source.topics_only = bool(form.get("topics_only"))`; `skip.parse_skip_words(form.get("skip_words"))` (catch `ValueError` → 422 with the message) and store `", ".join(words) or None`; ticked ids = ints from `form.getlist("topics")` (ignore non-digits); for each `IngestTopic` of this source set `enabled = (topic.id in ticked) and source.topics_only`; ids of other sources are ignored by construction. The page context adds `topics_by_source` (dict source id → list of topics ordered by title). Template: in the Groups row add two cells: a **Follow** checkbox labelled "Only selected topics" (`name="topics_only"`, shown for every group) with, below it when topics exist, a checklist of `<label><input type="checkbox" name="topics" value="{{ t.id }}" form="src{{ s.id }}" {{ 'checked' if t.enabled }}> {{ t.title }}</label>`, and a **Skip words** text input (`name="skip_words"`, placeholder `UK, EU`) all using `form="src{{ s.id }}"`. Items show `· {{ i.topic_title }}` after the filename when present.
+- [ ] **Step 3: Implement.** `update_source`: `source.topics_only = bool(form.get("topics_only"))`; `skip.parse_skip_words(form.get("skip_words"))` (catch `ValueError` → 422 with the message) and store `", ".join(words) or None`; ticked ids = ints from `form.getlist("topics")` (ignore non-digits); for each `IngestTopic` of this source set `enabled = (topic.id in ticked) and source.topics_only`; ids of other sources are ignored by construction. `follow_words` is parsed with the same `skip.parse_skip_words` and stored joined (`None` when empty). The page accepts `?q=` and shows only groups whose title contains it (case-insensitive); the template adds a small search box above the Groups table (a GET form posting `q`) and an **Auto-follow words** input per group next to Skip words. The page context adds `topics_by_source` (dict source id → list of topics ordered by title). Template: in the Groups row add two cells: a **Follow** checkbox labelled "Only selected topics" (`name="topics_only"`, shown for every group) with, below it when topics exist, a checklist of `<label><input type="checkbox" name="topics" value="{{ t.id }}" form="src{{ s.id }}" {{ 'checked' if t.enabled }}> {{ t.title }}</label>`, and a **Skip words** text input (`name="skip_words"`, placeholder `UK, EU`) all using `form="src{{ s.id }}"`. Items show `· {{ i.topic_title }}` after the filename when present.
 
 - [ ] **Step 4: Run to verify it passes**, then the full suite; open the inbox in the browser pane once to check it renders.
 

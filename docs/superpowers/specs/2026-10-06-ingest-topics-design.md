@@ -54,6 +54,15 @@ topics, topic icons, notifications.
 - The inbox: the Groups table gains a **Follow** control (whole group, or selected topics) and, when topics are known, a
   checklist of them; plus a **Skip words** field (comma separated). Items show their topic name.
 
+## Amendment: auto-follow words and group search (2026-10-06)
+
+- Each group has **auto-follow words** (default `price, warehouse`, editable). A topic seen for the first time is ticked
+  when its name contains one of them as a whole word and none of the group's skip words; otherwise it starts off. A later
+  rename or a manual change of a tick is never overridden. Existing groups get the default. (A topic named "US warehouse"
+  or "Price List" is followed without any clicking; "Chatter" or "Promotional Event" is not.)
+- The Groups table has a search box (`?q=`) that shows only groups whose title contains the text.
+- Not built: a file-name filter (photos usually have no useful name), and automatic mapping of groups to vendors.
+
 ## Backward compatibility and safety
 
 - Groups with no topics, or `topics_only` off, behave exactly as today.
