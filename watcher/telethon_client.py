@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from telethon import errors, types
 
 from watcher.config import Config
-from watcher.ports import Access, Attachment, Group, TgMessage
+from watcher.ports import Access, Attachment, Group, TgMessage, Topic
 
 _PDF = {"application/pdf"}
 _IMAGES = {"image/jpeg", "image/png"}
@@ -46,12 +46,24 @@ class TelethonClient:
         groups = []
         async for dialog in self._client.iter_dialogs():
             if dialog.is_group or dialog.is_channel:        # never private chats or bots
-                groups.append(Group(chat_id=str(dialog.id), title=(dialog.name or "").strip() or str(dialog.id)))
+                topics = await self._topics(dialog.entity) if getattr(dialog.entity, "forum", False) else []
+                groups.append(Group(chat_id=str(dialog.id), title=(dialog.name or "").strip() or str(dialog.id), topics=topics))
         return groups
 
-    async def messages_since(self, chat_id: str, min_id: int, since: datetime | None) -> list[TgMessage]:
+    async def _topics(self, entity) -> list[Topic]:
+        """The topics of a forum group (any trouble means none: the group is then followed whole or not at all)."""
+        try:
+            from telethon.tl.functions.messages import GetForumTopicsRequest
+            result = await self._client(GetForumTopicsRequest(peer=entity, offset_date=None, offset_id=0, offset_topic=0, limit=100))
+            return [Topic(str(t.id), t.title) for t in result.topics if getattr(t, "title", None)]
+        except Exception:
+            return []
+
+    async def messages_since(self, chat_id: str, min_id: int, since: datetime | None, topic_id: str | None = None) -> list[TgMessage]:
         entity = await self._client.get_input_entity(int(chat_id))
         kwargs = {"min_id": min_id} if min_id > 0 else {"offset_date": since}
+        if topic_id is not None:
+            kwargs["reply_to"] = int(topic_id)                       # only that topic's thread
         out = []
         async for m in self._client.iter_messages(entity, reverse=True, **kwargs):
             attachments = []
@@ -63,8 +75,17 @@ class TelethonClient:
             elif m.document is not None and isinstance(media, types.MessageMediaDocument) and _kind(getattr(m.file, "mime_type", None)):
                 attachments.append(Attachment(filename=m.file.name or f"file-{m.id}", kind=_kind(m.file.mime_type), size=m.file.size or 0))
             out.append(TgMessage(chat_id=str(chat_id), message_id=m.id, date=m.date.astimezone(timezone.utc), text=m.message or "",
-                                 grouped_id=m.grouped_id, attachments=attachments, raw=m))
+                                 grouped_id=m.grouped_id, attachments=attachments, raw=m,
+                                 topic_id=topic_id if topic_id is not None else self._topic_of(m)))
         return out
+
+    @staticmethod
+    def _topic_of(m) -> str | None:
+        """The topic a message of a whole-group read belongs to, when the group is a forum."""
+        reply = getattr(m, "reply_to", None)
+        if reply is not None and getattr(reply, "forum_topic", False):
+            return str(getattr(reply, "reply_to_top_id", None) or getattr(reply, "reply_to_msg_id", None) or "") or None
+        return None
 
     async def download(self, message: TgMessage, attachment: Attachment) -> bytes:
         data = await self._client.download_media(message.raw, file=bytes)

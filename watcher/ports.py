@@ -13,12 +13,21 @@ class Payload:
     date: str                       # ISO 8601, UTC
     text: str
     files: list[tuple[str, bytes]]
+    topic_id: str | None = None
+    topic_title: str | None = None
+
+
+@dataclass
+class Topic:
+    topic_id: str
+    title: str
 
 
 @dataclass
 class Group:
     chat_id: str
     title: str
+    topics: list[Topic] = field(default_factory=list)       # only forum groups have topics
 
 
 @dataclass
@@ -36,6 +45,7 @@ class TgMessage:
     text: str
     grouped_id: int | None
     attachments: list[Attachment]
+    topic_id: str | None = None
     raw: object = field(default=None, repr=False, compare=False)
 
 
@@ -48,7 +58,7 @@ class Access:
 class TelegramPort(Protocol):
     async def list_groups(self) -> list[Group]: ...
 
-    async def messages_since(self, chat_id: str, min_id: int, since: datetime | None) -> list[TgMessage]: ...
+    async def messages_since(self, chat_id: str, min_id: int, since: datetime | None, topic_id: str | None = None) -> list[TgMessage]: ...
 
     async def download(self, message: TgMessage, attachment: Attachment) -> bytes: ...
 

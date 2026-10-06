@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from watcher.amide_client import AmideAuthError, AmideUnavailable
+from watcher.amide_client import AmideAuthError, AmideUnavailable, Source
 from watcher.ports import Payload, TgMessage
 from watcher.queue import DiskQueue
 from watcher.state import State
@@ -29,6 +29,7 @@ class Runner:
         self.paused = False
         self._failures = 0
         self._next_attempt: datetime | None = None
+        self._topic_titles: dict[tuple[str, str], str] = {}
 
     # ------------------------------------------------------------ one poll
 
@@ -52,17 +53,17 @@ class Runner:
             return
         self.paused = False
         await self._flush()
-        for chat_id in watch:
+        for chat_id, topic_id in self._reads(watch):
             if self.queue.full():
                 self.log.warning("The delivery queue is full; not reading more until it drains")
                 break
             try:
-                await self._read_group(chat_id)
+                await self._read_group(chat_id, topic_id)
             except Exception as exc:                                       # one group failing never stops the others
                 self.log.error("Could not read group %s (%s); its position was not moved", chat_id, type(exc).__name__)
             await self.sleep(PAUSE_BETWEEN_GROUPS)
         await self._flush()
-        for chat_id in watch:
+        for chat_id in dict.fromkeys(source.chat_id for source in watch):
             try:
                 await self._check_gone(chat_id)
             except AmideAuthError:
@@ -76,34 +77,48 @@ class Runner:
             self.log.error("Amide refused the token. Delivery is paused; create a new token in Amide and update config.toml.")
         self.paused = True
 
-    async def _register_and_list(self) -> list[str]:
+    @staticmethod
+    def _reads(watch: list[Source]) -> list[tuple[str, str | None]]:
+        """What to read: a whole group once, or each ticked topic of a group that follows selected topics."""
+        out: list[tuple[str, str | None]] = []
+        for source in watch:
+            if source.topics is None:
+                out.append((source.chat_id, None))
+            else:
+                out.extend((source.chat_id, topic) for topic in source.topics)
+        return out
+
+    async def _register_and_list(self) -> list[Source]:
         today = self.now().date().isoformat()
         busy = False
         for group in await self.tg.list_groups():
             st = self.state.chat(group.chat_id)
-            if busy or (st.title == group.title and st.registered_on == today):
+            for topic in group.topics:
+                self._topic_titles[(group.chat_id, topic.topic_id)] = topic.title
+            signature = group.title + "".join(f"|{t.topic_id}:{t.title}" for t in sorted(group.topics, key=lambda t: t.topic_id))
+            if busy or (st.title == signature and st.registered_on == today):
                 continue                                                  # only new, renamed or day-old titles cost a request
             try:
-                await self.amide.register(group.chat_id, group.title)
+                await self.amide.register(group.chat_id, group.title, group.topics or None)
             except AmideUnavailable:
                 busy = True                                               # try again next poll; never stop the poll over it
                 continue
-            st.title, st.registered_on = group.title, today
+            st.title, st.registered_on = signature, today
         self.state.save()
         return await self.amide.list_sources()
 
     # ------------------------------------------------------------ reading
 
-    async def _read_group(self, chat_id: str) -> None:
-        st = self.state.chat(chat_id)
+    async def _read_group(self, chat_id: str, topic_id: str | None = None) -> None:
+        st = self.state.chat(chat_id if topic_id is None else f"{chat_id}#{topic_id}")      # each topic keeps its own position
         now = self.now()
         if st.last_id == 0:
             if st.started_at is None:
                 st.started_at = (now - timedelta(days=self.config.backfill_days)).isoformat()
                 self.state.save()
-            messages = await self.tg.messages_since(chat_id, 0, datetime.fromisoformat(st.started_at))
+            messages = await self.tg.messages_since(chat_id, 0, datetime.fromisoformat(st.started_at), topic_id)
         else:
-            messages = await self.tg.messages_since(chat_id, st.last_id, None)
+            messages = await self.tg.messages_since(chat_id, st.last_id, None, topic_id)
         for batch in self._batches(messages):
             if self._unsettled(batch, now):
                 break
@@ -162,7 +177,8 @@ class Runner:
             return None
         first = batch[0]
         return Payload(chat_id=first.chat_id, message_id=str(first.message_id), album_id=str(first.grouped_id) if first.grouped_id else None,
-                       date=first.date.astimezone(timezone.utc).isoformat(), text="\n".join(texts)[:MAX_TEXT], files=files)
+                       date=first.date.astimezone(timezone.utc).isoformat(), text="\n".join(texts)[:MAX_TEXT], files=files,
+                       topic_id=first.topic_id, topic_title=self._topic_titles.get((first.chat_id, first.topic_id)) if first.topic_id else None)
 
     # ------------------------------------------------------------ delivering
 

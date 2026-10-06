@@ -63,3 +63,38 @@ def test_a_basic_group_that_was_upgraded_or_left_is_gone_and_a_normal_one_is_ok(
         assert run(client_with(FakeTg(entity=entity)).check_access("-1")).state == "gone"
     assert run(client_with(FakeTg(entity=chat())).check_access("-1")).state == "ok"
     assert run(client_with(FakeTg(error=ValueError("unknown"))).check_access("-1")).state == "unknown"
+
+
+def test_forum_groups_list_their_topics_and_per_topic_reads_pass_the_topic_to_telegram():
+    from telethon.tl.types import ForumTopic, ForumTopicDeleted
+
+    class Topics:
+        def __init__(self):
+            self.topics = [SimpleNamespace(id=7, title="US warehouse"), SimpleNamespace(id=1, title="General")]
+
+    class Fake(FakeTg):
+        def __init__(self):
+            super().__init__()
+            self.kwargs = None
+
+        def iter_dialogs(self):
+            async def gen():
+                yield SimpleNamespace(id=-100, name="Acme group", is_group=True, is_channel=True, entity=SimpleNamespace(forum=True))
+                yield SimpleNamespace(id=-200, name="Plain group", is_group=True, is_channel=False, entity=SimpleNamespace(forum=False))
+            return gen()
+
+        async def __call__(self, request):
+            return Topics()
+
+        def iter_messages(self, entity, **kwargs):
+            self.kwargs = kwargs
+            return super().iter_messages(entity, **kwargs)
+
+    fake = Fake()
+    client = client_with(fake)
+    groups = run(client.list_groups())
+    assert [(g.chat_id, [(t.topic_id, t.title) for t in g.topics]) for g in groups] == [("-100", [("7", "US warehouse"), ("1", "General")]), ("-200", [])]
+    run(client.messages_since("-100", 5, None, "7"))
+    assert fake.kwargs.get("reply_to") == 7 and fake.kwargs.get("min_id") == 5
+    run(client.messages_since("-100", 0, datetime(2026, 1, 1, tzinfo=timezone.utc)))
+    assert "reply_to" not in fake.kwargs

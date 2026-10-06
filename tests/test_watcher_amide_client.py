@@ -5,8 +5,8 @@ import httpx
 from app.main import app
 from app.models import IngestItem, IngestSource, Vendor
 from ingest_helpers import make_source, make_token, pdf_bytes, png_bytes
-from watcher.amide_client import AmideAuthError, AmideClient, AmideUnavailable
-from watcher.ports import Payload
+from watcher.amide_client import AmideAuthError, AmideClient, AmideUnavailable, Source
+from watcher.ports import Payload, Topic
 
 
 def http():
@@ -36,7 +36,7 @@ def test_register_list_send_and_state_against_the_real_api(client, db, me):
             db.commit()
             source.vendor_id, source.enabled = vendor.id, True
             db.commit()
-            assert await amide.list_sources() == ["-100123"]
+            assert await amide.list_sources() == [Source("-100123", None)]
             first = await amide.send(payload())
             again = await amide.send(payload())
             assert (first.kind, again.kind) == ("delivered", "delivered")   # a resend is harmless (Amide answers duplicate)
@@ -102,3 +102,34 @@ async def _unreachable():
         raise httpx.ConnectError("refused")
     async with httpx.AsyncClient(transport=httpx.MockTransport(refuse), base_url="http://amide.test") as h:
         return await AmideClient(h, "t").send(payload())
+
+
+def test_topics_register_follow_and_travel_with_each_message_against_the_real_api(client, db, me):
+    secret = make_token(db, me)
+
+    async def go():
+        async with http() as h:
+            amide = AmideClient(h, secret)
+            await amide.register("-100123", "Acme group", [Topic("7", "US warehouse"), Topic("8", "Chatter")])
+            source = db.query(IngestSource).one()
+            vendor = Vendor(name="Acme Labs")
+            db.add(vendor)
+            db.commit()
+            source.vendor_id, source.enabled, source.topics_only = vendor.id, True, True
+            db.commit()
+            assert await amide.list_sources() == [Source("-100123", ["7"])]                  # "US warehouse" was ticked by its name
+            assert (await amide.send(payload(topic_id="7", topic_title="US warehouse"))).kind == "delivered"
+    run(go())
+    db.expire_all()
+    item = db.query(IngestItem).one()
+    assert (item.topic_id, item.topic_title) == ("7", "US warehouse")
+
+
+def test_an_older_amide_without_topics_means_the_whole_group():
+    def handler(request):
+        return httpx.Response(200, json=[{"chat_id": "-1", "title": "x"}, "-2"])
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://amide.test") as h:
+            return await AmideClient(h, "t").list_sources()
+    assert run(go()) == [Source("-1", None), Source("-2", None)]

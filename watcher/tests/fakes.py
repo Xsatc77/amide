@@ -1,6 +1,6 @@
 """Stand-ins for Telegram and Amide so the runner is tested without a network."""
 
-from watcher.amide_client import AmideAuthError, AmideUnavailable, Delivery
+from watcher.amide_client import AmideAuthError, AmideUnavailable, Delivery, Source
 from watcher.ports import Access
 
 
@@ -22,10 +22,12 @@ class FakeTelegram:
         self.calls.append(("list_groups",))
         return list(self.groups)
 
-    async def messages_since(self, chat_id, min_id, since):
-        self.calls.append(("messages_since", chat_id))
+    async def messages_since(self, chat_id, min_id, since, topic_id=None):
+        self.calls.append(("messages_since", chat_id) if topic_id is None else ("messages_since", chat_id, topic_id))
         self.detailed.append(("messages_since", chat_id, min_id))
         rows = self.messages.get(chat_id, [])
+        if topic_id is not None:
+            rows = [m for m in rows if m.topic_id == topic_id]
         if min_id > 0:
             return [m for m in rows if m.message_id > min_id]
         return [m for m in rows if since is None or m.date >= since]
@@ -43,16 +45,17 @@ class FakeTelegram:
 
 class FakeAmide:
     def __init__(self, watch=(), outcomes=(), state_ok=(), register_busy=0):
-        self.watch, self.outcomes, self.state_ok = list(watch), iter(outcomes), iter(state_ok)
+        self.watch = [w if isinstance(w, Source) else Source(w, None) for w in watch]
+        self.outcomes, self.state_ok = iter(outcomes), iter(state_ok)
         self.registered, self.sent, self.states = [], [], []
         self.attempts = self.auth_checks = 0
         self.register_busy = register_busy
 
-    async def register(self, chat_id, title):
+    async def register(self, chat_id, title, topics=None):
         if self.register_busy > 0:
             self.register_busy -= 1
             raise AmideUnavailable("HTTP 429")
-        self.registered.append((chat_id, title))
+        self.registered.append((chat_id, title) if not topics else (chat_id, title, [(t.topic_id, t.title) for t in topics]))
 
     async def list_sources(self):
         self.auth_checks += 1
