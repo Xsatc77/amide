@@ -103,13 +103,13 @@ def load_starter(session: Session, path: Path | None = None) -> dict:
     """Insert missing starter foods and refresh changed ones from the shipped JSON. Never deletes (a logged starter food
     must stay). A malformed row is skipped."""
     rows = json.loads((path or STARTER_PATH).read_text(encoding="utf-8"))
+    existing = {(f.name, f.serving): f for f in session.scalars(select(Food).where(Food.owner_id.is_(None)))}
     added = updated = 0
     for row in rows:
         values, errors = parse_food(row)
         if errors:
             continue
-        food = session.scalar(select(Food).where(Food.owner_id.is_(None), Food.name == values["name"],
-                                                 Food.serving == values["serving"]))
+        food = existing.get((values["name"], values["serving"]))
         if food is None:
             session.add(Food(owner_id=None, source="starter", **values))
             added += 1
