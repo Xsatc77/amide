@@ -106,6 +106,7 @@ def test_vendor_key_ignores_case_punctuation_and_the_word_peptide():
     assert vendor_key("Zephyr Peptides") == vendor_key("Zephyr") == "zephyr"
     assert vendor_key("Orchid Peptide") == vendor_key("orchid") == "orchid"
     assert vendor_key("Mid Valley Bio") == "midvalleybio"
+    assert vendor_key("Peptide") == vendor_key("Peptides") == "peptide"  # a vendor named only that
 
 
 def test_decide_warehouse_precedence():
@@ -337,3 +338,10 @@ def test_report_mentions_spec_lines_that_were_not_read(db):
     d.unread_spec_lines = 3
     text = format_reports([store(db, FILE, d)])
     assert "3 spec lines were not read" in text
+
+
+def test_peptide_and_peptides_are_the_same_vendor_even_when_that_is_the_whole_name(db):
+    db.add(Vendor(name="Peptides"))
+    db.commit()
+    store(db, "Peptide - Price List - 2026-09-01.pdf", data(row("ZX10", "Zorvex")))
+    assert count(db, Vendor) == 1

@@ -216,3 +216,20 @@ def test_a_single_ingredient_is_not_a_blend():
 def test_blend_with_a_without_qualifier_is_not_matched_to_the_plain_blend():
     cards = [card(1, "CJC-1295 + Ipamorelin")]
     assert match_name("CJC1295(Without DAC)5mg+IPA5mg", cards) is None
+
+
+# ---------------------------------------------------------------- w/ means with, w/o means without
+
+def test_w_slash_means_with_and_w_slash_o_means_without():
+    with_dac = {name_key(n) for n in ("CJC-1295 W/Dac", "CJC-1295 w/ DAC", "CJC-1295 DAC", "CJC-1295 with DAC",
+                                      "CJC-1295WITH DAC")}
+    no_dac = {name_key(n) for n in ("CJC-1295 W/O Dac", "CJC-1295 w/o DAC", "CJC-1295 without DAC",
+                                    "CJC-1295 (No DAC)", "CJC1295 WO/Dac")}
+    assert len(with_dac) == 1 and len(no_dac) == 1 and with_dac != no_dac
+
+
+def test_w_slash_names_land_on_the_right_card():
+    cards = [card(1, "CJC-1295 DAC"), card(2, "CJC-1295 (No DAC)")]
+    assert names(match_name("CJC-1295 W/Dac", cards)) == ["CJC-1295 DAC"]
+    assert names(match_name("CJC-1295 W/O DAC", cards)) == ["CJC-1295 (No DAC)"]
+    assert names(match_name("CJC1295 WO/Dac", cards)) == ["CJC-1295 (No DAC)"]

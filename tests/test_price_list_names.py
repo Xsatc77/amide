@@ -112,11 +112,12 @@ def test_repair_never_turns_a_no_dac_name_into_a_with_dac_one():
     repair_names([row], table, is_known=lambda n: False)
     assert row.name == "CJC-1295 no DAC" and row.flags == []
 
-def test_repair_still_fixes_a_wo_dac_abbreviation_to_the_no_dac_product():
+def test_wo_and_w_slash_o_abbreviations_already_equal_the_no_dac_name_so_nothing_is_repaired():
     table = {"CND": PrefixName("cjc1295nodac", "CJC-1295 No DAC")}
-    row = r("CND5", "CJC-1295 WO DAC")
-    repair_names([row], table, is_known=lambda n: n == "CJC-1295 No DAC")
-    assert row.name == "CJC-1295 No DAC" and row.flags == ["name-from-code"]
+    for spelled in ("CJC-1295 WO DAC", "CJC-1295 W/O DAC"):
+        row = r("CND5", spelled)
+        repair_names([row], table, is_known=lambda n: n == "CJC-1295 No DAC")
+        assert row.name == spelled and row.flags == []  # equivalent as written; the matcher resolves it
 
 
 def test_without_and_no_mean_the_same_to_the_qualifier_guard():

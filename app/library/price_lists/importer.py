@@ -43,9 +43,11 @@ class ImportReport:
 
 
 def vendor_key(name: str) -> str:
-    """A vendor's comparison form: letters and digits only, without the words "peptide"/"peptides"."""
+    """A vendor's comparison form: letters and digits only, without the words "peptide"/"peptides". A vendor
+    named only that keeps the word, singular, so "Peptide" and "Peptides" are one vendor."""
     words = re.findall(r"[a-z0-9]+", unicodedata.normalize("NFKC", name).casefold())
-    return "".join(w for w in words if w not in _GENERIC_VENDOR_WORDS) or name_key(name)
+    kept = [w for w in words if w not in _GENERIC_VENDOR_WORDS]
+    return "".join(kept or ["peptide" if w in _GENERIC_VENDOR_WORDS else w for w in words]) or name_key(name)
 
 
 def resolve_vendor(session: Session, vendor_name: str, list_date: date) -> tuple[Vendor, bool]:

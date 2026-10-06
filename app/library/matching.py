@@ -35,8 +35,16 @@ class Match:
     how: str  # "exact" | "normalized" | "related" | "blend" | "fuzzy"
 
 
+_W_SLASH_O = re.compile(r"\bw\s*/\s*o\b", re.IGNORECASE)  # "W/O DAC" = without DAC
+_W_SLASH = re.compile(r"\bw\s*/\s*", re.IGNORECASE)  # "W/DAC" = with DAC
+_GLUED_QUALIFIER = re.compile(r"(?<=\d)(with|without)\b", re.IGNORECASE)  # "1295WITH DAC"
+
+
 def _norm(text) -> str:
-    return unicodedata.normalize("NFKC", text or "")
+    text = unicodedata.normalize("NFKC", text or "")
+    text = _W_SLASH_O.sub("without ", text)
+    text = _W_SLASH.sub("with ", text)
+    return _GLUED_QUALIFIER.sub(r" \1", text)
 
 
 def _words(text) -> list[str]:
@@ -58,7 +66,7 @@ def qualifiers(name) -> frozenset[str]:
 
 
 def _tokens(text) -> list[str]:
-    return ["no" if w == "without" else w for w in _words(text) if w not in _IGNORED_WORDS]
+    return ["no" if w in _NO_ABBREVIATIONS else w for w in _words(text) if w not in _IGNORED_WORDS]
 
 
 def name_key(name) -> str:
