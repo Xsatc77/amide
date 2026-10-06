@@ -1082,3 +1082,29 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 
 .match-cell { min-width: 14rem; }
 .btn-small { padding: .15rem .5rem; font-size: .8rem; }
+
+/* Workouts: tabs, energy, progress */
+.wk-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin: 0 0 1rem; overflow-x: auto; }
+.wk-tab { padding: .5rem .9rem; border-bottom: 3px solid transparent; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.wk-tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.energy-hero { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end; }
+.energy-hero .big { font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.energy-stats { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.stat-block .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.macro-result { margin-top: .75rem; }
+.split-bar { display: flex; height: 18px; border-radius: 9px; overflow: hidden; margin: .5rem 0; background: var(--border); }
+.split-bar span { display: block; height: 100%; }
+.level-bars { display: grid; gap: .45rem; }
+.level-bar { display: grid; grid-template-columns: 5.5rem 1fr 4rem; gap: .5rem; align-items: center; }
+.level-bar .track { display: block; height: 14px; border-radius: 7px; background: var(--border); overflow: hidden; }
+.level-bar .fill { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.level-bar.current .fill { background: var(--accent); }
+.level-bar strong { text-align: right; font-variant-numeric: tabular-nums; }
+.macro-grid { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.macro-cell { display: block; padding: .5rem; border: 1px solid var(--border); border-radius: 8px; text-align: center; text-decoration: none; color: inherit; }
+.macro-cell.selected { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.math-lines { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); padding: .6rem .8rem; border-radius: 6px; }
+tr.current td { font-weight: 600; background: color-mix(in srgb, var(--accent-soft) 40%, transparent); }
+.wk-chart .wk-target { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 6 4; }
+.wk-chart .wk-bar:hover rect { opacity: .85; }
+.chips .tag.active { background: var(--accent); color: #fff; }

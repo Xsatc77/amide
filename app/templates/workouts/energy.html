@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% set active_nav = "workouts" %}
+{% block title %}Energy{% endblock %}
+
+{% macro n(x) %}{{ "{:,}".format(x) }}{% endmacro %}
+
+{% block content %}
+<div class="page-head"><h1>Workouts</h1></div>
+{% with active_tab='energy' %}{% include "workouts/_tabs.html" %}{% endwith %}
+
+{% if status == 'missing' %}
+<div class="empty">
+  <p><strong>Add a few details to see your energy numbers.</strong></p>
+  <p class="muted">Missing: {{ missing | join(', ') }}. Set your body profile in <a href="/settings#user">Settings</a> and log a weigh-in under <a href="/measurements">Measurements</a>.</p>
+</div>
+{% else %}
+{% set total = r.split_pct %}
+
+<section class="side-box">
+  <div class="energy-hero">
+    <div><div class="big">{{ n(r.tdee) }}</div><div class="muted">estimated calories burned per day (TDEE)</div></div>
+    <div class="energy-stats">
+      <div class="stat-block"><div class="label">BMR</div><strong>{{ n(r.bmr) }}</strong> <span class="muted small">kcal at rest</span></div>
+      <div class="stat-block"><div class="label">BMI</div><strong>{{ r.bmi }}</strong> <span class="muted small">{{ r.bmi_category }}</span></div>
+      <div class="stat-block"><div class="label">Lean body mass</div><strong>{{ r.lbm_kg }}</strong> <span class="muted small">kg ({{ r.lbm_lb }} lb)</span></div>
+    </div>
+  </div>
+  <p class="muted small">{{ r.life_stage_note }}{% if pcos %} The reference calculator lists PCOS as -6% of BMR but applies no change; Amide applies the -6% it states.{% endif %}
+    These are estimates: eat near your target for two to three weeks, track your weight, and adjust by about 100 kcal a day if it does not match.</p>
+
+  <h2 class="section-title">Where it goes</h2>
+  <div class="split-bar" role="img" aria-label="BMR {{ total[0] }}%, activity {{ total[1] }}%, food digestion {{ total[2] }}%">
+    {% for name, pct in (('BMR', total[0]), ('Activity', total[1]), ('Food digestion', total[2])) %}
+    {% if pct %}<span style="width: {{ pct }}%; background: {{ stack_colors[name] }}" title="{{ name }}: {{ pct }}%"></span>{% endif %}
+    {% endfor %}
+  </div>
+  <ul class="price-legend">
+    {% for name, kcal, pct in (('BMR', r.split[0], total[0]), ('Activity', r.split[1], total[1]), ('Food digestion', r.split[2], total[2])) %}
+    <li><span class="swatch" style="background: {{ stack_colors[name] }}"></span>{{ name }} {{ n(kcal) }} kcal ({{ pct }}%)</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="side-box">
+  <h2 class="section-title">Goal ladder</h2>
+  <table class="lib-table">
+    <thead><tr><th>Goal</th><th>Change</th><th>Calories per day</th></tr></thead>
+    <tbody>
+      {% for name, delta, kcal in r.goals %}
+      <tr{% if delta == 0 %} class="current"{% endif %}><td>{{ name }}</td><td>{{ '%+d' | format(delta) if delta else '—' }}</td><td>{{ n(kcal) }} kcal</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">Your saved goal sets the dashed target line on the chart below ({{ n(target) }} kcal).</p>
+</section>
+
+<section class="side-box">
+  <h2 class="section-title">Macros</h2>
+  <div class="macro-grid" role="group" aria-label="Macro split by goal and carb level">
+    <span></span><span class="muted small">Low carb</span><span class="muted small">Moderate</span><span class="muted small">High carb</span>
+    {% for g, row in macro_grid.items() %}
+    <span class="muted small">{{ row.label }} {{ '%+d' | format(row.delta) if row.delta else '' }}</span>
+    {% for c in ('low', 'moderate', 'high') %}
+    <a href="/workouts/energy?goal={{ g }}&carb={{ c }}&range={{ range }}" class="macro-cell{% if g == goal and c == carb %} selected{% endif %}" aria-current="{{ 'true' if g == goal and c == carb else 'false' }}">
+      {{ row[c][0] }} / {{ row[c][1] }} / {{ row[c][2] }}<small class="muted"> P / C / F</small></a>
+    {% endfor %}
+    {% endfor %}
+  </div>
+  <div class="energy-stats macro-result">
+    {% for label, i in (('Protein', 0), ('Carbs', 1), ('Fat', 2)) %}
+    <div class="stat-block"><div class="label"><span class="swatch" style="background: {{ macro_colors[i] }}"></span>{{ label }}</div>
+      <strong>{{ cell.grams[i] }} g</strong> <span class="muted small">{{ cell.percents[i] }}% of calories &middot; about {{ cell.per_meal[i] }} g per meal</span></div>
+    {% endfor %}
+    <div class="stat-block"><div class="label">Daily total</div><strong>{{ n(cell.calories) }} kcal</strong> <span class="muted small">across 4 meals, about {{ n(cell.kcal_per_meal) }} each</span></div>
+  </div>
+</section>
+
+<section class="side-box">
+  <h2 class="section-title">BMR by formula</h2>
+  <table class="lib-table">
+    <thead><tr><th>Formula</th><th>BMR</th><th>Source</th></tr></thead>
+    <tbody>
+      {% for name, kcal, source in r.bmr_formulas %}<tr><td>{{ name }}</td><td>{{ n(kcal) }}</td><td class="muted small">{{ source }}</td></tr>{% endfor %}
+      <tr><td>Average of the four</td><td>{{ n(r.bmr_average) }}</td><td class="muted small"></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="side-box">
+  <h2 class="section-title">TDEE by activity level</h2>
+  <div class="level-bars">
+    {% for b in level_bars %}
+    <div class="level-bar{% if b.current %} current{% endif %}">
+      <span>{{ b.label }}</span>
+      <span class="track"><span class="fill" style="width: {{ b.pct }}%"></span></span>
+      <strong>{{ n(b.kcal) }}</strong>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="muted small">Your level is highlighted. Most people choose one level too high, which overstates TDEE by about 250 kcal.</p>
+</section>
+
+<section class="side-box">
+  <h2 class="section-title">All metrics</h2>
+  <table class="lib-table">
+    <tbody>
+      <tr><td>BMR</td><td>{{ n(r.bmr) }} kcal/day</td></tr>
+      <tr><td>TDEE (unadjusted)</td><td>{{ n(r.tdee_unadjusted) }} kcal/day</td></tr>
+      <tr><td>TDEE (adjusted)</td><td>{{ n(r.tdee) }} kcal/day</td></tr>
+      <tr><td>BMI</td><td>{{ r.bmi }} &middot; {{ r.bmi_category }}</td></tr>
+      <tr><td>Lean body mass</td><td>{{ r.lbm_kg }} kg ({{ r.lbm_lb }} lb)</td></tr>
+      <tr><td>Fat body mass</td><td>{% if composition and composition.fat_mass_lb is not none %}{{ composition.fat_mass_lb }} lb ({{ composition.body_fat_pct }}%){% else %}<span class="muted">needs neck and waist measurements</span>{% endif %}</td></tr>
+      <tr><td>Waist : height</td><td>{% if composition %}{{ composition.waist_height }} <span class="muted small">(ideal under 0.50)</span>{% else %}<span class="muted">needs a waist measurement</span>{% endif %}</td></tr>
+      <tr><td>Max fat metabolism</td><td><span class="muted">not available</span></td></tr>
+      <tr><td>Minimum daily calories</td><td>{{ n(r.min_calories) }} kcal/day <span class="muted small">safety floor</span></td></tr>
+      <tr><td>Activity factor</td><td>{{ '%.3f' | format(r.activity_factor) }} &times;</td></tr>
+    </tbody>
+  </table>
+  <h3 class="small muted">The math</h3>
+  <pre class="math-lines">{% for line in r.math %}{{ line }}
+{% endfor %}</pre>
+</section>
+
+<section class="side-box">
+  <h2 class="section-title">Estimated workout burn against TDEE</h2>
+  <div class="chips" role="group" aria-label="Range">
+    {% for k in ranges %}<a class="tag{{ ' active' if k == range }}" href="/workouts/energy?goal={{ goal }}&carb={{ carb }}&range={{ k }}">{{ k }} days</a>{% endfor %}
+  </div>
+  <ul class="price-legend">
+    {% for name, color in stack_colors.items() %}<li><span class="swatch" style="background: {{ color }}"></span>{{ name }}</li>{% endfor %}
+    <li><span class="swatch dashed" style="background: #dc2626"></span>Goal target</li>
+  </ul>
+  <svg class="price-chart wk-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="Daily TDEE with the day's estimated workout burn stacked on top">
+    {% for t in chart.y_ticks %}
+    <line class="grid" x1="{{ chart.plot.left }}" x2="{{ chart.plot.right }}" y1="{{ t.y }}" y2="{{ t.y }}"></line>
+    <text x="{{ chart.plot.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ n(t.value | round | int) }}</text>
+    {% endfor %}
+    {% for t in chart.x_ticks %}
+    <text x="{{ t.x }}" y="{{ chart.plot.bottom + 16 }}" text-anchor="{{ 'start' if loop.first and not loop.last else ('end' if loop.last and not loop.first else 'middle') }}">{{ t.label | shortdate }}</text>
+    {% endfor %}
+    {% for bar in chart.bars %}
+    <g class="wk-bar"><title>{{ bar.tip }}</title>
+      {% for s in bar.segments %}<rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ s.h }}" fill="{{ stack_colors[s.name] }}"></rect>{% endfor %}
+    </g>
+    {% endfor %}
+    {% if chart.line %}<polyline class="wk-target" points="{{ chart.line.poly }}"></polyline>{% endif %}
+  </svg>
+  {% if workout_days %}
+  <p class="muted small">{{ workout_days }} workout day{{ '' if workout_days == 1 else 's' }} in this period, about {{ n(workout_total) }} kcal net in total (estimated).</p>
+  {% else %}
+  <p class="muted small">No workouts logged in this period.</p>
+  {% endif %}
+  <p class="muted small">TDEE already includes your typical exercise, so the stack compares each day's logged workout with that baseline; it is not a strict total.</p>
+</section>
+{% endif %}
+{% endblock %}
