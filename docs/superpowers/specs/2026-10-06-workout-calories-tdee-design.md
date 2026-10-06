@@ -1,6 +1,7 @@
 # Workout calorie estimates, TDEE and the burn chart: design
 
-Date: 2026-10-06. Status: awaiting review.
+Date: 2026-10-06. Status: approved by the owner on 2026-10-06 with the three changes folded in below
+(Compendium values for walking and running; exercise history survives plan changes; charts derived from the data).
 
 ## Goal
 
@@ -21,6 +22,11 @@ workout burn against TDEE.
   whole number of reps per set.
 - TDEE: reproduce the data at tdeecalculator.org exactly. Chart: daily stacked bars, TDEE baseline plus the workout's
   net kcal, with the goal target as a line.
+- Walking and running use the Compendium's own values, chosen by speed (and grade), not the workbook's flat 3.5.
+- If a workout plan changes, every logged exercise stays in the database. History is tracked per exercise, so when
+  the same exercise appears in a later plan its past performance is already there.
+- Charts and graphs are derived from the datasets (the exercise database and the logged history), not only the one
+  burn-vs-TDEE chart.
 - The exercise database ships in the repo (it is the owner's own work, derived from the public Compendium of
   Physical Activities). No vendor or price-list data is involved anywhere in this feature.
 
@@ -28,8 +34,6 @@ workout burn against TDEE.
 
 - A workout with no plan (a plan day is always chosen); reading the xlsx at runtime (the app uses a generated JSON
   file); the site's imperial/metric toggle (Amide is imperial).
-- The workbook's Treadmill Jog and Treadmill Run carry MET 3.5, the same as walking. They load as they are; the
-  owner can edit the workbook and regenerate. Flagged to the owner, not changed.
 
 ## 1. Exercise data
 
@@ -40,6 +44,17 @@ library only (xlsx is a zip of XML; no new dependency). Contents:
   ("Direct Compendium activity" or "Mapped estimate"), default style, seconds per rep, default rest per set in
   minutes, calorie model ("rep" or "duration"), note.
 - `aliases`: alias to canonical exercise (516 rows).
+- `speed_tables`: the Compendium's walking and running rows, each with code, speed band (mph), grade band where
+  relevant, MET and description, read from pacompendium.com (2024 Compendium) and recorded in the file with their
+  codes:
+  - treadmill walking, level (17340-17367): under 1.0 mph 2.1; 1.0 mph 2.3; 1.2-1.9 mph 2.8; 2.0-2.4 3.0;
+    2.5-2.9 3.5; 3.0-3.4 3.8; 3.5-3.9 4.8; 4.0-4.4 5.8; 4.5-4.9 6.8; 5.0-5.5 8.3;
+  - hill walking by grade (17034-17036): 1-5% 5.3; 6-10% 7.0; 11-20% 8.8 (used for Treadmill Incline Walk);
+  - running (12026-12135): 2.6-3.7 mph 3.3; 4.0-4.2 6.5; 4.3-4.8 7.8; 5.0-5.2 8.5; 5.5-5.8 9.0; 6.0-6.3 9.3;
+    6.7 10.5; 7 11.0; 7.5 11.8; 8 12.0; 8.6 12.5; 9 13.0; 9.3-9.6 14.8; 10 14.8; 11 16.8; 12 18.5; 13 19.8; 14 23.0.
+  The workbook's Treadmill Walk, Treadmill Incline Walk, Treadmill Jog and Treadmill Run rows point at these tables
+  instead of MET 3.5 (their `speed_table` field names the table). The generator reads the tables from a checked-in
+  source file (`tools/compendium_speed_tables.json`) so the build needs no network.
 - `styles`: the seven style profiles (MET, seconds per rep, rest per set), for the style override.
 - `compendium`: the source codes and MET values.
 
@@ -51,6 +66,7 @@ file against the workbook's published counts (230 exercises, every alias pointin
 ```
 active_min = sets * reps * sec_per_rep / 60              (rep-based)
 active_min = minutes entered                              (duration-based)
+met        = speed_tables lookup by speed (or grade)      (walk / jog / run rows), else the exercise's MET
 rest_min   = max(sets - 1, 0) * rest_per_set_min         (rep-based only)
 gross_work = MET * 3.5 * kg / 200 * active_min
 net_work   = (MET - 1) * 3.5 * kg / 200 * active_min
@@ -61,7 +77,8 @@ volume_lb  = load * implements * reps * sets
 kg         = lb / 2.2046226218
 ```
 
-Returns a frozen dataclass. Missing or non-positive inputs give `None`, never a guess. The workbook's two
+A speed that falls between bands uses the band that contains it; below the lowest band uses the lowest, above the
+highest uses the highest, and the result says which Compendium code applied. Returns a frozen dataclass. Missing or non-positive inputs give `None`, never a guess. The workbook's two
 calculators agree with these formulas; tests use hand-worked cases (for example a barbell bench press at 185 lb,
 4 x 8, body weight 200 lb).
 
@@ -79,12 +96,25 @@ no calories, with the reason.
 
 ## 4. Logging
 
+**History survives plan changes.** Today, removing an exercise or day from a plan cascades away its logged history
+(an intentional choice recorded in `save_workout_plan`). That is replaced: logs never depend on the plan rows they
+came from. The foreign keys `workout_exercise_logs.exercise_id` and `workout_logs.plan_day_id` become
+`ON DELETE SET NULL`, `workout_logs` keeps a snapshot of the day label and plan name, and every exercise log keeps
+its own name and canonical exercise. History is queried per owner by canonical exercise (`db_exercise`), across all
+plans, so an exercise reused in a later plan finds its past loads, reps and burn. When a plan exercise is matched to a
+database exercise, the log form pre-fills load, sets and reps from the last time that exercise was logged.
+Replacing a day's log for a date still works by (day, date); logs whose day is gone are history only and are never
+replaced. Existing logs are backfilled with their current names and labels by the migration.
+
 Data model (migration 0034):
 
 - `workout_exercises`: `db_exercise` (String 200, null), `db_exercise_confirmed` (Boolean, default false).
-- `workout_exercise_logs`: `exercise_id` becomes nullable (an exercise added on the day has no plan row); new columns
+- `workout_logs`: `plan_day_id` becomes nullable with `ON DELETE SET NULL`; new `day_label` and `plan_name`
+  (String 200) snapshots, backfilled for existing rows. The `(plan_day_id, log_date)` unique constraint stays
+  (NULLs do not collide).
+- `workout_exercise_logs`: `exercise_id` becomes nullable with `ON DELETE SET NULL` (an exercise added on the day has no plan row); new columns
   `name` (String 200, the name as logged), `db_exercise` (String 200, null), `sets` (Integer), `duration_min`
-  (Float), `implements` (Integer, default 1), `style` (String 40), `sec_per_rep` (Float), `rest_min` (Float),
+  (Float), `speed_mph` and `grade_pct` (Float, for walk/jog/run rows), `implements` (Integer, default 1), `style` (String 40), `sec_per_rep` (Float), `rest_min` (Float),
   `met` (Float), `body_weight_lb` (Float), `gross_kcal`, `net_kcal`, `volume_lb` (Float, all null when not
   calculable). Everything the estimate used is stored, so a later change to the database never rewrites history.
 
@@ -95,7 +125,8 @@ a duration exercise) before it calculates; if they are missing the row saves and
 calorie estimate". Reps and sets are validated as whole numbers 1-999; load as a non-negative finite number.
 "+ Add exercise" adds rows with a search box over the database, and the same fields. A body-weight field (lb,
 pre-filled from the latest weigh-in, editable) applies to the whole log; with none, no calories are calculated and
-the page says why. A style selector (default from the database) is available per row under "Adjust".
+the page says why. A style selector (default from the database) is available per row under "Adjust". Walk, jog and run rows ask for
+minutes and speed (incline walk asks for minutes and grade) and show the Compendium code that applied.
 
 Saving still replaces the day's log for that date (existing behaviour) and recalculates. Loads in kg convert to lb
 for volume only; calories never use the load.
@@ -139,6 +170,24 @@ data with margin, like the price chart. A note under the chart says TDEE already
 stack compares the day's logged workout to the baseline and is not a strict total. Days with no workout show the
 baseline only. Without a profile or weight the chart explains what is missing instead of drawing.
 
+## 8. Progress tab: charts derived from the data
+
+A Progress tab beside Energy, built from the logged history and the exercise database (same server-rendered SVG, same
+colors, no browser storage, ranges 30 / 90 / 365 days / all):
+
+- **Exercise progression:** pick any exercise you have logged (by canonical exercise, across every plan). A line chart
+  of top load and a second of total volume per workout, with estimated kcal per session on hover, and personal-best
+  markers. The picker lists exercises by how recently they were used.
+- **Weekly volume by body area:** stacked bars per week, one color per primary area from the database (chest, back,
+  quads/glutes, and so on), showing where the work went.
+- **Where the burn comes from:** a ring of net kcal by equipment type (barbell, dumbbell, machine, bodyweight,
+  kettlebell, conditioning) and a bar list of the top ten exercises by total kcal in the range.
+- **Records:** a short table of heaviest load, most reps and biggest volume per exercise, with the date.
+
+Everything is read from the stored snapshots, so changing a plan or the database never alters these charts.
+`app/workouts/progress.py` holds the queries and aggregation as pure functions over rows; `app/workouts/charts.py`
+holds the shared geometry (the daily stacked burn chart and these charts), reusing the price chart's axis rules.
+
 ## Testing
 
 Formula tests (hand-worked from the workbook), exercise-data integrity, matcher tiers with invented and real
@@ -150,6 +199,8 @@ the finished branch.
 
 ## Risks
 
+- Walking and running METs depend on the right speed band; the log form shows the band and Compendium code that applied.
+- Removing a plan exercise no longer deletes history: a deliberate change from the earlier behavior, covered by tests.
 - Matching is heuristic; wrong silent matches would mislead, so only confident matches are stored and the rest ask.
 - Mapped METs are estimates (the workbook says so); the UI labels every estimate "estimated" and shows the evidence
   type in the exercise detail.
