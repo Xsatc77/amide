@@ -4,19 +4,20 @@ placeholders for not-yet-built widgets. Read-only; every widget reuses an existi
 import types
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
+from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
 from app.library.price_lists.analysis import new_peptides
 from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
 from app.db import get_session
 from app.models import (
     ActiveVial, BodyMeasurement, Category, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
-    Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog,
+    Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, naive_utcnow,
 )
 from app.protocols.status import Status, protocol_status
 from app.routers.protocols import get_today
@@ -261,6 +262,8 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
             "new_peptides": new_peptides(session),
+            "new_lists": new_list_alerts(session, uid, naive_utcnow()),
+            "groups_gone": group_gone_alerts(session, session.get(User, uid)),
         }
         in_transit_groups = _in_transit_groups(session, effective_uid)
         # Cost snapshot enumerates the viewer's *active protocols* (which peptides they're
@@ -317,4 +320,15 @@ async def log_water(request: Request, session: Session = Depends(get_session), t
     if ounces is not None and ounces > 0:
         session.add(WaterLog(owner_id=uid, logged_at=today, ounces=ounces))
         session.commit()
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@router.post("/dashboard/alerts/dismiss")
+async def dismiss_ingest_alert(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Dismiss a price-list alert for the signed-in person only (the group-gone alert is acknowledged by the administrator)."""
+    form = await request.form()
+    try:
+        dismiss_alert(session, session.get(User, uid), str(form.get("key") or ""))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Unknown alert.") from None
     return RedirectResponse("/dashboard", status_code=303)
