@@ -19,6 +19,16 @@ BODY_PHOTO_DIR = UPLOAD_DIR / "body_photos"
 PHOTO_UNLOCK_MINUTES = 10
 PHOTO_MAX_SIDE = 2000
 PHOTO_MAX_PIXELS = 50_000_000
+INGEST_DIR = UPLOAD_DIR / "ingest"
+INGEST_WORKER_ENABLED = os.environ.get("AMIDE_INGEST_WORKER", "1") != "0"
+INGEST_SETTLE_SECONDS = 60
+INGEST_CLUSTER_MINUTES = 5
+INGEST_MAX_FILE_BYTES = 25 * 1024 * 1024
+INGEST_MAX_FILES = 10
+INGEST_MAX_TEXT = 8000
+INGEST_MAX_IMAGES = 20
+INGEST_RATE_PER_MINUTE = 60
+INGEST_NEW_LIST_DAYS = 7
 # Imported peptide cards (private): cards.json plus one image per card.
 LIBRARY_DIR = DATA_DIR / "library"
 CARDS_DIR = LIBRARY_DIR / "cards"
@@ -46,3 +56,4 @@ def ensure_dirs() -> None:
     WORKOUT_PDF_DIR.mkdir(parents=True, exist_ok=True)
     WALLET_QR_DIR.mkdir(parents=True, exist_ok=True)
     BODY_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+    INGEST_DIR.mkdir(parents=True, exist_ok=True)

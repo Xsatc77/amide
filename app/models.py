@@ -14,6 +14,11 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def naive_utcnow() -> datetime:
+    """UTC without a timezone, the way the app's sessions and ingest times are kept."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class LabeledEnum(str, enum.Enum):
     """A str enum whose members carry a display label: MEMBER = (value, label)."""
 
@@ -1297,3 +1302,85 @@ class FitnessTestResult(Base):
     exercise: Mapped[FitnessTestExerciseName] = mapped_column(_enum_column(FitnessTestExerciseName))
     value: Mapped[float] = mapped_column(Float)
     tested_at: Mapped[date] = mapped_column(Date, index=True)
+
+
+INGEST_KINDS = ("pdf", "image", "xlsx", "text")
+INGEST_STATUSES = ("received", "imported", "needs_review", "ignored", "duplicate", "failed", "undone", "rejected")
+
+
+class IngestToken(Base):
+    """A secret the price-list watcher presents. Only the SHA-256 hash is kept; the secret is shown once."""
+    __tablename__ = "ingest_tokens"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(60))
+    prefix: Mapped[str] = mapped_column(String(24))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class IngestSource(Base):
+    """A chat group price lists are posted in, mapped to a vendor by the administrator."""
+    __tablename__ = "ingest_sources"
+    __table_args__ = (
+        UniqueConstraint("platform", "chat_id", name="uq_ingest_source_chat"),
+        CheckConstraint("default_warehouse IS NULL OR default_warehouse IN ('us', 'china')", name="ck_ingest_source_warehouse"),
+        CheckConstraint("state IN ('active', 'gone')", name="ck_ingest_source_state"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    platform: Mapped[str] = mapped_column(String(20), default="telegram")
+    chat_id: Mapped[str] = mapped_column(String(64))
+    title: Mapped[str] = mapped_column(String(200))
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
+    default_warehouse: Mapped[str | None] = mapped_column(String(10))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    state: Mapped[str] = mapped_column(String(10), default="active")
+    state_reason: Mapped[str | None] = mapped_column(String(200))
+    state_changed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    alert_acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+
+
+class IngestItem(Base):
+    """One file (or one typed message) received from a source. Items of one list share a `group_key`."""
+    __tablename__ = "ingest_items"
+    __table_args__ = (
+        UniqueConstraint("source_id", "message_id", "file_hash", name="uq_ingest_item_message_file"),
+        CheckConstraint("kind IN ('pdf', 'image', 'xlsx', 'text')", name="ck_ingest_item_kind"),
+        CheckConstraint("status IN ('received', 'imported', 'needs_review', 'ignored', 'duplicate', 'failed', 'undone', 'rejected')",
+                        name="ck_ingest_item_status"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("ingest_sources.id", ondelete="CASCADE"), index=True)
+    message_id: Mapped[str] = mapped_column(String(64))
+    album_id: Mapped[str | None] = mapped_column(String(64))
+    group_key: Mapped[str] = mapped_column(String(160), index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime)
+    filename: Mapped[str | None] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(10))
+    file_hash: Mapped[str] = mapped_column(String(64))
+    stored_file: Mapped[str | None] = mapped_column(String(64))
+    caption: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(15), default="received")
+    reason: Mapped[str | None] = mapped_column(String(300))
+    vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
+    warehouse: Mapped[str | None] = mapped_column(String(10))
+    list_date: Mapped[date | None] = mapped_column(Date)
+    price_list_id: Mapped[int | None] = mapped_column(ForeignKey("price_lists.id", ondelete="SET NULL"))
+    rows_found: Mapped[int | None] = mapped_column(Integer)
+    rows_matched: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class DashboardDismissal(Base):
+    """A person dismissed one dashboard alert (identified by a key such as 'newlist:12')."""
+    __tablename__ = "dashboard_dismissals"
+    __table_args__ = (UniqueConstraint("user_id", "alert_key", name="uq_dashboard_dismissal"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    alert_key: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
