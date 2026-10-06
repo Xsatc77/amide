@@ -9,7 +9,7 @@ from app import config
 from app.auth import gate
 from app.migrate import upgrade_db
 from app.routers import (
-    auth, backup, calculator, calendar, dashboard, dosing, fitness_test, inventory, journal, labs, library,
+    auth, backup, calculator, calendar, dashboard, dosing, fitness_test, inventory, journal, labs, legal, library,
     measurements, protocols, settings, vendors, workouts,
 )
 
@@ -36,6 +36,7 @@ app.include_router(calendar.router)
 app.include_router(dosing.router)
 app.include_router(calculator.router)
 app.include_router(backup.router)
+app.include_router(legal.router)
 app.include_router(library.router)
 app.include_router(workouts.router)
 app.include_router(settings.router)

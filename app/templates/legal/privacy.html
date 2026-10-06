@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy{% endblock %}
+
+{% block content %}
+<div class="page">
+  <h1>Privacy Policy</h1>
+  <p class="effective-date">Effective October 3, 2026</p>
+
+  <h2>What We Collect</h2>
+  <p>We collect nothing from you, and that's the purpose of self-hosting Amide. Amide does not collect any data from you, nor does the system "phone home" with any data.</p>
+
+  <h2>Health-Related Data</h2>
+  <p>Your protocol data (peptides, protocols, dosages, etc) may qualify as health information under regulations like GDPR. We do not see any of that information. Your keys, your data. Only you can share your data with whoever you personally choose.</p>
+  <p>Amide is not a healthcare provider and is not subject to HIPAA.</p>
+
+  <h2>Protocol Pages</h2>
+  <p>Anything listed in the protocol pages is for educational and research purposes only.</p>
+
+  <h2>Cookies</h2>
+  <p>We use a single cookie:</p>
+  <ul>
+    <li><strong>Authentication cookies</strong> — Used to keep a user logged in. These keep your session active. You can't opt out and still use account features.</li>
+  </ul>
+
+  <h2>Browser Storage</h2>
+  <p>Amide stores nothing in browser storage aside from the cookie discussed above.</p>
+  <p>Clearing your browser data removes all of it. Nothing here is used for advertising or shared with anyone.</p>
+
+  <h2>Third-Party Services</h2>
+  <p>We do not enforce any Third-Party services in Amide. There are links attached that take you to outside sites, but those are useable at your own discretion, and do not reduce the usability of Amide. They are simply helpful items.</p>
+  <p>There are options to connect to Third-Party hardware, such as smart scales and health trackers, but again, these are completely at your discretion.</p>
+  <p>Each service has its own privacy policy. We recommend reviewing them.</p>
+
+  <h2>Your Rights</h2>
+  <p>Because Amide is self-hosted, you have complete control over your data.</p>
+
+  <h2>Data Retention</h2>
+  <p>We keep none of your data, the point of self-hosting.</p>
+
+  <h2>Age Requirement</h2>
+  <p>Amide is for adults 18 and older. If you're under 18, don't install Amide or create an account.</p>
+
+  <h2>Changes to This Policy</h2>
+  <p>We'll update this page when our practices change and note the date at the top. Continued use of Amide is your confirmation of agreement with this policy.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about your data? Email demigod_ruffle.00@icloud.com.</p>
+
+  <div class="legal-cross-refs">
+    <p>See also: <a href="/legal/terms">Terms of Service</a> | <a href="/legal/disclaimer">Disclaimer</a></p>
+  </div>
+</div>
+
+<style>
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  h1 { margin-top: 0; }
+  h2 { margin-top: 30px; margin-bottom: 10px; }
+  .effective-date { color: #666; font-style: italic; }
+  .legal-cross-refs {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ccc;
+    text-align: center;
+    color: #666;
+  }
+</style>
+{% endblock %}
