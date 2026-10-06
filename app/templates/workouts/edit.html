@@ -40,7 +40,7 @@
   {#- Log any saved day on any date, scheduled or not (e.g. right after a PDF import). -#}
   {% if day %}<a class="btn btn-ghost" href="/workouts/day/{{ day.id }}/log">Log</a>{% endif %}
   <button type="button" class="btn btn-ghost" data-action="remove-day">Remove day</button>
-  <table class="lib-table">
+  <div class="log-scroll"><table class="lib-table">
     <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Rest</th><th>Estimator</th><th></th></tr></thead>
     <tbody data-exercise-rows>
       {% if day %}
@@ -49,7 +49,7 @@
       {{ exercise_row(idx) }}
       {% endif %}
     </tbody>
-  </table>
+  </table></div>
   <button type="button" class="btn" data-action="add-exercise">+ Add exercise</button>
 </fieldset>
 {% endmacro %}

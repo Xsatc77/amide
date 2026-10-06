@@ -1073,7 +1073,8 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .wallet-qr img { display: block; border-radius: 6px; border: 1px solid var(--border, #ccc); background: #fff; }
 
 /* Workout log form */
-.body-weight { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: var(--space-3, 1rem); }
+.body-weight { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; text-align: left; margin-bottom: var(--space-3, 1rem); }
+.log-scroll { overflow-x: auto; max-width: 100%; }
 .burn-total { padding: .6rem .9rem; border-left: 4px solid var(--accent, #0d9488); background: var(--surface-2, rgba(13, 148, 136, .08)); border-radius: 6px; }
 .log-table td { vertical-align: top; }
 .log-adjust { margin-top: .35rem; font-size: .85rem; }
@@ -1119,3 +1120,4 @@ tr.current td { font-weight: 600; background: color-mix(in srgb, var(--accent-so
 .hbar-track { display: block; height: 12px; border-radius: 6px; background: var(--border); overflow: hidden; }
 .hbar-fill { display: block; height: 100%; background: var(--accent); }
 .hbars strong { text-align: right; font-variant-numeric: tabular-nums; }
+fieldset[data-day] { min-width: 0; }

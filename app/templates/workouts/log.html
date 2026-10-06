@@ -46,7 +46,7 @@
   <p class="burn-total">This workout burned about <strong>{{ net_kcal | round | int }} kcal</strong> net ({{ gross_kcal | round | int }} gross), estimated from your sets, reps and body weight.</p>
   {% endif %}
 
-  <table class="lib-table log-table">
+  <div class="log-scroll"><table class="lib-table log-table">
     <thead><tr><th>Done</th><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Estimate</th></tr></thead>
     <tbody>
       {% for r in rows %}
@@ -100,16 +100,16 @@
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 
   <h2 class="section-title">Added today</h2>
   <p class="muted small">Add anything you did that is not on the plan. Pick it from the list (or type a common name) and enter its sets and reps, or minutes for cardio, to get its calorie estimate.</p>
-  <table class="lib-table log-table">
+  <div class="log-scroll"><table class="lib-table log-table">
     <thead><tr><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Cardio: min / mph / % grade</th><th>Estimate</th><th></th></tr></thead>
     <tbody data-extra-rows>
       {% for el in extras %}{{ extra_row(loop.index0, el) }}{% endfor %}
     </tbody>
-  </table>
+  </table></div>
   <button type="button" class="btn" data-action="add-extra">+ Add exercise</button>
   <datalist id="exercise-names">{% for n in exercise_names %}<option value="{{ n }}">{% endfor %}</datalist>
   <template id="extra-row-template">{{ extra_row("__I__") }}</template>
