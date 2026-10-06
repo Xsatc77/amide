@@ -271,7 +271,7 @@ def test_malformed_log_input_is_a_422_and_keeps_the_existing_log(client, db, bad
     assert ex_log is not None and ex_log.weight_value == 25.0 and ex_log.reps_value == 12
 
 
-_HISTORY_WARNING = "will also delete any logged history for it"
+_HISTORY_NOTE = "stay in your history"
 
 
 def test_edit_page_shows_no_warning_when_plan_has_no_logged_history(client, db):
@@ -279,7 +279,7 @@ def test_edit_page_shows_no_warning_when_plan_has_no_logged_history(client, db):
     plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "No History Plan"))
     r = client.get(f"/workouts/{plan.id}/edit")
     assert r.status_code == 200
-    assert _HISTORY_WARNING not in r.text
+    assert _HISTORY_NOTE not in r.text
 
 
 def test_edit_page_shows_warning_after_a_workout_has_been_logged(client, db):
@@ -293,8 +293,7 @@ def test_edit_page_shows_warning_after_a_workout_has_been_logged(client, db):
     })
     r = client.get(f"/workouts/{plan.id}/edit")
     assert r.status_code == 200
-    assert _HISTORY_WARNING in r.text
-    assert 'class="alert"' in r.text  # the styled class that actually exists in app.css
+    assert _HISTORY_NOTE in r.text
 
 
 # ---------------------------------------------------------------- id-based reconciliation (C1/C2)
@@ -373,7 +372,7 @@ def test_renaming_an_exercise_updates_in_place_and_keeps_its_logs(client, db):
     assert ex_log is not None and ex_log.weight_value == 20.0
 
 
-def test_removing_a_day_deletes_it_and_its_logs(client, db):
+def test_removing_a_day_deletes_the_day_but_keeps_its_logs(client, db):
     from app.models import WorkoutLog, WorkoutPlanDay
     plan = _two_day_plan(client, db)
     day_a_id, day_b_id = (d.id for d in plan.days)
@@ -387,7 +386,8 @@ def test_removing_a_day_deletes_it_and_its_logs(client, db):
     db.expire_all()
     assert [d.id for d in plan.days] == [day_a_id]
     assert db.get(WorkoutPlanDay, day_b_id) is None
-    assert db.scalar(select(WorkoutLog).where(WorkoutLog.plan_day_id == day_b_id)) is None
+    kept = db.scalar(select(WorkoutLog).where(WorkoutLog.day_label == "Day B", WorkoutLog.plan_day_id.is_(None)))
+    assert kept is not None                                   # Day B's log is history now, not deleted
     assert db.scalar(select(WorkoutLog).where(WorkoutLog.plan_day_id == day_a_id)) is not None
     assert plan.days[0].weekdays == "MWF"
 

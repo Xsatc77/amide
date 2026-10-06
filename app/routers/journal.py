@@ -64,7 +64,7 @@ def workouts_for(session: Session, owner_id: int, entry_date: date) -> list[dict
         select(WorkoutLog).where(WorkoutLog.owner_id == owner_id, WorkoutLog.log_date == entry_date)
     ).all()
     return [
-        {"label": r.plan_day.label,
+        {"label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
          "completed_count": sum(1 for el in r.exercise_logs if el.completed),
          "total_count": len(r.exercise_logs)}
         for r in rows

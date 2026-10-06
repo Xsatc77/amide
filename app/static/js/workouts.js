@@ -37,7 +37,7 @@
 
   function confirmRemoval(el, idField, what) {
     if (!hasLoggedHistory || !isSaved(el, idField)) return true;
-    return confirm(`Remove this ${what}? Any logged history for it will be deleted when you save.`);
+    return confirm(`Remove this ${what}? Workouts you already logged stay in your history.`);
   }
 
   function addExercise(fieldset) {

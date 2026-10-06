@@ -1154,6 +1154,10 @@ class WorkoutExercise(Base):
     sets_text: Mapped[str | None] = mapped_column(String(50))
     reps_text: Mapped[str | None] = mapped_column(String(50))
     rest_text: Mapped[str | None] = mapped_column(String(50))
+    # The database exercise this plan row was matched to (see app/workouts/exercise_match.py). A person-confirmed
+    # match survives edits; an automatic one is recomputed when the name changes.
+    db_exercise: Mapped[str | None] = mapped_column(String(200))
+    db_exercise_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class WorkoutLog(Base):
@@ -1162,24 +1166,49 @@ class WorkoutLog(Base):
     __table_args__ = (UniqueConstraint("plan_day_id", "log_date", name="uq_workout_log_day_date"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    plan_day_id: Mapped[int] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="CASCADE"))
+    plan_day_id: Mapped[int | None] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="SET NULL"))
+    # Snapshots, so a log reads the same after its plan day or plan is edited or removed.
+    day_label: Mapped[str | None] = mapped_column(String(200))
+    plan_name: Mapped[str | None] = mapped_column(String(200))
     log_date: Mapped[date] = mapped_column(Date, index=True)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    plan_day: Mapped["WorkoutPlanDay"] = relationship()
+    plan_day: Mapped["WorkoutPlanDay | None"] = relationship()
     exercise_logs: Mapped[list["WorkoutExerciseLog"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True)
 
 
 class WorkoutExerciseLog(Base):
+    """One exercise within a logged workout. Everything its calorie estimate used is stored here, so the log keeps
+    reading the same after the plan or the exercise database changes, and history can be followed per exercise."""
     __tablename__ = "workout_exercise_logs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     workout_log_id: Mapped[int] = mapped_column(ForeignKey("workout_logs.id", ondelete="CASCADE"), index=True)
-    exercise_id: Mapped[int] = mapped_column(ForeignKey("workout_exercises.id", ondelete="CASCADE"))
+    exercise_id: Mapped[int | None] = mapped_column(ForeignKey("workout_exercises.id", ondelete="SET NULL"))
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
     weight_value: Mapped[float | None] = mapped_column(Float)
     weight_unit: Mapped[WeightUnit | None] = mapped_column(_enum_column(WeightUnit))
-    reps_value: Mapped[int | None] = mapped_column(Integer)
+    reps_value: Mapped[int | None] = mapped_column(Integer)    # reps per set, an exact whole number
+
+    name: Mapped[str | None] = mapped_column(String(200))        # the exercise as logged
+    db_exercise: Mapped[str | None] = mapped_column(String(200)) # its canonical name in the exercise database
+    area: Mapped[str | None] = mapped_column(String(60))
+    equipment: Mapped[str | None] = mapped_column(String(60))
+    sets: Mapped[int | None] = mapped_column(Integer)
+    duration_min: Mapped[float | None] = mapped_column(Float)
+    speed_mph: Mapped[float | None] = mapped_column(Float)
+    grade_pct: Mapped[float | None] = mapped_column(Float)
+    implements: Mapped[int | None] = mapped_column(Integer)
+    style: Mapped[str | None] = mapped_column(String(40))
+    sec_per_rep: Mapped[float | None] = mapped_column(Float)
+    rest_min: Mapped[float | None] = mapped_column(Float)
+    met: Mapped[float | None] = mapped_column(Float)
+    body_weight_lb: Mapped[float | None] = mapped_column(Float)
+    gross_kcal: Mapped[float | None] = mapped_column(Float)
+    net_kcal: Mapped[float | None] = mapped_column(Float)
+    volume_lb: Mapped[float | None] = mapped_column(Float)
+    compendium_code: Mapped[str | None] = mapped_column(String(10))
+    kcal_note: Mapped[str | None] = mapped_column(String(200))   # why there is no estimate, when there is none
 
 
 class FitnessTestExerciseName(str, enum.Enum):

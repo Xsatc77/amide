@@ -118,13 +118,12 @@ def save_workout_plan(session: Session, plan: WorkoutPlan, name: str, days_data:
       - an entry whose id matches one of this plan's existing rows updates that row in place
         (label/position, or name/sets/reps/rest/position) -- never touching a day's `weekdays`;
       - an entry with no id (or an id that isn't one of this plan's own rows) creates a new row;
-      - an existing row whose id isn't posted back at all is removed (delete-orphan), which
-        cascades away that row's logged history -- the one intentionally destructive case,
-        since the user removed the day/exercise itself.
+      - an existing row whose id isn't posted back at all is removed (delete-orphan). Its logged
+        history is kept: logs hold their own snapshot and the foreign keys to the plan rows are
+        ON DELETE SET NULL, so removing a day or exercise never deletes what was logged.
 
     This supersedes the earlier clear-and-rebuild approach, which destroyed every day's
-    `weekdays` schedule and (via the ON DELETE CASCADE foreign keys) all logged workout history
-    on *any* save, even one that only fixed a typo."""
+    `weekdays` schedule on *any* save, even one that only fixed a typo."""
     plan.name = name
     # pop() so a (malformed) post repeating one id can never map two entries onto the same row.
     existing_days = {d.id: d for d in plan.days if d.id is not None}
@@ -349,7 +348,7 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
         except ValueError:
             raise HTTPException(422, f"Unknown weight unit for {ex.name}.")
         exercise_logs.append(WorkoutExerciseLog(
-            exercise_id=ex.id, completed=raw.get(f"completed[{ex.id}]") == "on",
+            exercise_id=ex.id, name=ex.name, completed=raw.get(f"completed[{ex.id}]") == "on",
             weight_value=weight, weight_unit=unit, reps_value=reps,
         ))
 
@@ -359,7 +358,8 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
         session.delete(existing)
         session.flush()
 
-    log = WorkoutLog(owner_id=uid, plan_day_id=day.id, log_date=log_date, exercise_logs=exercise_logs)
+    log = WorkoutLog(owner_id=uid, plan_day_id=day.id, day_label=day.label, plan_name=day.plan.name,
+                     log_date=log_date, exercise_logs=exercise_logs)
     session.add(log)
     session.commit()
     return RedirectResponse("/today", status_code=303)

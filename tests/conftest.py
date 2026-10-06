@@ -14,7 +14,7 @@ from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
-    FitnessTestResult, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutPlan,
+    FitnessTestResult, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
 )
 from sqlalchemy import select  # noqa: E402
 
@@ -51,6 +51,7 @@ def clean(client):
         s.query(Protocol).delete()
         s.query(Peptide).filter(Peptide.source.in_((PeptideSource.CUSTOM, PeptideSource.SHEET))).delete()
         s.query(InventoryItem).delete()
+        s.query(WorkoutLog).delete()
         s.query(WorkoutPlan).delete()
         s.query(FitnessTestResult).delete()
         s.commit()
