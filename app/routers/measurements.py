@@ -9,15 +9,14 @@ from app import photo_access
 from app.auth import sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.measurements.calculations import (bmi, bmr, body_fat_pct, macros_for_preset,
-                                           target_calories, tdee, water_goal_oz, water_pace)
+from app.measurements.calculations import bmi, body_fat_pct, water_goal_oz, water_pace
 from app.models import BodyMeasurement, DietPreset, LoginSession, MacroGoal, Share, ShareCategory, User
 from app.routers import journal, labs
 from app.templating import templates
 
 router = APIRouter()
 
-TABS = ("measurements", "macros", "journal", "labs")
+TABS = ("measurements", "food", "journal", "labs")
 
 # Chart range selector: exactly these seven values are accepted (spec). Anything else -- absent,
 # malformed, or garbage -- falls back to DEFAULT_RANGE rather than ever raising. The day counts
@@ -425,50 +424,6 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
            "bf": bf_chart, "bf_status": bf_status}
 
 
-def _macros_context(user: User, latest_weight: float | None) -> dict:
-    """Never raises -- a missing required profile field or missing weight yields a `status` the
-    template turns into a plain prompt instead of computing anything (Review Focus item 5)."""
-    required = {
-        "sex": user.sex, "birth_date": user.birth_date,
-        "height_in": user.height_in, "activity_level": user.activity_level,
-    }
-    missing = [name for name, value in required.items() if value is None]
-    if missing:
-        return {"status": "missing_profile", "missing_fields": missing}
-    if latest_weight is None:
-        return {"status": "missing_weight"}
-
-    today = date.today()
-    birth_date = user.birth_date
-    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-
-    goal = user.macro_goal or MacroGoal.MAINTAIN
-    preset = user.diet_preset or DietPreset.BALANCED
-    custom = None
-    if preset == DietPreset.CUSTOM:
-        if None in (user.custom_protein_pct, user.custom_carb_pct, user.custom_fat_pct):
-            return {"status": "missing_custom_macros"}
-        custom = (user.custom_protein_pct, user.custom_carb_pct, user.custom_fat_pct)
-
-    bmr_value = bmr(latest_weight, user.height_in, age, user.sex)
-    tdee_value = tdee(bmr_value, user.activity_level)
-    calories, floored = target_calories(tdee_value, goal, user.sex)
-    try:
-        protein_g, carb_g, fat_g = macros_for_preset(calories, preset, custom)
-    except ValueError as exc:
-        return {"status": "error", "message": str(exc)}
-
-    return {
-        "status": "ok",
-        "age": age,
-        "calories": round(calories),
-        "floored": floored,
-        "protein_g": round(protein_g),
-        "carb_g": round(carb_g),
-        "fat_g": round(fat_g),
-    }
-
-
 def _render(request: Request, session: Session, uid: int, *, tab: str = "measurements",
            range_param: str | None = None, as_of_param: str | None = None,
            form: dict | None = None, errors: dict | None = None, status_code: int = 200,
@@ -513,7 +468,6 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "silhouette": _silhouette_points(own_entries),
         "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
         "water": water,
-        "macros": _macros_context(me_user, latest_weight) if me_user else {"status": "missing_profile", "missing_fields": []},
         "charts": _charts_context(own_windowed, me_user, range_key),
         "as_of": as_of.isoformat(),
     }
@@ -525,6 +479,14 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         login_row = session.get(LoginSession, request.state.session_id) if request.state.session_id else None
         context.update(photo_access.page_context(session, me_user, login_row, sessions.now_utc()))
         context["open_photo_dialog"] = request.query_params.get("add_photo") == "1"
+    if tab == "food" and me_user:
+        from app.food import summary as food_summary
+        day = food_summary.parse_day(request.query_params.get("date")) or date.today()
+        if isinstance((extra or {}).get("food_date"), date):
+            day = extra["food_date"]
+        context.update(food=food_summary.day_summary(session, me_user, day), food_day=day,
+                       food_prev=(day - timedelta(days=1)).isoformat(), food_next=(day + timedelta(days=1)).isoformat(),
+                       diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user)
     if extra:
         context.update(extra)
 
@@ -536,6 +498,8 @@ def list_measurements(request: Request, tab: str = "measurements",
                       range_param: str = Query(DEFAULT_RANGE, alias="range"),
                       as_of_param: str | None = Query(None, alias="as_of"),
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    if tab == "macros":                    # the old Macros tab is now the Food tab
+        return RedirectResponse("/measurements?tab=food", status_code=303)
     return _render(request, session, uid, tab=tab, range_param=range_param, as_of_param=as_of_param)
 
 

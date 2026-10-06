@@ -28,7 +28,7 @@
 
 <div class="tabs" role="tablist" aria-label="Weight & Measurements sections">
   <a href="/measurements?tab=measurements" class="tab {{ 'active' if active_tab == 'measurements' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'measurements' else 'false' }}">Measurements</a>
-  <a href="/measurements?tab=macros" class="tab {{ 'active' if active_tab == 'macros' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'macros' else 'false' }}">Macros</a>
+  <a href="/measurements?tab=food" class="tab {{ 'active' if active_tab == 'food' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'food' else 'false' }}">Food</a>
   <a href="/measurements?tab=journal" class="tab {{ 'active' if active_tab == 'journal' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'journal' else 'false' }}">Journal</a>
   <a href="/measurements?tab=labs" class="tab {{ 'active' if active_tab == 'labs' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'labs' else 'false' }}">Labs</a>
 </div>
@@ -270,42 +270,8 @@
 
 {% include "measurements/_body_photos.html" %}
 
-{% elif active_tab == 'macros' %}
-<section aria-labelledby="macros-heading">
-  <h2 id="macros-heading" class="section-title">Macros</h2>
-  {% if macros.status == 'missing_profile' %}
-  <div class="empty">
-    <p><strong>Add your body profile to see your macros.</strong></p>
-    <p class="muted">We need your sex, birth date, height, and activity level to calculate your calorie and macro targets.</p>
-    <p><a href="/settings">Go to Settings</a></p>
-  </div>
-  {% elif macros.status == 'missing_weight' %}
-  <div class="empty">
-    <p><strong>Log a weight entry to see your macros.</strong></p>
-    <p class="muted">Add a weight on the Measurements tab first.</p>
-  </div>
-  {% elif macros.status == 'missing_custom_macros' %}
-  <div class="empty">
-    <p><strong>Add your custom macro percentages in Settings.</strong></p>
-    <p class="muted">Your diet preset is set to Custom, but the protein/carb/fat percentages aren't filled in yet.</p>
-    <p><a href="/settings">Go to Settings</a></p>
-  </div>
-  {% elif macros.status == 'error' %}
-  <div class="empty"><p>{{ macros.message }}</p></div>
-  {% else %}
-  <div class="card">
-    {% if macros.floored %}
-    <p class="alert" role="alert">Adjusted: your calculated target was below a safe minimum, so it was raised to a safe floor.</p>
-    {% endif %}
-    <p class="stat-big">{{ macros.calories }} kcal/day</p>
-    <ul>
-      <li>Protein: {{ macros.protein_g }} g</li>
-      <li>Carbs: {{ macros.carb_g }} g</li>
-      <li>Fat: {{ macros.fat_g }} g</li>
-    </ul>
-  </div>
-  {% endif %}
-</section>
+{% elif active_tab == 'food' %}
+{% include "measurements/_food.html" %}
 
 {% if water %}
 <section aria-labelledby="water-heading">

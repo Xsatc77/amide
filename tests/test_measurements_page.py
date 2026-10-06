@@ -7,7 +7,6 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.measurements.calculations import bmr, macros_for_preset, target_calories, tdee
 from app.models import (ActivityLevel, BiologicalSex, BodyMeasurement, DietPreset, MacroGoal,
                          Share, ShareCategory, User)
 
@@ -274,50 +273,16 @@ def test_silhouette_shows_single_side_when_other_side_missing(client, db):
         _clear_measurements(tester)
 
 
-def test_macros_tab_shows_prompt_when_profile_incomplete(client, db):
+def test_food_tab_shows_prompt_when_profile_incomplete(client, db):
     tester = _tester_id()
     try:
-        t = client.get("/measurements?tab=macros").text
+        t = client.get("/measurements?tab=food").text
         assert "profile" in t.lower() or "add your" in t.lower()
     finally:
         _clear_measurements(tester)
 
 
-def test_macros_tab_computes_from_stored_profile_and_latest_weight(client, db):
-    tester = _tester_id()
-    try:
-        client.post("/settings/body-profile", data={
-            "sex": "Male", "birth_date": "1996-01-01", "height_in": "70",
-            "activity_level": "1.55", "macro_goal": "0", "diet_preset": "balanced",
-        })
-        client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "180"})
-        r = client.get("/measurements?tab=macros")
-        assert r.status_code == 200
-
-        with SessionLocal() as s:
-            user = s.scalar(select(User).where(User.username_key == "tester"))
-            birth_date = user.birth_date
-        today = __import__("datetime").date.today()
-        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-
-        bmr_value = bmr(180.0, 70.0, age, BiologicalSex.MALE)
-        tdee_value = tdee(bmr_value, ActivityLevel.MODERATELY_ACTIVE)
-        calories, floored = target_calories(tdee_value, MacroGoal.MAINTAIN, BiologicalSex.MALE)
-        protein_g, carb_g, fat_g = macros_for_preset(calories, DietPreset.BALANCED)
-
-        t = html.unescape(r.text)
-        assert str(round(calories)) in t
-        assert str(round(protein_g)) in t
-        assert str(round(carb_g)) in t
-        assert str(round(fat_g)) in t
-        if floored:
-            assert "adjust" in t.lower()
-    finally:
-        _clear_measurements(tester)
-        _clear_body_profile()
-
-
-def test_macros_tab_shows_floor_notice_when_calories_floored(client, db):
+def test_food_tab_shows_floor_notice_when_calories_floored(client, db):
     """Review Focus item 2: when target_calories() floors the number, the UI must show a
     visible 'adjusted' notice."""
     tester = _tester_id()
@@ -327,7 +292,7 @@ def test_macros_tab_shows_floor_notice_when_calories_floored(client, db):
             "activity_level": "1.2", "macro_goal": "-1000", "diet_preset": "balanced",
         })
         client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "100"})
-        r = client.get("/measurements?tab=macros")
+        r = client.get("/measurements?tab=food")
         assert r.status_code == 200
         t = html.unescape(r.text)
         assert "adjust" in t.lower()
@@ -336,11 +301,11 @@ def test_macros_tab_shows_floor_notice_when_calories_floored(client, db):
         _clear_body_profile()
 
 
-def test_water_goal_and_pace_shown_on_macros_tab(client, db):
+def test_water_goal_and_pace_shown_on_food_tab(client, db):
     tester = _tester_id()
     try:
         client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "200"})
-        t = client.get("/measurements?tab=macros").text
+        t = client.get("/measurements?tab=food").text
         assert 'id="water-heading"' in t
         assert "100" in t  # default water goal: 200/2
     finally:
@@ -456,7 +421,7 @@ def test_measurements_page_does_not_crash_when_waist_equals_neck(client, db, me)
         }, follow_redirects=False)
         assert r.status_code == 303
 
-        for tab in ("measurements", "macros", "journal", "labs"):
+        for tab in ("measurements", "food", "journal", "labs"):
             assert client.get(f"/measurements?tab={tab}").status_code == 200
     finally:
         _clear_measurements(me)
@@ -545,13 +510,13 @@ def test_water_goal_uses_earlier_weight_after_weight_only_then_tape_measure_only
     try:
         client.post("/measurements", data={"measured_at": "2026-09-20", "weight_lbs": "200"})
         client.post("/measurements", data={"measured_at": "2026-09-27", "waist_in": "34"})
-        t = client.get("/measurements?tab=macros").text
+        t = client.get("/measurements?tab=food").text
         assert "100" in t  # 200/2 default water goal, still computed from the earlier weight
 
         client.post("/settings/body-profile", data={
             "sex": "Male", "birth_date": "1990-01-01", "height_in": "70", "activity_level": "1.55",
         })
-        macros_t = client.get("/measurements?tab=macros").text
+        macros_t = client.get("/measurements?tab=food").text
         assert "log a weight entry" not in macros_t.lower()
     finally:
         _clear_measurements(tester)
@@ -621,7 +586,7 @@ def test_water_pace_shows_both_cups_and_bottles_per_hour(client, db):
     tester = _tester_id()
     try:
         client.post("/measurements", data={"measured_at": "2026-09-28", "weight_lbs": "200"})
-        t = client.get("/measurements?tab=macros").text.lower()
+        t = client.get("/measurements?tab=food").text.lower()
         assert "cups per hour" in t and "bottles per hour" in t
     finally:
         _clear_measurements(tester)

@@ -1,0 +1,98 @@
+<section aria-labelledby="food-heading" id="food">
+  <div class="food-head">
+    <h2 id="food-heading" class="section-title">Food</h2>
+    <div class="food-date">
+      <a class="btn btn-ghost" href="/measurements?tab=food&date={{ food_prev }}" aria-label="Previous day">&larr;</a>
+      <strong>{{ food_day | shortdate }}</strong>
+      <a class="btn btn-ghost" href="/measurements?tab=food&date={{ food_next }}" aria-label="Next day">&rarr;</a>
+    </div>
+  </div>
+
+  <form method="post" action="/food/settings" class="food-settings">
+    <input type="hidden" name="date" value="{{ food_day.isoformat() }}">
+    <label class="field"><span>Diet type</span>
+      <select name="diet_preset" data-food-diet>
+        {% for p in diet_presets %}<option value="{{ p.value }}" {{ 'selected' if (me.diet_preset or diet_presets[0]) == p }}>{{ p.label }}</option>{% endfor %}
+      </select></label>
+    <label class="field"><span>Goal</span>
+      <select name="macro_goal">
+        {% for g in macro_goals %}<option value="{{ g.value }}" {{ 'selected' if (me.macro_goal or macro_goals[3]) == g }}>{{ g.label }}</option>{% endfor %}
+      </select></label>
+    <div class="food-custom" data-food-custom {{ '' if me.diet_preset and me.diet_preset.value == 'custom' else 'hidden' }}>
+      <label class="field"><span>Protein %</span><input name="custom_protein_pct" type="number" min="0" max="100" value="{{ me.custom_protein_pct if me.custom_protein_pct is not none else '' }}"></label>
+      <label class="field"><span>Carbs %</span><input name="custom_carb_pct" type="number" min="0" max="100" value="{{ me.custom_carb_pct if me.custom_carb_pct is not none else '' }}"></label>
+      <label class="field"><span>Fat %</span><input name="custom_fat_pct" type="number" min="0" max="100" value="{{ me.custom_fat_pct if me.custom_fat_pct is not none else '' }}"></label>
+    </div>
+    <button type="submit" class="btn">Save</button>
+  </form>
+  {% for key in ('diet_preset', 'macro_goal', 'custom') %}{% if food_error and food_error[key] %}<p class="error small" role="alert">{{ food_error[key] }}</p>{% endif %}{% endfor %}
+
+  {% if food.status == 'missing_profile' %}
+  <div class="empty"><p><strong>Add your body profile to see your calorie limit.</strong></p>
+    <p class="muted">We need your {{ food.missing_fields | join(', ') }}. You can still log food below.</p>
+    <p><a href="/settings">Go to Settings</a></p></div>
+  {% elif food.status == 'missing_weight' %}
+  <div class="empty"><p><strong>Log a weigh-in to see your calorie limit.</strong></p>
+    <p class="muted">Add a weight on the Measurements tab first. You can still log food below.</p></div>
+  {% elif food.status == 'missing_custom_macros' %}
+  <div class="empty"><p><strong>Add your custom macro percentages.</strong></p>
+    <p class="muted">Your diet type is Custom: enter the protein, carb and fat percent above (they must total 100) and save.</p></div>
+  {% elif food.status == 'error' %}
+  <div class="empty"><p>{{ food.message }}</p></div>
+  {% else %}
+  {% set t = food.targets %}{% set e = food.eaten %}{% set d = food.deficit %}
+  {% if t.floored %}<p class="alert" role="alert">Adjusted: your calculated limit was below a safe minimum, so it was raised to a safe floor.</p>{% endif %}
+  <div class="card food-calories">
+    <p class="stat-big">{{ '{:,}'.format(t.calories) }} kcal limit</p>
+    <ul class="kv-list">
+      <li>Eaten: <strong>{{ '{:,}'.format(e.calories | round | int) }}</strong> kcal</li>
+      <li>{{ 'Remaining' if e.calories <= t.calories else 'Over by' }}: <strong>{{ '{:,}'.format((t.calories - e.calories) | abs | round | int) }}</strong> kcal</li>
+      <li>TDEE: {{ '{:,}'.format(food.tdee) }} kcal &middot; logged workout burn: {{ '{:,}'.format(food.workout_burn) }} kcal</li>
+      <li>Potential {{ 'surplus' if d.surplus else 'deficit' }}: <strong>{{ '{:,}'.format(d.kcal | abs) }}</strong> kcal
+        <span class="muted small">(TDEE + workout burn - eaten; about {{ d.lb_per_week }} lb per week if every day were like this: an estimate)</span></li>
+    </ul>
+  </div>
+
+  <div class="food-split">
+    {% if food.ring %}
+    <svg viewBox="0 0 {{ food.ring.size }} {{ food.ring.size }}" class="food-ring" role="img"
+         aria-label="Calories from protein, carbs and fat for your diet type">
+      {% for s in food.ring.slices %}<path d="{{ s.path }}" fill="{{ food.colors[s.name] }}"><title>{{ s.name }} {{ (s.share * 100) | round | int }}%</title></path>{% endfor %}
+    </svg>
+    {% endif %}
+    <ul class="food-legend">
+      {% for item in food.legend %}<li><span class="swatch" style="background: {{ item.color }}"></span> {{ item.name }}: <strong>{{ item.grams }} g</strong> <span class="muted">({{ item.pct }}% of calories)</span></li>{% endfor %}
+    </ul>
+  </div>
+
+  <h3 class="small muted">Today against your targets</h3>
+  <div class="fulfil">
+    {% for key, label, unit in (('calories', 'Calories', 'kcal'), ('protein', 'Protein', 'g'), ('carb', 'Carbs', 'g'), ('fat', 'Fat', 'g'), ('fiber', 'Fiber', 'g')) %}
+    {% set f = food.fulfil[key] %}
+    <div class="fulfil-row" data-state="{{ f.state }}">
+      <div class="fulfil-label"><strong>{{ label }}</strong>
+        <span class="muted small">{{ {'limit': 'limit', 'minimum': 'aim for at least', 'target': 'target'}[f.kind] }}</span></div>
+      <div class="fulfil-bar" role="progressbar" aria-valuenow="{{ f.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ label }}">
+        <div class="fulfil-fill" style="width: {{ [f.pct, 100] | min }}%"></div></div>
+      <div class="fulfil-num">{{ (f.eaten | round | int) if key == 'calories' else (f.eaten | round(1)) }} / {{ f.target }} {{ unit }} ({{ f.pct }}%)</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h3 class="section-title">Log</h3>
+  {% for meal in food.meals %}
+  <div class="food-meal" id="meal-{{ meal.key }}">
+    <div class="food-meal-head"><h4>{{ meal.label }}</h4>
+      <span class="muted small">{{ meal.totals.calories | round | int }} kcal &middot; P {{ meal.totals.protein_g | round | int }} &middot; C {{ meal.totals.carb_g | round | int }} &middot; F {{ meal.totals.fat_g | round | int }}</span></div>
+    {% if meal.entries %}
+    <ul class="food-entries">
+      {% for en in meal.entries %}
+      <li><span><strong>{{ en.name }}</strong> <span class="muted small">{{ en.servings | round(2) }} &times; {{ en.serving }}</span></span>
+        <span class="small">{{ en.calories | round | int }} kcal &middot; P {{ en.protein_g | round(1) }} &middot; C {{ en.carb_g | round(1) }} &middot; F {{ en.fat_g | round(1) }} &middot; fiber {{ en.fiber_g | round(1) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted small">Nothing logged.</p>{% endif %}
+  </div>
+  {% endfor %}
+</section>

@@ -1145,3 +1145,24 @@ fieldset[data-day] { min-width: 0; }
 .photo-open img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .photo-hint { position: absolute; inset: auto 0 0 0; padding: 6px 8px; font-size: 0.8rem; text-align: center; background: rgb(0 0 0 / 55%); color: #fff; }
 .photo-unlocked { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- food ---------- */
+.food-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.food-date { display: flex; align-items: center; gap: 8px; }
+.food-settings { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.food-custom { display: flex; gap: 8px; }
+.food-calories .kv-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.food-split { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin: 16px 0; }
+.food-ring { width: 180px; height: 180px; }
+.food-legend { list-style: none; padding: 0; margin: 0; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; }
+.fulfil-row { display: grid; grid-template-columns: 150px 1fr 190px; align-items: center; gap: 12px; margin: 8px 0; }
+.fulfil-bar { height: 12px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
+.fulfil-fill { height: 100%; background: var(--muted); }
+.fulfil-row[data-state="good"] .fulfil-fill { background: #059669; }
+.fulfil-row[data-state="over"] .fulfil-fill { background: #dc2626; }
+.fulfil-num { font-size: 0.85rem; text-align: right; }
+.food-meal { border-top: 1px solid var(--border); padding: 10px 0; }
+.food-meal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.food-entries { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 6px; }
+.food-entries li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
