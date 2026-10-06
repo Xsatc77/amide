@@ -231,7 +231,7 @@
   <div class="price-panel" data-product="{{ p.key }}"{% if not loop.first %} hidden{% endif %}>
     {% if p.peptide_id %}<p class="small"><a href="/library/{{ p.peptide_id }}">{{ p.label }} in the library</a></p>{% endif %}
     <ul class="price-legend">
-      {% for s in p.legend %}<li><span class="swatch" style="background: {{ s.color }}"></span>{{ s.label }}</li>{% endfor %}
+      {% for s in p.legend %}<li><span class="swatch{% if s.dashed %} dashed{% endif %}" style="background: {{ s.color }}"></span>{{ s.label }}</li>{% endfor %}
     </ul>
     <svg class="price-chart" viewBox="0 0 {{ p.chart.width }} {{ p.chart.height }}" role="img" aria-label="Price history of {{ p.label }}">
       {% for t in p.chart.y_ticks %}

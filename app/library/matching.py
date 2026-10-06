@@ -17,6 +17,7 @@ import difflib
 import re
 import unicodedata
 from dataclasses import dataclass
+from functools import lru_cache
 
 _IGNORED_WORDS = {"acetate", "with"}
 _QUALIFIERS = {"with", "without", "no", "non", "dac"}
@@ -65,8 +66,13 @@ def qualifiers(name) -> frozenset[str]:
     return frozenset(q for q in map(_qualifier, _words(name)) if q)
 
 
-def _tokens(text) -> list[str]:
-    return ["no" if w in _NO_ABBREVIATIONS else w for w in _words(text) if w not in _IGNORED_WORDS]
+@lru_cache(maxsize=16384)
+def _tokens_cached(text: str) -> tuple[str, ...]:
+    return tuple("no" if w in _NO_ABBREVIATIONS else w for w in _words(text) if w not in _IGNORED_WORDS)
+
+
+def _tokens(text) -> tuple[str, ...]:
+    return _tokens_cached(text or "")
 
 
 def name_key(name) -> str:
@@ -88,11 +94,15 @@ def _name_keys(name) -> tuple[str, set[str]]:
     return full, {k for k in related if len(k) >= _MIN_KEY}
 
 
-def _card_keys(card) -> tuple[str, set[str]]:
-    full, related = _name_keys(card.name)
-    aliases = {name_key(a) for a in _ALIAS_SPLIT.split(card.aliases or "")}
-    related |= {k for k in aliases if len(k) >= _MIN_KEY and k != full}
-    return full, related
+@lru_cache(maxsize=8192)
+def _card_keys_for(name: str, aliases: str | None) -> tuple[str, frozenset[str]]:
+    full, related = _name_keys(name)
+    extra = {name_key(a) for a in _ALIAS_SPLIT.split(aliases or "")}
+    return full, frozenset(related | {k for k in extra if len(k) >= _MIN_KEY and k != full})
+
+
+def _card_keys(card) -> tuple[str, frozenset[str]]:
+    return _card_keys_for(card.name, card.aliases)
 
 
 def match_name(vendor_name, cards) -> Match | None:
@@ -124,6 +134,7 @@ def match_name(vendor_name, cards) -> Match | None:
     return _fuzzy(raw, cards)
 
 
+@lru_cache(maxsize=16384)
 def _ingredients(name) -> frozenset[str] | None:
     """The set of ingredients of a "A + B + C" blend, doses removed; None when it isn't a blend."""
     text = _norm(name)

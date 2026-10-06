@@ -236,11 +236,18 @@ h2 { font-size: 1.2rem; margin: 0; }
 /* ---------- vendor card: price history chart ---------- */
 .price-product-pick { max-width: 360px; }
 .price-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; padding: 0; margin: 8px 0; font-size: 0.85rem; }
-.price-legend .swatch { display: inline-block; width: 16px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.price-legend .swatch { display: inline-block; width: 16px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; position: relative; overflow: hidden; }
+.price-legend .swatch.dashed::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 5px, var(--surface) 5px 8px); }
 .price-chart { display: block; width: 100%; max-width: 720px; height: auto; }
 .price-chart text { fill: var(--muted); font-size: 11px; }
 .price-chart .grid { stroke: var(--border); stroke-width: 1; }
 .price-chart circle { stroke: var(--surface); stroke-width: 1.5; }
+
+/* ---------- dashboard: new peptide alert ---------- */
+.new-peptide-alert a { overflow-wrap: anywhere; }
+.new-peptide-alert form.inline { display: inline; margin-left: 6px; }
+.new-peptide-alert .btn { padding: 1px 8px; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border); }
+.dash-area-alerts summary { cursor: pointer; }
 
 /* ---------- legal pages (Terms, Disclaimer, Privacy) ---------- */
 .legal { max-width: 760px; margin: 0 auto; line-height: 1.6; }

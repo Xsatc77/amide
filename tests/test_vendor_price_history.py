@@ -21,7 +21,7 @@ def panels(page: str) -> dict[str, str]:
 
 
 def legend(panel: str) -> dict[str, str]:
-    return {label.strip(): color for color, label in re.findall(r'<span class="swatch" style="background: (#\w+)"></span>([^<]+)</li>', panel)}
+    return {label.strip(): color for color, label in re.findall(r'<span class="swatch(?: dashed)?" style="background: (#\w+)"></span>([^<]+)</li>', panel)}
 
 
 def test_vendor_page_shows_a_product_dropdown_and_a_line_per_size(client, db):
@@ -56,6 +56,7 @@ def test_a_vendor_with_both_warehouses_gets_a_line_per_warehouse_with_the_usa_da
     z = panels(text(client.get(f"/vendors/{acme.id}")))["Zorvex"]
     assert set(legend(z)) == {"10mg · China", "10mg · USA"}
     assert z.count("stroke-dasharray") == 1 and legend(z)["10mg · China"] == legend(z)["10mg · USA"]
+    assert z.count('class="swatch dashed"') == 1  # the legend marks the dashed (USA) line too
 
 
 def test_a_box_is_described_as_a_box(client, db):
