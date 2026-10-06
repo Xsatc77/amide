@@ -120,13 +120,32 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
         style=style, implements=_whole(raw, key("implements_value"), f"Implements for {name}") or 1)
 
 
-def _extra_rows(raw) -> list[ParsedRow]:
-    """Exercises added on the day: 'extra-N-field' keys. A blank exercise name drops the row; a name must resolve."""
+def resolve_db(ex: WorkoutExercise) -> Exercise | None:
+    """The database exercise a plan exercise is estimated from. A person-confirmed match (including a confirmed
+    "no estimate for this one") is final; otherwise the stored match, then a fresh confident match by name."""
+    if ex.db_exercise_confirmed:
+        return exercise_db.get(ex.db_exercise)
+    return exercise_db.get(ex.db_exercise) or match_exercise(ex.name).exercise
+
+
+def _extra_rows(raw, orphans: dict[int, WorkoutExerciseLog] | None = None) -> list[ParsedRow]:
+    """Exercises added on the day: 'extra-N-field' keys. A blank exercise name drops the row; a name must resolve.
+    A row that carries `extra-N-keep` (the id of a saved row whose plan exercise was removed) and keeps its name is
+    that saved row again: it keeps its done state and its database match, even a missing one, instead of being
+    re-resolved as if it were new."""
+    orphans = orphans or {}
     indexes = sorted({int(m.group(1)) for k in raw.keys() if (m := re.fullmatch(r"extra-(\d+)-\w+", k))})
     rows = []
     for i in indexes:
         typed = _text(raw, f"extra-{i}-exercise")
         if not typed:
+            continue
+        keep = _text(raw, f"extra-{i}-keep")
+        saved = orphans.get(int(keep)) if keep.isdigit() else None
+        if saved is not None and (saved.name or "").casefold() == typed.casefold():
+            prefixed = {k.replace(f"extra-{i}-", "", 1): v for k, v in raw.items() if k.startswith(f"extra-{i}-")}
+            rows.append(_row(prefixed, "", exercise_id=None, name=saved.name, db=exercise_db.get(saved.db_exercise),
+                             completed=bool(saved.completed)))
             continue
         match = match_exercise(typed)
         if not match.confident:
@@ -138,7 +157,7 @@ def _extra_rows(raw) -> list[ParsedRow]:
     return rows
 
 
-def parse_log_form(raw, day: WorkoutPlanDay) -> ParsedLog:
+def parse_log_form(raw, day: WorkoutPlanDay, orphans: dict[int, WorkoutExerciseLog] | None = None) -> ParsedLog:
     """Everything on the form, validated, before the existing log is touched (a bad value never costs what was logged)."""
     try:
         log_date = date_type.fromisoformat(raw["log_date"])
@@ -147,9 +166,9 @@ def parse_log_form(raw, day: WorkoutPlanDay) -> ParsedLog:
     body_weight = _number(raw, "body_weight_lb", "Body weight", positive=True, maximum=MAX_BODY_WEIGHT_LB)
     rows = []
     for ex in day.exercises:
-        rows.append(_row(raw, f"[{ex.id}]", exercise_id=ex.id, name=ex.name, db=exercise_db.get(ex.db_exercise) or
-                         match_exercise(ex.name).exercise, completed=raw.get(f"completed[{ex.id}]") == "on"))
-    rows.extend(_extra_rows(raw))
+        rows.append(_row(raw, f"[{ex.id}]", exercise_id=ex.id, name=ex.name, db=resolve_db(ex),
+                         completed=raw.get(f"completed[{ex.id}]") == "on"))
+    rows.extend(_extra_rows(raw, orphans))
     return ParsedLog(log_date, body_weight, rows)
 
 
@@ -193,7 +212,7 @@ def last_performance(session: Session, uid: int, db_exercise: str | None) -> Wor
 def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExerciseLog | None) -> dict:
     """What the log form needs to draw one plan exercise: its database match, this date's saved log (if any), the
     last time the exercise was logged anywhere, and the values to show in the inputs."""
-    db = exercise_db.get(ex.db_exercise) or match_exercise(ex.name).exercise
+    db = resolve_db(ex)
     last = None if prior is not None else last_performance(session, uid, db.name if db else None)
     source = prior or last
     table = exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None

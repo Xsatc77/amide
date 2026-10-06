@@ -26,6 +26,9 @@ _QUERY_ALIASES = {"running": "Treadmill Run", "run": "Treadmill Run", "jogging":
                   "incline walking": "Treadmill Incline Walk"}
 _EQUIPMENT = {"barbell", "dumbbell", "cable", "machine", "kettlebell", "smith", "bodyweight", "band", "ez"}
 _NOISE = {"the", "a", "an", "with", "on", "of", "and"}
+# A fuzzy match may add only these words to what was typed ("Lat Pulldown" -> "Cable Lat Pulldown"); any other extra
+# word ("Box", "Smith", "Sumo") makes it a different exercise, so it stays a suggestion.
+_IGNORABLE_EXTRA = {"cable", "machine", "dumbbell", "barbell", "kettlebell", "bodyweight", "band", "ez"}
 _CONFIDENT = 0.70
 _MARGIN = 0.05
 _SUGGEST = 0.50
@@ -135,6 +138,7 @@ def match_exercise(name: str | None) -> ExerciseMatch:
     suggestions = tuple(e for s, e in ranked[:_MAX_SUGGESTIONS] if s >= _SUGGEST)
     if top_score >= _CONFIDENT:
         group = [e for s, e in ranked if s >= top_score - _MARGIN]
-        if len(group) == 1 or len({_profile(e) for e in group}) == 1:
+        only_equipment_extra = all(set(tokens(e.name)) - set(query) <= _IGNORABLE_EXTRA for e in group)
+        if only_equipment_extra and (len(group) == 1 or len({_profile(e) for e in group}) == 1):
             return ExerciseMatch(group[0], "fuzzy", top_score, suggestions)
     return ExerciseMatch(None, "none", top_score, suggestions)

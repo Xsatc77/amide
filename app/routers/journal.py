@@ -49,10 +49,11 @@ def doses_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
     already gated by the sharing query, so no additional check is needed here."""
     rows = session.scalars(
         select(DoseLog).where(DoseLog.owner_id == owner_id, DoseLog.scheduled_date == entry_date)).all()
-    return [
-        {"peptide_name": r.peptide_name, "dose_value": r.dose_value, "dose_unit": r.dose_unit, "status": r.status}
-        for r in rows
-    ]
+    return [_dose_dict(r) for r in rows]
+
+
+def _dose_dict(r) -> dict:
+    return {"peptide_name": r.peptide_name, "dose_value": r.dose_value, "dose_unit": r.dose_unit, "status": r.status}
 
 
 def workouts_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
@@ -63,31 +64,43 @@ def workouts_for(session: Session, owner_id: int, entry_date: date) -> list[dict
     rows = session.scalars(
         select(WorkoutLog).where(WorkoutLog.owner_id == owner_id, WorkoutLog.log_date == entry_date)
     ).all()
-    out = []
-    for r in rows:
-        net = sum(el.net_kcal for el in r.exercise_logs if el.net_kcal)
-        gross = sum(el.gross_kcal for el in r.exercise_logs if el.gross_kcal)
-        out.append({
-            "label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
-            "completed_count": sum(1 for el in r.exercise_logs if el.completed),
-            "total_count": len(r.exercise_logs),
-            "net_kcal": round(net) if net else None,
-            "gross_kcal": round(gross) if gross else None,
-        })
-    return out
+    return [_workout_dict(r) for r in rows]
+
+
+def _workout_dict(r) -> dict:
+    net = sum(el.net_kcal for el in r.exercise_logs if el.net_kcal)
+    gross = sum(el.gross_kcal for el in r.exercise_logs if el.gross_kcal)
+    return {
+        "label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
+        "completed_count": sum(1 for el in r.exercise_logs if el.completed),
+        "total_count": len(r.exercise_logs),
+        "net_kcal": round(net) if net else None,
+        "gross_kcal": round(gross) if gross else None,
+    }
 
 
 def _workout_only_views(session: Session, uid: int, entry_dates: set[date]) -> list[dict]:
     """Rows for the viewer's own days that have a logged workout but no journal entry, so a workout logged from the
-    Journal always appears there. Shaped like _entry_view's output."""
-    from app.models import WorkoutLog
-    days = {d for d in session.scalars(select(WorkoutLog.log_date).where(WorkoutLog.owner_id == uid))
-            if d not in entry_dates}
+    Journal always appears there. Shaped like _entry_view's output. Loaded in three queries however many days there
+    are (the logs with their exercises, then that day's doses), not per day."""
+    from app.models import DoseLog, WorkoutLog
+    logs = session.scalars(
+        select(WorkoutLog).where(WorkoutLog.owner_id == uid)
+        .options(selectinload(WorkoutLog.exercise_logs), selectinload(WorkoutLog.plan_day))).all()
+    by_day: dict[date, list] = {}
+    for r in logs:
+        if r.log_date not in entry_dates:
+            by_day.setdefault(r.log_date, []).append(r)
+    if not by_day:
+        return []
+    doses: dict[date, list] = {}
+    for d in session.scalars(select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date.in_(list(by_day)))):
+        doses.setdefault(d.scheduled_date, []).append(_dose_dict(d))
     return [{
-        "date": d, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [],
+        "date": day, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [],
         "side_effects_other": None, "notes": None, "owner_name": None, "quick_notes": [],
-        "doses": doses_for(session, uid, d), "workouts": workouts_for(session, uid, d),
-    } for d in days]
+        "doses": doses.get(day, []), "workouts": [_workout_dict(r) for r in day_logs],
+    } for day, day_logs in by_day.items()]
 
 
 def _workout_day_options(session: Session, uid: int) -> list[dict]:

@@ -382,12 +382,17 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
                             uid: int = Depends(current_user_id)):
     day = _get_own_day(session, plan_day_id, uid)
     raw = await request.form()
-    parsed = workout_logging.parse_log_form(raw, day)          # validates everything before touching the old log
+    try:
+        log_date = date_type.fromisoformat(raw["log_date"])
+    except (KeyError, ValueError):
+        raise HTTPException(422, "A valid workout date (YYYY-MM-DD) is required.")
+    existing = session.scalar(
+        select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
+    orphans = {el.id: el for el in existing.exercise_logs if el.exercise_id is None} if existing else {}
+    parsed = workout_logging.parse_log_form(raw, day, orphans)  # validates everything before touching the old log
     body_weight = parsed.body_weight_lb or workout_logging.latest_body_weight(session, uid)
     exercise_logs = [workout_logging.build_exercise_log(row, body_weight) for row in parsed.rows]
 
-    existing = session.scalar(
-        select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == parsed.log_date))
     if existing is not None:
         session.delete(existing)
         session.flush()

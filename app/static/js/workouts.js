@@ -85,4 +85,15 @@
 
   // A brand-new plan starts with one blank day rather than an empty form.
   if (form.hasAttribute("data-new-plan") && days().length === 0) addDay();
+
+  // The "Use X" / "Set" estimator buttons submit their own small forms, which would drop anything typed in the plan
+  // form above; ask first when there are unsaved changes.
+  let dirty = false;
+  form.addEventListener("input", () => { dirty = true; });
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('button[form^="match-"]');
+    if (btn && dirty && !confirm("You have unsaved changes to this plan; matching now will discard them. Save the plan first, or continue anyway?")) {
+      e.preventDefault();
+    }
+  });
 })();

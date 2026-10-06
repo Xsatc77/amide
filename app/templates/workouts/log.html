@@ -12,7 +12,9 @@
     replaces). Fields are named extra-N-field and always submit, blank or not; a blank exercise name drops the row. -#}
 {% macro extra_row(i, el=None) %}
 <tr data-extra-row>
-  <td><input list="exercise-names" name="extra-{{ i }}-exercise" value="{{ el.name if el else '' }}" placeholder="Exercise" aria-label="Exercise" autocomplete="off"></td>
+  <td>{% if el %}<input type="hidden" name="extra-{{ i }}-keep" value="{{ el.id }}">
+  {% if el.style and el.style in styles %}<input type="hidden" name="extra-{{ i }}-style_value" value="{{ el.style }}">{% endif %}
+  {% if el.implements %}<input type="hidden" name="extra-{{ i }}-implements_value" value="{{ el.implements }}">{% endif %}{% endif %}<input list="exercise-names" name="extra-{{ i }}-exercise" value="{{ el.name if el else '' }}" placeholder="Exercise" aria-label="Exercise" autocomplete="off"></td>
   <td>
     <input type="number" step="0.1" min="0" name="extra-{{ i }}-weight_value" value="{{ '%g' | format(el.weight_value) if el and el.weight_value is not none else '' }}" style="width: 5em" aria-label="Load">
     <select name="extra-{{ i }}-weight_unit" aria-label="Unit">
