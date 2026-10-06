@@ -228,9 +228,7 @@ def read_pdf(path: Path, recognize=None) -> PriceListData:
         for number, page in enumerate(pdf.pages, 1):
             if not page.chars and page.images:
                 words = ocr.page_words(path, number - 1, recognize)
-                page_lines = ocr.lines_from_words(words)
-                table = ocr.table_from_words(words)
-                page_rows = rows_from_table(table, number) if table else []
+                page_lines, page_rows = ocr.rows_from_words(words, number)
             else:
                 page_lines = (page.extract_text() or "").splitlines()
                 page_rows = [r for table in page.extract_tables() for r in rows_from_table(table, number)]

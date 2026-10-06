@@ -228,3 +228,10 @@ def table_from_words(words: list[Word]) -> list[list[str]] | None:
         row += [_clean_price(text(cells[k][i])) if k in priced else text(cells[k][i]) for k in range(len(columns))]
         table.append(row)
     return table
+
+
+def rows_from_words(words: list[Word], page_number: int):
+    """(text lines, rows) read from the words recognized on one picture page: the table rebuilt from their positions."""
+    from app.library.price_lists.reader import rows_from_table
+    table = table_from_words(words)
+    return lines_from_words(words), (rows_from_table(table, page_number) if table else [])
