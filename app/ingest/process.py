@@ -94,7 +94,7 @@ def _handle(session, items, now, recognizer):
         return
     ok, why = readers.looks_like_price_list(data, " ".join(i.caption or "" for i in items), items[0].filename)
     if not ok:
-        _set(items, now, status="ignored", reason=why)
+        _set(items, now, status="ignored", reason=why, caption=None)      # other people's chatter is not kept
         _drop_files(items)
         return
     warehouse, assumed, list_date = _context(items, source, data)

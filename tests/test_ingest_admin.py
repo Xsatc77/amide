@@ -137,3 +137,32 @@ def test_approving_runs_off_the_event_loop_and_receiving_holds_the_processing_lo
         c.post("/api/ingest/messages", data={"chat_id": "-100123", "message_id": "99", "date": "2026-10-06T10:00:00+00:00"},
                files=[("files", ("a.pdf", pdf_bytes(), "application/pdf"))], headers=bearer(secret))
     assert seen["owned"] is True
+
+
+def test_the_inbox_hides_ignored_chatter_by_default_but_has_a_tab_for_it(client, db):
+    vendor = vendor_row(db)
+    source = make_source(db, vendor=vendor)
+    text_item(db, source, message_id="1", text="Hello all, chatter here")
+    text_item(db, source, message_id="2")
+    run()
+    default = client.get("/settings/ingest").text
+    assert default.count("not a price list") == 0
+    ignored = client.get("/settings/ingest?status=ignored").text
+    assert "not a price list" in ignored
+
+
+def test_the_migration_clears_text_already_kept_for_ignored_messages(db):
+    from sqlalchemy import text
+    from app.models import IngestItem
+    source = make_source(db, vendor=vendor_row(db))
+    kept = text_item(db, source, message_id="3", text="old chatter")
+    kept.status = "ignored"
+    db.commit()
+    import importlib.util, pathlib
+    spec = importlib.util.spec_from_file_location("m0040", pathlib.Path("migrations/versions/0040_clear_ignored_ingest_text.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    db.execute(text(module.CLEAR_SQL))
+    db.commit()
+    db.expire_all()
+    assert db.get(IngestItem, kept.id).caption is None

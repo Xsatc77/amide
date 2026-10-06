@@ -1173,3 +1173,8 @@ fieldset[data-day] { min-width: 0; }
 .food-foodform { display: flex; gap: 6px; flex-wrap: wrap; }
 .food-modes { display: flex; gap: 16px; margin-bottom: 12px; }
 .food-myfoods { margin-top: 16px; }
+
+/* filter tabs (Vendors sort, Price list inbox status) */
+.tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 1rem; }
+.tab { padding: 0.25rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; text-transform: capitalize; }
+.tab.active { font-weight: 600; border-color: currentColor; }

@@ -31,7 +31,7 @@ def _done() -> RedirectResponse:
 
 
 def _page(request: Request, session: Session, me: User, *, status: str = "", new_secret: str | None = None, new_label: str = "", code: int = 200):
-    items_q = select(IngestItem).order_by(IngestItem.id.desc()).limit(100)
+    items_q = select(IngestItem).where(IngestItem.status.not_in(("ignored", "duplicate"))).order_by(IngestItem.id.desc()).limit(100)
     if status in INGEST_STATUSES:
         items_q = select(IngestItem).where(IngestItem.status == status).order_by(IngestItem.id.desc()).limit(100)
     # one row per list: the newest item of each group stands for it

@@ -79,7 +79,7 @@
 <section class="builder-step">
   <h2 class="section-title">Received</h2>
   <div class="tabs" role="tablist" aria-label="Filter by status">
-    <a href="/settings/ingest" class="tab {{ 'active' if not status }}">All</a>
+    <a href="/settings/ingest" class="tab {{ 'active' if not status }}">Lists</a>
     {% for st in statuses %}<a href="/settings/ingest?status={{ st }}" class="tab {{ 'active' if status == st }}">{{ st.replace('_', ' ') }}</a>{% endfor %}
   </div>
   {% if not items %}

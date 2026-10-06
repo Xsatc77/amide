@@ -328,3 +328,11 @@ def test_a_spreadsheet_that_expands_hugely_is_refused():
         z.writestr("xl/sharedStrings.xml", b"x" * (readers.MAX_UNCOMPRESSED + 1))
     with pytest.raises(readers.ReadError, match="too large"):
         readers.read_xlsx(buffer.getvalue())
+
+
+def test_the_text_of_an_ignored_message_is_not_kept(db, vendor):
+    item = text_item(db, make_source(db, vendor=vendor), text="Hello all, what is the shipping time to Texas?")
+    run()
+    db.expire_all()
+    item = db.get(IngestItem, item.id)
+    assert item.status == "ignored" and item.caption is None
