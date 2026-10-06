@@ -410,6 +410,16 @@ def test_low_stock_threshold_defaults_to_none_when_blank(client, db):
         assert item.low_stock_threshold is None
 
 
+def test_add_medicine_item_requires_medium(client, db):
+    r = client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "quantity": "5", "order_date": "2026-09-01",
+    })
+    assert r.status_code == 422
+    assert "Medium is required." in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.query(InventoryItem).count() == 0
+
+
 def test_add_medicine_item_requires_quantity(client, db):
     r = client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",

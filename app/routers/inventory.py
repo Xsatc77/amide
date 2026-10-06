@@ -115,10 +115,12 @@ def _parse_money(raw: str, field: str, label: str, errors: dict) -> int | None:
     return int(cents)
 
 
-def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category: "Category") -> tuple[dict, dict]:
+def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category: "Category",
+                       *, is_create: bool = True) -> tuple[dict, dict]:
     """Parses the Details fields for an item of the given (already-resolved) category. Used by
     both create (with a freshly-parsed category) and update (with the item's existing, immutable
-    category)."""
+    category). `is_create=False` skips the medium-required-on-Medicine check, since a partial
+    edit may legitimately omit it."""
     errors: dict[str, str] = {}
     values: dict = {"category": category}
 
@@ -169,6 +171,8 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
 
     if category == Category.MEDICINE:
         values["medium"] = _parse_choice(Medium, raw["medium"], None, "medium", errors)
+        if is_create and values["medium"] is None and "medium" not in errors:
+            errors["medium"] = "Medium is required."
         values["vial_size_mg"] = _parse_positive_float(raw["vial_size_mg"], "vial_size_mg", "Amount", errors)
         values["vial_size_unit"] = _parse_choice(DoseUnit, raw["vial_size_unit"], DoseUnit.MG, "vial_size_unit", errors)
         values["purchasing_unit"] = _parse_choice(PurchasingUnit, raw.get("purchasing_unit", ""),
@@ -847,8 +851,6 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
                 line_errors[f"{prefix}category"] = "New order lines can only be Medicine or BAC Water."
             else:
                 new_item_values, item_errs = _parse_item_fields(line_raw, session, uid, category)
-                if category == Category.MEDICINE and new_item_values.get("medium") is None and "medium" not in item_errs:
-                    item_errs["medium"] = "Medium is required."
                 for f, msg in item_errs.items():
                     line_errors[f"{prefix}{f}"] = msg
 
@@ -942,7 +944,7 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         raise HTTPException(404, "Inventory item not found")
 
     raw, coa, remove_coa = await _read_form(request)
-    values, errors = _parse_item_fields(raw, session, uid, item.category)  # category is immutable
+    values, errors = _parse_item_fields(raw, session, uid, item.category, is_create=False)  # category is immutable
 
     if errors:
         arrived = _arrived_quantity(item)
