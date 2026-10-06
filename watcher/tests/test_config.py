@@ -57,3 +57,17 @@ def test_the_repr_and_str_never_show_secrets(tmp_path):
 def test_the_home_folder_can_be_overridden_by_the_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("AMIDE_WATCHER_HOME", str(tmp_path))
     assert cfg.default_home() == tmp_path
+
+
+def test_a_file_saved_by_notepad_or_powershell_with_a_bom_or_utf16_still_loads(tmp_path):
+    (tmp_path / "config.toml").write_bytes(b"\xef\xbb\xbf" + GOOD.encode("utf-8"))
+    assert cfg.load_config(tmp_path).telegram_api_id == 1234
+    (tmp_path / "config.toml").write_bytes(GOOD.encode("utf-16"))
+    assert cfg.load_config(tmp_path).telegram_api_id == 1234
+
+
+def test_a_toml_mistake_names_the_line_but_never_shows_the_text(tmp_path):
+    (tmp_path / "config.toml").write_text('amide_token = test-token\n', encoding="utf-8")
+    with pytest.raises(cfg.ConfigError) as err:
+        cfg.load_config(tmp_path)
+    assert "line 1" in str(err.value) and "test-token" not in str(err.value) and "quotes" in str(err.value)

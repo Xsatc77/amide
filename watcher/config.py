@@ -70,10 +70,16 @@ def load_config(home: Path | None = None) -> Config:
     path = home / "config.toml"
     if not path.is_file():
         raise ConfigError(f"No config.toml found in {home}. Copy watcher/config.example.toml there and fill it in.")
+    data = path.read_bytes()
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):          # saved as UTF-16 by PowerShell or an editor
+        text = data.decode("utf-16")
+    else:
+        text = data.decode("utf-8-sig", errors="replace")      # also drops the hidden marker some editors add
     try:
-        raw = tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError:
-        raise ConfigError("config.toml is not valid TOML") from None
+        raw = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        where = str(exc).split("(at ")[-1].rstrip(")") if "(at " in str(exc) else "unknown position"
+        raise ConfigError(f"config.toml is not valid TOML (at {where}). Text values need double quotes, like amide_token = \"...\"") from None
     url = _text(raw, "amide_url").rstrip("/") if "amide_url" in raw else "http://127.0.0.1:8000"
     if not url.startswith(("http://", "https://")):
         raise ConfigError("amide_url must start with http:// or https://")
