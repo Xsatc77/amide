@@ -125,3 +125,34 @@ def delete(photo_id: int, session: Session = Depends(get_session), uid: int = De
     session.commit()
     body_photos.delete_file(name)
     return RedirectResponse(_GALLERY, status_code=303)
+
+
+@router.post("/settings/photo-2fa")
+async def photo_2fa(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    from app.routers.auth import check_code
+    user = session.get(User, uid)
+    form = await request.form()
+    now = sessions.now_utc()
+
+    def back(state: str):
+        return RedirectResponse(f"/settings?photo2fa={state}#photo-2fa", status_code=303)
+
+    if form.get("action") == "enable":
+        if not user.totp_enabled:
+            return back("need2fa")
+        user.photo_2fa_required = True
+        session.commit()
+        return back("on")
+    if form.get("action") != "disable":
+        raise HTTPException(404, "Not found")
+    if sessions.is_locked(user, now):
+        return back("locked")
+    if check_code(user, str(form.get("code", "")), now):
+        sessions.record_failure(user, now)
+        session.commit()
+        return back("locked" if sessions.is_locked(user, now) else "badcode")
+    sessions.clear_failures(user)
+    user.photo_2fa_required = False
+    photo_access.lock(session, _login_row(session, request))     # commits, ending this session's unlock too
+    session.commit()
+    return back("off")

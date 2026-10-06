@@ -414,6 +414,7 @@ async def admin_reset_password(user_id: int, request: Request, session: Session 
 async def admin_remove_2fa(user_id: int, request: Request, session: Session = Depends(get_session)):
     target = _target_user(request, session, user_id)
     target.totp_enabled, target.totp_secret, target.totp_last_step = False, None, None
+    target.photo_2fa_required = False      # its authenticator is gone, so the photo setting cannot stay on
     session.commit()
     return RedirectResponse("/settings#admin", status_code=303)
 

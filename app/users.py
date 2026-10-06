@@ -78,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Password reset for {user.username}.")
         else:
             user.totp_enabled, user.totp_secret, user.totp_last_step = False, None, None
+            user.photo_2fa_required = False
             print(f"Two-factor authentication turned off for {user.username}.")
         db.commit()
     return 0

@@ -257,6 +257,8 @@ def twofa_setup(request: Request, db: Session = Depends(get_session)):
 async def twofa_change(request: Request, db: Session = Depends(get_session)):
     user = _user_with_secret(db, request)
     form = await _form(request)
+    if form.get("action") == "disable" and user.photo_2fa_required:
+        return _twofa_page(request, user, "Turn off Body Recomp Photo 2FA in Settings before turning off two-factor authentication.", 422)
     if problem := check_code(user, form.get("code", ""), sessions.now_utc()):
         return _twofa_page(request, user, problem, 422)
     if form.get("action") == "disable":

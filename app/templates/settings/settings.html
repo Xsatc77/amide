@@ -65,6 +65,27 @@
         <a class="btn" href="/account/2fa">Manage two-factor authentication</a>
       </div>
 
+      <div class="settings-form" id="photo-2fa">
+        <h3 class="small muted">Body Recomp Photo 2FA</h3>
+        {% set photo_msg = {'on': 'Body Recomp Photo 2FA is turned on. Photos stay blurred until you enter an authenticator code.',
+                            'off': 'Body Recomp Photo 2FA is turned off.',
+                            'need2fa': 'Turn on two-factor authentication for your account first, then come back here.',
+                            'badcode': "That code didn't work. Enter the 6-digit code your app shows now.",
+                            'locked': 'Too many attempts. Wait a few minutes and try again.'}.get(request.query_params.get('photo2fa')) %}
+        {% if photo_msg %}<p class="note" role="status">{{ photo_msg }}</p>{% endif %}
+        <p>Status: <span class="status {{ 'status-active' if me.photo_2fa_required else '' }}">{{ 'On' if me.photo_2fa_required else 'Off' }}</span></p>
+        <p class="small muted">When on, your body photos stay blurred until you enter a code from your authenticator, and then stay clear for 10 minutes. It uses the same authenticator as your login. This turns off by itself if two-factor authentication is removed from your account.</p>
+        {% if me.photo_2fa_required %}
+        <form method="post" action="/settings/photo-2fa" class="settings-form">
+          <input type="hidden" name="action" value="disable">
+          <label class="field"><span>Code to turn it off</span><input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label>
+          <button type="submit" class="btn">Turn off</button>
+        </form>
+        {% else %}
+        <form method="post" action="/settings/photo-2fa"><input type="hidden" name="action" value="enable"><button type="submit" class="btn btn-primary">Turn on</button></form>
+        {% endif %}
+      </div>
+
       <form method="post" action="/settings/timezone" class="settings-form" novalidate>
         <h3 class="small muted">Timezone</h3>
         <p class="small muted">Used to display times like "last login" in Admin. Doesn't change dates on Protocols or Calendar yet.</p>
