@@ -218,6 +218,44 @@
   </div>
 </template>
 
+<section aria-labelledby="price-history-heading" class="price-history">
+  <h2 id="price-history-heading" class="section-title">Price History</h2>
+  {% if price_history %}
+  <label class="field price-product-pick">
+    <span>Product</span>
+    <select id="price-product-select">
+      {% for p in price_history.products %}<option value="{{ p.key }}">{{ p.label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for p in price_history.products %}
+  <div class="price-panel" data-product="{{ p.key }}"{% if not loop.first %} hidden{% endif %}>
+    {% if p.peptide_id %}<p class="small"><a href="/library/{{ p.peptide_id }}">{{ p.label }} in the library</a></p>{% endif %}
+    <ul class="price-legend">
+      {% for s in p.legend %}<li><span class="swatch" style="background: {{ s.color }}"></span>{{ s.label }}</li>{% endfor %}
+    </ul>
+    <svg class="price-chart" viewBox="0 0 {{ p.chart.width }} {{ p.chart.height }}" role="img" aria-label="Price history of {{ p.label }}">
+      {% for t in p.chart.y_ticks %}
+      <line class="grid" x1="{{ p.chart.plot.left }}" x2="{{ p.chart.plot.right }}" y1="{{ t.y }}" y2="{{ t.y }}"></line>
+      <text x="{{ p.chart.plot.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ '$%.2f' | format(t.value) }}</text>
+      {% endfor %}
+      {% for t in p.chart.x_ticks %}
+      <text x="{{ t.x }}" y="{{ p.chart.plot.bottom + 16 }}" text-anchor="{{ 'start' if loop.first and not loop.last else ('end' if loop.last and not loop.first else 'middle') }}">{{ t.date | shortdate }}</text>
+      {% endfor %}
+      {% for label, s in p.chart.series.items() %}
+      <polyline points="{{ s.poly }}" fill="none" stroke="{{ s.color }}" stroke-width="2"{% if s.dashed %} stroke-dasharray="6 4"{% endif %}></polyline>
+      {% for pt in s.points %}
+      <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="4" fill="{{ s.color }}"><title>{{ label }}: {{ pt.tip }}</title></circle>
+      {% endfor %}
+      {% endfor %}
+    </svg>
+  </div>
+  {% endfor %}
+  <p class="muted small">Price per kit or box as listed; hover a point for the per-vial price.</p>
+  {% else %}
+  <p class="muted">No price lists imported for this vendor yet.</p>
+  {% endif %}
+</section>
+
 <section aria-labelledby="purchase-history-heading">
   <h2 id="purchase-history-heading" class="section-title">Purchase History</h2>
   {% if order_lines %}
@@ -251,4 +289,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/vendors.js') }}" defer></script>
+<script src="{{ static_url('js/price-history.js') }}" defer></script>
 {% endblock %}

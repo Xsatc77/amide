@@ -233,6 +233,15 @@ h2 { font-size: 1.2rem; margin: 0; }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 24px; }
 .footer a { color: inherit; }
 
+/* ---------- vendor card: price history chart ---------- */
+.price-product-pick { max-width: 360px; }
+.price-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; padding: 0; margin: 8px 0; font-size: 0.85rem; }
+.price-legend .swatch { display: inline-block; width: 16px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.price-chart { display: block; width: 100%; max-width: 720px; height: auto; }
+.price-chart text { fill: var(--muted); font-size: 11px; }
+.price-chart .grid { stroke: var(--border); stroke-width: 1; }
+.price-chart circle { stroke: var(--surface); stroke-width: 1.5; }
+
 /* ---------- legal pages (Terms, Disclaimer, Privacy) ---------- */
 .legal { max-width: 760px; margin: 0 auto; line-height: 1.6; }
 .legal h2 { margin: 28px 0 8px; font-size: 1.15rem; }

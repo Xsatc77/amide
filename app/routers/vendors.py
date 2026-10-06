@@ -13,6 +13,7 @@ from app.models import (
     ContactMethodType, InventoryItem, Order, OrderItem, PaymentMethodType, Share, ShareCategory,
     User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod,
 )
+from app.library.price_lists.vendor_view import build_price_history
 from app.templating import templates
 from app.vendors.links import contact_link
 from app.vendors.resolve import resolve_contact_method_type, resolve_payment_method_type
@@ -214,6 +215,7 @@ def _detail_context(session: Session, vendor: Vendor, uid: int) -> dict:
         "owner_names": owner_names,
         "today": date.today(),
         "edit_data": _form_values(vendor),
+        "price_history": build_price_history(session, vendor.id),
     }
 
 
