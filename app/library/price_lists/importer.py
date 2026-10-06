@@ -4,16 +4,18 @@
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.library.matching import match_name, name_key
 from app.library.price_lists.filename import parse_filename
-from app.library.price_lists.names import PrefixName, propagate_names, repair_names
-from app.library.price_lists.reader import PriceListData
-from app.library.price_lists.rows import pack_type
+from app.library.price_lists.names import PrefixName, learn_prefixes, propagate_names, repair_names
+from app.library.price_lists.reader import PriceListData, read_pdf
+from app.library.price_lists.rows import code_prefix, pack_type
 from app.library.price_lists.specs import format_spec, merge_specs
 from app.models import (
     Peptide, PeptideSource, PriceList, PriceListItem, Vendor, Warehouse, WarehouseSource,
@@ -136,3 +138,83 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
     else:
         session.commit()
     return report
+
+
+def observations_from_db(session: Session, exclude_filenames=()) -> list[tuple[str, str, str]]:
+    """(vendor_key, code_prefix, product_name) from lists already stored, for learning what a code means."""
+    stmt = (select(PriceList.vendor_name, PriceListItem.code, PriceListItem.product_name)
+            .join(PriceListItem, PriceListItem.price_list_id == PriceList.id)
+            .where(PriceListItem.code.is_not(None), PriceListItem.product_name.is_not(None),
+                   PriceList.source_filename.not_in(list(exclude_filenames))))
+    return [(vendor_key(vendor), code_prefix(code), name)
+            for vendor, code, name in session.execute(stmt) if code_prefix(code)]
+
+
+def _files(paths) -> list[Path]:
+    files: list[Path] = []
+    for path in map(Path, paths):
+        files.extend(sorted(p for p in path.iterdir() if p.is_file()) if path.is_dir() else [path])
+    return files
+
+
+def run_import(paths, session_factory, *, warehouse: str | None = None, dry_run: bool = False,
+               reader: Callable[[Path], PriceListData] = read_pdf) -> list[ImportReport]:
+    """Import PDFs (or the PDFs in a folder). Every file is read first so what a short code means can be learned
+    across vendors, then each file is stored in its own transaction; one bad file never stops the others."""
+    reports: list[ImportReport] = []
+    parsed: dict[str, PriceListData] = {}
+    for path in _files(paths):
+        if path.suffix.lower() != ".pdf":
+            reports.append(ImportReport(
+                filename=path.name, skipped="not a PDF (scans need OCR; spreadsheets are not supported yet)"))
+            continue
+        try:
+            parsed[path.name] = reader(path)
+        except Exception as exc:  # a corrupt file is reported, not fatal
+            reports.append(ImportReport(filename=path.name, skipped=f"could not read: {exc}"))
+
+    batch: list[tuple[str, str, str]] = []
+    for name, data in parsed.items():
+        propagate_names(data.rows)
+        try:
+            vendor = vendor_key(parse_filename(name).vendor)
+        except ValueError:
+            continue
+        batch += [(vendor, code_prefix(r.code), r.name) for r in data.rows if r.name and code_prefix(r.code)]
+    with session_factory() as session:
+        table = learn_prefixes(observations_from_db(session, parsed) + batch)
+
+    for name, data in parsed.items():
+        with session_factory() as session:
+            try:
+                reports.append(store_price_list(session, name, data, prefix_table=table,
+                                                warehouse_override=warehouse, dry_run=dry_run))
+            except Exception as exc:
+                session.rollback()
+                reports.append(ImportReport(filename=name, skipped=f"failed: {exc}"))
+    return reports
+
+
+def format_reports(reports: list[ImportReport], *, dry_run: bool = False) -> str:
+    lines = ["DRY RUN - nothing was written", ""] if dry_run else []
+    assumed = []
+    for r in reports:
+        lines.append(r.filename)
+        if r.skipped:
+            lines += [f"  skipped: {r.skipped}", ""]
+            continue
+        vendor = f"{r.vendor_name} ({'new' if r.vendor_created else 'existing'})"
+        lines.append(f"  vendor: {vendor} | warehouse: {r.warehouse} ({r.warehouse_source}) | rows: {r.rows} | "
+                     f"matched: {r.matched} | library cards given new sizes: {r.specs_added}")
+        if r.flagged:
+            lines.append(f"  flagged ({len(r.flagged)}):")
+            lines += [f"    {item}" for item in r.flagged]
+        if r.unmatched:
+            lines.append(f"  products with no library card ({len(r.unmatched)}): {', '.join(r.unmatched)}")
+        lines.append("")
+        if r.warehouse_source == "assumed":
+            assumed.append(r.filename)
+    if assumed:
+        lines += ["Warehouse assumed (China) for: " + "; ".join(assumed),
+                  "  If any are really US warehouses, re-import that file with --warehouse us."]
+    return "\n".join(lines).rstrip() + "\n"

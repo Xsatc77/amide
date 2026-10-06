@@ -256,3 +256,68 @@ def test_names_are_repaired_from_the_learned_code_table(db):
     store(db, FILE, data(row("ZX10", None)), prefix_table={"ZX": PrefixName("zorvex", "Zorvex")})
     item = db.scalar(select(PriceListItem))
     assert item.product_name == "Zorvex" and item.flags == ["name-from-code"]
+
+
+from app.db import SessionLocal
+from app.library.price_lists.importer import format_reports, run_import
+
+
+def test_run_import_reads_folders_learns_codes_and_skips_non_pdfs(tmp_path):
+    names = {
+        "a": "A - Price List - 2026-01-01.pdf", "b": "B - Price List - 2026-01-02.pdf",
+        "c": "C - Price List - 2026-01-03.pdf", "scan": "D - Price List - 2026-01-04-01.jpg",
+    }
+    for name in names.values():
+        (tmp_path / name).write_bytes(b"")
+    # fictional product names, so no seeded library card is matched and given sizes
+    reading = {
+        names["a"]: data(row("ZX5", "Zorvex", 5), row("ZX10", None, 10)),
+        names["b"]: data(row("ZX5", "zorvex", 5)),
+        names["c"]: data(row("ZX10", None, 10), row("QU5", "Quillamine", 5)),  # ZX10 has no name anywhere
+    }
+    reports = run_import([tmp_path], SessionLocal, reader=lambda path: reading[path.name])
+
+    by_name = {r.filename: r for r in reports}
+    assert "not a PDF" in by_name[names["scan"]].skipped
+    with SessionLocal() as s:
+        c_items = s.scalars(select(PriceListItem).join(PriceList).where(PriceList.source_filename == names["c"])
+                            .order_by(PriceListItem.id)).all()
+        assert [(i.code, i.product_name, i.flags) for i in c_items] == [
+            ("ZX10", "Zorvex", ["name-from-code"]), ("QU5", "Quillamine", None)]  # QU seen at one vendor: not learned
+        a_zx10 = s.scalar(select(PriceListItem).join(PriceList)
+                          .where(PriceList.source_filename == names["a"], PriceListItem.code == "ZX10"))
+        assert a_zx10.product_name == "Zorvex" and a_zx10.flags is None  # carried down its run, not repaired
+
+
+def test_run_import_one_bad_file_does_not_stop_the_others(tmp_path):
+    good, bad = "A - Price List - 2026-01-01.pdf", "B - Price List - 2026-01-02.pdf"
+    for name in (good, bad):
+        (tmp_path / name).write_bytes(b"")
+
+    def reader(path):
+        if path.name == bad:
+            raise RuntimeError("unreadable")
+        return data(row("ZX10", "Zorvex"))
+
+    reports = {r.filename: r for r in run_import([tmp_path], SessionLocal, reader=reader)}
+    assert "unreadable" in reports[bad].skipped and reports[good].skipped is None
+    with SessionLocal() as s:
+        assert [p.source_filename for p in s.scalars(select(PriceList))] == [good]
+
+
+def test_run_import_dry_run_writes_nothing(tmp_path):
+    name = "A - Price List - 2026-01-01.pdf"
+    (tmp_path / name).write_bytes(b"")
+    reports = run_import([tmp_path / name], SessionLocal, dry_run=True, reader=lambda p: data(row("ZX10", "Zorvex")))
+    assert reports[0].rows == 1
+    with SessionLocal() as s:
+        assert s.scalar(select(func.count()).select_from(PriceList)) == 0
+
+
+def test_report_text_lists_flags_unmatched_and_assumed_warehouses(db):
+    reports = [store(db, FILE, data(row("ZX10", "Unknown Thing", flags=["code-size-mismatch"])))]
+    text = format_reports(reports)
+    assert FILE in text and "Acme Labs (new)" in text and "china (assumed)" in text
+    assert "ZX10 Unknown Thing: code-size-mismatch" in text and "Unknown Thing" in text
+    assert "Warehouse assumed (China) for" in text and "dry run" not in text.lower()
+    assert "dry run" in format_reports(reports, dry_run=True).lower()
