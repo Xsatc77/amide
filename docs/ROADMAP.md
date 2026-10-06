@@ -263,37 +263,27 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 
 ## Known Limitations
 
-### Library Peptide Naming Inconsistency
-**Context:** Vendor price lists and the peptide library use inconsistent naming conventions for the same compound.
+### Library price-list import: vendor naming (resolved 2026-10-05; remaining names are by hand)
+Vendors spell one compound many ways ("BPC157", "BPC 157", "Hexarelin Acetate", "Kiss Peptin-10"). `tools/populate_price_list.py` now matches each price-list name to an existing library card in tiers (`app/library/matching.py`), stopping at the first tier with a hit:
+1. **exact** name (any case)
+2. **normalized**: spacing, punctuation, case and a trailing "Acetate" ignored
+3. **related**: the card's Aliases (comma-separated; a slash may sit inside one), or the name without its parenthetical ("Aicar" = "AICAR (Acadesine)")
+4. **blend**: the same set of ingredients whatever the doses or order ("BPC157 5mg+TB500 5mg" = "Wolverine Stack (BPC-157 + TB-500)")
+5. **fuzzy**: exactly one misspelled word, with the digits and word count identical
 
-**Example:** AOD-9604 appears as:
-- "AOD-9604" (hyphenated)
-- "AOD9604" (no space)
-- "AOD 9604" (spaced)
+Real product differences are never merged: with / without / no / DAC (and anything in a parenthetical containing those words) stay separate, so "with B12" never lands on "without B12" and "CJC-1295 (No DAC)" never on "CJC-1295 DAC". The importer never creates cards and only *adds* specs to a card, so re-importing is safe.
 
-**Impact:** Creates duplicate entries when importing price lists if names aren't normalized. Can fragment library data and confuse user searches.
+**How to teach it a new spelling:** add the vendor's name to the right card's **Aliases** in the library editor, then re-run the import. A generic card catches its variants this way: the two TRT cards list each testosterone ester (Cypionate, Decanoate, Phenylpropionate, Propionate, Sustanon, Undecanoate) as aliases, since "TRT" is the generic name for any testosterone ester.
 
-**Mitigation Applied:**
-- AOD-9604 variants were consolidated to the canonical hyphenated format (one-off; no script is kept in the repo)
-- The price-list importer (`tools/populate_price_list.py`) only annotates existing library cards by exact name and never creates new ones, so spelling variants stay unmatched instead of becoming duplicate cards
+**Resolved with the owner's answers (2026-10-05):** `5Amino/MQ`, `Fox04 -DRI` and `SLU332` are aliases on 5-Amino-1MQ, FOXO4-DRI and SLU-PP-332; `CJC1295(Without DAC)5mg+IPA5mg` is the No-DAC CJC-1295 + Ipamorelin product (alias on that card); the GLOW and KLOW blends map to their existing blend cards, and the BPC-157 + TB-500 blends to Wolverine Stack; and cards were created for **Erythropoietin (EPO)**, **Human Menopausal Gonadotropin (HMG)**, **Relaxation PM** (a custom blend; its DSIP / Selank / Oxytocin / Epitalon composition and dose ranges are in the card's Notes) and the five **HGH Fragment 176-191 … 195** products, which are individual products and stay separate cards.
 
-**Future Fix (Roadmap Item — Phase TBD):**
-Implement preprocessing in the price list parser to normalize peptide names:
-- Strip leading/trailing whitespace
-- Normalize spacing (spaces → hyphens)  
-- Case normalization
-- Implement fuzzy matching for import deduplication to catch minor name variations
+**Still unmatched (5 names; nothing was created for them):** `L-carniting 600mg(Liquid)` (probably the existing L-Carnitine card), `TNT(Testosterone Ethanate+ Trenbolone Ethanate)`, `Tpropionate Isocaproate`, `TB2(BT)`, `THY-1(TA5)`. Add each as an alias of the right card, or create a card, in the Library edit phase. The new cards above are bare (name, specs from the price list, Relaxation PM's notes): their descriptions, "focus" and dosing still need filling in. `KGLOW` has no library card yet.
 
-### Library cards created by the old price-list importer (clean up in the Library edit phase)
-**Context:** An early version of `populate_library_specs.py` created a new custom Peptide card for every price-list name that didn't exactly match an existing card. The importer no longer creates cards, but the ones it already made are still in the local database (backed up 2026-10-03 as `data/amide.db.bak-2026-10-03`).
+### Importer-created library cards (cleaned up 2026-10-05)
+An early importer created a custom card for every price-list name it couldn't match exactly. The 53 unreferenced ones (ids 220 and 222–274, including the duplicate `HGH 191AA (Somatropin)`) were removed from the local database and the import re-run with the new matcher; backups are `data/amide.db.bak-2026-10-03`, `data/amide.db.bak-2026-10-05` and `data/amide.db.bak-2026-10-05-b`. `B-12` (id 221) was kept because a protocol uses it. Specs for any name still unmatched are not on a card, but they remain in the PDF and attach as soon as a card or alias exists.
 
-**To clean up:**
-- 53 unreferenced `custom` cards: ids 220 ("Disp") and 222–274 (vendor spellings such as "BPC157", "Samaglutide", "TB2(BT)", "RelaxatlonPM").
-- `B-12` (id 221) is also importer-created but a protocol uses it; re-point that protocol before removing it.
-- HGH duplicates: id 106 "HGH 191AA" (sheet) and id 243 "HGH 191AA (Somatropin)" (custom) — merge into one card; ties into the naming-inconsistency work above.
-
-### Course Totals: "normally supplied" vial-size fallback (parked)
-`Peptide.normally_supplied_amount` / `normally_supplied_unit` exist (migration 0029) and Course Totals reads them when a protocol item has no linked inventory item, but no library card has them set and nothing writes them, so the fallback never fires. Parked for the Library edit phase, which would add the field to the card editor. The vial-size selector in the Total Course Quantities popup is what drives the BAC Water estimate today.
+### Course Totals: "normally supplied" vial size (done 2026-10-05)
+The library card editor now has **Normally supplied vial size** (amount + unit). Total Course Quantities uses it for the vial and BAC water estimate when a protocol item has no linked inventory item. No card has it filled in yet; set it per peptide as needed. (When an inventory item *is* linked, that item's own vial size still wins and must be Lyophilized, as before.)
 
 ---
 

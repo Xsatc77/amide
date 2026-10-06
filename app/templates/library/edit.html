@@ -36,6 +36,24 @@
         </label>
       </div>
     </div>
+    <div class="field span-2">
+      <span>Normally supplied vial size <span class="muted">(optional) — used for the vial and BAC water estimate in Total Course Quantities when a protocol item has no inventory item linked</span></span>
+      <div class="dose-range">
+        <label class="field {{ 'has-error' if errors.normally_supplied_amount }}">
+          <span class="small">Amount</span>
+          <input name="normally_supplied_amount" type="number" min="0" step="any" inputmode="decimal" value="{{ f.normally_supplied_amount }}">
+          {{ err('normally_supplied_amount') }}
+        </label>
+        <label class="field {{ 'has-error' if errors.normally_supplied_unit }}">
+          <span class="small">Unit</span>
+          <select name="normally_supplied_unit">
+            <option value="">—</option>
+            {% for u in units %}<option value="{{ u.value }}" {{ 'selected' if f.normally_supplied_unit == u.value }}>{{ u.label }}</option>{% endfor %}
+          </select>
+          {{ err('normally_supplied_unit') }}
+        </label>
+      </div>
+    </div>
     <label class="field {{ 'has-error' if errors.typical_frequency }}">
       <span>Typical frequency</span>
       <input name="typical_frequency" maxlength="100" value="{{ f.typical_frequency }}" placeholder="e.g. Daily, 5 days on / 2 off">

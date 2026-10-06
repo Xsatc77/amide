@@ -54,13 +54,13 @@ def parse_price_list_pdf(pdf_path: str | Path) -> dict[str, str]:
 
                             specs_by_peptide[current_product].add(f"{amount}{unit}")
 
-    # Format output: sorted specs per peptide
-    result = {}
-    for name, specs in specs_by_peptide.items():
-        sorted_specs = sorted(specs, key=lambda s: (_unit_order(s), _amount_from_spec(s)))
-        result[name] = ", ".join(sorted_specs)
+    return {name: merge_specs(*specs) for name, specs in specs_by_peptide.items()}
 
-    return result
+
+def merge_specs(*spec_lists: str) -> str:
+    """Union of comma-separated spec strings (e.g. "5mg, 10mg"), sorted by unit then amount."""
+    specs = {s.strip() for spec_list in spec_lists for s in spec_list.split(",") if s.strip()}
+    return ", ".join(sorted(specs, key=lambda s: (_unit_order(s), _amount_from_spec(s))))
 
 
 def _unit_order(spec: str) -> int:

@@ -215,6 +215,8 @@
           {{ [p.dose_low, p.dose_mid, p.dose_high] | reject('none') | map('dose_num') | join(' – ') }} {{ p.dose_unit.value if p.dose_unit else '' }}
           {% else %}<span class="muted">Not set</span>{% endif %}</dd>
         <dt>Frequency</dt><dd>{{ p.typical_frequency or '—' }}</dd>
+        <dt>Normally supplied</dt>
+        <dd>{% if p.normally_supplied_amount is not none %}{{ p.normally_supplied_amount | dose_num }} {{ p.normally_supplied_unit.value if p.normally_supplied_unit else '' }}{% else %}<span class="muted">Not set</span>{% endif %}</dd>
         <dt>Aliases</dt><dd>{{ p.aliases or '—' }}</dd>
         <dt>Notes</dt><dd class="pre">{{ p.notes or '—' }}</dd>
       </dl>

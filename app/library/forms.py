@@ -5,7 +5,8 @@ from collections.abc import Mapping
 from app.goals import GOALS_BY_SLUG
 from app.models import DoseUnit
 
-TEXT_FIELDS = ("aliases", "dose_low", "dose_mid", "dose_high", "dose_unit", "typical_frequency", "notes")
+TEXT_FIELDS = ("aliases", "dose_low", "dose_mid", "dose_high", "dose_unit", "typical_frequency", "notes",
+               "normally_supplied_amount", "normally_supplied_unit")
 DOSE_FIELDS = (("dose_low", "Low"), ("dose_mid", "Mid"), ("dose_high", "High"))
 
 
@@ -22,6 +23,8 @@ def state_from_peptide(p, goals: list[str]) -> dict:
         "aliases": p.aliases or "", "dose_low": num(p.dose_low), "dose_mid": num(p.dose_mid),
         "dose_high": num(p.dose_high), "dose_unit": p.dose_unit.value if p.dose_unit else "",
         "typical_frequency": p.typical_frequency or "", "notes": p.notes or "", "goals": goals,
+        "normally_supplied_amount": num(p.normally_supplied_amount),
+        "normally_supplied_unit": p.normally_supplied_unit.value if p.normally_supplied_unit else "",
     }
 
 
@@ -60,6 +63,24 @@ def parse_peptide_form(state: dict) -> tuple[dict, dict[str, str]]:
             errors["dose_unit"] = "Pick a unit from the list."
     elif given:
         values["dose_unit"] = DoseUnit.MG
+
+    values["normally_supplied_amount"] = values["normally_supplied_unit"] = None
+    if state["normally_supplied_amount"]:
+        try:
+            amount = float(state["normally_supplied_amount"])
+        except ValueError:
+            errors["normally_supplied_amount"] = "Vial size must be a number."
+        else:
+            if amount <= 0:
+                errors["normally_supplied_amount"] = "Vial size must be greater than 0."
+            else:
+                values["normally_supplied_amount"] = amount
+                values["normally_supplied_unit"] = DoseUnit.MG
+        if state["normally_supplied_unit"]:
+            try:
+                values["normally_supplied_unit"] = DoseUnit(state["normally_supplied_unit"])
+            except ValueError:
+                errors["normally_supplied_unit"] = "Pick a unit from the list."
 
     goals = list(dict.fromkeys(state["goals"]))
     if any(g not in GOALS_BY_SLUG for g in goals):

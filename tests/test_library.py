@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app import config
 from app.db import SessionLocal
 from app.library.loader import load_cards
-from app.models import GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolGoal, ProtocolItem
+from app.models import DoseUnit, GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolGoal, ProtocolItem
 
 CARD = {
     "card_number": 2, "name": "BPC-157", "subtitle": "Synthetic pentadecapeptide derived from a gastric protein",
@@ -26,6 +26,7 @@ CARD = {
     "image": "002.jpg", "page": 2,
 }
 OWNER_COLUMNS = ("aliases", "dose_low", "dose_mid", "dose_high", "dose_unit", "typical_frequency", "notes",
+                 "normally_supplied_amount", "normally_supplied_unit", "library_specifications",
                  "card_class", "category", "evidence_level", "status", "card_details", "card_image")
 
 
@@ -374,6 +375,46 @@ def test_edit_validation(client, db):
         assert "Please fix" in html.unescape(r.text)
     db.expire_all()
     assert bpc(db).dose_low is None  # nothing saved
+
+
+def test_edit_saves_normally_supplied_vial_size(client, db):
+    p = bpc(db)
+    client.post(f"/library/{p.id}", data=edit_form(normally_supplied_amount="5", normally_supplied_unit="mg"))
+    db.expire_all()
+    p = bpc(db)
+    assert (p.normally_supplied_amount, p.normally_supplied_unit.value) == (5, "mg")
+    assert "5 mg" in text(client.get(f"/library/{p.id}"))
+
+
+def test_edit_page_prefills_normally_supplied_vial_size(client, db):
+    p = bpc(db)
+    p.normally_supplied_amount, p.normally_supplied_unit = 10, DoseUnit.MG
+    db.commit()
+    t = text(client.get(f"/library/{p.id}/edit"))
+    assert 'name="normally_supplied_amount"' in t and 'value="10"' in t
+    assert 'value="mg" selected' in t
+
+
+def test_normally_supplied_unit_defaults_to_mg_and_blank_amount_clears_both(client, db):
+    p = bpc(db)
+    client.post(f"/library/{p.id}", data=edit_form(normally_supplied_amount="5", normally_supplied_unit=""))
+    db.expire_all()
+    assert bpc(db).normally_supplied_unit == DoseUnit.MG
+    client.post(f"/library/{p.id}", data=edit_form(normally_supplied_amount="", normally_supplied_unit="mcg"))
+    db.expire_all()
+    p = bpc(db)
+    assert p.normally_supplied_amount is None and p.normally_supplied_unit is None
+
+
+def test_normally_supplied_validation(client, db):
+    p = bpc(db)
+    for bad in ({"normally_supplied_amount": "0"}, {"normally_supplied_amount": "-5"},
+                {"normally_supplied_amount": "abc"},
+                {"normally_supplied_amount": "5", "normally_supplied_unit": "grams"}):
+        r = client.post(f"/library/{p.id}", data=edit_form(**bad))
+        assert r.status_code == 422, bad
+    db.expire_all()
+    assert bpc(db).normally_supplied_amount is None
 
 
 def test_edit_goal_membership(client, db):

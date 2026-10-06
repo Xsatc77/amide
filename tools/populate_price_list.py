@@ -27,8 +27,13 @@ def main():
 
     session = SessionLocal()
     try:
-        stats = populate_from_price_list(session, pdf_path)
-        print(f"Updated: {stats['updated']}, Unmatched (no library card with that exact name): {stats['unmatched']}")
+        result = populate_from_price_list(session, pdf_path)
+        print(f"Updated {result.updated} library cards from {len(result.matches)} price-list names.")
+        if result.unmatched:
+            print(f"\n{len(result.unmatched)} names matched no card (nothing was created for them). To have a future "
+                  "import match one, add that spelling to the right card's Aliases:")
+            for vendor_name, suggestions in result.unmatched:
+                print(f"  {vendor_name!r}" + (f"  -> closest: {', '.join(suggestions)}" if suggestions else ""))
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
