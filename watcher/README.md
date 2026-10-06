@@ -28,6 +28,14 @@ vendor and switched on in Amide. For every other group it sends Amide the title,
 | `status` | Shows the home folder, whether a session exists, whether Amide accepts the token, the queue and each group's position. Never shows a secret and never contacts Telegram. |
 | `install-startup`, `remove-startup` | Add or remove the Windows Task Scheduler entry. |
 
+## Topics (forum groups)
+
+Some groups are split into topics (named threads such as "US warehouse" or "Chatter"). The watcher registers each forum group's
+topics with Amide. In the inbox's Groups table, tick **Only selected topics** for the group and choose the topics to follow.
+A new topic whose name contains one of the group's **auto-follow words** (default `price, warehouse`) starts ticked; others
+start off. **Skip words** (for example `UK, EU`) set aside any list whose caption, filename, topic name or text mentions them.
+A topic's name also helps decide the warehouse. Groups without topics work as before.
+
 ## How it behaves
 
 - First time it sees a mapped group it reads back `backfill_days` (default 7); after that it continues from the last message.
