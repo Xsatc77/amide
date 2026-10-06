@@ -54,3 +54,65 @@ def spread(jpeg_bytes):
     """How much detail an image holds: the standard deviation of its grey levels."""
     grey = Image.open(io.BytesIO(jpeg_bytes)).convert("L")
     return statistics.pstdev(grey.getdata())
+
+
+import time
+from contextlib import contextmanager
+from datetime import date
+
+import pyotp
+from fastapi.testclient import TestClient
+
+from app.body_photos import delete_file as store_delete, process_upload, store
+from app.main import app
+from app.models import BodyPhoto, User
+
+
+@contextmanager
+def other_client(username="photoother"):
+    """A second signed-in user in a separate browser (not the administrator)."""
+    with TestClient(app, follow_redirects=False) as c:
+        assert c.post("/notice", data={"understand": "1"}).status_code == 303
+        r = c.post("/register", data={"username": username, "password": "Test1!", "confirm": "Test1!"})
+        assert r.status_code in (200, 303), r.text
+        try:
+            yield c
+        finally:
+            _remove_user(username)
+
+
+def _remove_user(username):
+    """Delete a helper user and everything pointing at it, so the next test starts clean."""
+    from app.db import SessionLocal
+    from app.models import LoginSession, Share
+    with SessionLocal() as s:
+        user = s.query(User).filter_by(username_key=username.lower()).first()
+        if user is None:
+            return
+        for photo in s.query(BodyPhoto).filter_by(owner_id=user.id):
+            store_delete(photo.filename)
+        s.query(BodyPhoto).filter_by(owner_id=user.id).delete()
+        s.query(Share).filter((Share.owner_id == user.id) | (Share.grantee_id == user.id)).delete()
+        s.query(LoginSession).filter_by(user_id=user.id).delete()
+        s.delete(user)
+        s.commit()
+
+
+def enable_2fa(db, user_id):
+    secret = pyotp.random_base32()
+    user = db.get(User, user_id)
+    user.totp_secret, user.totp_enabled, user.totp_last_step = secret, True, None
+    db.commit()
+    return secret
+
+
+def code_now(secret):
+    return pyotp.TOTP(secret).at(time.time())
+
+
+def make_photo(db, owner_id, taken_on=None, angle=None, note=None):
+    photo = BodyPhoto(owner_id=owner_id, taken_on=taken_on or date(2026, 10, 6), angle=angle, note=note,
+                      filename=store(process_upload(jpeg(size=(600, 400)))))
+    db.add(photo)
+    db.commit()
+    return photo

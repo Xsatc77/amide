@@ -14,9 +14,9 @@ from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
-    BodyMeasurement, BodyPhoto, FitnessTestResult, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
+    BodyMeasurement, BodyPhoto, FitnessTestResult, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
 )
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import select, update  # noqa: E402
 
 
 TEST_USER = "Tester"
@@ -56,6 +56,10 @@ def clean(client):
         s.query(BodyPhoto).delete()
         s.query(WorkoutPlan).delete()
         s.query(FitnessTestResult).delete()
+        s.execute(update(User).where(User.username_key == TEST_USER.lower()).values(
+            totp_enabled=False, totp_secret=None, totp_last_step=None, photo_2fa_required=False,
+            failed_attempts=0, locked_until=None))
+        s.execute(update(LoginSession).values(photo_unlocked_until=None))
         s.commit()
     for f in config.COA_DIR.glob("*"):
         f.unlink()
