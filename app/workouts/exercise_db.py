@@ -43,17 +43,18 @@ class SpeedBand:
 @dataclass(frozen=True)
 class SpeedTable:
     key: str
-    basis: str                # "speed_mph" or "grade_pct"
+    basis: str                # "speed_mph", "grade_pct", "watts" or "effort"
     unit_label: str
     rows: tuple[SpeedBand, ...]
+    default: SpeedBand | None = None   # the row used when nothing is entered (bikes, rowing, elliptical, ski erg)
 
 
 @dataclass(frozen=True)
-class StyleProfile:
-    name: str
+class Category:
+    """A Compendium row a person can pick for a rep-based exercise (the resistance and calisthenics rows)."""
+    code: str
     met: float
-    sec_per_rep: float | None
-    rest_min: float | None
+    label: str
 
 
 @lru_cache(maxsize=1)
@@ -87,13 +88,18 @@ def canonical_for_alias(text: str | None) -> str | None:
 
 
 @lru_cache(maxsize=1)
-def styles() -> dict[str, StyleProfile]:
-    return {name: StyleProfile(name, p["met"], p["sec_per_rep"], p["rest_min"]) for name, p in _raw()["styles"].items()}
+def categories() -> tuple[Category, ...]:
+    return tuple(Category(c["code"], c["met"], c["label"]) for c in _raw()["categories"])
 
 
-def choosable_styles() -> list[str]:
-    """The styles a person can pick on a rep-based row (not the rest-recovery assumption or the "General" label)."""
-    return [name for name, s in styles().items() if s.sec_per_rep is not None and name != "General"]
+def category(code: str | None) -> Category | None:
+    return next((c for c in categories() if c.code == code), None)
+
+
+@lru_cache(maxsize=1)
+def compendium() -> dict[str, dict]:
+    """Every Compendium row the data uses: code -> {met, description}."""
+    return {row["code"]: row for row in _raw()["compendium"]}
 
 
 @lru_cache(maxsize=1)
@@ -102,7 +108,11 @@ def speed_tables() -> dict[str, SpeedTable]:
     for key, table in _raw()["speed_tables"].items():
         rows = tuple(SpeedBand(r["code"], r["min"], r["met"], r["label"])
                      for r in sorted(table["rows"], key=lambda r: r["min"]))
-        out[key] = SpeedTable(key, table["basis"], table["unit_label"], rows)
+        default = None
+        if table.get("default"):
+            row = compendium()[table["default"]]
+            default = SpeedBand(row["code"], 0, row["met"], row["description"])
+        out[key] = SpeedTable(key, table["basis"], table["unit_label"], rows, default)
     return out
 
 

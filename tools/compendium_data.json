@@ -1,0 +1,175 @@
+{
+ "source": "2024 Adult Compendium of Physical Activities (pacompendium.com): conditioning exercise (02xxx), bicycling (01xxx), walking (17xxx), running (12xxx)",
+ "rows": {
+  "01200": {"met": 6.8, "description": "Bicycling, stationary, general"},
+  "01210": {"met": 3.5, "description": "Bicycling, stationary, 25-30 watts, very light to light effort"},
+  "01214": {"met": 4.0, "description": "Bicycling, stationary, 50 watts, light effort"},
+  "01216": {"met": 5.0, "description": "Bicycling, stationary, 60 watts, light to moderate effort"},
+  "01218": {"met": 5.8, "description": "Bicycling, stationary, 70-80 watts"},
+  "01220": {"met": 6.0, "description": "Bicycling, stationary, 90-100 watts, moderate to vigorous"},
+  "01224": {"met": 6.8, "description": "Bicycling, stationary, 101-125 watts"},
+  "01228": {"met": 8.0, "description": "Bicycling, stationary, 126-150 watts"},
+  "01232": {"met": 10.3, "description": "Bicycling, stationary, 151-199 watts"},
+  "01236": {"met": 10.8, "description": "Bicycling, stationary, 200-229 watts, vigorous"},
+  "01240": {"met": 12.5, "description": "Bicycling, stationary, 230-250 watts, very vigorous"},
+  "01244": {"met": 13.8, "description": "Bicycling, stationary, 270-305 watts, very vigorous"},
+  "01248": {"met": 16.3, "description": "Bicycling, stationary, over 325 watts, very vigorous"},
+  "01270": {"met": 9.0, "description": "Bicycling, stationary, RPM/Spin bike class"},
+  "02020": {"met": 7.5, "description": "Calisthenics (pushups, sit ups, pull-ups, jumping jacks, burpees, battling ropes), vigorous effort"},
+  "02022": {"met": 3.8, "description": "Calisthenics (pushups, sit ups, pull-ups, lunges), moderate effort"},
+  "02024": {"met": 2.8, "description": "Calisthenics (curl ups, abdominal crunches, plank), light effort"},
+  "02040": {"met": 7.5, "description": "Circuit training, including kettlebells, some aerobic movement with minimal rest, vigorous intensity"},
+  "02048": {"met": 5.0, "description": "Elliptical trainer, moderate effort"},
+  "02049": {"met": 9.0, "description": "Elliptical trainer, vigorous effort"},
+  "02050": {"met": 6.0, "description": "Resistance (weight lifting, free weight, nautilus or universal-type), power lifting or body building, vigorous effort"},
+  "02052": {"met": 5.0, "description": "Resistance (weight) training, squats, deadlift, slow or explosive effort"},
+  "02054": {"met": 3.5, "description": "Resistance (weight) training, multiple exercises, 8-15 reps at varied resistance"},
+  "02055": {"met": 5.8, "description": "Resistance training, circuit, reciprocal supersets, peripheral heart action training"},
+  "02056": {"met": 3.0, "description": "Body weight resistance exercises (squat, lunge, push-up, crunch), general"},
+  "02057": {"met": 6.5, "description": "Body weight resistance exercises (squat, lunge, push-up, crunch), high intensity"},
+  "02058": {"met": 9.8, "description": "Kettlebell swings"},
+  "02065": {"met": 9.3, "description": "Stair treadmill ergometer, general"},
+  "02068": {"met": 11.0, "description": "Rope skipping exercise, general"},
+  "02070": {"met": 7.3, "description": "Rowing, stationary ergometer, general, vigorous effort"},
+  "02071": {"met": 5.0, "description": "Rowing, stationary ergometer, general, under 100 watts, moderate effort"},
+  "02072": {"met": 7.5, "description": "Rowing, stationary, 100 to 149 watts, vigorous effort"},
+  "02073": {"met": 11.0, "description": "Rowing, stationary, 150 to 199 watts, vigorous effort"},
+  "02074": {"met": 14.0, "description": "Rowing, stationary, 200 watts or more, very vigorous effort"},
+  "02078": {"met": 11.0, "description": "Shuttle running, forward/backward/lateral"},
+  "02080": {"met": 6.8, "description": "Ski machine, general"},
+  "02082": {"met": 10.5, "description": "Ski ergometer, cross country, double poling, slow to moderate speed"},
+  "02084": {"met": 18.0, "description": "Ski ergometer, cross country, double poling, fast to maximum speed"},
+  "02214": {"met": 11.0, "description": "High intensity interval exercise, burpees, mountain climbers, squat jumps, Tabata, vigorous effort"}
+ },
+ "categories": [
+  {"code": "02054", "label": "Resistance training, multiple exercises, 8-15 reps"},
+  {"code": "02050", "label": "Resistance training, vigorous (power lifting or body building)"},
+  {"code": "02052", "label": "Resistance training, squats and deadlifts"},
+  {"code": "02055", "label": "Resistance circuit, reciprocal supersets"},
+  {"code": "02056", "label": "Body weight resistance, general"},
+  {"code": "02057", "label": "Body weight resistance, high intensity"},
+  {"code": "02040", "label": "Circuit training with kettlebells, vigorous"},
+  {"code": "02058", "label": "Kettlebell swings"},
+  {"code": "02022", "label": "Calisthenics, moderate effort"},
+  {"code": "02020", "label": "Calisthenics, vigorous effort"},
+  {"code": "02024", "label": "Calisthenics, light effort (crunches, plank)"},
+  {"code": "02214", "label": "High intensity intervals (burpees, mountain climbers, squat jumps)"}
+ ],
+ "overrides": {
+  "Battle Rope Waves": {"code": "02020", "evidence": "Direct Compendium activity"},
+  "Burpee": {"code": "02214", "evidence": "Direct Compendium activity"},
+  "Mountain Climber": {"code": "02214", "evidence": "Direct Compendium activity"},
+  "Jump Squat": {"code": "02214", "evidence": "Direct Compendium activity"},
+  "Lateral Shuffle": {"code": "02078", "evidence": "Direct Compendium activity"},
+  "Plank": {"code": "02024", "evidence": "Direct Compendium activity"},
+  "Side Plank": {"code": "02024", "evidence": "Direct Compendium activity"},
+  "Hollow Body Hold": {"code": "02024", "evidence": "Mapped estimate"},
+  "Crunch": {"code": "02024", "evidence": "Direct Compendium activity"},
+  "Spin Bike": {"code": "01270", "evidence": "Direct Compendium activity"},
+  "Stationary Bike": {"table": "stationary_bike", "evidence": "Direct Compendium activity"},
+  "Air Bike": {"table": "stationary_bike", "evidence": "Mapped estimate"},
+  "Assault Bike": {"table": "stationary_bike", "evidence": "Mapped estimate"},
+  "Rowing Ergometer": {"table": "rowing", "evidence": "Direct Compendium activity"},
+  "Elliptical": {"table": "elliptical", "evidence": "Direct Compendium activity"},
+  "Ski Ergometer": {"table": "ski_erg", "evidence": "Direct Compendium activity"},
+  "Treadmill Walk": {"table": "treadmill_walk", "evidence": "Direct Compendium activity"},
+  "Treadmill Incline Walk": {"table": "hill_walk", "evidence": "Direct Compendium activity"},
+  "Treadmill Jog": {"table": "run", "evidence": "Direct Compendium activity"},
+  "Treadmill Run": {"table": "run", "evidence": "Direct Compendium activity"}
+ },
+ "tables": {
+  "treadmill_walk": {
+   "basis": "speed_mph", "unit_label": "mph",
+   "note": "Compendium walking, treadmill, 0% grade. Each row applies from its minimum speed up to the next row's.",
+   "rows": [
+    {"code": "17340", "min": 0.0, "met": 2.1, "label": "Walking, treadmill, under 1.0 mph"},
+    {"code": "17343", "min": 1.0, "met": 2.3, "label": "Walking, treadmill, 1.0 mph"},
+    {"code": "17346", "min": 1.2, "met": 2.8, "label": "Walking, treadmill, 1.2 to 1.9 mph"},
+    {"code": "17349", "min": 2.0, "met": 3.0, "label": "Walking, treadmill, 2.0 to 2.4 mph"},
+    {"code": "17352", "min": 2.5, "met": 3.5, "label": "Walking, treadmill, 2.5 to 2.9 mph"},
+    {"code": "17355", "min": 3.0, "met": 3.8, "label": "Walking, treadmill, 3.0 to 3.4 mph"},
+    {"code": "17358", "min": 3.5, "met": 4.8, "label": "Walking, treadmill, 3.5 to 3.9 mph"},
+    {"code": "17361", "min": 4.0, "met": 5.8, "label": "Walking, treadmill, 4.0 to 4.4 mph"},
+    {"code": "17364", "min": 4.5, "met": 6.8, "label": "Walking, treadmill, 4.5 to 4.9 mph"},
+    {"code": "17367", "min": 5.0, "met": 8.3, "label": "Walking, treadmill, 5.0 to 5.5 mph"}
+   ]
+  },
+  "hill_walk": {
+   "basis": "grade_pct", "unit_label": "% grade",
+   "note": "Compendium climbing hills, no load, moderate-to-brisk pace; used for incline walking by grade.",
+   "rows": [
+    {"code": "17034", "min": 1.0, "met": 5.3, "label": "Climbing hills, no load, 1 to 5% grade"},
+    {"code": "17035", "min": 6.0, "met": 7.0, "label": "Climbing hills, no load, 6 to 10% grade"},
+    {"code": "17036", "min": 11.0, "met": 8.8, "label": "Climbing hills, no load, 11 to 20% grade"}
+   ]
+  },
+  "run": {
+   "basis": "speed_mph", "unit_label": "mph",
+   "note": "Compendium running and jogging by speed. Each row applies from its minimum speed up to the next row's.",
+   "rows": [
+    {"code": "12026", "min": 2.6, "met": 3.3, "label": "Jogging 2.6 to 3.7 mph"},
+    {"code": "12028", "min": 4.0, "met": 6.5, "label": "Running, 4 to 4.2 mph (13 min/mile)"},
+    {"code": "12029", "min": 4.3, "met": 7.8, "label": "Running 4.3 to 4.8 mph"},
+    {"code": "12030", "min": 5.0, "met": 8.5, "label": "Running, 5.0 to 5.2 mph (12 min/mile)"},
+    {"code": "12045", "min": 5.5, "met": 9.0, "label": "Running, 5.5 to 5.8 mph"},
+    {"code": "12050", "min": 6.0, "met": 9.3, "label": "Running, 6 to 6.3 mph (10 min/mile)"},
+    {"code": "12060", "min": 6.7, "met": 10.5, "label": "Running, 6.7 mph (9 min/mile)"},
+    {"code": "12070", "min": 7.0, "met": 11.0, "label": "Running, 7 mph (8.5 min/mile)"},
+    {"code": "12080", "min": 7.5, "met": 11.8, "label": "Running, 7.5 mph (8 min/mile)"},
+    {"code": "12090", "min": 8.0, "met": 12.0, "label": "Running, 8 mph (7.5 min/mile)"},
+    {"code": "12100", "min": 8.6, "met": 12.5, "label": "Running, 8.6 mph (7 min/mile)"},
+    {"code": "12110", "min": 9.0, "met": 13.0, "label": "Running, 9 mph (6.5 min/mile)"},
+    {"code": "12115", "min": 9.3, "met": 14.8, "label": "Running, 9.3 to 9.6 mph"},
+    {"code": "12120", "min": 10.0, "met": 14.8, "label": "Running, 10 mph (6 min/mile)"},
+    {"code": "12130", "min": 11.0, "met": 16.8, "label": "Running, 11 mph (5.5 min/mile)"},
+    {"code": "12132", "min": 12.0, "met": 18.5, "label": "Running, 12 mph (5.0 min/mile)"},
+    {"code": "12134", "min": 13.0, "met": 19.8, "label": "Running, 13 mph (4.6 min/mile)"},
+    {"code": "12135", "min": 14.0, "met": 23.0, "label": "Running, 14 mph (4.3 min/mile)"}
+   ]
+  },
+  "stationary_bike": {
+   "basis": "watts", "unit_label": "watts", "default": "01200",
+   "note": "Compendium stationary bicycling by power output; with no wattage entered the general row applies.",
+   "rows": [
+    {"code": "01210", "min": 0, "met": 3.5, "label": "Stationary bicycling, 25-30 watts"},
+    {"code": "01214", "min": 40, "met": 4.0, "label": "Stationary bicycling, 50 watts"},
+    {"code": "01216", "min": 55, "met": 5.0, "label": "Stationary bicycling, 60 watts"},
+    {"code": "01218", "min": 65, "met": 5.8, "label": "Stationary bicycling, 70-80 watts"},
+    {"code": "01220", "min": 85, "met": 6.0, "label": "Stationary bicycling, 90-100 watts"},
+    {"code": "01224", "min": 101, "met": 6.8, "label": "Stationary bicycling, 101-125 watts"},
+    {"code": "01228", "min": 126, "met": 8.0, "label": "Stationary bicycling, 126-150 watts"},
+    {"code": "01232", "min": 151, "met": 10.3, "label": "Stationary bicycling, 151-199 watts"},
+    {"code": "01236", "min": 200, "met": 10.8, "label": "Stationary bicycling, 200-229 watts"},
+    {"code": "01240", "min": 230, "met": 12.5, "label": "Stationary bicycling, 230-250 watts"},
+    {"code": "01244", "min": 270, "met": 13.8, "label": "Stationary bicycling, 270-305 watts"},
+    {"code": "01248", "min": 325, "met": 16.3, "label": "Stationary bicycling, over 325 watts"}
+   ]
+  },
+  "rowing": {
+   "basis": "watts", "unit_label": "watts", "default": "02070",
+   "note": "Compendium stationary rowing by power output; with no wattage entered the general vigorous row applies.",
+   "rows": [
+    {"code": "02071", "min": 0, "met": 5.0, "label": "Rowing, stationary, under 100 watts"},
+    {"code": "02072", "min": 100, "met": 7.5, "label": "Rowing, stationary, 100-149 watts"},
+    {"code": "02073", "min": 150, "met": 11.0, "label": "Rowing, stationary, 150-199 watts"},
+    {"code": "02074", "min": 200, "met": 14.0, "label": "Rowing, stationary, 200 watts or more"}
+   ]
+  },
+  "elliptical": {
+   "basis": "effort", "unit_label": "effort", "default": "02048",
+   "note": "Compendium elliptical trainer by effort.",
+   "rows": [
+    {"code": "02048", "min": 0, "met": 5.0, "label": "Moderate effort"},
+    {"code": "02049", "min": 1, "met": 9.0, "label": "Vigorous effort"}
+   ]
+  },
+  "ski_erg": {
+   "basis": "effort", "unit_label": "effort", "default": "02082",
+   "note": "Compendium cross-country ski ergometer, double poling, by speed.",
+   "rows": [
+    {"code": "02082", "min": 0, "met": 10.5, "label": "Slow to moderate speed"},
+    {"code": "02084", "min": 1, "met": 18.0, "label": "Fast to maximum speed"}
+   ]
+  }
+ }
+}

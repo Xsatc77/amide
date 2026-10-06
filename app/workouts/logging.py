@@ -1,7 +1,7 @@
 """Turns the workout log form into stored exercise logs with calorie estimates, and finds an exercise's history.
 
 The form's rules live here, not in the route: reps and sets are exact whole numbers (never a range), loads are
-non-negative, a style must be one the database knows, and an exercise added on the day must resolve to a database
+non-negative, a category must be one of the Compendium rows offered, and an exercise added on the day must resolve to a database
 exercise. A ticked exercise with a database match is estimated when it has what the calculation needs; otherwise it
 is saved anyway with a note saying what is missing, so a log is never refused for lack of calorie inputs."""
 
@@ -19,13 +19,16 @@ from app.workouts import calories, exercise_db
 from app.workouts.exercise_db import Exercise
 from app.workouts.exercise_match import match_exercise
 
-MAX_COUNT = 999
+MAX_SETS = 50
+MAX_REPS = 200
+MAX_IMPLEMENTS = 9
+MAX_WATTS = 2000.0
 MAX_BODY_WEIGHT_LB = 1500.0
-MAX_MINUTES = 1000.0
+MAX_MINUTES = 600.0
 MAX_SPEED_MPH = 30.0
 MAX_GRADE_PCT = 40.0
 _FIELDS = ("weight_value", "weight_unit", "reps_value", "sets_value", "minutes_value", "speed_value",
-           "grade_value", "style_value", "implements_value")
+           "grade_value", "watts_value", "effort_value", "category_value", "implements_value")
 
 
 @dataclass
@@ -41,7 +44,9 @@ class ParsedRow:
     minutes: float | None
     speed: float | None
     grade: float | None
-    style: str | None
+    watts: float | None
+    effort: str | None
+    category: str | None
     implements: int
 
     @property
@@ -68,7 +73,7 @@ def latest_body_weight(session: Session, uid: int) -> float | None:
 
 def single_int(text: str | None) -> int | None:
     """A plan's "3" as 3; a range or free text ("3-4", "AMRAP") as None, so it pre-fills nothing."""
-    return int(text) if text and text.strip().isdigit() and 1 <= int(text) <= MAX_COUNT else None
+    return int(text) if text and text.strip().isdigit() and 1 <= int(text) <= MAX_SETS else None
 
 
 def _text(raw, key: str) -> str:
@@ -89,12 +94,12 @@ def _number(raw, key: str, label: str, *, positive: bool = False, maximum: float
     return value
 
 
-def _whole(raw, key: str, label: str) -> int | None:
+def _whole(raw, key: str, label: str, maximum: int = MAX_SETS) -> int | None:
     text = _text(raw, key)
     if not text:
         return None
-    if not re.fullmatch(r"\d+", text) or not 1 <= int(text) <= MAX_COUNT:
-        raise HTTPException(422, f"{label} must be one whole number from 1 to {MAX_COUNT}, not a range.")
+    if not re.fullmatch(r"\d{1,6}", text) or not 1 <= int(text) <= maximum:
+        raise HTTPException(422, f"{label} must be one whole number from 1 to {maximum}, not a range.")
     return int(text)
 
 
@@ -107,17 +112,23 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
     except ValueError:
         raise HTTPException(422, f"Unknown weight unit for {name}.")
     load = _number(raw, key("weight_value"), f"Weight for {name}")
-    style = get("style_value") or None
-    if style and style not in exercise_db.choosable_styles():
-        raise HTTPException(422, f"Unknown style for {name}.")
+    category = get("category_value") or None
+    if category and exercise_db.category(category) is None:
+        raise HTTPException(422, f"Unknown Compendium category for {name}.")
+    effort = get("effort_value") or None
+    table = exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None
+    if effort and (table is None or table.basis != "effort" or effort not in {r.code for r in table.rows}):
+        raise HTTPException(422, f"Unknown effort for {name}.")
     return ParsedRow(
         exercise_id=exercise_id, name=name, db=db, completed=completed, load=load,
         unit=(unit or WeightUnit.LB) if load is not None else unit,
-        sets=_whole(raw, key("sets_value"), f"Sets for {name}"), reps=_whole(raw, key("reps_value"), f"Reps for {name}"),
+        sets=_whole(raw, key("sets_value"), f"Sets for {name}", MAX_SETS),
+        reps=_whole(raw, key("reps_value"), f"Reps for {name}", MAX_REPS),
         minutes=_number(raw, key("minutes_value"), f"Minutes for {name}", positive=True, maximum=MAX_MINUTES),
         speed=_number(raw, key("speed_value"), f"Speed for {name}", positive=True, maximum=MAX_SPEED_MPH),
         grade=_number(raw, key("grade_value"), f"Incline grade for {name}", maximum=MAX_GRADE_PCT),
-        style=style, implements=_whole(raw, key("implements_value"), f"Implements for {name}") or 1)
+        watts=_number(raw, key("watts_value"), f"Watts for {name}", positive=True, maximum=MAX_WATTS), effort=effort,
+        category=category, implements=_whole(raw, key("implements_value"), f"Implements for {name}", MAX_IMPLEMENTS) or 1)
 
 
 def resolve_db(ex: WorkoutExercise) -> Exercise | None:
@@ -180,7 +191,7 @@ def build_exercise_log(row: ParsedRow, body_weight_lb: float | None) -> WorkoutE
         weight_unit=row.unit, reps_value=row.reps, sets=row.sets, duration_min=row.minutes, speed_mph=row.speed,
         grade_pct=row.grade, implements=row.implements, body_weight_lb=body_weight_lb,
         db_exercise=ex.name if ex else None, area=ex.area if ex else None, equipment=ex.equipment if ex else None,
-        style=(row.style or ex.style) if ex and not ex.is_duration else None,
+        watts=row.watts,
         sec_per_rep=ex.sec_per_rep if ex else None, rest_min=ex.rest_min if ex else None)
     if not row.completed:
         return log
@@ -189,12 +200,13 @@ def build_exercise_log(row: ParsedRow, body_weight_lb: float | None) -> WorkoutE
         return log
     burn, missing = calories.estimate(
         ex, body_weight_lb=body_weight_lb, sets=row.sets, reps=row.reps, load_lb=row.load_lb,
-        implements=row.implements, style=row.style, minutes=row.minutes, speed_mph=row.speed, grade_pct=row.grade)
+        implements=row.implements, category=row.category, minutes=row.minutes, speed_mph=row.speed,
+        grade_pct=row.grade, watts=row.watts, effort=row.effort)
     if burn is None:
         log.kcal_note = "Enter " + " and ".join(missing) + " for a calorie estimate."
         return log
     log.met, log.gross_kcal, log.net_kcal, log.volume_lb = burn.met, burn.gross_kcal, burn.net_kcal, burn.volume_lb
-    log.compendium_code = burn.code if ex.speed_table else None
+    log.compendium_code = burn.code
     return log
 
 
@@ -218,13 +230,17 @@ def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExer
     table = exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None
     return {
         "ex": ex, "db": db, "prior": prior, "last": last, "speed_basis": table.basis if table else None,
-        "speed_label": table.unit_label if table else None,
+        "speed_label": table.unit_label if table else None, "table": table,
         "shown": {
             "weight_value": source.weight_value if source else None, "weight_unit": source.weight_unit if source else None,
             "sets": (source.sets if source and source.sets else None) or single_int(ex.sets_text),
             "reps": source.reps_value if source else None, "minutes": source.duration_min if source else None,
             "speed": source.speed_mph if source else None, "grade": source.grade_pct if source else None,
-            "style": (source.style if source and source.style else None) or (db.style if db else None),
+            "watts": source.watts if source else None,
+            "effort": (source.compendium_code if source and table and table.basis == "effort" else None)
+                      or (table.default.code if table and table.default else None),
+            "category": (source.compendium_code if source and exercise_db.category(source.compendium_code) else None)
+                        or (db.code if db and exercise_db.category(db.code) else None),
             "implements": (source.implements if source and source.implements else 1),
         },
     }

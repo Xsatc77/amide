@@ -1199,6 +1199,7 @@ class WorkoutExerciseLog(Base):
     duration_min: Mapped[float | None] = mapped_column(Float)
     speed_mph: Mapped[float | None] = mapped_column(Float)
     grade_pct: Mapped[float | None] = mapped_column(Float)
+    watts: Mapped[float | None] = mapped_column(Float)
     implements: Mapped[int | None] = mapped_column(Integer)
     style: Mapped[str | None] = mapped_column(String(40))
     sec_per_rep: Mapped[float | None] = mapped_column(Float)

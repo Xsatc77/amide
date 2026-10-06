@@ -104,13 +104,13 @@ def _workout_only_views(session: Session, uid: int, entry_dates: set[date]) -> l
 
 
 def _workout_day_options(session: Session, uid: int) -> list[dict]:
-    """The viewer's plan days for the Log Workout picker, active plans first."""
+    """The days of the viewer's active plan, for the Log Workout picker (there is only ever one active plan)."""
     from app.models import WorkoutPlan, WorkoutPlanDay
     rows = session.execute(
         select(WorkoutPlanDay.id, WorkoutPlanDay.label, WorkoutPlan.name)
         .join(WorkoutPlan, WorkoutPlanDay.plan_id == WorkoutPlan.id)
-        .where(WorkoutPlan.owner_id == uid)
-        .order_by(WorkoutPlan.ended_on.is_(None).desc(), WorkoutPlan.created_at.desc(), WorkoutPlanDay.position)).all()
+        .where(WorkoutPlan.owner_id == uid, WorkoutPlan.ended_on.is_(None))
+        .order_by(WorkoutPlan.created_at.desc(), WorkoutPlanDay.position)).all()
     return [{"id": r[0], "label": r[1], "plan_name": r[2]} for r in rows]
 
 

@@ -24,7 +24,17 @@ def test_without_a_plan_the_dialog_points_to_creating_one(client, db):
     db.query(WorkoutPlan).delete()
     db.commit()
     text = journal(client)
-    assert "no workout plan yet" in text.lower() and 'data-action="open-workout-log"' in text
+    assert "no active workout plan" in text.lower() and 'data-action="open-workout-log"' in text
+
+
+def test_only_the_active_plans_days_are_listed(client, db):
+    old = plan_with(client, db, ["Bench Press"], name="Journal Old Plan")
+    old_day = old.days[0].id
+    plan_with(client, db, ["Back Squat"], name="Journal Current Plan")      # creating a plan ends the previous active one
+    db.expire_all()
+    dialog = journal(client).split('id="workout-log-dialog"', 1)[1].split("</dialog>", 1)[0]
+    assert "Journal Current Plan" in dialog and "Journal Old Plan" not in dialog
+    assert f'<option value="{old_day}">' not in dialog
 
 
 def test_the_picker_redirects_to_that_days_log_form(client, db):

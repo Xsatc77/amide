@@ -44,12 +44,12 @@ def test_a_ticked_matched_exercise_gets_the_workbook_estimate_and_a_snapshot(cli
     plan = plan_with(client, db, ["Bench Press"], name="Logging Estimate Plan")
     day, ex = plan.days[0], plan.days[0].exercises[0]
     r = post_log(client, day, **{f"completed[{ex.id}]": "on", f"weight_value[{ex.id}]": "185", f"weight_unit[{ex.id}]": "lb",
-                                 f"sets_value[{ex.id}]": "4", f"reps_value[{ex.id}]": "8",
-                                 f"style_value[{ex.id}]": "Hypertrophy / General"})
+                                 f"sets_value[{ex.id}]": "4", f"reps_value[{ex.id}]": "8"})
     assert r.status_code == 303
     row = logged(db, "Bench Press")
     kg = 200 / calories.LB_PER_KG
-    assert (row.db_exercise, row.area, row.equipment, row.met, row.style) == ("Bench Press", "Chest", "Barbell", 3.5, "Hypertrophy / General")
+    assert (row.db_exercise, row.area, row.equipment, row.met, row.compendium_code) == (
+        "Bench Press", "Chest", "Barbell", 3.5, "02054")
     assert row.sets == 4 and row.reps_value == 8 and row.body_weight_lb == 200 and row.kcal_note is None
     assert row.volume_lb == 185 * 4 * 8
     assert row.gross_kcal == pytest.approx(3.5 * 3.5 * kg / 200 * 2.4 + 1.5 * 3.5 * kg / 200 * 9.0)
@@ -58,12 +58,25 @@ def test_a_ticked_matched_exercise_gets_the_workbook_estimate_and_a_snapshot(cli
     assert (log.day_label, log.plan_name) == (day.label, "Logging Estimate Plan")
 
 
-def test_the_style_defaults_to_the_exercises_own(client, db, weigh_in):
-    plan = plan_with(client, db, ["Bench Press"], name="Logging Style Plan")
+def test_the_category_defaults_to_the_exercises_own_compendium_row_and_can_be_changed(client, db, weigh_in):
+    plan = plan_with(client, db, ["Bench Press"], name="Logging Category Plan")
     day, ex = plan.days[0], plan.days[0].exercises[0]
     post_log(client, day, **{f"completed[{ex.id}]": "on", f"sets_value[{ex.id}]": "3", f"reps_value[{ex.id}]": "5"})
-    row = logged(db, "Bench Press")
-    assert (row.style, row.met) == ("Heavy Strength", 5.0)
+    assert (logged(db, "Bench Press").met, logged(db, "Bench Press").compendium_code) == (3.5, "02054")
+    post_log(client, day, **{f"completed[{ex.id}]": "on", f"sets_value[{ex.id}]": "3", f"reps_value[{ex.id}]": "5",
+                             f"category_value[{ex.id}]": "02050"})
+    assert (logged(db, "Bench Press").met, logged(db, "Bench Press").compendium_code) == (6.0, "02050")
+
+
+def test_bikes_rowing_and_elliptical_take_watts_or_effort(client, db, weigh_in):
+    plan = plan_with(client, db, ["Stationary Bike", "Rowing Ergometer", "Elliptical"], name="Logging Machines Plan")
+    day, bike, row, ell = plan.days[0], *plan.days[0].exercises
+    post_log(client, day, **{f"completed[{bike.id}]": "on", f"minutes_value[{bike.id}]": "30", f"watts_value[{bike.id}]": "120",
+                             f"completed[{row.id}]": "on", f"minutes_value[{row.id}]": "20",
+                             f"completed[{ell.id}]": "on", f"minutes_value[{ell.id}]": "20", f"effort_value[{ell.id}]": "02049"})
+    assert (logged(db, "Stationary Bike").compendium_code, logged(db, "Stationary Bike").watts) == ("01224", 120.0)
+    assert logged(db, "Rowing Ergometer").compendium_code == "02070"                      # no watts: the general row
+    assert (logged(db, "Elliptical").met, logged(db, "Elliptical").compendium_code) == (9.0, "02049")
 
 
 def test_no_body_weight_saves_the_log_and_says_why(client, db, me):
@@ -101,9 +114,11 @@ def test_an_exercise_the_database_does_not_know_logs_without_calories(client, db
 
 
 @pytest.mark.parametrize("field,value", [
-    ("reps_value", "8-12"), ("reps_value", "10.5"), ("reps_value", "0"), ("reps_value", "1000"), ("reps_value", "-3"),
-    ("sets_value", "3-4"), ("sets_value", "0"), ("sets_value", "abc"),
-    ("weight_value", "-5"), ("minutes_value", "0"), ("style_value", "Not A Style"), ("implements_value", "0")])
+    ("reps_value", "8-12"), ("reps_value", "10.5"), ("reps_value", "0"), ("reps_value", "201"), ("reps_value", "-3"),
+    ("sets_value", "3-4"), ("sets_value", "0"), ("sets_value", "abc"), ("sets_value", "51"),
+    ("weight_value", "-5"), ("minutes_value", "0"), ("minutes_value", "601"), ("category_value", "99999"),
+    ("implements_value", "0"), ("implements_value", "10"), ("watts_value", "2001"), ("effort_value", "bogus"),
+    ("reps_value", "9" * 5000)])
 def test_ranges_and_impossible_numbers_are_refused_and_the_existing_log_is_kept(client, db, weigh_in, field, value):
     plan = plan_with(client, db, ["Bench Press"], name=f"Logging Refuse {field} {value}")
     day, ex = plan.days[0], plan.days[0].exercises[0]

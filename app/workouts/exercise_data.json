@@ -1,5 +1,5 @@
 {
- "source": "2024 Adult Compendium of Physical Activities (pacompendium.com), via the owner's workbook",
+ "source": "2024 Adult Compendium of Physical Activities (pacompendium.com): conditioning exercise (02xxx), bicycling (01xxx), walking (17xxx), running (12xxx), via the owner's workbook",
  "exercises": [
   {
    "name": "Bench Press",
@@ -2121,9 +2121,9 @@
    "equipment": "Bodyweight",
    "area": "Quads/Glutes",
    "pattern": "Squat/Unilateral",
-   "code": "02057",
-   "met": 6.5,
-   "evidence": "Mapped estimate",
+   "code": "02214",
+   "met": 11.0,
+   "evidence": "Direct Compendium activity",
    "style": "Heavy Strength",
    "sec_per_rep": 4.5,
    "rest_min": 3.0,
@@ -2316,9 +2316,9 @@
    "equipment": "Bodyweight",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02057",
-   "met": 6.5,
-   "evidence": "Mapped estimate",
+   "code": "02214",
+   "met": 11.0,
+   "evidence": "Direct Compendium activity",
    "style": "Bodyweight",
    "sec_per_rep": 3.5,
    "rest_min": 1.0,
@@ -2331,9 +2331,9 @@
    "equipment": "Bodyweight",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02057",
-   "met": 6.5,
-   "evidence": "Mapped estimate",
+   "code": "02214",
+   "met": 11.0,
+   "evidence": "Direct Compendium activity",
    "style": "Bodyweight",
    "sec_per_rep": 3.5,
    "rest_min": 1.0,
@@ -2406,9 +2406,9 @@
    "equipment": "Bodyweight",
    "area": "Core",
    "pattern": "Core",
-   "code": "02056",
-   "met": 3.0,
-   "evidence": "Mapped estimate",
+   "code": "02024",
+   "met": 2.8,
+   "evidence": "Direct Compendium activity",
    "style": "Bodyweight",
    "sec_per_rep": null,
    "rest_min": 1.0,
@@ -2421,9 +2421,9 @@
    "equipment": "Bodyweight",
    "area": "Core",
    "pattern": "Core",
-   "code": "02056",
-   "met": 3.0,
-   "evidence": "Mapped estimate",
+   "code": "02024",
+   "met": 2.8,
+   "evidence": "Direct Compendium activity",
    "style": "Bodyweight",
    "sec_per_rep": null,
    "rest_min": 1.0,
@@ -2466,8 +2466,8 @@
    "equipment": "Bodyweight",
    "area": "Core",
    "pattern": "Core",
-   "code": "02056",
-   "met": 3.0,
+   "code": "02024",
+   "met": 2.8,
    "evidence": "Mapped estimate",
    "style": "Bodyweight",
    "sec_per_rep": null,
@@ -2571,9 +2571,9 @@
    "equipment": "Bodyweight",
    "area": "Core",
    "pattern": "Core",
-   "code": "02056",
-   "met": 3.0,
-   "evidence": "Mapped estimate",
+   "code": "02024",
+   "met": 2.8,
+   "evidence": "Direct Compendium activity",
    "style": "Hypertrophy / General",
    "sec_per_rep": 4.0,
    "rest_min": 1.5,
@@ -3156,9 +3156,9 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": null,
+   "met": null,
+   "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
@@ -3171,9 +3171,9 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": null,
+   "met": null,
+   "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
@@ -3186,9 +3186,9 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": null,
+   "met": null,
+   "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
@@ -3201,9 +3201,9 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": null,
+   "met": null,
+   "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
@@ -3254,7 +3254,7 @@
    "rest_min": 0.0,
    "model": "duration",
    "note": "Use duration rather than reps for cardio/conditioning.",
-   "speed_table": null
+   "speed_table": "elliptical"
   },
   {
    "name": "Rowing Ergometer",
@@ -3269,22 +3269,22 @@
    "rest_min": 0.0,
    "model": "duration",
    "note": "Use duration rather than reps for cardio/conditioning.",
-   "speed_table": null
+   "speed_table": "rowing"
   },
   {
    "name": "Ski Ergometer",
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02080",
-   "met": 6.8,
+   "code": "02082",
+   "met": 10.5,
    "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
    "model": "duration",
    "note": "Use duration rather than reps for cardio/conditioning.",
-   "speed_table": null
+   "speed_table": "ski_erg"
   },
   {
    "name": "Jump Rope",
@@ -3306,9 +3306,9 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": "02020",
+   "met": 7.5,
+   "evidence": "Direct Compendium activity",
    "style": "Hypertrophy / General",
    "sec_per_rep": 4.0,
    "rest_min": 1.5,
@@ -3321,39 +3321,39 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
+   "code": "01200",
+   "met": 6.8,
    "evidence": "Mapped estimate",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
    "model": "duration",
    "note": "Use duration rather than reps for cardio/conditioning.",
-   "speed_table": null
+   "speed_table": "stationary_bike"
   },
   {
    "name": "Assault Bike",
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
+   "code": "01200",
+   "met": 6.8,
    "evidence": "Mapped estimate",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
    "model": "duration",
    "note": "Use duration rather than reps for cardio/conditioning.",
-   "speed_table": null
+   "speed_table": "stationary_bike"
   },
   {
    "name": "Spin Bike",
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": "01270",
+   "met": 9.0,
+   "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
@@ -3366,15 +3366,15 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": "01200",
+   "met": 6.8,
+   "evidence": "Direct Compendium activity",
    "style": "General",
    "sec_per_rep": null,
    "rest_min": 0.0,
    "model": "duration",
    "note": "Use duration rather than reps for cardio/conditioning.",
-   "speed_table": null
+   "speed_table": "stationary_bike"
   },
   {
    "name": "StepMill",
@@ -3441,9 +3441,9 @@
    "equipment": "Conditioning/Cardio",
    "area": "Full Body",
    "pattern": "Conditioning/Other",
-   "code": "02054",
-   "met": 3.5,
-   "evidence": "Mapped estimate",
+   "code": "02078",
+   "met": 11.0,
+   "evidence": "Direct Compendium activity",
    "style": "Isolation",
    "sec_per_rep": 3.5,
    "rest_min": 1.0,
@@ -3740,87 +3740,136 @@
   "shuttle run": "Shuttle Run",
   "lateral shuffle": "Lateral Shuffle"
  },
- "styles": {
-  "Hypertrophy / General": {
-   "met": 3.5,
-   "sec_per_rep": 4.0,
-   "rest_min": 1.5,
-   "use": "Default normal resistance training"
-  },
-  "Heavy Strength": {
-   "met": 5.0,
-   "sec_per_rep": 4.5,
-   "rest_min": 3.0,
-   "use": "Heavy compound lifting"
-  },
-  "Isolation": {
-   "met": 3.5,
-   "sec_per_rep": 3.5,
-   "rest_min": 1.0,
-   "use": "Curls, raises, extensions, flyes, pushdowns"
-  },
-  "Explosive / Power": {
-   "met": 6.0,
-   "sec_per_rep": 2.5,
-   "rest_min": 2.5,
-   "use": "Explosive lifts"
-  },
-  "Circuit / Superset": {
-   "met": 5.8,
-   "sec_per_rep": 3.0,
-   "rest_min": 0.5,
-   "use": "Minimal-rest resistance"
-  },
-  "Bodyweight": {
-   "met": 3.0,
-   "sec_per_rep": 3.5,
-   "rest_min": 1.0,
-   "use": "General bodyweight resistance"
-  },
-  "Kettlebell / Conditioning": {
-   "met": 7.5,
-   "sec_per_rep": 2.0,
-   "rest_min": 0.5,
-   "use": "Fast conditioning; conservative use"
-  },
-  "Recovery / Rest": {
-   "met": 1.5,
-   "sec_per_rep": null,
-   "rest_min": null,
-   "use": "Between-set recovery assumption"
-  },
-  "General": {
-   "met": 3.5,
-   "sec_per_rep": 4.0,
-   "rest_min": 1.5,
-   "use": "Default normal resistance training"
-  }
- },
  "compendium": [
+  {
+   "code": "01200",
+   "met": 6.8,
+   "description": "Bicycling, stationary, general"
+  },
+  {
+   "code": "01210",
+   "met": 3.5,
+   "description": "Bicycling, stationary, 25-30 watts, very light to light effort"
+  },
+  {
+   "code": "01214",
+   "met": 4.0,
+   "description": "Bicycling, stationary, 50 watts, light effort"
+  },
+  {
+   "code": "01216",
+   "met": 5.0,
+   "description": "Bicycling, stationary, 60 watts, light to moderate effort"
+  },
+  {
+   "code": "01218",
+   "met": 5.8,
+   "description": "Bicycling, stationary, 70-80 watts"
+  },
+  {
+   "code": "01220",
+   "met": 6.0,
+   "description": "Bicycling, stationary, 90-100 watts, moderate to vigorous"
+  },
+  {
+   "code": "01224",
+   "met": 6.8,
+   "description": "Bicycling, stationary, 101-125 watts"
+  },
+  {
+   "code": "01228",
+   "met": 8.0,
+   "description": "Bicycling, stationary, 126-150 watts"
+  },
+  {
+   "code": "01232",
+   "met": 10.3,
+   "description": "Bicycling, stationary, 151-199 watts"
+  },
+  {
+   "code": "01236",
+   "met": 10.8,
+   "description": "Bicycling, stationary, 200-229 watts, vigorous"
+  },
+  {
+   "code": "01240",
+   "met": 12.5,
+   "description": "Bicycling, stationary, 230-250 watts, very vigorous"
+  },
+  {
+   "code": "01244",
+   "met": 13.8,
+   "description": "Bicycling, stationary, 270-305 watts, very vigorous"
+  },
+  {
+   "code": "01248",
+   "met": 16.3,
+   "description": "Bicycling, stationary, over 325 watts, very vigorous"
+  },
+  {
+   "code": "01270",
+   "met": 9.0,
+   "description": "Bicycling, stationary, RPM/Spin bike class"
+  },
+  {
+   "code": "02020",
+   "met": 7.5,
+   "description": "Calisthenics (pushups, sit ups, pull-ups, jumping jacks, burpees, battling ropes), vigorous effort"
+  },
+  {
+   "code": "02022",
+   "met": 3.8,
+   "description": "Calisthenics (pushups, sit ups, pull-ups, lunges), moderate effort"
+  },
+  {
+   "code": "02024",
+   "met": 2.8,
+   "description": "Calisthenics (curl ups, abdominal crunches, plank), light effort"
+  },
+  {
+   "code": "02040",
+   "met": 7.5,
+   "description": "Circuit training, including kettlebells, some aerobic movement with minimal rest, vigorous intensity"
+  },
+  {
+   "code": "02048",
+   "met": 5.0,
+   "description": "Elliptical trainer, moderate effort"
+  },
+  {
+   "code": "02049",
+   "met": 9.0,
+   "description": "Elliptical trainer, vigorous effort"
+  },
   {
    "code": "02050",
    "met": 6.0,
-   "description": "Resistance training; free weight/machine; vigorous"
+   "description": "Resistance (weight lifting, free weight, nautilus or universal-type), power lifting or body building, vigorous effort"
   },
   {
    "code": "02052",
    "met": 5.0,
-   "description": "Resistance training; squats/deadlifts"
+   "description": "Resistance (weight) training, squats, deadlift, slow or explosive effort"
   },
   {
    "code": "02054",
    "met": 3.5,
-   "description": "Resistance training; multiple exercises; 8–15 reps"
+   "description": "Resistance (weight) training, multiple exercises, 8-15 reps at varied resistance"
+  },
+  {
+   "code": "02055",
+   "met": 5.8,
+   "description": "Resistance training, circuit, reciprocal supersets, peripheral heart action training"
   },
   {
    "code": "02056",
    "met": 3.0,
-   "description": "Bodyweight resistance; general"
+   "description": "Body weight resistance exercises (squat, lunge, push-up, crunch), general"
   },
   {
    "code": "02057",
    "met": 6.5,
-   "description": "Bodyweight resistance; high intensity"
+   "description": "Body weight resistance exercises (squat, lunge, push-up, crunch), high intensity"
   },
   {
    "code": "02058",
@@ -3828,49 +3877,126 @@
    "description": "Kettlebell swings"
   },
   {
-   "code": "02040",
-   "met": 7.5,
-   "description": "Circuit training including kettlebells; vigorous"
-  },
-  {
-   "code": "02048",
-   "met": 5.0,
-   "description": "Elliptical; moderate"
-  },
-  {
-   "code": "02049",
-   "met": 9.0,
-   "description": "Elliptical; vigorous"
-  },
-  {
    "code": "02065",
    "met": 9.3,
-   "description": "Stair treadmill ergometer"
+   "description": "Stair treadmill ergometer, general"
   },
   {
    "code": "02068",
    "met": 11.0,
-   "description": "Rope skipping"
+   "description": "Rope skipping exercise, general"
   },
   {
    "code": "02070",
    "met": 7.3,
-   "description": "Stationary rowing; general/vigorous"
+   "description": "Rowing, stationary ergometer, general, vigorous effort"
   },
   {
-   "code": "02080",
-   "met": 6.8,
-   "description": "Ski machine; general"
+   "code": "02071",
+   "met": 5.0,
+   "description": "Rowing, stationary ergometer, general, under 100 watts, moderate effort"
+  },
+  {
+   "code": "02072",
+   "met": 7.5,
+   "description": "Rowing, stationary, 100 to 149 watts, vigorous effort"
+  },
+  {
+   "code": "02073",
+   "met": 11.0,
+   "description": "Rowing, stationary, 150 to 199 watts, vigorous effort"
+  },
+  {
+   "code": "02074",
+   "met": 14.0,
+   "description": "Rowing, stationary, 200 watts or more, very vigorous effort"
   },
   {
    "code": "02078",
    "met": 11.0,
-   "description": "Shuttle running"
+   "description": "Shuttle running, forward/backward/lateral"
+  },
+  {
+   "code": "02080",
+   "met": 6.8,
+   "description": "Ski machine, general"
+  },
+  {
+   "code": "02082",
+   "met": 10.5,
+   "description": "Ski ergometer, cross country, double poling, slow to moderate speed"
+  },
+  {
+   "code": "02084",
+   "met": 18.0,
+   "description": "Ski ergometer, cross country, double poling, fast to maximum speed"
   },
   {
    "code": "02214",
    "met": 11.0,
-   "description": "HIIT; burpees/mountain climbers/squat jumps/Tabata"
+   "description": "High intensity interval exercise, burpees, mountain climbers, squat jumps, Tabata, vigorous effort"
+  }
+ ],
+ "categories": [
+  {
+   "code": "02054",
+   "label": "Resistance training, multiple exercises, 8-15 reps",
+   "met": 3.5
+  },
+  {
+   "code": "02050",
+   "label": "Resistance training, vigorous (power lifting or body building)",
+   "met": 6.0
+  },
+  {
+   "code": "02052",
+   "label": "Resistance training, squats and deadlifts",
+   "met": 5.0
+  },
+  {
+   "code": "02055",
+   "label": "Resistance circuit, reciprocal supersets",
+   "met": 5.8
+  },
+  {
+   "code": "02056",
+   "label": "Body weight resistance, general",
+   "met": 3.0
+  },
+  {
+   "code": "02057",
+   "label": "Body weight resistance, high intensity",
+   "met": 6.5
+  },
+  {
+   "code": "02040",
+   "label": "Circuit training with kettlebells, vigorous",
+   "met": 7.5
+  },
+  {
+   "code": "02058",
+   "label": "Kettlebell swings",
+   "met": 9.8
+  },
+  {
+   "code": "02022",
+   "label": "Calisthenics, moderate effort",
+   "met": 3.8
+  },
+  {
+   "code": "02020",
+   "label": "Calisthenics, vigorous effort",
+   "met": 7.5
+  },
+  {
+   "code": "02024",
+   "label": "Calisthenics, light effort (crunches, plank)",
+   "met": 2.8
+  },
+  {
+   "code": "02214",
+   "label": "High intensity intervals (burpees, mountain climbers, squat jumps)",
+   "met": 11.0
   }
  ],
  "speed_tables": {
@@ -4078,6 +4204,158 @@
      "min": 14.0,
      "met": 23.0,
      "label": "Running, 14 mph (4.3 min/mile)"
+    }
+   ]
+  },
+  "stationary_bike": {
+   "basis": "watts",
+   "unit_label": "watts",
+   "default": "01200",
+   "note": "Compendium stationary bicycling by power output; with no wattage entered the general row applies.",
+   "rows": [
+    {
+     "code": "01210",
+     "min": 0,
+     "met": 3.5,
+     "label": "Stationary bicycling, 25-30 watts"
+    },
+    {
+     "code": "01214",
+     "min": 40,
+     "met": 4.0,
+     "label": "Stationary bicycling, 50 watts"
+    },
+    {
+     "code": "01216",
+     "min": 55,
+     "met": 5.0,
+     "label": "Stationary bicycling, 60 watts"
+    },
+    {
+     "code": "01218",
+     "min": 65,
+     "met": 5.8,
+     "label": "Stationary bicycling, 70-80 watts"
+    },
+    {
+     "code": "01220",
+     "min": 85,
+     "met": 6.0,
+     "label": "Stationary bicycling, 90-100 watts"
+    },
+    {
+     "code": "01224",
+     "min": 101,
+     "met": 6.8,
+     "label": "Stationary bicycling, 101-125 watts"
+    },
+    {
+     "code": "01228",
+     "min": 126,
+     "met": 8.0,
+     "label": "Stationary bicycling, 126-150 watts"
+    },
+    {
+     "code": "01232",
+     "min": 151,
+     "met": 10.3,
+     "label": "Stationary bicycling, 151-199 watts"
+    },
+    {
+     "code": "01236",
+     "min": 200,
+     "met": 10.8,
+     "label": "Stationary bicycling, 200-229 watts"
+    },
+    {
+     "code": "01240",
+     "min": 230,
+     "met": 12.5,
+     "label": "Stationary bicycling, 230-250 watts"
+    },
+    {
+     "code": "01244",
+     "min": 270,
+     "met": 13.8,
+     "label": "Stationary bicycling, 270-305 watts"
+    },
+    {
+     "code": "01248",
+     "min": 325,
+     "met": 16.3,
+     "label": "Stationary bicycling, over 325 watts"
+    }
+   ]
+  },
+  "rowing": {
+   "basis": "watts",
+   "unit_label": "watts",
+   "default": "02070",
+   "note": "Compendium stationary rowing by power output; with no wattage entered the general vigorous row applies.",
+   "rows": [
+    {
+     "code": "02071",
+     "min": 0,
+     "met": 5.0,
+     "label": "Rowing, stationary, under 100 watts"
+    },
+    {
+     "code": "02072",
+     "min": 100,
+     "met": 7.5,
+     "label": "Rowing, stationary, 100-149 watts"
+    },
+    {
+     "code": "02073",
+     "min": 150,
+     "met": 11.0,
+     "label": "Rowing, stationary, 150-199 watts"
+    },
+    {
+     "code": "02074",
+     "min": 200,
+     "met": 14.0,
+     "label": "Rowing, stationary, 200 watts or more"
+    }
+   ]
+  },
+  "elliptical": {
+   "basis": "effort",
+   "unit_label": "effort",
+   "default": "02048",
+   "note": "Compendium elliptical trainer by effort.",
+   "rows": [
+    {
+     "code": "02048",
+     "min": 0,
+     "met": 5.0,
+     "label": "Moderate effort"
+    },
+    {
+     "code": "02049",
+     "min": 1,
+     "met": 9.0,
+     "label": "Vigorous effort"
+    }
+   ]
+  },
+  "ski_erg": {
+   "basis": "effort",
+   "unit_label": "effort",
+   "default": "02082",
+   "note": "Compendium cross-country ski ergometer, double poling, by speed.",
+   "rows": [
+    {
+     "code": "02082",
+     "min": 0,
+     "met": 10.5,
+     "label": "Slow to moderate speed"
+    },
+    {
+     "code": "02084",
+     "min": 1,
+     "met": 18.0,
+     "label": "Fast to maximum speed"
     }
    ]
   }

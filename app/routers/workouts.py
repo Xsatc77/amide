@@ -372,7 +372,8 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
     return templates.TemplateResponse(request, "workouts/log.html", {
         "day": day, "log_date": log_date, "units": list(WeightUnit), "rows": rows,
         "extras": [el for el in saved if el.exercise_id is None], "body_weight": body_weight,
-        "styles": exercise_db.choosable_styles(), "exercise_names": [e.name for e in exercise_db.all_exercises()],
+        "categories": exercise_db.categories(), "category_codes": {c.code for c in exercise_db.categories()},
+        "exercise_names": [e.name for e in exercise_db.all_exercises()],
         "net_kcal": net, "gross_kcal": gross, "has_estimate": any(el.net_kcal for el in saved),
     })
 

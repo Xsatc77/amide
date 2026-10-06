@@ -13,21 +13,27 @@ def per_min(met):
 
 def test_a_rep_based_estimate_follows_the_workbook_sheet():
     # Bench Press: 4.5 s/rep, 3 min rest per set. 185 lb x 4 sets x 8 reps in the Hypertrophy / General style (MET 3.5).
-    burn, missing = estimate(exercise_db.get("Bench Press"), body_weight_lb=BW, sets=4, reps=8, load_lb=185,
-                             style="Hypertrophy / General")
+    burn, missing = estimate(exercise_db.get("Bench Press"), body_weight_lb=BW, sets=4, reps=8, load_lb=185)
     assert missing == []
     assert burn.active_min == pytest.approx(2.4) and burn.rest_min == pytest.approx(9.0)
-    assert burn.met == 3.5
+    assert burn.met == 3.5 and burn.code == "02054"            # Bench Press is Compendium row 02054
     assert burn.gross_kcal == pytest.approx(per_min(3.5) * 2.4 + per_min(1.5) * 9.0)      # 34.77
     assert burn.net_kcal == pytest.approx(per_min(2.5) * 2.4 + per_min(0.5) * 9.0)        # 16.67
     assert burn.volume_lb == 185 * 4 * 8
 
 
-def test_the_style_chooses_the_met_and_defaults_to_the_exercises_own_style():
-    bench = exercise_db.get("Bench Press")                                                 # default style Heavy Strength
-    heavy, _ = estimate(bench, body_weight_lb=BW, sets=3, reps=5)
-    light, _ = estimate(bench, body_weight_lb=BW, sets=3, reps=5, style="Isolation")
-    assert heavy.met == 5.0 and light.met == 3.5 and heavy.gross_kcal > light.gross_kcal
+def test_the_compendium_category_chooses_the_met_and_defaults_to_the_exercises_own_row():
+    bench = exercise_db.get("Bench Press")                                                 # its own row: 02054, 3.5
+    own, _ = estimate(bench, body_weight_lb=BW, sets=3, reps=5)
+    vigorous, _ = estimate(bench, body_weight_lb=BW, sets=3, reps=5, category="02050")     # power lifting / body building
+    assert (own.met, own.code) == (3.5, "02054") and (vigorous.met, vigorous.code) == (6.0, "02050")
+    assert vigorous.gross_kcal > own.gross_kcal
+    assert estimate(bench, body_weight_lb=BW, sets=3, reps=5, category="99999")[0].met == 3.5   # unknown: its own row
+
+
+def test_squats_and_kettlebell_swings_use_their_own_compendium_rows():
+    assert estimate(exercise_db.get("Back Squat"), body_weight_lb=BW, sets=3, reps=5)[0].met == 5.0
+    assert estimate(exercise_db.get("Kettlebell Swing"), body_weight_lb=BW, sets=3, reps=15)[0].met == 9.8
 
 
 def test_one_set_has_no_rest_and_two_implements_double_the_volume_only():
@@ -88,3 +94,30 @@ def test_incline_walking_is_chosen_by_grade_and_needs_at_least_one_percent():
     ("treadmill_walk", 3.49, 3.8), ("treadmill_walk", 5.5, 8.3), ("treadmill_walk", 7.0, 8.3)])
 def test_a_speed_falls_in_the_band_that_contains_it(table, value, met):
     assert band_for(table, value).met == met
+
+
+def test_a_stationary_bike_uses_the_general_row_until_watts_are_entered():
+    bike = exercise_db.get("Stationary Bike")
+    general, missing = estimate(bike, body_weight_lb=180, minutes=30)
+    assert missing == [] and (general.met, general.code) == (6.8, "01200")
+    assert estimate(bike, body_weight_lb=180, minutes=30, watts=120)[0].code == "01224"
+    assert estimate(bike, body_weight_lb=180, minutes=30, watts=60)[0].met == 5.0
+    assert estimate(bike, body_weight_lb=180, minutes=30, watts=400)[0].met == 16.3
+    assert estimate(bike, body_weight_lb=180, minutes=30, watts=10)[0].met == 3.5
+
+
+def test_rowing_by_watts_and_elliptical_by_effort():
+    row = exercise_db.get("Rowing Ergometer")
+    assert estimate(row, body_weight_lb=180, minutes=20)[0].code == "02070"
+    assert [estimate(row, body_weight_lb=180, minutes=20, watts=w)[0].met for w in (80, 120, 170, 250)] == [5.0, 7.5, 11.0, 14.0]
+    ell = exercise_db.get("Elliptical")
+    assert estimate(ell, body_weight_lb=180, minutes=20)[0].met == 5.0
+    assert estimate(ell, body_weight_lb=180, minutes=20, effort="02049")[0].met == 9.0
+    assert estimate(exercise_db.get("Ski Ergometer"), body_weight_lb=180, minutes=10, effort="02084")[0].met == 18.0
+
+
+def test_named_compendium_activities_use_their_rows():
+    assert estimate(exercise_db.get("Battle Rope Waves"), body_weight_lb=180, sets=3, reps=20)[0].met == 7.5
+    assert estimate(exercise_db.get("Spin Bike"), body_weight_lb=180, minutes=30)[0].met == 9.0
+    assert estimate(exercise_db.get("Plank"), body_weight_lb=180, minutes=2)[0].met == 2.8
+    assert estimate(exercise_db.get("Burpee"), body_weight_lb=180, sets=3, reps=10)[0].met == 11.0

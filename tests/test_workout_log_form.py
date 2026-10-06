@@ -38,12 +38,20 @@ def test_cardio_rows_ask_for_minutes_and_speed_or_grade(client, db, weigh_in):
     assert f'name="minutes_value[{plank.id}]"' in text and f'name="sets_value[{plank.id}]"' not in text
 
 
-def test_rep_rows_offer_style_and_implements_under_adjust(client, db, weigh_in):
+def test_rep_rows_offer_a_compendium_category_and_implements_under_adjust(client, db, weigh_in):
     plan = plan_with(client, db, ["Bench Press"], name="Form Adjust Plan")
     ex = plan.days[0].exercises[0]
     text = page(client, plan.days[0])
-    assert f'name="style_value[{ex.id}]"' in text and f'name="implements_value[{ex.id}]"' in text
-    assert re.search(r'<option value="Heavy Strength" selected>', text)      # the exercise's own default style
+    assert f'name="category_value[{ex.id}]"' in text and f'name="implements_value[{ex.id}]"' in text
+    assert re.search(r'<option value="02054" selected>[^<]*3.5 MET', text)    # the exercise's own Compendium row
+
+
+def test_machines_ask_for_watts_or_effort(client, db, weigh_in):
+    plan = plan_with(client, db, ["Stationary Bike", "Elliptical"], name="Form Machines Plan")
+    bike, ell = plan.days[0].exercises
+    text = page(client, plan.days[0])
+    assert f'name="watts_value[{bike.id}]"' in text and f'name="effort_value[{ell.id}]"' in text
+    assert re.search(r'<option value="02048" selected>Moderate effort', text)
 
 
 def test_an_unmatched_exercise_says_it_has_no_estimate(client, db, weigh_in):

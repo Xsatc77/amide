@@ -2,8 +2,10 @@
 
     python tools/build_exercise_data.py PATH_TO_WORKBOOK.xlsx
 
-Reads the xlsx with the standard library only (an xlsx is a zip of XML). The Compendium speed tables for
-walking and running come from tools/compendium_speed_tables.json, so building needs no network.
+Reads the xlsx with the standard library only (an xlsx is a zip of XML). The Compendium rows, the resistance
+categories, the per-exercise overrides and the speed / power / effort tables come from tools/compendium_data.json
+(read from pacompendium.com), so building needs no network. An exercise's MET is its Compendium row's MET: the
+workbook's mapped code, or the override where the Compendium names the activity or has a table for it.
 """
 
 import json
@@ -15,16 +17,7 @@ from pathlib import Path
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "workouts" / "exercise_data.json"
-SPEED_TABLES = Path(__file__).resolve().parent / "compendium_speed_tables.json"
-
-# exercise name -> the speed table that gives its MET (the workbook's flat 3.5 for these is replaced)
-SPEED_TABLE_FOR = {
-    "Treadmill Walk": "treadmill_walk",
-    "Treadmill Incline Walk": "hill_walk",
-    "Treadmill Jog": "run",
-    "Treadmill Run": "run",
-}
-
+COMPENDIUM = Path(__file__).resolve().parent / "compendium_data.json"
 
 def sheet_rows(book: zipfile.ZipFile, sheet_name: str) -> list[dict[str, str]]:
     """Every row of the named sheet as {column letter: text}. Handles inline strings (no shared-strings part)."""
@@ -65,30 +58,36 @@ def build(workbook: Path) -> dict:
                 "code": r.get("F"), "met": number(r.get("G")), "evidence": r.get("H"), "style": r.get("J"),
                 "sec_per_rep": number(r.get("K")), "rest_min": number(r.get("L")),
                 "model": "duration" if r.get("M") == "Duration-based" else "rep",
-                "note": r.get("O"), "speed_table": SPEED_TABLE_FOR.get(name),
+                "note": r.get("O"), "speed_table": None,
             })
+        compendium = json.loads(COMPENDIUM.read_text(encoding="utf-8"))
+        rows = compendium["rows"]
+        for e in exercises:   # the Compendium row an exercise is estimated from
+            override = compendium["overrides"].get(e["name"])
+            if override is None:
+                continue
+            e["evidence"] = override.get("evidence", e["evidence"])
+            if "table" in override:
+                e["speed_table"] = override["table"]
+                default = compendium["tables"][override["table"]].get("default")
+                e["code"], e["met"] = (default, rows[default]["met"]) if default else (None, None)
+            else:
+                e["code"], e["met"] = override["code"], rows[override["code"]]["met"]
+        for e in exercises:   # a mapped code must be a known Compendium row, or the MET would be unsourced
+            if e["code"] and e["code"] not in rows and not e["speed_table"]:
+                raise SystemExit(f"{e['name']}: Compendium code {e['code']} is not in tools/compendium_data.json")
         known = {e["name"] for e in exercises}
         aliases = {}
         for r in sheet_rows(book, "Exercise Aliases")[1:]:
             alias, target = (r.get("A") or "").strip(), (r.get("B") or "").strip()
             if alias and target in known:
                 aliases.setdefault(alias.casefold(), target)
-        styles = {}
-        for r in sheet_rows(book, "Estimator Assumptions"):
-            if r.get("A") and number(r.get("B")) is not None:  # the style table is the rows with a numeric MET
-                styles[r["A"].strip()] = {"met": number(r["B"]), "sec_per_rep": number(r.get("C")),
-                                          "rest_min": number(r.get("D")), "use": r.get("F")}
-        # the Exercise Database labels 14 cardio/conditioning rows "General": the workbook treats them as the default style
-        styles.setdefault("General", dict(styles["Hypertrophy / General"]))
-        compendium = [{"code": r["A"], "met": number(r["B"]), "description": r.get("C")}
-                      for r in sheet_rows(book, "Compendium Source")[1:] if r.get("A")]
-    missing = [n for n in SPEED_TABLE_FOR if n not in known]
-    if missing:
-        raise SystemExit(f"workbook has no row for: {', '.join(missing)}")
     return {
-        "source": "2024 Adult Compendium of Physical Activities (pacompendium.com), via the owner's workbook",
-        "exercises": exercises, "aliases": aliases, "styles": styles, "compendium": compendium,
-        "speed_tables": json.loads(SPEED_TABLES.read_text(encoding="utf-8")),
+        "source": compendium["source"] + ", via the owner's workbook",
+        "exercises": exercises, "aliases": aliases,
+        "compendium": [{"code": code, **row} for code, row in sorted(rows.items())],
+        "categories": [{**c, "met": rows[c["code"]]["met"]} for c in compendium["categories"]],
+        "speed_tables": compendium["tables"],
     }
 
 
@@ -97,7 +96,7 @@ def main() -> None:
         raise SystemExit(__doc__)
     data = build(Path(sys.argv[1]))
     OUT.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"{len(data['exercises'])} exercises, {len(data['aliases'])} aliases, {len(data['styles'])} styles -> {OUT}")
+    print(f"{len(data['exercises'])} exercises, {len(data['aliases'])} aliases, {len(data['categories'])} categories -> {OUT}")
 
 
 if __name__ == "__main__":
