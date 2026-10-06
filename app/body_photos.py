@@ -51,6 +51,7 @@ def process_upload(data: bytes) -> bytes:
     else:
         image = image.convert("RGB")
     image.thumbnail((config.PHOTO_MAX_SIDE, config.PHOTO_MAX_SIDE), Image.LANCZOS)
+    image.info.clear()                                   # a JPEG comment would otherwise be written back out
     out = io.BytesIO()
     image.save(out, "JPEG", quality=88, optimize=True)   # no exif= argument: nothing is carried over
     return out.getvalue()
@@ -79,8 +80,11 @@ def delete_file(name: str | None) -> None:
 
 def blurred_jpeg(path: Path) -> bytes:
     """A small, heavily blurred copy: faces and bodies cannot be made out and the blur cannot be reversed."""
-    with Image.open(path) as image:
-        image = image.convert("RGB")
+    try:
+        with Image.open(path) as image:
+            image = image.convert("RGB")
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError):
+        raise PhotoError(_UNREADABLE) from None
     image.thumbnail((_PREVIEW_SIDE, _PREVIEW_SIDE), Image.LANCZOS)
     image = image.filter(ImageFilter.GaussianBlur(radius=max(12, min(image.size) // 10)))
     out = io.BytesIO()

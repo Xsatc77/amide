@@ -158,7 +158,8 @@ def restore_installation(session: Session, archive: Archive, *, uid: int, creato
                     if values["id"] in seen:
                         continue
                     seen.add(values["id"])
-                if table.name in file_columns and not valid_stored_name(values.get(file_columns[table.name][0])):
+                if table.name in file_columns and not (valid_stored_name(values.get(file_columns[table.name][0]))
+                                                      and reg.name_ok(file_columns[table.name][1], values.get(file_columns[table.name][0]))):
                     values[file_columns[table.name][0]] = None      # a stored file name is one plain name or nothing
                 cols = list(values)
                 session.execute(text(f'INSERT INTO "{table.name}" ({", ".join(chr(34) + c + chr(34) for c in cols)}) '

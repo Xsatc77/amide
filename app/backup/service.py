@@ -18,13 +18,16 @@ def download_name(kind: str) -> str:
 
 
 def make_download(session: Session, user: User, *, kind: str, keys: list[str], installation: bool,
-                  passphrase: str, confirm: str) -> tuple[str, bytes]:
+                  passphrase: str, confirm: str, photos_ok: bool = True) -> tuple[str, bytes]:
     """(file name, sealed bytes) for a backup, export or share file. Raises BackupError with a message to show."""
     if passphrase != confirm:
         raise BackupError("The two passphrases do not match.")
     check_passphrase(passphrase)
     if installation and not user.is_admin:
         raise BackupError("Only an administrator can back up the whole installation.")
+    if (installation or "body_photos" in keys) and user.photo_2fa_required and not photos_ok:
+        raise BackupError("Your body photos are locked. Unlock them first (Weight & Measurements, Body photos), "
+                          "then make this file, or leave Body photos out of it.")
     if not installation:
         shared = [k for k in keys if k in reg.SHARED_SECTIONS]
         if shared and not user.is_admin:

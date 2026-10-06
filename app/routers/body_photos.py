@@ -42,7 +42,11 @@ def _file(photo: BodyPhoto):
 @router.get("/measurements/photos/{photo_id}/preview")
 def preview(photo_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     path = _file(_own_photo(session, photo_id, uid))
-    return Response(body_photos.blurred_jpeg(path), media_type="image/jpeg", headers=_NO_STORE)
+    try:
+        blurred = body_photos.blurred_jpeg(path)
+    except body_photos.PhotoError:
+        raise HTTPException(404, "Not found") from None      # a damaged file is not a server error
+    return Response(blurred, media_type="image/jpeg", headers=_NO_STORE)
 
 
 @router.get("/measurements/photos/{photo_id}/full")

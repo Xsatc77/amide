@@ -8,6 +8,7 @@ is neither in a section nor on the explicit NOT_BACKED_UP list, so a future tabl
 Rows are exchanged as the raw SQLite values (ints, floats, text, NULL), column by column, so dates, enums and JSON
 round-trip exactly and a backup from an older schema loads into a newer one by column name."""
 
+import re
 from dataclasses import dataclass
 
 from sqlalchemy import Table
@@ -45,6 +46,7 @@ class Tbl:
     share_null: tuple[str, ...] = ()         # columns blanked in share files (a blanked file column drops the file)
     columns: tuple[str, ...] | None = None   # only these columns are exchanged (the profile)
     reference: bool = False                  # a lookup list: an existing row with the same key is reused, not skipped
+    file_required: bool = False              # a row whose file cannot be used is skipped (its column is NOT NULL)
 
 
 @dataclass(frozen=True)
@@ -91,7 +93,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("body_measurements", "owner_id = :uid"),
         Tbl("water_logs", "owner_id = :uid")), help="Weigh-ins, tape measurements, blood pressure and water logs."),
     Section("body_photos", "Body photos", PERSON, (
-        Tbl("body_photos", "owner_id = :uid", file=("filename", "body_photos")),),
+        Tbl("body_photos", "owner_id = :uid", file=("filename", "body_photos"), file_required=True),),
         help="Your progress photos with their image files. Never offered in a Share file."),
     Section("journal", "Journal", PERSON, (
         Tbl("journal_entries", "owner_id = :uid"),
@@ -147,6 +149,14 @@ MERGE_KEYS = {
 
 def table(name: str) -> Table:
     return Base.metadata.tables[name]
+
+
+_PHOTO_NAME = re.compile(r"[0-9a-f]{32}[.]jpg")
+
+
+def name_ok(dirkey: str, name) -> bool:
+    """Whether a stored file name is one this app can serve from that directory (photos have a fixed name shape)."""
+    return _PHOTO_NAME.fullmatch(name) is not None if dirkey == "body_photos" else True
 
 
 def file_dir(key: str):

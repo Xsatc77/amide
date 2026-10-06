@@ -156,6 +156,15 @@ def _copy_file(ctx: _Ctx, dirkey: str, name: str) -> str | None:
         return None
     directory = reg.file_dir(dirkey)
     directory.mkdir(parents=True, exist_ok=True)
+    if dirkey == "body_photos":      # a photo is re-encoded clean (no metadata, sane size) under a name this app can serve
+        from app import body_photos
+        try:
+            new_name = body_photos.store(body_photos.process_upload(ctx.archive.read(entry)))
+        except body_photos.PhotoError:
+            return None
+        ctx.new_files.append(directory / new_name)
+        ctx.report.files += 1
+        return new_name
     suffix = Path(name).suffix.lower()
     new_name = uuid.uuid4().hex + (suffix if re.fullmatch(r"\.[a-z0-9]{1,5}", suffix) else "")
     path = directory / new_name
@@ -204,6 +213,11 @@ def _insert_row(ctx: _Ctx, section: reg.Section, tbl: reg.Tbl, row: dict) -> Non
         values[tbl.file[0]] = _copy_file(ctx, tbl.file[1], values[tbl.file[0]])
         if values[tbl.file[0]] is None:
             _note(ctx.report.unresolved, f"{tbl.file[1]} file")
+            if tbl.file_required:
+                return
+    elif tbl.file and tbl.file_required:
+        _note(ctx.report.unresolved, f"{tbl.file[1]} file")
+        return
 
     merge_keys = reg.MERGE_KEYS.get(tbl.name) if ctx.merge else None
     if merge_keys:

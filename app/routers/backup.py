@@ -15,7 +15,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app import config
+from app import config, photo_access
 from app.auth import sessions as login_sessions
 from app.auth.deps import current_user_id
 from app.backup import load as backup_load
@@ -28,7 +28,7 @@ from app.backup.service import make_download, open_upload
 from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
-    Category, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Protocol, ProtocolGoal, ProtocolItem,
+    Category, DoseUnit, Frequency, InventoryItem, LoginSession, Medium, Order, OrderItem, Protocol, ProtocolGoal, ProtocolItem,
     ProtocolItemCycleOff, PurchasingUnit, Route, Sale, StorageLocation, TimeOfDay, TitrationStep, User,
 )
 from app.routers.protocols import _find_or_create_peptide
@@ -127,11 +127,13 @@ async def create_backup(request: Request, session: Session = Depends(get_session
     form = await request.form()
     kind = str(form.get("kind") or "backup")
     me = session.get(User, uid)
+    login_row = session.get(LoginSession, request.state.session_id) if request.state.session_id else None
+    photos_ok = photo_access.can_view_full(me, login_row, login_sessions.now_utc())
     try:
         name, blob = await run_in_threadpool(     # key derivation and zipping are slow; keep the server responsive
             make_download, session, me, kind=kind, keys=[str(k) for k in form.getlist("section")],
             installation=str(form.get("scope") or "person") == "installation",
-            passphrase=str(form.get("passphrase") or ""), confirm=str(form.get("confirm") or ""))
+            passphrase=str(form.get("passphrase") or ""), confirm=str(form.get("confirm") or ""), photos_ok=photos_ok)
     except BackupError as exc:
         return _page(request, session, uid, "backup" if kind == "backup" else "export", 422, error=str(exc), error_kind=kind)
     return Response(blob, media_type="application/octet-stream",
