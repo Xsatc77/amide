@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import config
-from app.ingest import decide as deciding, infer, readers
+from app.ingest import decide as deciding, infer, readers, skip
 from app.library.price_lists.importer import import_for_vendor
 from app.library.price_lists.reader import PriceListData
 from app.models import IngestItem, IngestSource, PriceList, Vendor, naive_utcnow
@@ -64,7 +64,8 @@ def _drop_files(items):
 
 def _context(items, source, data):
     first = items[0]
-    caption = " ".join(i.caption or "" for i in items if i.caption)
+    topics = list(dict.fromkeys(i.topic_title for i in items if i.topic_title))      # a topic called "US warehouse" is a clue like a caption
+    caption = " ".join([i.caption or "" for i in items if i.caption] + topics)
     warehouse, assumed = infer.infer_warehouse(data.warehouse_hint, caption, first.filename, source.default_warehouse)
     texts = [caption, first.filename or "", data.shipping_note or ""]
     return warehouse, assumed, infer.infer_date(texts, first.received_at.date())
@@ -87,6 +88,13 @@ def _file_dupe(session, items):
 def _handle(session, items, now, recognizer):
     source = session.get(IngestSource, items[0].source_id)
     vendor = session.get(Vendor, source.vendor_id) if source.vendor_id else None
+    words = skip.safe_words(source.skip_words)
+    if words:                                                          # a region the owner cannot order from: set aside before reading anything
+        hit = skip.find_skip_word(words, [i.caption for i in items] + [i.filename for i in items] + [i.topic_title for i in items])
+        if hit:
+            _set(items, now, status="ignored", reason=f"skipped: {hit}", caption=None)
+            _drop_files(items)
+            return
     try:
         data = _read(items, recognizer)
     except readers.ReadError as exc:
@@ -97,6 +105,12 @@ def _handle(session, items, now, recognizer):
         _set(items, now, status="ignored", reason=why, caption=None)      # other people's chatter is not kept
         _drop_files(items)
         return
+    if words:
+        hit = skip.find_skip_word(words, [data.shipping_note] + [r.name for r in data.rows][:200])
+        if hit:
+            _set(items, now, status="ignored", reason=f"skipped: {hit}", caption=None)
+            _drop_files(items)
+            return
     warehouse, assumed, list_date = _context(items, source, data)
     verdict = deciding.decide(session, vendor=vendor, enabled=source.enabled, data=data, warehouse=warehouse, assumed=assumed,
                               list_date=list_date, file_dupe=_file_dupe(session, items))

@@ -162,3 +162,52 @@ def test_a_whole_group_stores_the_topic_of_each_message_and_photos_of_different_
                    files=[("files", (f"{n}.png", png_bytes(n), "image/png"))], headers=bearer(secret))
     keys = {i.topic_id: i.group_key for i in db.query(IngestItem)}
     assert keys["7"] != keys["8"]
+
+
+# ---------------------------------------------------------------- processing
+
+from app.models import PriceList
+from test_ingest_process import run, text_item
+
+
+def test_a_list_that_mentions_a_skipped_word_is_set_aside_unread(db):
+    s = mapped(db, default_warehouse="us")
+    s.skip_words = "UK"
+    db.commit()
+    item = text_item(db, s, caption_extra="UK warehouse prices")
+    run()
+    db.expire_all()
+    item = db.get(IngestItem, item.id)
+    assert item.status == "ignored" and item.reason == "skipped: uk" and item.caption is None
+    assert db.query(PriceList).count() == 0
+
+
+def test_a_skipped_word_in_the_topic_name_or_the_filename_also_counts(db):
+    s = mapped(db, default_warehouse="us")
+    s.skip_words = "UK"
+    db.commit()
+    a = text_item(db, s, message_id="1", topic_title="UK Price List")
+    b = text_item(db, s, message_id="2", filename="uk_list.txt")
+    run()
+    db.expire_all()
+    assert {db.get(IngestItem, a.id).status, db.get(IngestItem, b.id).status} == {"ignored"}
+
+
+def test_a_skipped_word_inside_the_list_text_counts_too(db):
+    s = mapped(db, default_warehouse="us")
+    s.skip_words = "uk"
+    db.commit()
+    from test_ingest_process import LINES
+    item = text_item(db, s, text="\n".join(LINES) + "\nShipping to UK only")
+    run()
+    db.expire_all()
+    assert db.get(IngestItem, item.id).status == "ignored"
+
+
+def test_the_topic_name_is_a_warehouse_clue(db):
+    s = mapped(db)
+    item = text_item(db, s, topic_title="US warehouse")
+    run()
+    db.expire_all()
+    item = db.get(IngestItem, item.id)
+    assert item.status == "imported" and item.warehouse == "us"
