@@ -96,7 +96,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("body_photos", "owner_id = :uid", file=("filename", "body_photos"), file_required=True),),
         help="Your progress photos with their image files. Never offered in a Share file."),
     Section("food", "Food", PERSON, (
-        Tbl("foods", "owner_id = :uid", share_drop=True),
+        Tbl("foods", "owner_id = :uid", share_drop=True, reference=True),
         Tbl("food_logs", "owner_id = :uid", share_drop=True)),
         help="Your own foods and your food log. The built-in starter foods are not backed up. Never offered in a Share file."),
     Section("journal", "Journal", PERSON, (
@@ -149,6 +149,7 @@ REFS = {
 MERGE_KEYS = {
     "contact_method_types": ("name",), "payment_method_types": ("name",), "vendors": ("name",),
     "peptides": ("name",), "price_lists": ("vendor_id", "warehouse", "list_date"),
+    "foods": ("name", "serving"),
 }
 
 

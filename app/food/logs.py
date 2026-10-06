@@ -22,8 +22,8 @@ def parse_servings(raw) -> tuple[float | None, str | None]:
 
 
 def snapshot(values: dict, servings: float) -> dict:
-    """The entry's stored numbers: per-serving values times servings, rounded to 2 decimals."""
-    out = {f: round(float(values[f]) * servings, 2) for f in _FIELDS}
+    """The entry's stored numbers: per-serving values times servings, kept to 4 decimals so tiny amounts survive."""
+    out = {f: round(float(values[f]) * servings, 4) for f in _FIELDS}
     out["name"], out["serving"] = values["name"], values["serving"]
     return out
 
@@ -48,7 +48,7 @@ def edit_entry(session: Session, uid: int, log_id: int, *, servings: float | Non
     if servings is not None and servings != log.servings:
         factor = servings / log.servings
         for field in _FIELDS:
-            setattr(log, field, round(getattr(log, field) * factor, 2))
+            setattr(log, field, round(getattr(log, field) * factor, 4))
         log.servings = servings
     if meal is not None:
         log.meal = meal

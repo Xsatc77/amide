@@ -145,7 +145,9 @@ def restore_installation(session: Session, archive: Archive, *, uid: int, creato
         tables = _all_tables()
         file_columns = {t.name: t.file for s in reg.SECTIONS.values() for t in s.tables if t.file}
         for table in reversed(tables):
-            session.execute(text(f'DELETE FROM "{table.name}"'))
+            # the built-in starter foods ship with the app and are not in a backup: they stay, only people's own foods go
+            session.execute(text('DELETE FROM "foods" WHERE owner_id IS NOT NULL' if table.name == "foods" else f'DELETE FROM "{table.name}"'))
+        food_ids: dict = {}                       # a food's id in the file -> its id here (own foods get fresh ids)
         for table in tables:
             names = {c.name for c in table.columns}
             seen: set = set()
@@ -158,6 +160,21 @@ def restore_installation(session: Session, archive: Archive, *, uid: int, creato
                     if values["id"] in seen:
                         continue
                     seen.add(values["id"])
+                if table.name == "foods":
+                    if values.get("owner_id") is None:        # starter foods are never imported from a file
+                        continue
+                    old_id = values.pop("id", None)
+                    cols = list(values)
+                    session.execute(text(f'INSERT INTO "foods" ({", ".join(chr(34) + c + chr(34) for c in cols)}) '
+                                         f'VALUES ({", ".join(":" + c for c in cols)})'), values)
+                    food_ids[old_id] = session.execute(text("SELECT last_insert_rowid()")).scalar()
+                    inserted += 1
+                    continue
+                if table.name == "food_logs" and values.get("food_id") is not None:
+                    ref = (row.get("_refs") or {}).get("food_id")
+                    values["food_id"] = food_ids.get(values["food_id"]) if values["food_id"] in food_ids else (
+                        session.execute(text("SELECT id FROM foods WHERE owner_id IS NULL AND name = :n AND serving = :s"),
+                                        {"n": ref[0], "s": ref[1]}).scalar() if ref else None)
                 if table.name in file_columns and not (valid_stored_name(values.get(file_columns[table.name][0]))
                                                       and reg.name_ok(file_columns[table.name][1], values.get(file_columns[table.name][0]))):
                     values[file_columns[table.name][0]] = None      # a stored file name is one plain name or nothing

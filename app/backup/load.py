@@ -239,8 +239,11 @@ def _insert_row(ctx: _Ctx, section: reg.Section, tbl: reg.Tbl, row: dict) -> Non
     except IntegrityError as exc:
         if "UNIQUE constraint failed" not in str(exc.orig):    # only a duplicate is skippable; anything else is a bad file
             raise BackupError(f"A row of {tbl.name.replace('_', ' ')} is missing required data, so nothing was changed.") from exc
+        existing = None
+        if tbl.reference and (key := reg.MERGE_KEYS.get(tbl.name)):       # a lookup row the account already has: its children use it
+            existing = _find(ctx, tbl.name, key, [values.get(k) for k in key])
         if has_id and row.get("id") is not None:
-            ctx.idmap.setdefault(tbl.name, {})[row["id"]] = (None, False)
+            ctx.idmap.setdefault(tbl.name, {})[row["id"]] = (existing, False)
         _note(ctx.report.skipped, section.key)
         return
     if has_id and row.get("id") is not None:
