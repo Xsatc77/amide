@@ -17,3 +17,15 @@
     if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 })();
+
+// Log Workout dialog (Journal tab): open/close wiring; the form is a plain GET that redirects to the day's log form.
+(() => {
+  const dialog = document.getElementById("workout-log-dialog");
+  if (!dialog) return;
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    if (btn.dataset.action === "open-workout-log") dialog.showModal();
+    else if (btn.dataset.action === "close-workout-log" && dialog.contains(btn)) dialog.close();
+  });
+})();

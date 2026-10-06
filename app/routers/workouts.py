@@ -345,6 +345,15 @@ def workouts_activate(plan_id: int, session: Session = Depends(get_session),
     return RedirectResponse("/workouts", status_code=303)
 
 
+@router.get("/workouts/log")
+def workouts_log_picker(plan_day_id: int, log_date: date_type | None = None, session: Session = Depends(get_session),
+                        uid: int = Depends(current_user_id)):
+    """The Journal's Log Workout dialog posts here: validate the day is the person's own, then open its log form."""
+    day = _get_own_day(session, plan_day_id, uid)
+    target = f"/workouts/day/{day.id}/log"
+    return RedirectResponse(f"{target}?log_date={log_date.isoformat()}" if log_date else target, status_code=303)
+
+
 @router.get("/workouts/day/{plan_day_id}/log")
 def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | None = None,
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):

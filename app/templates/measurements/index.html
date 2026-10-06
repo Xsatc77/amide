@@ -322,6 +322,7 @@
 <section aria-labelledby="journal-heading">
   <h2 id="journal-heading" class="section-title">Journal</h2>
   <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
+  <button type="button" class="btn" data-action="open-workout-log">Log Workout</button>
 </section>
 
 <dialog id="journal-dialog" class="dialog"{{ ' open' if errors }}>
@@ -401,6 +402,30 @@
   </form>
 </dialog>
 
+<dialog id="workout-log-dialog" class="dialog">
+  <form method="get" action="/workouts/log" class="settings-form">
+    <header class="dialog-head">
+      <h2>Log a workout</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-workout-log" aria-label="Close">&times;</button>
+    </header>
+    {% if workout_day_options %}
+    <label class="field"><span>Workout day</span>
+      <select name="plan_day_id">
+        {% for o in workout_day_options %}<option value="{{ o.id }}">{{ o.plan_name }} &middot; {{ o.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Date</span><input type="date" name="log_date" value="{{ today_iso }}" max="{{ today_iso }}"></label>
+    <p class="muted small">Next you enter each exercise's weight, sets and reps; the calories are estimated for you.</p>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-workout-log">Cancel</button>
+      <button type="submit" class="btn btn-primary">Continue</button>
+    </footer>
+    {% else %}
+    <p>You have no workout plan yet. <a href="/workouts/new">Create one</a>, or import a PDF on the <a href="/workouts">Workouts</a> page.</p>
+    {% endif %}
+  </form>
+</dialog>
+
 <section aria-labelledby="journal-entries-heading">
   <h2 id="journal-entries-heading" class="section-title">Entries</h2>
   {% if not journal_entries %}
@@ -461,7 +486,7 @@
             {% if e.workouts %}
             <ul class="dose-list">
               {% for w in e.workouts %}
-              <li>{{ w.label }} — {{ w.completed_count }}/{{ w.total_count }} exercises completed</li>
+              <li>{{ w.label }} — {{ w.completed_count }}/{{ w.total_count }} exercises completed{% if w.net_kcal %}, about {{ w.net_kcal }} kcal (net, estimated){% endif %}</li>
               {% endfor %}
             </ul>
             {% endif %}

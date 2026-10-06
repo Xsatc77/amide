@@ -56,19 +56,49 @@ def doses_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
 
 
 def workouts_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
-    """That owner's completed workouts on that date. Query-time only, same ownership-check
-    reasoning as doses_for: for a shared entry, owner_id must be the entry's own owner, not the
-    viewer -- the viewer's access is already gated by the sharing query."""
+    """That owner's completed workouts on that date, with their estimated calories (None when nothing was estimated).
+    Query-time only, same ownership-check reasoning as doses_for: for a shared entry, owner_id must be the entry's own
+    owner, not the viewer -- the viewer's access is already gated by the sharing query."""
     from app.models import WorkoutLog  # deferred: avoid a module-load cycle with app.routers.workouts
     rows = session.scalars(
         select(WorkoutLog).where(WorkoutLog.owner_id == owner_id, WorkoutLog.log_date == entry_date)
     ).all()
-    return [
-        {"label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
-         "completed_count": sum(1 for el in r.exercise_logs if el.completed),
-         "total_count": len(r.exercise_logs)}
-        for r in rows
-    ]
+    out = []
+    for r in rows:
+        net = sum(el.net_kcal for el in r.exercise_logs if el.net_kcal)
+        gross = sum(el.gross_kcal for el in r.exercise_logs if el.gross_kcal)
+        out.append({
+            "label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
+            "completed_count": sum(1 for el in r.exercise_logs if el.completed),
+            "total_count": len(r.exercise_logs),
+            "net_kcal": round(net) if net else None,
+            "gross_kcal": round(gross) if gross else None,
+        })
+    return out
+
+
+def _workout_only_views(session: Session, uid: int, entry_dates: set[date]) -> list[dict]:
+    """Rows for the viewer's own days that have a logged workout but no journal entry, so a workout logged from the
+    Journal always appears there. Shaped like _entry_view's output."""
+    from app.models import WorkoutLog
+    days = {d for d in session.scalars(select(WorkoutLog.log_date).where(WorkoutLog.owner_id == uid))
+            if d not in entry_dates}
+    return [{
+        "date": d, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [],
+        "side_effects_other": None, "notes": None, "owner_name": None, "quick_notes": [],
+        "doses": doses_for(session, uid, d), "workouts": workouts_for(session, uid, d),
+    } for d in days]
+
+
+def _workout_day_options(session: Session, uid: int) -> list[dict]:
+    """The viewer's plan days for the Log Workout picker, active plans first."""
+    from app.models import WorkoutPlan, WorkoutPlanDay
+    rows = session.execute(
+        select(WorkoutPlanDay.id, WorkoutPlanDay.label, WorkoutPlan.name)
+        .join(WorkoutPlan, WorkoutPlanDay.plan_id == WorkoutPlan.id)
+        .where(WorkoutPlan.owner_id == uid)
+        .order_by(WorkoutPlan.ended_on.is_(None).desc(), WorkoutPlan.created_at.desc(), WorkoutPlanDay.position)).all()
+    return [{"id": r[0], "label": r[1], "plan_name": r[2]} for r in rows]
 
 
 def _local_time_str(dt: datetime, tz_name: str | None) -> str:
@@ -124,6 +154,7 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
                    viewer_tz=viewer_tz)
         for e in shared_entries
     ]
+    views += _workout_only_views(session, viewer_uid, {e.entry_date for e in own_entries})
     views.sort(key=lambda v: v["date"], reverse=True)
 
     # Today's own entry (if any), so the "New Entry" dialog can open pre-filled with what's already
@@ -142,6 +173,8 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
         "today_entry": today_entry,
         "journal_side_effects": list(JournalSideEffect),
         "today_doses": doses_for(session, viewer_uid, date.today()),
+        "workout_day_options": _workout_day_options(session, viewer_uid),
+        "today_iso": date.today().isoformat(),
     }
 
 
