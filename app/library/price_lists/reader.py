@@ -14,18 +14,23 @@ from pathlib import Path
 import pdfplumber
 
 from app.library.price_lists.rows import (
-    ParsedRow, Spec, check_code_size, check_pack_size, parse_price, parse_spec,
+    ParsedRow, Spec, check_code_size, check_pack_size, code_number, parse_price, parse_spec,
 )
 
 _SPEC_CELL = re.compile(r"\d\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?\s*[*x×]\s*\d", re.IGNORECASE)
-_PRICE_CELL = re.compile(r"^\s*\$?\s*[\d,]+(?:\.\d+)?(?:\s*/\s*\d+\s*vials?)?\s*$", re.IGNORECASE)
+_PRICE_CELL = re.compile(
+    r"^\s*(?:US\$|\$|USD)?\s*[\d,]+(?:\.\d+)?\s*(?:USD)?(?:\s*/\s*\d*\s*vials?)?\s*$", re.IGNORECASE)
 _CODE_CELL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/() ]{0,17}$")
 _NAME_CODE = re.compile(r"^([A-Za-z0-9\-]{2,12})\s*\(")
 _LINE_SPEC = re.compile(
     r"\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?\s*[*x×]\s*\d+(?:\s*v[a-z]*)?", re.IGNORECASE)
-_LINE_CODE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/()]{1,13}$")
+_LINE_CODE = re.compile(  # 5AM, 10AM, 2S10, SM10, SX5-XA5; never a name such as CJC-1295 or 5-amino-1MQ
+    r"^(?:\d{1,3}[A-Za-z]{1,6}\d{0,5}|[A-Za-z]{1,6}\d{1,5})(?:-[A-Za-z]{1,6}\d{1,5})?(?:\([^)]*\))?$")
 _SHIPPING = re.compile(r"ship|freight|customs|postage", re.IGNORECASE)
-_MIN_ROLE_CELLS = 3
+_MIN_ROLE_CELLS = 2
+_MIN_CODE_AMOUNT_MATCH = 0.4  # codes embed the dose (RT10 = 10mg); names with digits (BPC-157) rarely do
+_NON_PRICE_HEADER = re.compile(r"moq|qty|quantity|stock|min\.? ?order|pcs|pieces|weight", re.IGNORECASE)
+_PRICE_HEADER = re.compile(r"price|usd|cost|rate|\$", re.IGNORECASE)
 _MAX_NOTES = 6
 
 
@@ -42,10 +47,27 @@ class PriceListData:
     rows: list[ParsedRow]
     shipping_note: str | None = None
     warehouse_hint: str | None = None  # "us" | "china" from text such as "Chinese Warehouse"
+    unread_spec_lines: int = 0  # text lines that look like products but produced no row
 
 
 def _clean(cell) -> str:
     return re.sub(r"\s+", " ", cell or "").strip()
+
+
+def _price_columns(cols: list[list[str]], spec: int) -> tuple[int, ...]:
+    """Numeric columns right of the spec, base price first. A column headed MOQ / stock / weight is not a price;
+    a column headed "price" or holding "$" values is the base price when several columns are numeric."""
+    def header(i: int) -> str:
+        return next((c for c in cols[i] if c and not _PRICE_CELL.match(c)), "")
+
+    numeric = [i for i in range(spec + 1, len(cols))
+               if sum(1 for c in cols[i] if _PRICE_CELL.match(c)) >= _MIN_ROLE_CELLS
+               and not _NON_PRICE_HEADER.search(header(i))]
+    named = [i for i in numeric if _PRICE_HEADER.search(header(i))]
+    if named:
+        return tuple(named + [i for i in numeric if i not in named])
+    dollar = [i for i in numeric if sum(1 for c in cols[i] if "$" in c) * 2 >= sum(1 for c in cols[i] if c)]
+    return tuple(dollar or numeric)
 
 
 def infer_roles(table) -> Roles | None:
@@ -55,15 +77,21 @@ def infer_roles(table) -> Roles | None:
     if not spec_hits or max(spec_hits) < _MIN_ROLE_CELLS:
         return None
     spec = spec_hits.index(max(spec_hits))
-    prices = tuple(
-        i for i in range(spec + 1, width) if sum(1 for c in cols[i] if _PRICE_CELL.match(c)) >= _MIN_ROLE_CELLS)
+    specs = [parse_spec(c) for c in cols[spec]]
+    prices = _price_columns(cols, spec)
+
+    def code_score(i: int) -> int:
+        return sum(1 for c in cols[i] if _CODE_CELL.match(c) and re.search(r"\d", c) and not _SPEC_CELL.search(c))
+
+    def dose_match(i: int) -> float:
+        pairs = [(code_number(c), sp.amount) for c, sp in zip(cols[i], specs)
+                 if sp is not None and code_number(c) is not None]
+        return sum(1 for n, amount in pairs if n == amount) / len(pairs) if pairs else 0.0
 
     left = list(range(spec))
-    code_scores = {
-        i: sum(1 for c in cols[i] if _CODE_CELL.match(c) and re.search(r"\d", c) and not _SPEC_CELL.search(c))
-        for i in left
-    }
-    code = max(code_scores, key=code_scores.get) if code_scores and max(code_scores.values()) >= _MIN_ROLE_CELLS else None
+    code_scores = {i: code_score(i) for i in left
+                   if code_score(i) >= _MIN_ROLE_CELLS and dose_match(i) >= _MIN_CODE_AMOUNT_MATCH}
+    code = max(code_scores, key=code_scores.get) if code_scores else None
 
     def text_cells(i: int) -> int:
         return sum(1 for c in cols[i] if re.search(r"[A-Za-z]{3}", c))
@@ -120,6 +148,8 @@ def rows_from_table(table, page: int = 0) -> list[ParsedRow]:
         row = ParsedRow(code=code, name=name, spec=spec, pack_price=price, page=page, extra_prices=extras)
         if code is None:
             row.flags.append("no-code")
+        if price is None:
+            row.flags.append("no-price")
         check_code_size(row)
         check_pack_size(row)
         rows.append(row)
@@ -137,8 +167,9 @@ def rows_from_lines(lines, page: int = 0) -> list[ParsedRow]:
         if spec is None:
             continue
         before = line[:m.start()].split()
-        at = next((i for i in range(len(before) - 1, -1, -1)
-                   if _LINE_CODE.match(before[i]) and re.search(r"\d", before[i])), None)
+        shaped = [i for i, tok in enumerate(before) if _LINE_CODE.match(tok)]
+        matching_dose = [i for i in shaped if code_number(before[i]) == spec.amount]
+        at = (matching_dose or shaped or [None])[-1]
         code = before.pop(at) if at is not None else None
         after = line[m.end():].split()
         price, per_pack = parse_price(after[0]) if after else (None, None)
@@ -147,6 +178,8 @@ def rows_from_lines(lines, page: int = 0) -> list[ParsedRow]:
         row = ParsedRow(code=code, name=" ".join(before) or None, spec=spec, pack_price=price, page=page)
         if code is None:
             row.flags.append("no-code")
+        if price is None:
+            row.flags.append("no-price")
         check_code_size(row)
         check_pack_size(row)
         rows.append(row)
@@ -171,14 +204,22 @@ def scan_notes(lines) -> tuple[str | None, str | None]:
     return ("\n".join(notes) or None), hint
 
 
+def unread_spec_lines(lines, rows) -> int:
+    """Text lines that look like a product (they carry a spec) beyond the rows actually read from the page."""
+    return max(0, sum(1 for line in lines if _LINE_SPEC.search(line)) - len(rows))
+
+
 def read_pdf(path: Path) -> PriceListData:
     rows: list[ParsedRow] = []
     lines: list[str] = []
+    unread = 0
     with pdfplumber.open(path) as pdf:
         for number, page in enumerate(pdf.pages, 1):
             page_lines = (page.extract_text() or "").splitlines()
             lines.extend(page_lines)
             page_rows = [r for table in page.extract_tables() for r in rows_from_table(table, number)]
-            rows.extend(page_rows or rows_from_lines(page_lines, number))
+            used = page_rows or rows_from_lines(page_lines, number)
+            rows.extend(used)
+            unread += unread_spec_lines(page_lines, used)
     note, hint = scan_notes(lines)
-    return PriceListData(rows=rows, shipping_note=note, warehouse_hint=hint)
+    return PriceListData(rows=rows, shipping_note=note, warehouse_hint=hint, unread_spec_lines=unread)

@@ -6,7 +6,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from app.library.matching import name_key
+from app.library.matching import name_key, qualifiers
 from app.library.price_lists.rows import ParsedRow, code_prefix
 
 _TYPO_RATIO = 0.8
@@ -15,22 +15,36 @@ _TYPO_RATIO = 0.8
 def propagate_names(rows: list[ParsedRow]) -> None:
     """Vendors merge the name cell across a group, so only one row of a group carries it, at the top or in the
     middle. A run is a stretch of consecutive rows with the same code prefix (or consecutive rows with no code).
-    Rows above a run's first name take that name; every later unnamed row takes the nearest name above it, so
-    two products that share a prefix (GR2..., GR6...) keep their own names."""
+    Rows above a run's first name take that name and rows below its last name take it. A row between two
+    different names is only filled when the list puts names on the first row of a group (then it belongs to the
+    name above); otherwise it is left unnamed and flagged "ambiguous-name", never guessed."""
     i = 0
     while i < len(rows):
         prefix = code_prefix(rows[i].code)
         j = i + 1
         while j < len(rows) and code_prefix(rows[j].code) == prefix:
             j += 1
-        run = rows[i:j]
-        current = next((row.name for row in run if row.name), None) if prefix is not None else None
-        for row in run:
-            if row.name:
-                current = row.name
-            elif current:
-                row.name = current
+        _fill_run(rows[i:j], coded=prefix is not None)
         i = j
+
+
+def _fill_run(run: list[ParsedRow], coded: bool) -> None:
+    if not any(row.name for row in run):
+        return
+    top_aligned = bool(run[0].name)
+    for k, row in enumerate(run):
+        if row.name:
+            continue
+        above = next((run[m].name for m in range(k - 1, -1, -1) if run[m].name), None)
+        below = next((run[m].name for m in range(k + 1, len(run)) if run[m].name), None) if coded else None
+        if above is None and below is not None:
+            row.name = below
+        elif below is None:
+            row.name = above
+        elif top_aligned or name_key(above) == name_key(below):
+            row.name = above
+        else:
+            row.flags.append("ambiguous-name")
 
 
 @dataclass(frozen=True)
@@ -73,8 +87,8 @@ def repair_names(rows: list[ParsedRow], table: dict[str, PrefixName], is_known: 
             continue
         if not row.name:
             row.name = learned.display
-        elif (name_key(row.name) != learned.key and not is_known(row.name)
-              and difflib.SequenceMatcher(None, name_key(row.name), learned.key).ratio() >= _TYPO_RATIO):
+        elif (name_key(row.name) != learned.key and qualifiers(row.name) == qualifiers(learned.display)
+              and not is_known(row.name) and difflib.SequenceMatcher(None, name_key(row.name), learned.key).ratio() >= _TYPO_RATIO):
             row.name = learned.display
         else:
             continue

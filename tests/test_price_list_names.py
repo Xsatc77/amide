@@ -90,3 +90,37 @@ def test_repair_keeps_a_name_the_library_already_knows():
     row = r("RT5", "Retatrutide Acetate")
     repair_names([row], table, is_known=lambda n: True)
     assert row.name == "Retatrutide Acetate"
+
+
+def test_two_products_sharing_a_prefix_with_centered_names_are_not_guessed():
+    rows = [r("GR2"), r("GR2", "GHRP-2"), r("GR2"), r("GR6"), r("GR6", "GHRP-6"), r("GR6")]
+    propagate_names(rows)
+    assert names_of(rows) == ["GHRP-2", "GHRP-2", None, None, "GHRP-6", "GHRP-6"]
+    assert rows[2].flags == ["ambiguous-name"] and rows[3].flags == ["ambiguous-name"]
+    assert rows[0].flags == [] and rows[5].flags == []
+
+
+def test_the_same_name_on_both_sides_fills_the_rows_between():
+    rows = [r("SM5", "Semaglutide"), r("SM10"), r("SM15", "semaglutide")]
+    propagate_names(rows)
+    assert rows[1].name == "Semaglutide" and rows[1].flags == []
+
+
+def test_repair_never_turns_a_no_dac_name_into_a_with_dac_one():
+    table = {"CJC": PrefixName("cjc1295dac", "CJC-1295 with DAC")}
+    row = r("CJC5", "CJC-1295 no DAC")
+    repair_names([row], table, is_known=lambda n: False)
+    assert row.name == "CJC-1295 no DAC" and row.flags == []
+
+def test_repair_still_fixes_a_wo_dac_abbreviation_to_the_no_dac_product():
+    table = {"CND": PrefixName("cjc1295nodac", "CJC-1295 No DAC")}
+    row = r("CND5", "CJC-1295 WO DAC")
+    repair_names([row], table, is_known=lambda n: n == "CJC-1295 No DAC")
+    assert row.name == "CJC-1295 No DAC" and row.flags == ["name-from-code"]
+
+
+def test_without_and_no_mean_the_same_to_the_qualifier_guard():
+    from app.library.matching import qualifiers
+    assert (qualifiers("CJC-1295 Without DAC") == qualifiers("CJC-1295 no DAC")
+            == qualifiers("CJC-1295 Whitout DAC") == qualifiers("CJC-1295 WO/Dac"))
+    assert qualifiers("CJC-1295 with DAC") != qualifiers("CJC-1295 no DAC")

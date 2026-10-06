@@ -10,7 +10,8 @@ _SPEC = re.compile(
     r"\s*(?:[*x×]\s*(?P<size>\d+)(?!\d)(?!\s*(?:mcg|mg|ug|iu|ml)))?",
     re.IGNORECASE,
 )
-_PRICE = re.compile(r"\$?\s*(\d+(?:\.\d+)?)\s*(?:/\s*(\d+)\s*vials?)?", re.IGNORECASE)
+_PRICE = re.compile(
+    r"(?:US\$|\$|USD)?\s*(?P<price>\d+(?:\.\d+)?)\s*(?:USD)?\s*(?:/\s*(?P<per>\d*)\s*vials?)?", re.IGNORECASE)
 _CODE_PREFIX = re.compile(r"\d*([A-Za-z]+)")
 _CHECKED_UNITS = {"mg", "mcg", "IU"}
 _KIT_VIALS = 10
@@ -48,11 +49,14 @@ def parse_spec(text: str) -> Spec | None:
 
 
 def parse_price(text: str) -> tuple[float | None, int | None]:
-    """"$45" -> (45.0, None); "$30/1vial" -> (30.0, 1); anything else -> (None, None)."""
+    """"$45" -> (45.0, None); "$30/1vial" and "$30/vial" -> (30.0, 1); "30 USD" -> (30.0, None); else (None, None)."""
     m = _PRICE.fullmatch((text or "").replace(",", "").strip())
     if m is None:
         return None, None
-    return float(m.group(1)), (int(m.group(2)) if m.group(2) else None)
+    per = None
+    if m.group("per") is not None:
+        per = int(m.group("per")) if m.group("per") else 1
+    return float(m.group("price")), per
 
 
 def code_prefix(code: str | None) -> str | None:

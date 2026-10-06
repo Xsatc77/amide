@@ -38,6 +38,7 @@ class ImportReport:
     specs_added: int = 0  # library cards whose sizes changed
     flagged: list[str] = field(default_factory=list)
     unmatched: list[str] = field(default_factory=list)
+    unread_spec_lines: int = 0  # product-looking text lines the reader could not turn into a row
     skipped: str | None = None
 
 
@@ -74,7 +75,7 @@ def decide_warehouse(from_filename: str | None, from_text: str | None,
 def store_price_list(session: Session, filename: str, data: PriceListData, *,
                      prefix_table: dict[str, PrefixName], warehouse_override: str | None = None,
                      dry_run: bool = False) -> ImportReport:
-    report = ImportReport(filename=filename, rows=len(data.rows))
+    report = ImportReport(filename=filename, rows=len(data.rows), unread_spec_lines=data.unread_spec_lines)
     try:
         info = parse_filename(filename)
     except ValueError as exc:
@@ -142,12 +143,13 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
 
 def observations_from_db(session: Session, exclude_filenames=()) -> list[tuple[str, str, str]]:
     """(vendor_key, code_prefix, product_name) from lists already stored, for learning what a code means."""
-    stmt = (select(PriceList.vendor_name, PriceListItem.code, PriceListItem.product_name)
+    stmt = (select(PriceList.vendor_name, PriceListItem.code, PriceListItem.product_name, PriceListItem.flags)
             .join(PriceListItem, PriceListItem.price_list_id == PriceList.id)
             .where(PriceListItem.code.is_not(None), PriceListItem.product_name.is_not(None),
                    PriceList.source_filename.not_in(list(exclude_filenames))))
     return [(vendor_key(vendor), code_prefix(code), name)
-            for vendor, code, name in session.execute(stmt) if code_prefix(code)]
+            for vendor, code, name, flags in session.execute(stmt)
+            if code_prefix(code) and "name-from-code" not in (flags or [])]  # a repaired name must not confirm itself
 
 
 def _files(paths) -> list[Path]:
@@ -206,6 +208,8 @@ def format_reports(reports: list[ImportReport], *, dry_run: bool = False) -> str
         vendor = f"{r.vendor_name} ({'new' if r.vendor_created else 'existing'})"
         lines.append(f"  vendor: {vendor} | warehouse: {r.warehouse} ({r.warehouse_source}) | rows: {r.rows} | "
                      f"matched: {r.matched} | library cards given new sizes: {r.specs_added}")
+        if r.unread_spec_lines:
+            lines.append(f"  {r.unread_spec_lines} spec lines were not read (check this PDF)")
         if r.flagged:
             lines.append(f"  flagged ({len(r.flagged)}):")
             lines += [f"    {item}" for item in r.flagged]

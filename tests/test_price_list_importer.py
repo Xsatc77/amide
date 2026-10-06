@@ -321,3 +321,19 @@ def test_report_text_lists_flags_unmatched_and_assumed_warehouses(db):
     assert "ZX10 Unknown Thing: code-size-mismatch" in text and "Unknown Thing" in text
     assert "Warehouse assumed (China) for" in text and "dry run" not in text.lower()
     assert "dry run" in format_reports(reports, dry_run=True).lower()
+
+
+def test_names_repaired_on_an_earlier_import_do_not_feed_the_next_learning_pass(db):
+    from app.library.price_lists.importer import observations_from_db
+    from app.library.price_lists.names import PrefixName
+    store(db, FILE, data(row("ZX10", None), row("QU5", "Quillamine")),
+          prefix_table={"ZX": PrefixName("zorvex", "Zorvex")})
+    observed = {(prefix, name) for _, prefix, name in observations_from_db(db)}
+    assert ("QU", "Quillamine") in observed and ("ZX", "Zorvex") not in observed
+
+
+def test_report_mentions_spec_lines_that_were_not_read(db):
+    d = data(row("ZX10", "Zorvex"))
+    d.unread_spec_lines = 3
+    text = format_reports([store(db, FILE, d)])
+    assert "3 spec lines were not read" in text

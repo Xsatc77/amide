@@ -41,6 +41,11 @@ def test_parse_spec_rejects_non_specs(text):
     ("$ 65", (65.0, None)),
     ("$1,250", (1250.0, None)),
     ("$30/1vial", (30.0, 1)),
+    ("$30/vial", (30.0, 1)),
+    ("$30/5vials", (30.0, 5)),
+    ("30 USD", (30.0, None)),
+    ("USD 30", (30.0, None)),
+    ("US$30", (30.0, None)),
     ("", (None, None)),
     ("Instructions for Use (for reference only)", (None, None)),
 ])

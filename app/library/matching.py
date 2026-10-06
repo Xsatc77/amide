@@ -43,6 +43,20 @@ def _words(text) -> list[str]:
     return re.findall(r"[a-z0-9]+", _norm(text).casefold())
 
 
+_NO_ABBREVIATIONS = {"without", "wo", "wout"}  # vendors write "CJC-1295 WO/Dac"
+
+
+def _qualifier(word: str) -> str | None:
+    if word in _NO_ABBREVIATIONS or difflib.SequenceMatcher(None, word, "without").ratio() >= 0.8:  # "whitout" too
+        return "no"
+    return word if word in _QUALIFIERS else None
+
+
+def qualifiers(name) -> frozenset[str]:
+    """The with / no / DAC words of a name ("without" counts as "no"): the words that make a different product."""
+    return frozenset(q for q in map(_qualifier, _words(name)) if q)
+
+
 def _tokens(text) -> list[str]:
     return ["no" if w == "without" else w for w in _words(text) if w not in _IGNORED_WORDS]
 

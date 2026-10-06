@@ -1,5 +1,7 @@
 # tests/test_price_list_reader.py
-from app.library.price_lists.reader import infer_roles, rows_from_lines, rows_from_table, scan_notes
+from app.library.price_lists.reader import (
+    infer_roles, rows_from_lines, rows_from_table, scan_notes, unread_spec_lines,
+)
 from app.library.price_lists.rows import Spec
 
 # code | name (centered cell: only one row of the group carries it) | spec | price
@@ -179,3 +181,60 @@ def test_notes_collect_shipping_lines_and_a_warehouse_hint():
         "Customs clearance included"]
     assert scan_notes(["US Warehouse stock"]) == (None, "us")
     assert scan_notes(["nothing here"]) == (None, None)
+
+
+def test_a_list_with_no_code_column_keeps_its_names_and_invents_no_codes():
+    table = [["BPC-157", "2mg*10vials", "$30"], ["TB500", "5mg*10vials", "$40"], ["CJC-1295", "2mg*10vials", "$35"]]
+    roles = infer_roles(table)
+    assert roles.code is None and roles.name == 0
+    rows = rows_from_table(table)
+    assert [(r.code, r.name) for r in rows] == [(None, "BPC-157"), (None, "TB500"), (None, "CJC-1295")]
+    assert all("no-code" in r.flags and "code-size-mismatch" not in r.flags for r in rows)
+
+
+def test_category_then_name_columns_with_digit_bearing_names_and_no_code():
+    table = [["Healing", "BPC-157", "5mg*10vials", "$30"], ["", "TB500", "5mg*10vials", "$40"],
+             ["", "KPV10", "10mg*10vials", "$25"]]
+    roles = infer_roles(table)
+    assert roles.code is None and roles.name == 1
+
+
+def test_line_fallback_does_not_mistake_a_hyphenated_name_for_a_code():
+    rows = rows_from_lines(["CJC-1295 No DAC 2mg*10vials $45.00"])
+    assert [(r.code, r.name) for r in rows] == [(None, "CJC-1295 No DAC")]
+
+
+def test_a_numeric_column_before_the_price_is_not_taken_for_the_price():
+    with_headers = [["Code", "Name", "Spec", "MOQ", "Price"], ["ZX5", "Zorvex", "5mg*10vials", "50", "$30"],
+                    ["ZX10", "", "10mg*10vials", "100", "$40"], ["ZX20", "", "20mg*10vials", "20", "$25"]]
+    rows = rows_from_table(with_headers)
+    assert [r.pack_price for r in rows] == [30.0, 40.0, 25.0] and rows[0].extra_prices == {}
+    no_headers = [["ZX5", "Zorvex", "5mg*10vials", "50", "$30"], ["ZX10", "", "10mg*10vials", "100", "$40"],
+                  ["ZX20", "", "20mg*10vials", "20", "$25"]]
+    assert [r.pack_price for r in rows_from_table(no_headers)] == [30.0, 40.0, 25.0]
+
+
+def test_a_missing_price_is_flagged_not_silent():
+    table = [["ZX5", "Zorvex", "5mg*10vials", "$30"], ["ZX10", "", "10mg*10vials", ""],
+             ["ZX20", "", "20mg*10vials", "$25"]]
+    rows = rows_from_table(table)
+    assert rows[1].pack_price is None and "no-price" in rows[1].flags and rows[0].flags == []
+
+
+def test_a_two_row_table_is_still_read():
+    table = [["ZX5", "Zorvex", "5mg*10vials", "$30"], ["ZX10", "", "10mg*10vials", "$40"]]
+    assert [(r.code, r.pack_price) for r in rows_from_table(table)] == [("ZX5", 30.0), ("ZX10", 40.0)]
+
+
+def test_spec_lines_that_produced_no_row_are_counted():
+    lines = ["Zorvex ZX5 5mg*10vials $30", "Zorvex ZX10 10mg*10vials $40", "Quillamine QU5 5mg*10vials $20", "footer text"]
+    rows = rows_from_lines(lines[:2])
+    assert unread_spec_lines(lines, rows) == 1
+    assert unread_spec_lines(lines, rows_from_lines(lines)) == 0
+
+
+def test_line_fallback_accepts_the_real_code_shapes_but_not_names():
+    lines = ["5-amino-1MQ 5AM 5mg*10vials $20", "Semax SX5-XA5 5mg*10vials $15", "SS-31 2S10 10mg*10vials $30",
+             "Peptide X 10AM 10mg*10vials $25"]
+    assert [(r.code, r.name) for r in rows_from_lines(lines)] == [
+        ("5AM", "5-amino-1MQ"), ("SX5-XA5", "Semax"), ("2S10", "SS-31"), ("10AM", "Peptide X")]
