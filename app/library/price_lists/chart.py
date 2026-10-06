@@ -3,6 +3,9 @@ Pure: dates and numbers in, pixel coordinates out; the template draws the SVG.""
 
 from datetime import date
 
+_MARGIN = 0.12        # breathing room above and below the data, as a share of the value span
+_MIN_SPAN = 0.06      # the axis never covers less than this share of the top price, so cent-level noise is not magnified
+
 
 def multi_series_chart(series: dict[str, list[tuple[date, float]]], *, width: int = 560, height: int = 220,
                        pad_l: int = 48, pad_r: int = 14, pad_t: int = 14, pad_b: int = 28) -> dict | None:
@@ -19,8 +22,13 @@ def multi_series_chart(series: dict[str, list[tuple[date, float]]], *, width: in
     def x_of(d: date) -> float:
         return pad_l + plot_w / 2 if span_d == 0 else pad_l + (d - min_d).days / span_d * plot_w
 
+    # The value axis fits the data (it does not start at zero), with a little margin so lines never sit on the
+    # frame, and a floor on its height so a few cents of change does not fill the whole chart.
+    axis_span = max(span_v, max_v * _MIN_SPAN) * (1 + 2 * _MARGIN)
+    axis_top = (max_v + min_v) / 2 + axis_span / 2
+
     def y_of(v: float) -> float:
-        return pad_t + plot_h / 2 if span_v == 0 else pad_t + (max_v - v) / span_v * plot_h
+        return pad_t + plot_h / 2 if span_v == 0 else pad_t + (axis_top - v) / axis_span * plot_h
 
     out = {}
     for label, points in series.items():

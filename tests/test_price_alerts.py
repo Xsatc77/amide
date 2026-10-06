@@ -4,6 +4,7 @@ from datetime import date
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.models import User
 from price_helpers import item, make_card, make_list, make_vendor
 
 
@@ -54,10 +55,14 @@ def test_the_administrator_can_ignore_a_product(client, db):
 def test_another_user_sees_the_alert_but_cannot_ignore_it(client, db):
     make_list(db, make_vendor(db, "Acme"), date(2026, 9, 1), item("Quillamine", 5, 20))
     other = second_user()
-    page = html.unescape(other.get("/dashboard").text)
-    assert "NEW PEPTIDE ALERT" in page and "/price-alerts/ignore" not in page
-    assert other.post("/price-alerts/ignore", data={"name": "Quillamine"}).status_code == 404
-    assert "Quillamine</a>" in dashboard(client)
+    try:
+        page = html.unescape(other.get("/dashboard").text)
+        assert "NEW PEPTIDE ALERT" in page and "/price-alerts/ignore" not in page
+        assert other.post("/price-alerts/ignore", data={"name": "Quillamine"}).status_code == 404
+        assert "Quillamine</a>" in dashboard(client)
+    finally:  # the registered account is real data in the shared test database: remove it
+        db.query(User).filter(User.username_key == "alertother").delete()
+        db.commit()
 
 
 def test_a_new_alias_clears_the_alert(client, db):

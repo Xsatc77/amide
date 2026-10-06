@@ -10,8 +10,7 @@ def test_series_share_one_date_scale_and_one_value_scale():
                                 "5mg": [(date(2026, 8, 1), 30.0)]}, **BOX)
     a, b = chart["series"]["10mg"]["points"], chart["series"]["5mg"]["points"]
     assert a[0]["x"] == b[0]["x"] == 40 and a[1]["x"] == 390      # first date at the left pad, last at the right
-    assert a[1]["y"] == 10 and b[0]["y"] == 180                   # highest value at the top, lowest at the bottom
-    assert 10 < a[0]["y"] < 180
+    assert 10 < a[1]["y"] < a[0]["y"] < b[0]["y"] < 180           # highest value above, lowest below, all inside the frame
 
 
 def test_points_are_sorted_by_date_and_carry_their_values():
@@ -39,3 +38,15 @@ def test_ticks_mark_the_value_extremes_and_the_date_extremes():
 def test_nothing_to_plot_gives_none():
     assert multi_series_chart({}) is None
     assert multi_series_chart({"10mg": []}) is None
+
+
+def test_the_axis_fits_the_data_instead_of_starting_at_zero():
+    chart = multi_series_chart({"10mg": [(date(2026, 8, 1), 100.0), (date(2026, 9, 1), 110.0)]}, **BOX)
+    a, b = (p["y"] for p in chart["series"]["10mg"]["points"])
+    assert abs(a - b) > 0.6 * (200 - 10 - 20)    # a $10 move on $100 uses most of the height
+
+
+def test_a_few_cents_of_change_is_not_blown_up_to_fill_the_chart():
+    chart = multi_series_chart({"10mg": [(date(2026, 8, 1), 100.00), (date(2026, 9, 1), 100.05)]}, **BOX)
+    a, b = (p["y"] for p in chart["series"]["10mg"]["points"])
+    assert abs(a - b) < 0.1 * (200 - 10 - 20)
