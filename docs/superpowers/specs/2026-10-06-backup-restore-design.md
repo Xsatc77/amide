@@ -178,8 +178,8 @@ Browser check of both tabs and the preview at desktop and phone width.
 
 ## Risks
 
-- **Replace deletes data.** Mitigated by the preview counts, an explicit second step, and a pre-load safety copy of the
-  person's affected sections kept for the session.
+- **Replace deletes data.** Mitigated by the preview, which says how many of the person's current rows each Replace
+  would delete and suggests taking a backup first (no plaintext copy is kept on the server).
 - **A lost passphrase makes a backup unreadable.** Stated plainly on the page; there is no recovery.
 - **Foreign-key ordering on restore:** tables are inserted in dependency order from the registry, and the guard test
   checks the registry covers every foreign key.
