@@ -1,34 +1,119 @@
 {% extends "base.html" %}
 {% block title %}Backup & restore{% endblock %}
 
+{#- A row of section checkboxes. `checked` ticks them all by default. -#}
+{% macro checklist(items, checked=true) %}
+<div class="chips backup-sections">
+  {% for s in items %}
+  <label class="chip-checkbox" title="{{ s.help }}"><input type="checkbox" name="section" value="{{ s.key }}"{% if checked %} checked{% endif %}> {{ s.label }}</label>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro passphrase_fields() %}
+<div class="grid">
+  <label class="field"><span>Passphrase</span>
+    <input type="password" name="passphrase" minlength="8" autocomplete="new-password" required data-passphrase>
+  </label>
+  <label class="field"><span>Passphrase again</span>
+    <input type="password" name="confirm" minlength="8" autocomplete="new-password" required data-passphrase-confirm>
+  </label>
+</div>
+<p class="muted small">At least 8 characters. The file is encrypted with it and <strong>there is no way to recover a lost passphrase</strong>, so keep it somewhere safe.</p>
+{% endmacro %}
+
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Backup & restore</h1>
-    <p class="muted">Your inventory and protocols. Uploaded COA photos/PDFs are not included — they're already saved as files.</p>
+    <h1>Backup &amp; restore</h1>
+    <p class="muted">Encrypted files you keep. Every backup, export or share is a new dated file and never overwrites an earlier one.</p>
   </div>
 </div>
 
-{% if request.query_params.get('imported') %}
-<div class="alert" style="background: var(--accent-soft); color: var(--text);" role="status">Backup imported.</div>
-{% endif %}
+<nav class="wk-tabs" role="tablist" aria-label="Backup sections">
+  <a href="/backup?tab=backup" class="wk-tab {{ 'active' if tab == 'backup' }}" role="tab" aria-selected="{{ 'true' if tab == 'backup' else 'false' }}">Back up</a>
+  <a href="/backup?tab=export" class="wk-tab {{ 'active' if tab == 'export' }}" role="tab" aria-selected="{{ 'true' if tab == 'export' else 'false' }}">Export / Share</a>
+  <a href="/backup?tab=restore" class="wk-tab {{ 'active' if tab == 'restore' }}" role="tab" aria-selected="{{ 'true' if tab == 'restore' else 'false' }}">Restore / Import</a>
+</nav>
 
+{% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+
+{% if tab == 'backup' %}
+<form method="post" action="/backup/create" class="builder-step backup-form" data-backup-form>
+  <h2 class="section-title">Back up</h2>
+  <p class="muted small">A copy of your data for safekeeping. It contains health and personal records: keep the file private.</p>
+  <input type="hidden" name="kind" value="backup">
+  {% if is_admin %}
+  <div class="chips" role="radiogroup" aria-label="What to back up">
+    <label class="chip-radio"><input type="radio" name="scope" value="person" checked data-scope> My data</label>
+    <label class="chip-radio"><input type="radio" name="scope" value="installation" data-scope> Whole installation (every account, vendors, price lists, library and all files)</label>
+  </div>
+  {% else %}<input type="hidden" name="scope" value="person">{% endif %}
+  <div data-sections>
+    <h3 class="small muted">My data</h3>
+    {{ checklist(person_sections) }}
+    {% if shared_sections %}
+    <h3 class="small muted">Shared data (administrator)</h3>
+    {{ checklist(shared_sections) }}
+    {% endif %}
+  </div>
+  {{ passphrase_fields() }}
+  <p class="muted small">Files up to {{ max_mb }} MB. A whole-installation backup also holds password hashes and 2FA secrets.</p>
+  <button type="submit" class="btn btn-primary">Download backup</button>
+</form>
+
+{% elif tab == 'export' %}
+<form method="post" action="/backup/create" class="builder-step backup-form" data-backup-form>
+  <h2 class="section-title">Export to move to a new computer</h2>
+  <p class="muted small">Pick the sections to carry to another install of Amide (for example a new computer). Load the file there from Restore / Import.</p>
+  <input type="hidden" name="kind" value="export">
+  <input type="hidden" name="scope" value="person">
+  {{ checklist(person_sections, false) }}
+  {% if shared_sections %}{{ checklist(shared_sections, false) }}{% endif %}
+  {{ passphrase_fields() }}
+  <button type="submit" class="btn btn-primary">Download export</button>
+</form>
+
+<form method="post" action="/backup/create" class="builder-step backup-form" style="margin-top: 16px;" data-backup-form>
+  <h2 class="section-title">Share non-medical data</h2>
+  <p class="muted small">A file you can give to someone else. It leaves out personal records: dose logs, workout logs and fitness tests, sales and vials in use, wallet addresses, accounts, profile, measurements, journal and labs. It still keeps free-text notes and costs, so read your notes first. Vendor and price-list files hold supplier information; sharing them is your decision. Whoever loads it needs the passphrase, and shared vendors, price lists and library entries can only be loaded by an administrator.</p>
+  <input type="hidden" name="kind" value="share">
+  <input type="hidden" name="scope" value="person">
+  {{ checklist(shareable_sections, false) }}
+  {{ passphrase_fields() }}
+  <button type="submit" class="btn btn-primary">Download share file</button>
+</form>
+
+{% else %}
 <div class="builder-step">
-  <h2 class="section-title">Export</h2>
-  <p class="muted small">Download a copy of your data.</p>
-  <div class="auth-actions" style="justify-content: flex-start;">
-    <a class="btn btn-primary" href="/backup/export.json">Download full backup (.json)</a>
-    <a class="btn" href="/backup/export/inventory.csv">Download inventory (.csv)</a>
-  </div>
-</div>
-
-<div class="builder-step" style="margin-top: 16px;">
-  <h2 class="section-title">Import</h2>
-  <p class="muted small">Upload a previously exported <code>.json</code> backup. This <strong>adds</strong> the inventory items and protocols from that file to your account — it never changes or deletes anything you already have.</p>
-  {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
-  <form method="post" action="/backup/import" enctype="multipart/form-data" class="auth-actions" style="justify-content: flex-start;">
-    <input type="file" name="file" accept="application/json" required>
-    <button type="submit" class="btn btn-primary">Import</button>
+  <h2 class="section-title">Open a backup, export or share file</h2>
+  <p class="muted small">Choose the file and enter its passphrase. You will see what is inside before anything is changed.</p>
+  <form method="post" action="/backup/open" enctype="multipart/form-data" class="backup-form">
+    <div class="grid">
+      <label class="field"><span>File (.amidebackup)</span><input type="file" name="file" accept=".amidebackup" required></label>
+      <label class="field"><span>Passphrase</span><input type="password" name="passphrase" autocomplete="off" required></label>
+    </div>
+    <button type="submit" class="btn btn-primary">Open</button>
   </form>
 </div>
+{% endif %}
+
+<details class="builder-step" style="margin-top: 16px;">
+  <summary><strong>Older formats</strong></summary>
+  <p class="muted small">The earlier plain-text export of your inventory and protocols. These files are not encrypted.</p>
+  <div class="auth-actions" style="justify-content: flex-start;">
+    <a class="btn" href="/backup/export.json">Download inventory and protocols (.json)</a>
+    <a class="btn" href="/backup/export/inventory.csv">Download inventory (.csv)</a>
+  </div>
+  <p class="muted small">Upload one of those <code>.json</code> files. This <strong>adds</strong> its inventory items and protocols to your account; it never changes or deletes anything you already have.</p>
+  {% if legacy_error %}<div class="alert" role="alert">{{ legacy_error }}</div>{% endif %}
+  <form method="post" action="/backup/import" enctype="multipart/form-data" class="auth-actions" style="justify-content: flex-start;">
+    <input type="file" name="file" accept="application/json" required>
+    <button type="submit" class="btn">Import</button>
+  </form>
+</details>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/backup.js') }}" defer></script>
 {% endblock %}

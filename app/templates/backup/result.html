@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Backup loaded{% endblock %}
+
+{% block content %}
+<div class="page-head"><div><h1>Loaded</h1><p class="muted">The selected sections were loaded in one step; if anything had failed, nothing would have changed.</p></div></div>
+
+<section class="side-box">
+  <table class="lib-table">
+    <thead><tr><th>Section</th><th>Added</th><th>Removed first</th><th>Skipped</th></tr></thead>
+    <tbody>
+      {% for key in ((report.added.keys() | list) + (report.removed.keys() | list) + (report.skipped.keys() | list)) | unique %}
+      <tr><td>{{ labels.get(key, key) }}</td><td>{{ report.added.get(key, 0) }}</td><td>{{ report.removed.get(key, 0) }}</td><td>{{ report.skipped.get(key, 0) }}</td></tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Nothing to load.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">{{ report.files }} attached file(s) copied.</p>
+  {% if report.skipped %}<p class="muted small">Skipped rows were duplicates of something already there (or belonged to a skipped parent).</p>{% endif %}
+</section>
+
+{% if report.unresolved %}
+<section class="side-box" style="margin-top: 16px;">
+  <h2 class="section-title">Links that could not be matched</h2>
+  <p class="muted small">These rows were loaded, but the item they pointed at is not in this installation, so the link is empty.</p>
+  <ul class="plain-list">{% for name, n in report.unresolved.items() %}<li>{{ name | replace('_', ' ') | replace('.', ': ') }}: {{ n }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<p style="margin-top: 16px;"><a class="btn" href="/backup?tab=restore">Back to Backup &amp; restore</a></p>
+{% endblock %}

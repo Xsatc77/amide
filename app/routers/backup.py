@@ -1,6 +1,7 @@
-"""Backup and restore: export the signed-in user's own data as JSON or CSV, and import a previously
-exported JSON file. Import is additive only: it always creates new rows, and never updates, matches, or
-deletes anything that already exists. The uploaded COA image/PDF files are not included.
+"""Backup and restore. The page offers encrypted backups, exports and share files of chosen sections, and loading or
+restoring them (see app/backup/ and docs/superpowers/specs/2026-10-06-backup-restore-design.md). The older plain JSON
+export/import of inventory and protocols and the inventory CSV remain under "Older formats": that import is additive
+only and never updates or deletes anything.
 """
 
 import csv
@@ -8,17 +9,26 @@ import io
 import json
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import config
+from app.auth import sessions as login_sessions
 from app.auth.deps import current_user_id
+from app.backup import load as backup_load
+from app.backup import pending
+from app.backup import restore as backup_restore
+from app.backup import sections as backup_sections
+from app.backup.archive import read_archive
+from app.backup.container import BackupError
+from app.backup.service import make_download, open_upload
 from app.db import get_session
 from app.goals import GOALS_BY_SLUG
 from app.models import (
     Category, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Protocol, ProtocolGoal, ProtocolItem,
-    ProtocolItemCycleOff, PurchasingUnit, Route, Sale, StorageLocation, TimeOfDay, TitrationStep,
+    ProtocolItemCycleOff, PurchasingUnit, Route, Sale, StorageLocation, TimeOfDay, TitrationStep, User,
 )
 from app.routers.protocols import _find_or_create_peptide
 from app.templating import templates
@@ -81,9 +91,129 @@ def _protocol_row(p: Protocol) -> dict:
     }
 
 
+TABS = ("backup", "export", "restore")
+RESTORE_WORD = "RESTORE"
+
+
+def _context(session: Session, uid: int, tab: str, **extra) -> dict:
+    me = session.get(User, uid)
+    admin = bool(me.is_admin)
+    sec = backup_sections.SECTIONS
+    return {
+        "tab": tab if tab in TABS else "backup", "is_admin": admin,
+        "person_sections": [sec[k] for k in backup_sections.PERSON_SECTIONS],
+        "shared_sections": [sec[k] for k in backup_sections.SHARED_SECTIONS] if admin else [],
+        "shareable_sections": [sec[k] for k in backup_sections.SHAREABLE if admin or sec[k].level == backup_sections.PERSON],
+        "max_mb": config.MAX_BACKUP_BYTES // (1024 * 1024), **extra,
+    }
+
+
+def _page(request: Request, session: Session, uid: int, tab: str, status_code: int = 200, **extra):
+    return templates.TemplateResponse(request, "backup/backup.html", _context(session, uid, tab, **extra),
+                                      status_code=status_code)
+
+
 @router.get("/backup")
-def backup_page(request: Request):
-    return templates.TemplateResponse(request, "backup/backup.html", {})
+def backup_page(request: Request, tab: str = "backup", session: Session = Depends(get_session),
+                uid: int = Depends(current_user_id)):
+    return _page(request, session, uid, tab)
+
+
+@router.post("/backup/create")
+async def create_backup(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Build an encrypted backup, export or share file and send it as a download."""
+    form = await request.form()
+    kind = str(form.get("kind") or "backup")
+    me = session.get(User, uid)
+    try:
+        name, blob = make_download(
+            session, me, kind=kind, keys=[str(k) for k in form.getlist("section")],
+            installation=str(form.get("scope") or "person") == "installation",
+            passphrase=str(form.get("passphrase") or ""), confirm=str(form.get("confirm") or ""))
+    except BackupError as exc:
+        return _page(request, session, uid, "backup" if kind == "backup" else "export", 422, error=str(exc), error_kind=kind)
+    return Response(blob, media_type="application/octet-stream",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+
+
+def _preview(request: Request, session: Session, uid: int, token: str, archive, status_code: int = 200, **extra):
+    me = session.get(User, uid)
+    manifest = archive.manifest
+    return templates.TemplateResponse(request, "backup/preview.html", {
+        "token": token, "manifest": manifest, "is_admin": bool(me.is_admin),
+        "sections": backup_load.describe(archive, username_key=me.username_key, is_admin=bool(me.is_admin),
+                                         session=session, uid=uid),
+        "can_restore": bool(me.is_admin) and manifest.get("level") == "installation" and manifest.get("kind") == "backup",
+        "restore_word": RESTORE_WORD, **extra}, status_code=status_code)
+
+
+@router.post("/backup/open")
+async def open_backup(request: Request, file: UploadFile, session: Session = Depends(get_session),
+                      uid: int = Depends(current_user_id)):
+    """Decrypt and verify an uploaded backup and show what is in it. Nothing is changed yet."""
+    form = await request.form()
+    blob = await file.read(config.MAX_BACKUP_BYTES + 1)
+    try:
+        if len(blob) > config.MAX_BACKUP_BYTES:
+            raise BackupError("This file is larger than the allowed size.")
+        zipped, archive = open_upload(blob, str(form.get("passphrase") or ""))
+    except BackupError as exc:
+        return _page(request, session, uid, "restore", 422, error=str(exc))
+    token = pending.put(uid, zipped)
+    return _preview(request, session, uid, token, archive)
+
+
+def _opened(uid: int, token: str):
+    return read_archive(pending.get(uid, token), max_bytes=config.MAX_BACKUP_BYTES)
+
+
+@router.post("/backup/load")
+async def load_backup(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Load the ticked sections of an opened backup, each as Add or Replace."""
+    form = await request.form()
+    token = str(form.get("token") or "")
+    me = session.get(User, uid)
+    try:
+        archive = _opened(uid, token)
+    except BackupError as exc:
+        return _page(request, session, uid, "restore", 422, error=str(exc))
+    plan = {str(k): str(form.get(f"mode-{k}") or "") for k in form.getlist("load")}
+    try:
+        report = backup_load.load(session, archive, uid=uid, username_key=me.username_key, is_admin=bool(me.is_admin),
+                                  plan=plan)
+    except BackupError as exc:
+        return _preview(request, session, uid, token, archive, 422, error=str(exc))
+    pending.drop(token)
+    return templates.TemplateResponse(request, "backup/result.html", {
+        "report": report, "labels": {k: backup_sections.SECTIONS[k].label for k in backup_sections.SECTIONS}})
+
+
+@router.post("/backup/restore")
+async def restore_everything(request: Request, session: Session = Depends(get_session),
+                             uid: int = Depends(current_user_id)):
+    """Replace the whole installation with an opened whole-installation backup (administrators only)."""
+    me = session.get(User, uid)
+    if not me.is_admin:
+        raise HTTPException(404)
+    form = await request.form()
+    token = str(form.get("token") or "")
+    try:
+        archive = _opened(uid, token)
+    except BackupError as exc:
+        return _page(request, session, uid, "restore", 422, error=str(exc))
+    try:
+        if str(form.get("confirm") or "").strip() != RESTORE_WORD:
+            raise BackupError(f"Type {RESTORE_WORD} to confirm.")
+        if str(form.get("safety_passphrase") or "") != str(form.get("safety_confirm") or ""):
+            raise BackupError("The two safety-copy passphrases do not match.")
+        report = backup_restore.restore_installation(
+            session, archive, uid=uid, creator=me.username, safety_passphrase=str(form.get("safety_passphrase") or ""))
+    except BackupError as exc:
+        return _preview(request, session, uid, token, archive, 422, error=str(exc))
+    pending.drop(token)
+    response = templates.TemplateResponse(request, "backup/restored.html", {"report": report})
+    response.delete_cookie(login_sessions.COOKIE)
+    return response
 
 
 @router.get("/backup/export.json")
@@ -242,9 +372,8 @@ async def import_backup(request: Request, file: UploadFile, session: Session = D
         payload = json.loads(await file.read())
         assert isinstance(payload, dict)
     except (json.JSONDecodeError, UnicodeDecodeError, AssertionError):
-        return templates.TemplateResponse(
-            request, "backup/backup.html",
-            {"error": "That file doesn't look like an Amide backup (not valid JSON)."}, status_code=422)
+        return _page(request, session, uid, "restore", 422,
+                     legacy_error="That file doesn't look like an Amide backup (not valid JSON).")
 
     for row in payload.get("inventory", []):
         _import_inventory_row(session, uid, row)

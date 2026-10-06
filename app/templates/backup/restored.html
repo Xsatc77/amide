@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Restored{% endblock %}
+
+{% block content %}
+<div class="page-head"><div><h1>Everything was restored</h1><p class="muted">Everyone has been signed out. Sign in again with an account from the backup.</p></div></div>
+
+<section class="side-box">
+  <p>{{ report.rows.values() | sum }} rows and {{ report.files }} files were restored.</p>
+  <p class="muted small">A safety backup of what was replaced is saved as <code>data/backups/{{ report.safety_copy }}</code>. Keep it until you are sure the restore is what you wanted.</p>
+  <a class="btn btn-primary" href="/">Sign in</a>
+</section>
+{% endblock %}

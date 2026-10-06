@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Backup contents{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>What is in this file</h1>
+    <p class="muted">Nothing has been changed yet.</p>
+  </div>
+</div>
+
+{% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+
+<section class="side-box">
+  <dl class="kv kv-tight">
+    <dt>Kind</dt><dd>{{ {'backup': 'Backup', 'export': 'Export', 'share': 'Share file'}.get(manifest.kind, manifest.kind) }}{% if manifest.level == 'installation' %} (whole installation){% endif %}</dd>
+    <dt>Made by</dt><dd>{{ manifest.creator }}</dd>
+    <dt>Created</dt><dd>{{ manifest.created_at[:10][5:7] }}/{{ manifest.created_at[8:10] }}/{{ manifest.created_at[:4] }} {{ manifest.created_at[11:16] }} UTC</dd>
+    <dt>Database version</dt><dd>{{ manifest.revision or 'unknown' }}</dd>
+  </dl>
+  {% if manifest.kind == 'share' %}<p class="muted small">A share file: personal records were left out when it was made, and it can only be added, never used to replace anything.</p>{% endif %}
+  {% if manifest.missing_files %}<p class="muted small">{{ manifest.missing_files | length }} attached file(s) were missing when this was made and are not in it.</p>{% endif %}
+</section>
+
+<form method="post" action="/backup/load" class="builder-step backup-form" style="margin-top: 16px;">
+  <h2 class="section-title">Load sections</h2>
+  <p class="muted small">Tick what to load. <strong>Add</strong> keeps what you have and adds the file's rows (rows that would duplicate something, such as a second journal entry for the same day, are skipped). <strong>Replace</strong> deletes your current rows in that section first and makes it match the file.</p>
+  <input type="hidden" name="token" value="{{ token }}">
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Load</th><th>Section</th><th>Rows</th><th>How</th></tr></thead>
+      <tbody>
+        {% for s in sections %}
+        <tr>
+          <td data-label="Load"><input type="checkbox" name="load" value="{{ s.key }}"{% if not s.allowed %} disabled{% endif %} aria-label="Load {{ s.label }}"></td>
+          <td data-label="Section"><strong>{{ s.label }}</strong>{% if s.level == 'installation' %} <span class="tag tag-plain">shared</span>{% endif %}
+            {% if s.tables is defined %}<div class="muted small">{% for name, n in s.tables.items() if n %}{{ name | replace('_', ' ') }} {{ n }}{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}</td>
+          <td data-label="Rows">{{ s.rows }}</td>
+          <td data-label="How">
+            {% if not s.allowed %}<span class="muted small">{{ s.reason }}</span>
+            {% elif s.key == 'profile' %}<span class="muted small">Applied to your profile</span><input type="hidden" name="mode-{{ s.key }}" value="replace">
+            {% elif s.modes | length == 1 %}<span class="muted small">Add only{% if s.level == 'installation' %} (existing vendors, peptides and lists are kept){% endif %}</span><input type="hidden" name="mode-{{ s.key }}" value="add">
+            {% else %}
+            <label class="chip-radio"><input type="radio" name="mode-{{ s.key }}" value="add" checked> Add</label>
+            <label class="chip-radio"><input type="radio" name="mode-{{ s.key }}" value="replace"> Replace</label>
+            {% if s.current is not none %}<div class="muted small">Replace deletes your {{ s.current }} current row{{ '' if s.current == 1 else 's' }} in this section first. Take a backup first if you may want them.</div>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button type="submit" class="btn btn-primary" style="margin-top: 12px;">Load selected sections</button>
+</form>
+
+{% if can_restore %}
+<form method="post" action="/backup/restore" class="builder-step backup-form" style="margin-top: 16px;" data-restore-form>
+  <h2 class="section-title">Restore everything</h2>
+  <div class="alert" role="alert">This <strong>deletes all current data</strong> (every account, inventory, logs, vendors, price lists, the library and every uploaded file) and rebuilds it from this file. Everyone is signed out afterwards. Before anything is deleted, a safety backup of what is there now is saved on this computer in the <code>data/backups</code> folder, protected by the passphrase below.</div>
+  <input type="hidden" name="token" value="{{ token }}">
+  <div class="grid">
+    <label class="field"><span>Passphrase for the safety copy</span><input type="password" name="safety_passphrase" minlength="8" autocomplete="new-password" required></label>
+    <label class="field"><span>Passphrase again</span><input type="password" name="safety_confirm" minlength="8" autocomplete="new-password" required></label>
+    <label class="field"><span>Type {{ restore_word }} to confirm</span><input name="confirm" autocomplete="off" required data-restore-word="{{ restore_word }}"></label>
+  </div>
+  <button type="submit" class="btn btn-danger" data-restore-submit disabled>Restore everything</button>
+</form>
+{% endif %}
+
+<p style="margin-top: 16px;"><a href="/backup?tab=restore">Open a different file</a></p>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/backup.js') }}" defer></script>
+{% endblock %}
