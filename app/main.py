@@ -7,6 +7,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.auth import gate
+from app.db import SessionLocal
+from app.food.foods import load_starter
 from app.migrate import upgrade_db
 from app.routers import (
     auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, inventory, journal, labs, legal, library,
@@ -18,6 +20,8 @@ from app.routers import (
 async def lifespan(_: FastAPI):
     config.ensure_dirs()
     upgrade_db()
+    with SessionLocal() as session:
+        load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
     yield
 
 

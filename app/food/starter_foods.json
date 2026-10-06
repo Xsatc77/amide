@@ -1,0 +1,8 @@
+[
+  {"name": "Egg, whole, hard-boiled", "serving": "1 large", "serving_g": 50, "calories": 77.5, "protein_g": 6.3, "carb_g": 0.6, "fat_g": 5.3, "fiber_g": 0},
+  {"name": "Chicken breast, roasted", "serving": "3 oz", "serving_g": 85, "calories": 140, "protein_g": 26.4, "carb_g": 0, "fat_g": 3, "fiber_g": 0},
+  {"name": "White rice, cooked", "serving": "1 cup", "serving_g": 158, "calories": 205, "protein_g": 4.2, "carb_g": 44.5, "fat_g": 0.4, "fiber_g": 0.6},
+  {"name": "Oatmeal, cooked", "serving": "1 cup", "serving_g": 234, "calories": 166, "protein_g": 5.9, "carb_g": 28.1, "fat_g": 3.6, "fiber_g": 4},
+  {"name": "Banana", "serving": "1 medium", "serving_g": 118, "calories": 105, "protein_g": 1.3, "carb_g": 27, "fat_g": 0.4, "fiber_g": 3.1},
+  {"name": "Peanut butter", "serving": "2 tbsp", "serving_g": 32, "calories": 188, "protein_g": 8, "carb_g": 6.9, "fat_g": 16, "fiber_g": 2.6}
+]
