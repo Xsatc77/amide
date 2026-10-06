@@ -31,6 +31,9 @@ LOCKOUT_MINUTES = 15
 # Uploads larger than this are rejected.
 MAX_UPLOAD_BYTES = int(os.environ.get("AMIDE_MAX_UPLOAD_MB", "15")) * 1024 * 1024
 
+# A backup file (built in memory) larger than this is refused, both when creating and when opening one.
+MAX_BACKUP_BYTES = int(os.environ.get("AMIDE_MAX_BACKUP_MB", "512")) * 1024 * 1024
+
 
 def ensure_dirs() -> None:
     COA_DIR.mkdir(parents=True, exist_ok=True)

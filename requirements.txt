@@ -10,3 +10,4 @@ segno==1.6.6
 tzdata==2025.2
 pypdf==5.1.0
 pdfplumber==0.11.10
+cryptography==50.0.2
