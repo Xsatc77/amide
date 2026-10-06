@@ -3,6 +3,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -110,8 +111,8 @@ async def approve(item_id: int, request: Request, session: Session = Depends(get
     except ValueError:
         raise HTTPException(status_code=422, detail="Enter the list date.") from None
     try:
-        process.approve_group(session, item_id, vendor_id=_int(form.get("vendor_id")), warehouse=str(form.get("warehouse") or ""),
-                              list_date=when, user_id=uid)
+        await run_in_threadpool(process.approve_group, session, item_id, vendor_id=_int(form.get("vendor_id")),
+                                warehouse=str(form.get("warehouse") or ""), list_date=when, user_id=uid)
     except LookupError:
         raise HTTPException(status_code=404) from None
     except ValueError as exc:

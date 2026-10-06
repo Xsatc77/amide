@@ -107,3 +107,33 @@ def test_the_original_is_downloadable_by_the_administrator_only_while_it_is_kept
     r = client.get(f"/settings/ingest/items/{item.id}/original")
     assert r.status_code == 200 and r.content == b"%PDF-1.4 hello" and r.headers["cache-control"] == "no-store"
     assert client.get("/settings/ingest/items/9999/original").status_code == 404
+
+
+def test_approving_runs_off_the_event_loop_and_receiving_holds_the_processing_lock(client, db, monkeypatch):
+    import asyncio
+    from app.ingest import process, store
+    seen = {}
+    real_approve = process.approve_group
+
+    def spy(*a, **k):
+        seen["loop"] = asyncio._get_running_loop()
+        return real_approve(*a, **k)
+    monkeypatch.setattr(process, "approve_group", spy)
+    vendor = vendor_row(db)
+    item = text_item(db, make_source(db, vendor=vendor))
+    run()
+    client.post(f"/settings/ingest/items/{item.id}/approve", data={"vendor_id": str(vendor.id), "warehouse": "us", "list_date": "2026-10-05"})
+    assert seen["loop"] is None
+
+    real_ingest = store.ingest_message
+    def spy_ingest(*a, **k):
+        seen["owned"] = process.lock._is_owned()
+        return real_ingest(*a, **k)
+    monkeypatch.setattr(store, "ingest_message", spy_ingest)
+    from ingest_helpers import anon_client, bearer, make_token, pdf_bytes
+    me_id = db.query(__import__("app.models", fromlist=["User"]).User).first().id
+    secret = make_token(db, me_id)
+    with anon_client() as c:
+        c.post("/api/ingest/messages", data={"chat_id": "-100123", "message_id": "99", "date": "2026-10-06T10:00:00+00:00"},
+               files=[("files", ("a.pdf", pdf_bytes(), "application/pdf"))], headers=bearer(secret))
+    assert seen["owned"] is True

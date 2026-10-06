@@ -241,3 +241,90 @@ def test_two_warehouses_of_one_vendor_on_one_day_are_two_lists(db, vendor):
     text_item(db, source, message_id="2", caption_extra="China warehouse", text="\n".join(LINES[:5]) + "\nZorvex ZX20 20mg*10vials $99")
     run()
     assert sorted(p.warehouse.value for p in db.query(PriceList)) == ["china", "us"]
+
+
+# ---------------------------------------------------------------- review fixes
+
+def test_a_late_photo_of_an_already_processed_list_goes_to_review_and_never_replaces_it(db, vendor):
+    source = make_source(db, vendor=vendor, default_warehouse="us")
+    first = photo_item(db, source, 1, NOW)
+    recognizer = lambda image: scan_words()
+    run(NOW + timedelta(seconds=90), recognizer=recognizer)
+    db.expire_all()
+    assert db.get(IngestItem, first.id).status == "imported"
+    held = db.query(PriceList).one().id
+    late = photo_item(db, source, 2, NOW + timedelta(seconds=100))
+    run(NOW + timedelta(seconds=200), recognizer=lambda image: scan_words()[:12])
+    db.expire_all()
+    assert db.get(IngestItem, late.id).status == "needs_review" and "late" in db.get(IngestItem, late.id).reason
+    assert db.query(PriceList).one().id == held
+
+
+def test_a_different_list_for_the_same_vendor_warehouse_and_date_is_reviewed_not_replaced(db, vendor):
+    source = make_source(db, vendor=vendor, default_warehouse="us")
+    text_item(db, source, message_id="1", caption_extra="2026-10-05")
+    run()
+    other = text_item(db, source, message_id="2", caption_extra="2026-10-05",
+                      text="\n".join(f"Merrow MR{n} {n}mg*10vials ${n * 9}" for n in range(1, 8)))
+    run()
+    db.expire_all()
+    assert db.get(IngestItem, other.id).status == "needs_review" and "already" in db.get(IngestItem, other.id).reason
+    assert db.query(PriceList).count() == 1
+
+
+def test_a_list_that_shares_nothing_with_the_current_one_is_reviewed(db, vendor):
+    source = make_source(db, vendor=vendor, default_warehouse="us")
+    text_item(db, source, message_id="1", caption_extra="2026-10-01")
+    run()
+    other = text_item(db, source, message_id="2", caption_extra="2026-10-05",
+                      text="\n".join(f"Merrow MR{n} {n}mg*10vials ${n * 9}" for n in range(1, 8)))
+    run()
+    db.expire_all()
+    assert db.get(IngestItem, other.id).status == "needs_review" and "compare" in db.get(IngestItem, other.id).reason
+
+
+def test_the_same_content_in_another_file_or_on_a_later_day_is_a_duplicate(db, vendor):
+    source = make_source(db, vendor=vendor, default_warehouse="us")
+    text_item(db, source, message_id="1", caption_extra="2026-10-01")
+    run()
+    again = text_item(db, source, message_id="2", caption_extra="2026-10-05 re-posted")
+    run()
+    db.expire_all()
+    assert db.get(IngestItem, again.id).status == "duplicate" and db.query(PriceList).count() == 1
+
+
+@pytest.mark.parametrize("caption,expected", [
+    ("New list, message us to order", ("china", True)),
+    ("US warehouse", ("us", False)),
+    ("shipping from the USA", ("us", False)),
+])
+def test_the_english_word_us_is_not_a_warehouse(caption, expected):
+    assert infer.infer_warehouse(None, caption, None, None) == expected
+
+
+@pytest.mark.parametrize("text,received", [("Retatrutide 10.5mg", date(2026, 9, 25)), ("restock 7.5 ml", date(2026, 6, 25)),
+                                           ("dated 2026-10-20", date(2026, 10, 6))])
+def test_doses_and_future_dates_are_not_list_dates(text, received):
+    assert infer.infer_date([text], received) == received
+
+
+def test_a_photo_is_size_checked_before_it_is_decoded_to_pixels(db, vendor, monkeypatch):
+    from PIL import Image
+    source = make_source(db, vendor=vendor, default_warehouse="us")
+    item = photo_item(db, source, 1, NOW)
+    monkeypatch.setattr(config, "PHOTO_MAX_PIXELS", 10)
+    monkeypatch.setattr(Image.Image, "convert", lambda *a, **k: (_ for _ in ()).throw(AssertionError("decoded before the size check")))
+    run(NOW + timedelta(seconds=90), recognizer=lambda image: [])
+    db.expire_all()
+    assert db.get(IngestItem, item.id).status == "failed" and "too large" in db.get(IngestItem, item.id).reason
+
+
+def test_a_spreadsheet_that_expands_hugely_is_refused():
+    import io, zipfile
+    from app.ingest import readers
+    from ingest_helpers import xlsx_bytes
+    buffer = io.BytesIO(xlsx_bytes([["a"]]))
+    with zipfile.ZipFile(buffer, "a") as z:
+        z.writestr("xl/sharedStrings.xml", b"x" * (readers.MAX_UNCOMPRESSED + 1))
+    with pytest.raises(readers.ReadError, match="too large"):
+        readers.read_xlsx(buffer.getvalue())

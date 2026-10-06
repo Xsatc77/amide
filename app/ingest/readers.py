@@ -12,6 +12,7 @@ from app.library.price_lists.reader import (
 )
 
 _MAX_SHEETS, _MAX_ROWS, _MAX_COLS = 10, 5000, 40
+MAX_UNCOMPRESSED = 100 * 1024 * 1024
 _PRICE_WORDS = re.compile(r"price|quote|catalog", re.IGNORECASE)
 
 
@@ -54,6 +55,15 @@ def read_images(images, recognize=None) -> PriceListData:
 
 
 def read_xlsx(data: bytes) -> PriceListData:
+    try:
+        import zipfile
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            if sum(i.file_size for i in z.infolist()) > MAX_UNCOMPRESSED:
+                raise ReadError("the spreadsheet is too large")
+    except ReadError:
+        raise
+    except Exception:
+        raise ReadError("the spreadsheet could not be opened") from None
     try:
         from openpyxl import load_workbook
         book = load_workbook(io.BytesIO(data), read_only=True, data_only=True)

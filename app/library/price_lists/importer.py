@@ -156,11 +156,15 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
     return report
 
 
+def synthetic_filename(vendor_name: str, warehouse: str, list_date: date) -> str:
+    return f"{vendor_name} - {'US' if warehouse == 'us' else 'China'} Price List - {list_date.isoformat()}.pdf"
+
+
 def import_for_vendor(session: Session, vendor: Vendor, data: PriceListData, *, warehouse: str,
                       list_date: date) -> ImportReport:
     """Store a list read from a file uploaded on `vendor`'s page, for the stated warehouse ("us" or "china") and date.
     Importing the same vendor, warehouse and date again replaces the earlier import."""
-    filename = f"{vendor.name} - {'US' if warehouse == 'us' else 'China'} Price List - {list_date.isoformat()}.pdf"
+    filename = synthetic_filename(vendor.name, warehouse, list_date)
     propagate_names(data.rows)
     batch = [(vendor_key(vendor.name), code_prefix(r.code), r.name) for r in data.rows if r.name and code_prefix(r.code)]
     table = learn_prefixes(observations_from_db(session, (filename,)) + batch)

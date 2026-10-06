@@ -37,7 +37,12 @@ def _read(items: list[IngestItem], recognizer) -> PriceListData:
         if not p.is_file():
             raise readers.ReadError("a stored photo is missing")
         try:
-            images.append(Image.open(p).convert("RGB"))
+            image = Image.open(p)
+            if image.width * image.height > config.PHOTO_MAX_PIXELS:      # judged from the header, before any pixels are decoded
+                raise readers.ReadError("a photo is too large")
+            images.append(image.convert("RGB"))
+        except readers.ReadError:
+            raise
         except Exception:
             raise readers.ReadError("a photo could not be opened") from None
     return readers.read_images(images, recognize=recognizer)
@@ -117,7 +122,10 @@ def process_due(session_factory, now: datetime, recognizer=None) -> int:
             if items[0].kind == "image" and max(i.created_at for i in items) > now - timedelta(seconds=config.INGEST_SETTLE_SECONDS):
                 continue
             try:
-                _handle(session, items, now, recognizer)
+                if len(_group(session, key)) > len(items):          # part of this list was already decided: never stand in for it
+                    _set(items, now, status="needs_review", reason="a late part of an earlier list; check it against that list")
+                else:
+                    _handle(session, items, now, recognizer)
             except Exception as exc:                       # a bug or a bad file must never stop the others
                 session.rollback()
                 items = [i for i in _group(session, key) if i.status == "received"]

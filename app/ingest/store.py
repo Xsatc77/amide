@@ -21,7 +21,7 @@ def _group_key(session: Session, source: IngestSource, kind: str, message_id: st
         return f"{source.id}:a:{album_id}"
     since = now - timedelta(minutes=config.INGEST_CLUSTER_MINUTES)       # lone photos close together are one list
     recent = session.scalar(select(IngestItem).where(
-        IngestItem.source_id == source.id, IngestItem.kind == "image", IngestItem.status == "received", IngestItem.album_id.is_(None),
+        IngestItem.source_id == source.id, IngestItem.kind == "image", IngestItem.album_id.is_(None),
         IngestItem.created_at >= since).order_by(IngestItem.created_at.desc()))
     return recent.group_key if recent is not None else f"{source.id}:t:{uuid.uuid4().hex[:12]}"
 

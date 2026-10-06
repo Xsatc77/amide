@@ -3,7 +3,7 @@
 import re
 from datetime import date
 
-_US = re.compile(r"(?<![a-z])(usa|us|u\.s\.a?|united states)(?![a-z])", re.IGNORECASE)
+_US = re.compile(r"(?<![A-Za-z])(?:(?i:usa|united states|u\.s\.a?)|US)(?![A-Za-z])")     # a bare lowercase "us" is just English
 _CHINA = re.compile(r"(?<![a-z])(china|chinese|cn)(?![a-z])", re.IGNORECASE)
 _MONTHS = {m: i for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
 WINDOW_DAYS = 45
@@ -37,7 +37,7 @@ def _candidates(text: str, year: int):
         yield int(m[3]), int(m[1]), int(m[2])
     for m in re.finditer(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? (\d{1,2})\b", text, re.IGNORECASE):
         yield year, _MONTHS[m[1].lower()], int(m[2])
-    for m in re.finditer(r"(?<![\d./-])(\d{1,2})\.(\d{1,2})(?![\d./-])", text):
+    for m in re.finditer(r"(?<![\d./-])(\d{1,2})\.(\d{1,2})(?![\d./-])(?!\s?(?:mg|mcg|iu|ml|g|kg|u)\b)", text, re.IGNORECASE):   # not a dose
         yield year, int(m[1]), int(m[2])
 
 
@@ -49,6 +49,6 @@ def infer_date(texts: list[str], received: date) -> date:
                 found = date(year, month, day)
             except ValueError:
                 continue
-            if abs((found - received).days) <= WINDOW_DAYS:
+            if -1 <= (received - found).days <= WINDOW_DAYS:          # never a date in the future
                 return found
     return received

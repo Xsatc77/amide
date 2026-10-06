@@ -4,13 +4,14 @@ import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
 from app import config
 from app.db import get_session
-from app.ingest import store, tokens
+from app.ingest import process, store, tokens
 from app.models import IngestSource, IngestToken, naive_utcnow
 
 router = APIRouter(prefix="/api/ingest")
@@ -98,4 +99,8 @@ async def receive_message(request: Request, session: Session = Depends(get_sessi
         raise HTTPException(422, "message_id is required; at most 10 files and 8000 characters of text")
     files = [(f.filename or "", await f.read(config.INGEST_MAX_FILE_BYTES + 1)) for f in uploads]
     album = str(form.get("album_id") or "").strip()[:64] or None
-    return {"results": store.ingest_message(session, source, message_id=message_id, album_id=album, received_at=received_at, text=text, files=files)}
+
+    def locked():                           # never while the worker is reading a list: a late photo must see its list as decided
+        with process.lock:
+            return store.ingest_message(session, source, message_id=message_id, album_id=album, received_at=received_at, text=text, files=files)
+    return {"results": await run_in_threadpool(locked)}
