@@ -1071,3 +1071,11 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .wallet-line { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .25rem; }
 .wallet-address { overflow-wrap: anywhere; word-break: break-all; }
 .wallet-qr img { display: block; border-radius: 6px; border: 1px solid var(--border, #ccc); background: #fff; }
+
+/* Workout log form */
+.body-weight { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: var(--space-3, 1rem); }
+.burn-total { padding: .6rem .9rem; border-left: 4px solid var(--accent, #0d9488); background: var(--surface-2, rgba(13, 148, 136, .08)); border-radius: 6px; }
+.log-table td { vertical-align: top; }
+.log-adjust { margin-top: .35rem; font-size: .85rem; }
+.log-adjust label, .log-inline { display: inline-flex; gap: .35rem; align-items: center; margin-right: .75rem; }
+.log-estimate { white-space: nowrap; }

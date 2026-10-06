@@ -232,10 +232,10 @@ def test_log_form_prefills_from_an_existing_log_for_that_date(client, db):
     assert re.search(rf'name="weight_unit\[{ex0.id}\]">\s*(<option[^>]*>[^<]*</option>\s*)*'
                      rf'<option value="kg" selected>', r.text)
 
-    # A different date has no log yet: a blank form.
+    # A different date has no log yet: nothing is ticked, and the last session's numbers are offered.
     r = client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-01-09"})
     assert f'name="completed[{ex0.id}]" checked' not in r.text
-    assert f'name="weight_value[{ex0.id}]" value="27.5"' not in r.text
+    assert "Last time" in r.text
 
 
 @pytest.mark.parametrize("bad", [

@@ -2,31 +2,122 @@
 {% set active_nav = "workouts" %}
 {% block title %}Log: {{ day.label }}{% endblock %}
 
+{#- "27.5 kg · 3 × 8" / "30 min": what a past log of the same exercise recorded. -#}
+{% macro last_text(l) -%}
+  {%- if l.weight_value is not none %}{{ '%g' | format(l.weight_value) }} {{ l.weight_unit.value if l.weight_unit else 'lb' }}{% endif -%}
+  {%- if l.sets and l.reps_value %} · {{ l.sets }} × {{ l.reps_value }}{% elif l.duration_min %} · {{ '%g' | format(l.duration_min) }} min{% endif -%}
+{%- endmacro %}
+
+{#- One exercise added on the day. `i` is its index (the literal "__I__" inside the row template, which workout-log.js
+    replaces). Fields are named extra-N-field and always submit, blank or not; a blank exercise name drops the row. -#}
+{% macro extra_row(i, el=None) %}
+<tr data-extra-row>
+  <td><input list="exercise-names" name="extra-{{ i }}-exercise" value="{{ el.name if el else '' }}" placeholder="Exercise" aria-label="Exercise" autocomplete="off"></td>
+  <td>
+    <input type="number" step="0.1" min="0" name="extra-{{ i }}-weight_value" value="{{ '%g' | format(el.weight_value) if el and el.weight_value is not none else '' }}" style="width: 5em" aria-label="Load">
+    <select name="extra-{{ i }}-weight_unit" aria-label="Unit">
+      {% for u in units %}<option value="{{ u.value }}"{% if el and el.weight_unit == u %} selected{% endif %}>{{ u.label }}</option>{% endfor %}
+    </select>
+  </td>
+  <td><input type="number" min="1" max="999" step="1" name="extra-{{ i }}-sets_value" value="{{ el.sets if el and el.sets else '' }}" style="width: 4em" aria-label="Sets"></td>
+  <td><input type="number" min="1" max="999" step="1" name="extra-{{ i }}-reps_value" value="{{ el.reps_value if el and el.reps_value else '' }}" style="width: 4em" aria-label="Reps per set"></td>
+  <td>
+    <input type="number" min="0.1" step="0.5" name="extra-{{ i }}-minutes_value" value="{{ '%g' | format(el.duration_min) if el and el.duration_min else '' }}" style="width: 4.5em" placeholder="min" aria-label="Minutes (cardio)">
+    <input type="number" min="0.1" step="0.1" name="extra-{{ i }}-speed_value" value="{{ '%g' | format(el.speed_mph) if el and el.speed_mph else '' }}" style="width: 4.5em" placeholder="mph" aria-label="Speed in mph">
+    <input type="number" min="0" step="0.5" name="extra-{{ i }}-grade_value" value="{{ '%g' | format(el.grade_pct) if el and el.grade_pct else '' }}" style="width: 4.5em" placeholder="% grade" aria-label="Incline grade">
+  </td>
+  <td class="log-estimate">{% if el and el.net_kcal %}≈ {{ el.net_kcal | round | int }} kcal{% elif el and el.kcal_note %}<span class="muted small">{{ el.kcal_note }}</span>{% endif %}</td>
+  <td><button type="button" class="btn btn-ghost" data-action="remove-extra" title="Remove">&times;</button></td>
+</tr>
+{% endmacro %}
+
 {% block content %}
 <div class="page-head"><div><h1>{{ day.label }}</h1><p class="muted">{{ log_date }}</p></div></div>
 
-<form method="post" action="/workouts/day/{{ day.id }}/log">
+<form method="post" action="/workouts/day/{{ day.id }}/log" id="workout-log-form">
   <input type="hidden" name="log_date" value="{{ log_date }}">
-  <table class="lib-table">
-    <thead><tr><th>Done</th><th>Exercise</th><th>Sets/Reps</th><th>Weight</th><th>Reps done</th></tr></thead>
+
+  <label class="field body-weight">
+    <span>Body weight (lb)</span>
+    <input type="number" step="0.1" min="1" name="body_weight_lb" value="{{ '%g' | format(body_weight) if body_weight else '' }}" style="width: 7em">
+    <small class="muted">Used for the calorie estimate.{% if not body_weight %} Add a weigh-in under <a href="/measurements">Measurements</a>, or type it here.{% endif %}</small>
+  </label>
+  {% if has_estimate %}
+  <p class="burn-total">This workout burned about <strong>{{ net_kcal | round | int }} kcal</strong> net ({{ gross_kcal | round | int }} gross), estimated from your sets, reps and body weight.</p>
+  {% endif %}
+
+  <table class="lib-table log-table">
+    <thead><tr><th>Done</th><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Estimate</th></tr></thead>
     <tbody>
-      {% for ex in day.exercises %}
-      {% set p = prior.get(ex.id) %}
+      {% for r in rows %}
+      {% set ex = r.ex %}{% set db = r.db %}{% set p = r.prior %}{% set sh = r.shown %}
       <tr>
         <td><input type="checkbox" name="completed[{{ ex.id }}]"{% if p and p.completed %} checked{% endif %}></td>
-        <td>{{ ex.name }}</td>
-        <td>{{ ex.sets_text or '—' }} × {{ ex.reps_text or '—' }}</td>
         <td>
-          <input type="number" step="0.1" name="weight_value[{{ ex.id }}]" value="{{ '%g' | format(p.weight_value) if p and p.weight_value is not none else '' }}" style="width: 5em">
+          <strong>{{ ex.name }}</strong>
+          {% if db and db.name != ex.name %}<span class="tag tag-plain" title="{{ db.evidence }}">{{ db.name }}</span>{% endif %}
+          {% if not db %}<div class="muted small">No match in the exercise database, so no calorie estimate.</div>{% endif %}
+          <div class="muted small">Plan: {{ ex.sets_text or '—' }} × {{ ex.reps_text or '—' }}</div>
+          {% if r.last %}<div class="muted small">Last time: {{ last_text(r.last) }}</div>{% endif %}
+          {% if db and not db.is_duration %}
+          <details class="log-adjust">
+            <summary>Adjust</summary>
+            <label>Style
+              <select name="style_value[{{ ex.id }}]">
+                {% for s in styles %}<option value="{{ s }}"{% if s == sh.style %} selected{% endif %}>{{ s }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>Implements <input type="number" min="1" max="9" step="1" name="implements_value[{{ ex.id }}]" value="{{ sh.implements }}" style="width: 3.5em"></label>
+            <span class="muted small">Dumbbells entered per hand: use 2 so volume counts both.</span>
+          </details>
+          {% endif %}
+        </td>
+        <td>
+          <input type="number" step="0.1" min="0" name="weight_value[{{ ex.id }}]" value="{{ '%g' | format(sh.weight_value) if sh.weight_value is not none else '' }}" style="width: 5em">
           <select name="weight_unit[{{ ex.id }}]">
-            {% for u in units %}<option value="{{ u.value }}"{% if p and p.weight_unit == u %} selected{% endif %}>{{ u.label }}</option>{% endfor %}
+            {% for u in units %}<option value="{{ u.value }}"{% if sh.weight_unit == u %} selected{% endif %}>{{ u.label }}</option>{% endfor %}
           </select>
         </td>
-        <td><input type="number" name="reps_value[{{ ex.id }}]" value="{{ p.reps_value if p and p.reps_value is not none else '' }}" style="width: 4em"></td>
+        {% if db and db.is_duration %}
+        <td colspan="2">
+          <label class="log-inline">Minutes <input type="number" min="0.1" step="0.5" name="minutes_value[{{ ex.id }}]" value="{{ '%g' | format(sh.minutes) if sh.minutes else '' }}" style="width: 5em"></label>
+          {% if r.speed_basis == 'speed_mph' %}
+          <label class="log-inline">Speed (mph) <input type="number" min="0.1" step="0.1" name="speed_value[{{ ex.id }}]" value="{{ '%g' | format(sh.speed) if sh.speed else '' }}" style="width: 5em"></label>
+          {% elif r.speed_basis == 'grade_pct' %}
+          <label class="log-inline">Incline (% grade) <input type="number" min="1" step="0.5" name="grade_value[{{ ex.id }}]" value="{{ '%g' | format(sh.grade) if sh.grade else '' }}" style="width: 5em"></label>
+          {% endif %}
+        </td>
+        {% else %}
+        <td><input type="number" min="1" max="999" step="1" name="sets_value[{{ ex.id }}]" value="{{ sh.sets if sh.sets else '' }}" style="width: 4em"></td>
+        <td><input type="number" min="1" max="999" step="1" name="reps_value[{{ ex.id }}]" value="{{ sh.reps if sh.reps is not none else '' }}" style="width: 4em"></td>
+        {% endif %}
+        <td class="log-estimate">
+          {% if p and p.net_kcal %}≈ {{ p.net_kcal | round | int }} kcal<small class="muted"> net, estimated</small>
+            {% if p.compendium_code %}<div class="muted small">Compendium {{ p.compendium_code }}</div>{% endif %}
+          {% elif p and p.completed and p.kcal_note %}<span class="muted small">{{ p.kcal_note }}</span>
+          {% else %}<span class="muted small">—</span>{% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <button type="submit" class="btn btn-primary">Save</button>
+
+  <h2 class="section-title">Added today</h2>
+  <p class="muted small">Add anything you did that is not on the plan. Pick it from the list (or type a common name) and enter its sets and reps, or minutes for cardio, to get its calorie estimate.</p>
+  <table class="lib-table log-table">
+    <thead><tr><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Cardio: min / mph / % grade</th><th>Estimate</th><th></th></tr></thead>
+    <tbody data-extra-rows>
+      {% for el in extras %}{{ extra_row(loop.index0, el) }}{% endfor %}
+    </tbody>
+  </table>
+  <button type="button" class="btn" data-action="add-extra">+ Add exercise</button>
+  <datalist id="exercise-names">{% for n in exercise_names %}<option value="{{ n }}">{% endfor %}</datalist>
+  <template id="extra-row-template">{{ extra_row("__I__") }}</template>
+
+  <p><button type="submit" class="btn btn-primary">Save</button></p>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/workout-log.js') }}" defer></script>
 {% endblock %}
