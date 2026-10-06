@@ -311,6 +311,19 @@ class PriceListItem(Base):
     price_list: Mapped["PriceList"] = relationship(back_populates="items")
 
 
+class PriceAlertIgnore(Base):
+    """A product the administrator marked "not a peptide": it never raises a new-peptide alert. Shared, like
+    the price data itself."""
+
+    __tablename__ = "price_alert_ignores"
+    __table_args__ = (UniqueConstraint("product_key", name="uq_price_alert_ignore_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    product_key: Mapped[str] = mapped_column(String(300))  # the matcher's name_key of the product
+    product_name: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class PurchasingUnit(LabeledEnum):
     INDIVIDUAL = ("individual", "Individual vial")
     KIT_OF_10 = ("kit_of_10", "Kit of 10 vials")

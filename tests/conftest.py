@@ -14,7 +14,7 @@ from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
-    FitnessTestResult, InventoryItem, Peptide, PeptideSource, PriceList, Protocol, User, Vendor, WorkoutPlan,
+    FitnessTestResult, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutPlan,
 )
 from sqlalchemy import select  # noqa: E402
 
@@ -45,6 +45,7 @@ def me(client):
 def clean(client):
     yield
     with SessionLocal() as s:
+        s.query(PriceAlertIgnore).delete()
         s.query(PriceList).delete()
         s.query(Vendor).delete()
         s.query(Protocol).delete()
