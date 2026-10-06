@@ -63,7 +63,7 @@ def install(app: FastAPI) -> None:
             signed_in = row is not None and row.user_id is not None
             pending = row is not None and row.twofa_pending
 
-        if path == "/notice":
+        if path == "/notice" or path.startswith("/legal/"):
             return await call_next(request)
         if not accepted:
             response = _deny(request, "/notice")

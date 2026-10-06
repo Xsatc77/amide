@@ -1,9 +1,11 @@
-{% extends "base.html" %}
+{% extends "base.html" if request.state.user else "auth/layout.html" %}
 
 {% block title %}Terms of Service{% endblock %}
 
+{% block page_class %}legal-page{% endblock %}
+
 {% block content %}
-<div class="page">
+<article class="legal">
   <h1>Terms of Service</h1>
   <p class="effective-date">Effective October 3, 2026</p>
 
@@ -75,29 +77,10 @@
   <p>We may update these terms at any time. The date at the top shows when they were last changed. Continued use after changes means you accept the updated terms.</p>
 
   <h2>Questions?</h2>
-  <p>General: demigod_ruffle.00@icloud.com</p>
+  <p>General: <a href="mailto:demigod_ruffle.00@icloud.com">demigod_ruffle.00@icloud.com</a></p>
 
-  <div class="legal-cross-refs">
+  <div class="legal-see-also">
     <p>See also: <a href="/legal/disclaimer">Disclaimer</a> | <a href="/legal/privacy">Privacy Policy</a></p>
   </div>
-</div>
-
-<style>
-  .page {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-    line-height: 1.6;
-  }
-  h1 { margin-top: 0; }
-  h2 { margin-top: 30px; margin-bottom: 10px; }
-  .effective-date { color: #666; font-style: italic; }
-  .legal-cross-refs {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #ccc;
-    text-align: center;
-    color: #666;
-  }
-</style>
+</article>
 {% endblock %}

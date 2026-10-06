@@ -1,9 +1,11 @@
-{% extends "base.html" %}
+{% extends "base.html" if request.state.user else "auth/layout.html" %}
 
 {% block title %}Disclaimer{% endblock %}
 
+{% block page_class %}legal-page{% endblock %}
+
 {% block content %}
-<div class="page">
+<article class="legal">
   <h1>Disclaimer</h1>
 
   <h2>Use at Your Own Risk</h2>
@@ -51,28 +53,10 @@
   <p>If you're having a medical emergency, stop reading this and call 911 (US) or your local emergency number. This app can't help you in an emergency.</p>
 
   <h2>Report a Concern</h2>
-  <p>If you believe any content on this app is inaccurate or potentially harmful, email demigod_ruffle.00@icloud.com. We take accuracy and safety seriously.</p>
+  <p>If you believe any content on this app is inaccurate or potentially harmful, email <a href="mailto:demigod_ruffle.00@icloud.com">demigod_ruffle.00@icloud.com</a>. We take accuracy and safety seriously.</p>
 
-  <div class="legal-cross-refs">
+  <div class="legal-see-also">
     <p>See also: <a href="/legal/terms">Terms of Service</a> | <a href="/legal/privacy">Privacy Policy</a></p>
   </div>
-</div>
-
-<style>
-  .page {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-    line-height: 1.6;
-  }
-  h1 { margin-top: 0; }
-  h2 { margin-top: 30px; margin-bottom: 10px; }
-  .legal-cross-refs {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #ccc;
-    text-align: center;
-    color: #666;
-  }
-</style>
+</article>
 {% endblock %}

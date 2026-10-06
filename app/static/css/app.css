@@ -231,6 +231,16 @@ h2 { font-size: 1.2rem; margin: 0; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .page-head p { margin: 2px 0 0; }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 24px; }
+.footer a { color: inherit; }
+
+/* ---------- legal pages (Terms, Disclaimer, Privacy) ---------- */
+.legal { max-width: 760px; margin: 0 auto; line-height: 1.6; }
+.legal h2 { margin: 28px 0 8px; font-size: 1.15rem; }
+.legal ul { padding-left: 1.4rem; }
+.legal .effective-date { color: var(--muted); font-style: italic; }
+.legal-see-also { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; color: var(--muted); }
+.auth-page.legal-page { max-width: 820px; align-items: stretch; }
+.legal-page .banner { align-self: center; }
 
 /* ---------- buttons ---------- */
 .btn {

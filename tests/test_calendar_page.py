@@ -169,7 +169,7 @@ def test_month_view_marks_a_day_with_a_scheduled_workout(client, db, me):
 def test_month_view_marks_a_day_a_fitness_test_was_completed(client, db, me):
     from app.models import FitnessTestExerciseName, FitnessTestResult
     db.add(FitnessTestResult(owner_id=me, exercise=FitnessTestExerciseName.MAX_PUSHUPS,
-                             value=20, tested_at=date.today()))
+                             value=20, tested_at=TODAY))
     db.commit()
     body = client.get("/calendar").text
     assert "Fitness Test completed" in body

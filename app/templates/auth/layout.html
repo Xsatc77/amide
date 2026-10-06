@@ -12,7 +12,7 @@
     <img class="banner" src="{{ banner_url() }}" alt="Amide — every dose, linked">
     {% block content %}{% endblock %}
   </main>
-  <footer class="footer">Amide — every dose, linked.</footer>
+  {% include "_footer.html" %}
   <script src="{{ static_url('js/auth.js') }}" defer></script>
 </body>
 </html>
