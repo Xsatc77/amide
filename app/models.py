@@ -2,8 +2,8 @@ import enum
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
-    JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
-    UniqueConstraint,
+    JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text,
+    UniqueConstraint, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -249,6 +249,8 @@ class VendorPaymentMethod(Base):
 
 WALLET_COINS = ("BTC", "ETH", "USDC", "USDT")
 BODY_PHOTO_ANGLES = ("front", "side", "back", "other")
+FOOD_MEALS = ("breakfast", "lunch", "dinner", "snack")
+FOOD_MEAL_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "dinner": "Dinner", "snack": "Snacks"}
 
 
 class VendorWallet(Base):
@@ -1036,6 +1038,56 @@ class BodyPhoto(Base):
     angle: Mapped[str | None] = mapped_column(String(10))
     note: Mapped[str | None] = mapped_column(String(200))
     filename: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Food(Base):
+    """A food with its numbers for one serving. Starter foods (owner_id NULL) ship with the app and are read-only."""
+    __tablename__ = "foods"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "name", "serving", name="uq_food_owner_name_serving"),
+        Index("uq_food_starter_name_serving", "name", "serving", unique=True, sqlite_where=text("owner_id IS NULL")),
+        CheckConstraint("source IN ('starter', 'mine')", name="ck_food_source"),
+        CheckConstraint("(source = 'starter' AND owner_id IS NULL) OR (source = 'mine' AND owner_id IS NOT NULL)",
+                        name="ck_food_owner_source"),
+        CheckConstraint("calories >= 0 AND protein_g >= 0 AND carb_g >= 0 AND fat_g >= 0 AND fiber_g >= 0",
+                        name="ck_food_nonnegative"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(10))
+    name: Mapped[str] = mapped_column(String(120))
+    serving: Mapped[str] = mapped_column(String(60))
+    serving_g: Mapped[float | None] = mapped_column(Float)
+    calories: Mapped[float] = mapped_column(Float)
+    protein_g: Mapped[float] = mapped_column(Float)
+    carb_g: Mapped[float] = mapped_column(Float)
+    fat_g: Mapped[float] = mapped_column(Float)
+    fiber_g: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FoodLog(Base):
+    """One thing eaten. The name, serving and numbers are a snapshot taken when it was logged, so changing or deleting
+    the food later never rewrites history."""
+    __tablename__ = "food_logs"
+    __table_args__ = (
+        CheckConstraint("meal IN ('breakfast', 'lunch', 'dinner', 'snack')", name="ck_food_log_meal"),
+        CheckConstraint("servings > 0 AND servings <= 50", name="ck_food_log_servings"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    eaten_on: Mapped[date] = mapped_column(Date, index=True)
+    meal: Mapped[str] = mapped_column(String(10))
+    food_id: Mapped[int | None] = mapped_column(ForeignKey("foods.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String(120))
+    serving: Mapped[str] = mapped_column(String(60))
+    servings: Mapped[float] = mapped_column(Float)
+    calories: Mapped[float] = mapped_column(Float)
+    protein_g: Mapped[float] = mapped_column(Float)
+    carb_g: Mapped[float] = mapped_column(Float)
+    fat_g: Mapped[float] = mapped_column(Float)
+    fiber_g: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

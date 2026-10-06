@@ -14,7 +14,7 @@ from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
-    BodyMeasurement, BodyPhoto, FitnessTestResult, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
+    BodyMeasurement, BodyPhoto, FitnessTestResult, Food, FoodLog, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
 )
 from sqlalchemy import select, update  # noqa: E402
 
@@ -54,6 +54,8 @@ def clean(client):
         s.query(WorkoutLog).delete()
         s.query(BodyMeasurement).delete()
         s.query(BodyPhoto).delete()
+        s.query(FoodLog).delete()
+        s.query(Food).delete()
         s.query(WorkoutPlan).delete()
         s.query(FitnessTestResult).delete()
         s.execute(update(User).where(User.username_key == TEST_USER.lower()).values(
