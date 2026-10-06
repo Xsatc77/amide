@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
+from app.library.price_lists.analysis import new_peptides
 from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
 from app.db import get_session
@@ -259,6 +260,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             "low_stock": low_stock_alerts(threshold_items, default_threshold),
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
+            "new_peptides": new_peptides(session),
         }
         in_transit_groups = _in_transit_groups(session, effective_uid)
         # Cost snapshot enumerates the viewer's *active protocols* (which peptides they're
@@ -273,6 +275,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     return templates.TemplateResponse(request, "dashboard/index.html", {
         "schedule": schedule,
         "alerts": alerts,
+        "can_ignore_alerts": bool(request.state.user.is_admin),
         "cost_snapshot": cost_snapshot,
         "adherence_pct": adherence_pct,
         "water": water,

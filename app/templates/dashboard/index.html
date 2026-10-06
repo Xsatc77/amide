@@ -89,7 +89,12 @@
     {{ panel_icon('alert') }}
     <h2 id="alerts-heading" class="section-title"><a class="panel-title-link" href="/inventory">Alerts</a></h2>
   </div>
-  {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment %}
+  {% macro new_peptide_line(n, can_ignore) %}
+  <li class="new-peptide-alert"><strong>NEW PEPTIDE ALERT</strong> <a href="/library" title="Add a library card, or add this spelling to a card's aliases">{{ n.name }}</a> — {{ n.vendors | join(', ') }}
+    {% if can_ignore %}<form method="post" action="/price-alerts/ignore" class="inline"><input type="hidden" name="name" value="{{ n.name }}"><button type="submit" class="btn btn-ghost small" title="Not a peptide: stop alerting">Ignore</button></form>{% endif %}
+  </li>
+  {% endmacro %}
+  {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment or alerts.new_peptides %}
   {% if not has_alerts %}
   <p class="muted">Nothing needs attention.</p>
   {% else %}
@@ -103,6 +108,12 @@
     {% for a in alerts.shipment %}
     <li>Order from {{ a.vendor or 'vendor' }} — {{ a.days }} days, no arrival yet</li>
     {% endfor %}
+    {% for n in alerts.new_peptides[:5] %}{{ new_peptide_line(n, can_ignore_alerts) }}{% endfor %}
+    {% if alerts.new_peptides | length > 5 %}
+    <li><details><summary>Show {{ alerts.new_peptides | length - 5 }} more</summary>
+      <ul class="dose-list">{% for n in alerts.new_peptides[5:] %}{{ new_peptide_line(n, can_ignore_alerts) }}{% endfor %}</ul>
+    </details></li>
+    {% endif %}
   </ul>
   {% endif %}
 </section>
