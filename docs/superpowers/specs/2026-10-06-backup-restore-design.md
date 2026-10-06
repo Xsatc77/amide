@@ -1,6 +1,6 @@
 # Backup and restore: design
 
-Date: 2026-10-06. Status: awaiting review.
+Date: 2026-10-06. Status: awaiting review (revised after the owner's answers on dated files and sharing).
 
 ## Goal
 
@@ -13,8 +13,13 @@ only the signed-in person's inventory and protocols as plain JSON and imports ad
 - **Two levels.** Every person backs up and restores their own data. The administrator also has a whole-installation
   backup and restore.
 - **Full backup and selective backup;** full restore and selective section load ("Load").
-- **Section load:** the person chooses **Replace** or **Add** per load (assumed from the recommended option; the
-  owner's answer to that question did not arrive and is confirmed in review).
+- **Every backup or export is a new dated file** (`amide-backup-YYYY-MM-DD...`, never overwriting an earlier one).
+  Replace/Add is only about **loading**: what happens to data already in the app. The person chooses it per load.
+- **Moving to a new computer and sharing.** A person can export chosen sections to carry to a new install, or share
+  non-medical data with someone else. The shareable sections are Vendors, Price lists, Library, Inventory, Workouts and
+  Protocols. Accounts, profile, measurements, journal and labs are never shareable.
+- **Only the administrator imports shared-by-everyone data** (vendors, price lists, library); on a new single-user
+  install the first account is the administrator.
 - **Full restore** is careful: an automatic safety backup first, a typed confirmation, all-or-nothing.
 - **Backup files are always encrypted** with a passphrase.
 - Vendors and price lists are never in the repository; backups contain them, so `*.amidebackup` is git-ignored and no
@@ -47,6 +52,33 @@ to that person's rows; the whole-installation backup includes every person's.
 The whole-installation backup is every section for every person plus the installation sections. A person's backup is
 the person sections for that person.
 
+## Back up versus Export
+
+The same engine produces three kinds of file, recorded as `kind` in the manifest and named in the page as:
+
+- **Back up** (`backup`): everything the chosen level allows, for safekeeping. A person's backup is their own sections;
+  the administrator's whole-installation backup is everything.
+- **Export** (`export`): sections the person picks, complete as they are, to carry to a new computer. It is loaded the
+  same way as a backup.
+- **Share** (`share`): the shareable sections only (Vendors, Price lists, Library, Inventory, Workouts, Protocols), with
+  personal records stripped, to give to someone else. Anything marked "never in a share file" below cannot be selected
+  and is not in the file. A share file can only be loaded with **Add**, never Replace.
+
+What a share file strips from the shareable sections:
+
+| Section | Kept in a share file | Left out |
+|---|---|---|
+| Vendors | name, website, supplier, contact name, recommended flag, notes, contacts, accepted payment methods | crypto wallet addresses and QR images, favorites, who created it |
+| Price lists | lists, items, packs, prices, shipping notes | |
+| Library | peptide entries and their children (cycles, tiers, monitoring tests, stack relations, goals), card images | |
+| Inventory | items, orders and order lines (with costs), COAs | active vials (live in-use state), sales |
+| Workouts | plans, days, exercises (the structure, as templates) | logs, exercise logs, fitness tests, workout PDFs |
+| Protocols | protocols, goals, items, titration steps, cycle-off weeks (templates) | dose logs |
+
+Never in a share file: accounts, profile, measurements, water, journal, labs. Free-text notes fields are kept, so the
+share page tells the person to read their notes before sharing. Vendor and price-list data are the person's own call to
+share; the page says that these files hold supplier information.
+
 ## The file
 
 A `.amidebackup` file: magic bytes `AMIDEBK1`, a 16-byte scrypt salt, a 12-byte nonce, then the AES-256-GCM
@@ -63,8 +95,10 @@ every row keeping its original primary key (needed to link rows within the file)
 
 ## Backing up (Settings, Backup & restore)
 
-The page is reworked into **Back up** and **Restore** tabs (the Settings card still links to it). On Back up: a checklist
-of sections (all ticked by default), a passphrase and confirmation, and **Download backup**. The administrator sees a
+The page is reworked into **Back up**, **Export / Share** and **Restore / Import** tabs (the Settings card still links to it). On Back up: a checklist
+of sections (all ticked by default), a passphrase and confirmation, and **Download backup**. Export / Share has the
+same controls with a choice of **Export** (any person sections, for a new install) or **Share** (the shareable sections
+only, shown with what is stripped), and **Download**. The administrator sees a
 second block, **Whole installation**, with its own checklist. Download is a streamed response with a dated filename.
 The old JSON export and the inventory CSV stay (under "Older formats").
 
@@ -78,9 +112,17 @@ after use or on expiry) so the next step does not re-upload; nothing is kept in 
 **Version rule.** A file whose Alembic revision is newer than this installation's is refused. An older revision loads:
 rows are inserted by column name, so columns added since take their defaults.
 
-**Load sections (any person, their own data).** Tick sections and choose **Replace** or **Add** for each. Only person
-sections of a `person` file, or of an `installation` file for the signed-in person's own rows (matched by username),
-can be loaded this way; installation sections need the administrator and use Restore everything.
+**Load sections (any person, their own data).** Tick sections and choose **Replace** or **Add** for each. Person
+sections of a `backup` or `export` file, or of an `installation` backup for the signed-in person's own rows (matched by
+username), load into the signed-in person's account. A `share` file's person sections (Inventory, Workouts, Protocols)
+load into the signed-in person's account with Add only.
+
+**Shared installation sections (administrator only).** Vendors, Price lists and Library from any file load only for
+the administrator, and only with **Add** by merging on natural keys, never by replacing: a vendor is matched by name
+(case-insensitive), a price list by vendor, warehouse and list date, a library entry by name; an existing match is left
+as it is and counted as skipped, a new one is inserted. This is also how a new install receives a shared file. Replacing
+these sections happens only through Restore everything. If a person who is not the administrator loads a file holding
+only shared sections, the page explains that an administrator must import it.
 - **Add:** every row in the section is inserted with a new primary key; foreign keys inside the loaded sections are
   remapped. Existing rows are untouched, so duplicates are possible and the preview says so.
 - **Replace:** the person's rows of that section are deleted first (shown as counts in the confirmation), then the
@@ -110,8 +152,9 @@ and only ever writes the signed-in person's rows. The preview token is bound to 
 
 ## Components
 
-- `app/backup/sections.py`: the registry (the table above as data: tables, owner column, files, dependencies, natural-key
-  resolvers) and its integrity checks.
+- `app/backup/sections.py`: the registry (the tables above as data: tables, owner column, files, dependencies,
+  natural-key resolvers, and for each section whether it is shareable and which tables and columns a share file drops)
+  and its integrity checks.
 - `app/backup/container.py`: build, encrypt, decrypt and verify the archive (pure bytes in, bytes out).
 - `app/backup/export.py`: rows to section JSON, with the person filter, and file collection.
 - `app/backup/load.py`: preview, Add and Replace with remapping and the result report.
@@ -123,7 +166,10 @@ and only ever writes the signed-in person's rows. The preview token is bound to 
 
 ## Testing
 
-Round trip per section (export, wipe, load, compare); Replace versus Add; remapping and the result report for unresolved
+Round trip per section (export, wipe, load, compare); a share file never contains the stripped tables or columns
+(wallets, dose logs, workout logs, sales, active vials, accounts, personal sections) and cannot be loaded with Replace;
+merging vendors, price lists and library entries by name skips existing ones; an export taken on one install loads into
+an empty install (new IDs, links intact) and gives the same data; every file is dated and none overwrites another; Replace versus Add; remapping and the result report for unresolved
 links; whole-installation round trip including files; wrong passphrase, truncated and tampered files, and a newer
 revision; safety backup created and used when a restore fails halfway; rollback leaves data identical; permissions
 (person cannot reach installation sections or others' rows; non-admin gets 404); the section-coverage guard; an
