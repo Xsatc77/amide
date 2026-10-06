@@ -14,6 +14,22 @@
   </form>
 </div>
 
+{% if price_import %}
+<div class="note" role="status">
+  {% if price_import.note %}
+  <p>{{ price_import.note }}</p>
+  {% else %}
+  <p><strong>Prices imported.</strong> {{ price_import.products }} products from the
+    {{ 'US' if price_import.warehouse == 'us' else 'China' }} list dated {{ price_import.list_date | shortdate }}:
+    {{ price_import.matched }} matched a library card{% if price_import.flagged %}, {{ price_import.flagged }} flagged for a second look{% endif %}.
+    This is now the current list for that warehouse.</p>
+  {% if price_import.unmatched %}
+  <p class="muted small">No library card yet for: {{ price_import.unmatched[:12] | join(', ') }}{% if price_import.unmatched | length > 12 %} and {{ price_import.unmatched | length - 12 }} more{% endif %}.</p>
+  {% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
 <section aria-labelledby="profile-heading">
   <h2 id="profile-heading" class="section-title">Profile</h2>
   <dl class="kv">
@@ -143,8 +159,23 @@
         <label {{ vcls('price_list_file') }}>
           <span>Replace with a file</span>
           <input name="price_list_file" type="file">
-          <small class="muted">PDF, image, or Word doc</small>
+          <small class="muted">PDF, image, or Word doc. A PDF is also read for prices.</small>
           {{ verr('price_list_file') }}
+        </label>
+        <label {{ vcls('price_list_warehouse') }}>
+          <span>Warehouse for the prices</span>
+          <select name="price_list_warehouse">
+            <option value="auto"{% if ef.price_list_warehouse in (none, '', 'auto') %} selected{% endif %}>Detect from the file (China if it doesn't say)</option>
+            <option value="china"{% if ef.price_list_warehouse == 'china' %} selected{% endif %}>China</option>
+            <option value="us"{% if ef.price_list_warehouse == 'us' %} selected{% endif %}>US</option>
+          </select>
+          {{ verr('price_list_warehouse') }}
+        </label>
+        <label {{ vcls('price_list_date') }}>
+          <span>Price list date</span>
+          <input name="price_list_date" type="date" value="{{ ef.price_list_date }}">
+          <small class="muted">Leave blank for today.</small>
+          {{ verr('price_list_date') }}
         </label>
       </div>
       {% if vendor.price_list_filename or vendor.price_list_url %}

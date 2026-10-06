@@ -2,6 +2,7 @@ import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,9 +12,11 @@ from app import uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
-    ContactMethodType, InventoryItem, Order, OrderItem, PaymentMethodType, Share, ShareCategory,
+    ContactMethodType, InventoryItem, Order, OrderItem, PaymentMethodType, PriceList, Share, ShareCategory,
     WALLET_COINS, User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod, VendorWallet,
 )
+from app.library.price_lists.importer import import_for_vendor, summarize_list
+from app.library.price_lists.reader import read_pdf
 from app.library.price_lists.vendor_view import build_price_history
 from app.templating import templates
 from app.vendors.links import contact_link
@@ -200,10 +203,31 @@ def _form_values(vendor: Vendor) -> dict:
         "notes": vendor.notes or "",
         "recommended": "" if vendor.recommended is None else ("yes" if vendor.recommended else "no"),
         "price_list_url": vendor.price_list_url or "",
+        "price_list_warehouse": "auto",
+        "price_list_date": "",
     }
 
 
-def _detail_context(session: Session, vendor: Vendor, uid: int) -> dict:
+_IMPORT_NOTES = {
+    "notpdf": "The file is attached, but only PDF price lists can be read for prices. Photos, scans and Word files stay as a reference copy.",
+    "unreadable": "The PDF is attached, but it could not be read (it may be scanned, protected or damaged), so no prices were imported.",
+    "norows": "The PDF is attached, but no prices were found in it. A scanned PDF needs to be a text PDF to be read.",
+}
+
+
+def _price_import_view(session: Session, vendor: Vendor, token: str | None) -> dict | None:
+    """The banner shown after saving a vendor with a price-list file: a stored list's summary or a plain note."""
+    if not token:
+        return None
+    if token in _IMPORT_NOTES:
+        return {"note": _IMPORT_NOTES[token]}
+    plist = session.get(PriceList, int(token)) if token.isdigit() else None
+    if plist is None or plist.vendor_id != vendor.id:
+        return None
+    return summarize_list(plist)
+
+
+def _detail_context(session: Session, vendor: Vendor, uid: int, price_import: str | None = None) -> dict:
     order_lines, owner_names = _visible_order_lines_for_vendor(session, vendor.id, uid)
     is_favorite = session.scalar(select(VendorFavorite).where(
         VendorFavorite.user_id == uid, VendorFavorite.vendor_id == vendor.id)) is not None
@@ -221,6 +245,7 @@ def _detail_context(session: Session, vendor: Vendor, uid: int) -> dict:
         "today": date.today(),
         "edit_data": _form_values(vendor),
         "price_history": build_price_history(session, vendor.id),
+        "price_import": _price_import_view(session, vendor, price_import),
     }
 
 
@@ -230,7 +255,8 @@ def vendor_detail(vendor_id: int, request: Request, session: Session = Depends(g
     vendor = session.get(Vendor, vendor_id)
     if vendor is None:
         raise HTTPException(404, "Vendor not found")
-    return templates.TemplateResponse(request, "vendors/detail.html", _detail_context(session, vendor, uid))
+    return templates.TemplateResponse(request, "vendors/detail.html", _detail_context(
+        session, vendor, uid, request.query_params.get("import")))
 
 
 @router.get("/vendors/{vendor_id}/price-list")
@@ -316,6 +342,8 @@ async def _read_edit_form(
         "recommended": str(form.get("recommended") or "").strip(),
         "new_payment_type": str(form.get("new_payment_type") or "").strip(),
         "price_list_url": str(form.get("price_list_url") or "").strip(),
+        "price_list_warehouse": str(form.get("price_list_warehouse") or "auto").strip().lower(),
+        "price_list_date": str(form.get("price_list_date") or "").strip(),
     }
     contact_rows: dict[int, dict[str, str]] = {}
     for key in form.keys():
@@ -360,6 +388,15 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     # Uploads are validated (extension/size/sniff) only once the rest of the form is known-good --
     # never store a file for a submission that ends up 422ing anyway, mirroring how the New Order
     # flow's own price-list-replace upload is deferred past its own error gate.
+    list_date = date.today()
+    if raw["price_list_warehouse"] not in ("auto", "us", "china"):
+        errors["price_list_warehouse"] = "Choose detect, US or China for the price list."
+    if raw["price_list_date"]:
+        try:
+            list_date = date.fromisoformat(raw["price_list_date"])
+        except ValueError:
+            errors["price_list_date"] = "Enter the price list date as a valid date."
+
     price_list_filename_to_save = None
     if not errors and price_list_file is not None:
         try:
@@ -482,4 +519,25 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         uploads.delete_wallet_qr(name)
     if price_list_changed and old_price_list_filename and old_price_list_filename != vendor.price_list_filename:
         uploads.delete_price_list(old_price_list_filename)
-    return RedirectResponse(f"/vendors/{vendor.id}", status_code=303)
+
+    target = f"/vendors/{vendor.id}"
+    if price_list_filename_to_save is not None:
+        outcome = await _import_saved_price_list(session, vendor, raw["price_list_warehouse"], list_date)
+        target += f"?import={outcome}"
+    return RedirectResponse(target, status_code=303)
+
+
+async def _import_saved_price_list(session: Session, vendor: Vendor, warehouse: str, list_date: date) -> str:
+    """Read the PDF just attached to the vendor and store its prices. Returns the new list's id (as text) or a
+    code for why nothing was stored; the file stays attached either way."""
+    if not vendor.price_list_filename.lower().endswith(".pdf"):
+        return "notpdf"
+    try:
+        data = await run_in_threadpool(read_pdf, uploads.price_list_path(vendor.price_list_filename))
+        if warehouse == "auto":  # what the PDF says about its warehouse; a list that names none is China
+            warehouse = data.warehouse_hint or "china"
+        report = import_for_vendor(session, vendor, data, warehouse=warehouse, list_date=list_date)
+    except Exception:  # a damaged or protected PDF is reported on the page, never a server error
+        session.rollback()
+        return "unreadable"
+    return str(report.list_id) if report.list_id else "norows"

@@ -18,6 +18,8 @@ from app.library.price_lists.rows import (
 )
 
 _SPEC_CELL = re.compile(r"\d\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?\s*[*x×]\s*\d", re.IGNORECASE)
+_BARE_SPEC_CELL = re.compile(r"^\s*\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)\s*$", re.IGNORECASE)  # "5mg": the pack is stated in the heading
+_PER_KIT = re.compile(r"\bkit\b", re.IGNORECASE)
 _PRICE_CELL = re.compile(
     r"^\s*(?:US\$|\$|USD)?\s*[\d,]+(?:\.\d+)?\s*(?:USD)?(?:\s*/\s*\d*\s*vials?)?\s*$", re.IGNORECASE)
 _CODE_CELL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/() ]{0,17}$")
@@ -28,6 +30,7 @@ _LINE_CODE = re.compile(  # 5AM, 10AM, 2S10, SM10, SX5-XA5; never a name such as
     r"^(?:\d{1,3}[A-Za-z]{1,6}\d{0,5}|[A-Za-z]{1,6}\d{1,5})(?:-[A-Za-z]{1,6}\d{1,5})?(?:\([^)]*\))?$")
 _SHIPPING = re.compile(r"ship|freight|customs|postage", re.IGNORECASE)
 _MIN_ROLE_CELLS = 2
+_KIT_VIALS = 10
 _MIN_CODE_AMOUNT_MATCH = 0.4  # codes embed the dose (RT10 = 10mg); names with digits (BPC-157) rarely do
 _NON_PRICE_HEADER = re.compile(r"moq|qty|quantity|stock|min\.? ?order|pcs|pieces|weight", re.IGNORECASE)
 _PRICE_HEADER = re.compile(r"price|usd|cost|rate|\$", re.IGNORECASE)
@@ -74,6 +77,8 @@ def infer_roles(table) -> Roles | None:
     width = max((len(r) for r in table), default=0)
     cols = [[_clean(r[i]) if i < len(r) else "" for r in table] for i in range(width)]
     spec_hits = [sum(1 for c in col if _SPEC_CELL.search(c)) for col in cols]
+    if (not spec_hits or max(spec_hits) < _MIN_ROLE_CELLS) and any(_PER_KIT.search(c) for col in cols for c in col):
+        spec_hits = [sum(1 for c in col if _BARE_SPEC_CELL.match(c)) for col in cols]  # a "price / kit" list gives bare doses
     if not spec_hits or max(spec_hits) < _MIN_ROLE_CELLS:
         return None
     spec = spec_hits.index(max(spec_hits))
@@ -120,6 +125,7 @@ def rows_from_table(table, page: int = 0) -> list[ParsedRow]:
     if roles is None:
         return []
     labels = _price_labels(table, roles)
+    per_kit = bool(labels) and _PER_KIT.search(labels[0]) is not None
     rows = []
     for raw in table:
         def cell(i):
@@ -128,6 +134,8 @@ def rows_from_table(table, page: int = 0) -> list[ParsedRow]:
         spec = parse_spec(cell(roles.spec))
         if spec is None:
             continue
+        if per_kit and spec.pack_size is None:
+            spec = replace(spec, pack_size=_KIT_VIALS)
         name = cell(roles.name) or None
         code = cell(roles.code)
         code = code if re.search(r"[A-Za-z0-9]", code) else None

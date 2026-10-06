@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.library.matching import match_name, name_key
-from app.library.price_lists.filename import parse_filename
+from app.library.price_lists.filename import FileInfo, parse_filename
 from app.library.price_lists.names import PrefixName, learn_prefixes, propagate_names, repair_names
 from app.library.price_lists.reader import PriceListData, read_pdf
 from app.library.price_lists.rows import code_prefix, pack_type
@@ -40,6 +40,7 @@ class ImportReport:
     unmatched: list[str] = field(default_factory=list)
     unread_spec_lines: int = 0  # product-looking text lines the reader could not turn into a row
     skipped: str | None = None
+    list_id: int | None = None  # the stored list, once it is written
 
 
 def vendor_key(name: str) -> str:
@@ -80,13 +81,19 @@ def decide_warehouse(from_filename: str | None, from_text: str | None,
 
 def store_price_list(session: Session, filename: str, data: PriceListData, *,
                      prefix_table: dict[str, PrefixName], warehouse_override: str | None = None,
-                     dry_run: bool = False) -> ImportReport:
+                     dry_run: bool = False, vendor: Vendor | None = None,
+                     list_date: date | None = None) -> ImportReport:
+    """Store one parsed list. The vendor, warehouse and date come from the filename unless a `vendor` and `list_date`
+    are given (a list uploaded on that vendor's page), in which case the filename is only a unique label."""
     report = ImportReport(filename=filename, rows=len(data.rows), unread_spec_lines=data.unread_spec_lines)
-    try:
-        info = parse_filename(filename)
-    except ValueError as exc:
-        report.skipped = str(exc)
-        return report
+    if vendor is not None:
+        info = FileInfo(vendor.name, None, list_date)
+    else:
+        try:
+            info = parse_filename(filename)
+        except ValueError as exc:
+            report.skipped = str(exc)
+            return report
     if not data.rows:
         report.skipped = "no price rows found (a scanned PDF needs OCR)"
         return report
@@ -96,7 +103,8 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
     propagate_names(rows)
     repair_names(rows, prefix_table, lambda name: match_name(name, cards) is not None)
 
-    vendor, report.vendor_created = resolve_vendor(session, info.vendor, info.list_date)
+    if vendor is None:
+        vendor, report.vendor_created = resolve_vendor(session, info.vendor, info.list_date)
     warehouse, source = decide_warehouse(info.warehouse, data.warehouse_hint, warehouse_override)
     report.vendor_name, report.warehouse, report.warehouse_source = info.vendor, warehouse.value, source.value
 
@@ -140,11 +148,32 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
             report.specs_added += 1
 
     session.flush()
+    report.list_id = plist.id
     if dry_run:
         session.rollback()
     else:
         session.commit()
     return report
+
+
+def import_for_vendor(session: Session, vendor: Vendor, data: PriceListData, *, warehouse: str,
+                      list_date: date) -> ImportReport:
+    """Store a list read from a file uploaded on `vendor`'s page, for the stated warehouse ("us" or "china") and date.
+    Importing the same vendor, warehouse and date again replaces the earlier import."""
+    filename = f"{vendor.name} - {'US' if warehouse == 'us' else 'China'} Price List - {list_date.isoformat()}.pdf"
+    propagate_names(data.rows)
+    batch = [(vendor_key(vendor.name), code_prefix(r.code), r.name) for r in data.rows if r.name and code_prefix(r.code)]
+    table = learn_prefixes(observations_from_db(session, (filename,)) + batch)
+    return store_price_list(session, filename, data, prefix_table=table, warehouse_override=warehouse,
+                            vendor=vendor, list_date=list_date)
+
+
+def summarize_list(plist: PriceList) -> dict:
+    """What an import stored, for the page that follows it: counts, and the product names no library card matched."""
+    unmatched = list(dict.fromkeys(i.product_name for i in plist.items if i.product_name and i.peptide_id is None))
+    return {"warehouse": plist.warehouse.value, "list_date": plist.list_date, "products": len(plist.items),
+            "matched": sum(1 for i in plist.items if i.peptide_id is not None), "unmatched": unmatched,
+            "flagged": sum(1 for i in plist.items if set(i.flags or ()) - {"no-code"})}  # a list with no code column is normal
 
 
 def observations_from_db(session: Session, exclude_filenames=()) -> list[tuple[str, str, str]]:

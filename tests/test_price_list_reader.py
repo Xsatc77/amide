@@ -238,3 +238,24 @@ def test_line_fallback_accepts_the_real_code_shapes_but_not_names():
              "Peptide X 10AM 10mg*10vials $25"]
     assert [(r.code, r.name) for r in rows_from_lines(lines)] == [
         ("5AM", "5-amino-1MQ"), ("SX5-XA5", "Semax"), ("2S10", "SS-31"), ("10AM", "Peptide X")]
+
+
+PER_KIT = [
+    ["ACME PEPTIDES", None, None],
+    ["US WAREHOUSE A", None, None],
+    ["Product Name", "Specification", "Price / kit (USD)"],
+    ["Zorvex", "5mg", "$184"],
+    [None, "10mg", "$339"],
+    ["Quillamine", "3ml", "$18"],
+]
+
+
+def test_a_per_kit_table_with_bare_doses_is_read_with_a_ten_vial_pack():
+    rows = rows_from_table(PER_KIT)
+    assert [(r.name, r.spec, r.pack_price) for r in rows] == [
+        ("Zorvex", Spec(5, "mg", 10), 184.0), (None, Spec(10, "mg", 10), 339.0), ("Quillamine", Spec(3, "ml", 10), 18.0)]
+
+
+def test_bare_doses_without_a_per_kit_heading_are_still_not_a_product_table():
+    table = [["Product", "Dose", "Price"], ["Zorvex", "5mg", "$184"], [None, "10mg", "$339"]]
+    assert rows_from_table(table) == []
