@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pdfplumber
 
+from app.library.price_lists import ocr
 from app.library.price_lists.rows import (
     ParsedRow, Spec, check_code_size, check_pack_size, code_number, parse_price, parse_spec,
 )
@@ -217,15 +218,23 @@ def unread_spec_lines(lines, rows) -> int:
     return max(0, sum(1 for line in lines if _LINE_SPEC.search(line)) - len(rows))
 
 
-def read_pdf(path: Path) -> PriceListData:
+def read_pdf(path: Path, recognize=None) -> PriceListData:
+    """Read a text PDF. A page that is only a picture (a scan) is read by text recognition; `recognize` replaces the
+    recognizer (tests)."""
     rows: list[ParsedRow] = []
     lines: list[str] = []
     unread = 0
     with pdfplumber.open(path) as pdf:
         for number, page in enumerate(pdf.pages, 1):
-            page_lines = (page.extract_text() or "").splitlines()
+            if not page.chars and page.images:
+                words = ocr.page_words(path, number - 1, recognize)
+                page_lines = ocr.lines_from_words(words)
+                table = ocr.table_from_words(words)
+                page_rows = rows_from_table(table, number) if table else []
+            else:
+                page_lines = (page.extract_text() or "").splitlines()
+                page_rows = [r for table in page.extract_tables() for r in rows_from_table(table, number)]
             lines.extend(page_lines)
-            page_rows = [r for table in page.extract_tables() for r in rows_from_table(table, number)]
             used = page_rows or rows_from_lines(page_lines, number)
             rows.extend(used)
             unread += unread_spec_lines(page_lines, used)

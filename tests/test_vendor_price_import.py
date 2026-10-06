@@ -180,3 +180,14 @@ def test_a_chosen_warehouse_beats_what_the_pdf_says(client, db, vendor, monkeypa
     monkeypatch.setattr("app.routers.vendors.read_pdf", fake_reader(row("ZX10", "Zorvex"), hint="us"))
     post(client, vendor, price_list_warehouse="china")
     assert lists(vendor.id)[0].warehouse == Warehouse.CHINA
+
+
+def test_a_scan_on_a_server_without_ocr_says_so_and_stays_attached(client, db, vendor, monkeypatch):
+    from app.library.price_lists.ocr import OcrUnavailable
+
+    def unavailable(path):
+        raise OcrUnavailable("not installed")
+    monkeypatch.setattr("app.routers.vendors.read_pdf", unavailable)
+    r = post(client, vendor)
+    assert lists(vendor.id) == []
+    assert "ocr is not installed" in html.unescape(client.get(r.headers["location"]).text).lower()

@@ -16,6 +16,7 @@ from app.models import (
     WALLET_COINS, User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod, VendorWallet,
 )
 from app.library.price_lists.importer import import_for_vendor, summarize_list
+from app.library.price_lists.ocr import OcrUnavailable
 from app.library.price_lists.reader import read_pdf
 from app.library.price_lists.vendor_view import build_price_history
 from app.templating import templates
@@ -211,7 +212,8 @@ def _form_values(vendor: Vendor) -> dict:
 _IMPORT_NOTES = {
     "notpdf": "The file is attached, but only PDF price lists can be read for prices. Photos, scans and Word files stay as a reference copy.",
     "unreadable": "The PDF is attached, but it could not be read (it may be scanned, protected or damaged), so no prices were imported.",
-    "norows": "The PDF is attached, but no prices were found in it. A scanned PDF needs to be a text PDF to be read.",
+    "needsocr": "The PDF is attached, but it is a scan and this server cannot read pictures of text (OCR is not installed), so no prices were imported.",
+    "norows": "The PDF is attached, but no prices were found in it.",
 }
 
 
@@ -537,6 +539,8 @@ async def _import_saved_price_list(session: Session, vendor: Vendor, warehouse: 
         if warehouse == "auto":  # what the PDF says about its warehouse; a list that names none is China
             warehouse = data.warehouse_hint or "china"
         report = import_for_vendor(session, vendor, data, warehouse=warehouse, list_date=list_date)
+    except OcrUnavailable:
+        return "needsocr"
     except Exception:  # a damaged or protected PDF is reported on the page, never a server error
         session.rollback()
         return "unreadable"
