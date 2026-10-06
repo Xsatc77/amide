@@ -1,6 +1,6 @@
 # Workout calorie estimates, TDEE and the burn chart: design
 
-Date: 2026-10-06. Status: approved by the owner on 2026-10-06 with the three changes folded in below
+Date: 2026-10-06. Status: approved by the owner on 2026-10-06; corrected 2026-10-06 against the workbook's logging sheet and the site's behaviour with the three changes folded in below
 (Compendium values for walking and running; exercise history survives plan changes; charts derived from the data).
 
 ## Goal
@@ -43,7 +43,7 @@ library only (xlsx is a zip of XML; no new dependency). Contents:
 - `exercises`: name, equipment, primary area, movement pattern, compendium code, MET, evidence type
   ("Direct Compendium activity" or "Mapped estimate"), default style, seconds per rep, default rest per set in
   minutes, calorie model ("rep" or "duration"), note.
-- `aliases`: alias to canonical exercise (516 rows).
+- `aliases`: alias to canonical exercise (516 workbook rows, 286 distinct once case is ignored).
 - `speed_tables`: the Compendium's walking and running rows, each with code, speed band (mph), grade band where
   relevant, MET and description, read from pacompendium.com (2024 Compendium) and recorded in the file with their
   codes:
@@ -63,10 +63,16 @@ file against the workbook's published counts (230 exercises, every alias pointin
 
 ## 2. Calorie engine (`app/workouts/calories.py`, pure)
 
+The workbook's "Workout Log Estimator" sheet is the target model, and it takes the MET from the exercise's **style**
+(Heavy Strength 5, Explosive/Power 6, Circuit/Superset 5.8, Bodyweight 3, Kettlebell/Conditioning 7.5, everything else
+3.5), defaulting to the exercise's own default style and changeable per row. Seconds per rep and rest per set come
+from the exercise's database row. The database's mapped MET is kept for reference and drives duration-based rows.
+
 ```
 active_min = sets * reps * sec_per_rep / 60              (rep-based)
 active_min = minutes entered                              (duration-based)
-met        = speed_tables lookup by speed (or grade)      (walk / jog / run rows), else the exercise's MET
+met        = style MET                                    (rep-based)
+met        = speed_tables lookup by speed (or grade)      (walk / jog / run rows), else the exercise's own MET
 rest_min   = max(sets - 1, 0) * rest_per_set_min         (rep-based only)
 gross_work = MET * 3.5 * kg / 200 * active_min
 net_work   = (MET - 1) * 3.5 * kg / 200 * active_min
@@ -84,10 +90,13 @@ calculators agree with these formulas; tests use hand-worked cases (for example 
 
 ## 3. Matching plan exercises to the database (`app/workouts/exercise_match.py`)
 
-Tiers, first hit wins: exact name; alias (case and punctuation insensitive); normalised name (reusing
-`app.library.matching.name_key` style normalisation, plus abbreviations such as DB, BB, KB, BW); then a fuzzy tier
-scoring token overlap and difflib similarity, with a bonus for the same equipment and movement words. A fuzzy hit
-below a confidence threshold is returned as a **suggestion**, not a match.
+Tiers, first hit wins: exact name; alias or a small set of whole-name shortcuts ("Running" is Treadmill Run, "Military
+Press" is Overhead Press); normalised name (case, punctuation, plurals and word order ignored; DB/BB/KB/BW expanded;
+the exercise's own equipment counts, so "Barbell Bench Press" is Bench Press); then a fuzzy tier scoring shared words
+and spelling, penalising a different equipment word (a barbell curl is not a cable curl). A fuzzy hit is accepted only
+when it clearly wins, or when every near-best candidate has the same calorie profile (style, seconds per rep, rest,
+MET), so cable and machine lat pulldowns are interchangeable. Otherwise the best candidates come back as
+**suggestions**, never applied. A generic name such as "Squats" stays a suggestion.
 
 `WorkoutExercise` gains `db_exercise` (the canonical name, nullable) and `db_exercise_confirmed` (bool). A plan
 save matches every exercise automatically; a confident match is stored, a suggestion is shown on the plan editor as
@@ -113,7 +122,7 @@ Data model (migration 0034):
   (String 200) snapshots, backfilled for existing rows. The `(plan_day_id, log_date)` unique constraint stays
   (NULLs do not collide).
 - `workout_exercise_logs`: `exercise_id` becomes nullable with `ON DELETE SET NULL` (an exercise added on the day has no plan row); new columns
-  `name` (String 200, the name as logged), `db_exercise` (String 200, null), `sets` (Integer), `duration_min`
+  `name` (String 200, the name as logged), `db_exercise` (String 200, null), `area` and `equipment` (String 60, snapshots of the database row, used by the progress charts), `compendium_code` (String 10) and `kcal_note` (String 200, why there is no estimate), `sets` (Integer), `duration_min`
   (Float), `speed_mph` and `grade_pct` (Float, for walk/jog/run rows), `implements` (Integer, default 1), `style` (String 40), `sec_per_rep` (Float), `rest_min` (Float),
   `met` (Float), `body_weight_lb` (Float), `gross_kcal`, `net_kcal`, `volume_lb` (Float, all null when not
   calculable). Everything the estimate used is stored, so a later change to the database never rewrites history.
@@ -154,7 +163,15 @@ Reproduces the site's outputs for sex, age, height, weight, activity level and l
 - Macro grid: cut / maintain / bulk against low / moderate / high carb, with the protein/carb/fat split, grams and
   grams per meal for the selected cell.
 - Life stage (women, optional, a new profile field): luteal +150; pregnancy trimesters +0, +340, +452;
-  breastfeeding +400 with a 1,800 floor; perimenopause -175; PCOS -6% of BMR.
+  breastfeeding +400 with a 1,800 floor; perimenopause -175; PCOS -6% of BMR. **Known difference:** the site labels PCOS
+  "-6% BMR" but applies no change; Amide applies the stated rule and says so on the page.
+
+Details read from the site's behaviour: headline TDEE uses the unrounded BMR; the activity-level bars use the rounded
+BMR; the split is TDEE minus BMR minus food digestion (activity never below zero) with percentages of the rounded
+parts; lean mass in pounds converts from the rounded kilograms; the goal ladder is not floored; the activity-level
+bars carry the life-stage adjustment. Fat body mass and waist-to-height need a body-fat percentage and a waist
+measurement and are shown only when the person's tape measurements provide them; the site's "max fat metabolism" row
+has no input on the site either and is shown as unavailable.
 
 Because the numbers must match the site, the tests include profiles whose expected values were read from the site's
 own calculator (numbers only). The Energy tab reads profile and latest weight like the Macros tab does and shows the
