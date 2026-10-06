@@ -26,7 +26,19 @@ def test_a_run_is_the_same_code_prefix_not_the_same_digits():
 def test_rows_with_their_own_names_keep_them():
     rows = [r("BB10", "BPC 5mg + TB 5mg"), r("BB20", "BPC10mg+TB10mg"), r("BB30")]
     propagate_names(rows)
-    assert names_of(rows) == ["BPC 5mg + TB 5mg", "BPC10mg+TB10mg", "BPC 5mg + TB 5mg"]
+    assert names_of(rows) == ["BPC 5mg + TB 5mg", "BPC10mg+TB10mg", "BPC10mg+TB10mg"]  # an unnamed row takes the nearest name above
+
+
+def test_products_sharing_a_code_prefix_keep_their_own_names_when_names_sit_on_the_first_row():
+    rows = [r("GR2", "GHRP-2"), r("GR2", None), r("GR6", "GHRP-6"), r("GR6", None)]
+    propagate_names(rows)
+    assert names_of(rows) == ["GHRP-2", "GHRP-2", "GHRP-6", "GHRP-6"]
+
+
+def test_consecutive_code_less_rows_continue_the_name_above():
+    rows = [r(None, "Zorvex"), r(None, None), r("ZX9", None)]
+    propagate_names(rows)
+    assert names_of(rows) == ["Zorvex", "Zorvex", None]
 
 
 def test_rows_without_a_code_never_inherit_a_neighbors_name():

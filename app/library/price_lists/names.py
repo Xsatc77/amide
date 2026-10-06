@@ -13,19 +13,23 @@ _TYPO_RATIO = 0.8
 
 
 def propagate_names(rows: list[ParsedRow]) -> None:
-    """Vendors merge the name cell across a group, so only one row of the group has it. A run is a stretch of
-    consecutive rows with the same code prefix; rows without a name take the first name found in their run."""
+    """Vendors merge the name cell across a group, so only one row of a group carries it, at the top or in the
+    middle. A run is a stretch of consecutive rows with the same code prefix (or consecutive rows with no code).
+    Rows above a run's first name take that name; every later unnamed row takes the nearest name above it, so
+    two products that share a prefix (GR2..., GR6...) keep their own names."""
     i = 0
     while i < len(rows):
         prefix = code_prefix(rows[i].code)
         j = i + 1
-        while prefix is not None and j < len(rows) and code_prefix(rows[j].code) == prefix:
+        while j < len(rows) and code_prefix(rows[j].code) == prefix:
             j += 1
         run = rows[i:j]
-        name = next((row.name for row in run if row.name), None)
-        if name:
-            for row in run:
-                row.name = row.name or name
+        current = next((row.name for row in run if row.name), None) if prefix is not None else None
+        for row in run:
+            if row.name:
+                current = row.name
+            elif current:
+                row.name = current
         i = j
 
 
