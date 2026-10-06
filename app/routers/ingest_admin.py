@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.ingest import process, tokens
-from app.models import INGEST_STATUSES, IngestItem, IngestSource, IngestToken, User, Vendor
+from app.ingest import process, skip, tokens
+from app.models import INGEST_STATUSES, IngestItem, IngestSource, IngestToken, IngestTopic, User, Vendor
 from app.templating import templates
 
 router = APIRouter()
@@ -30,7 +30,7 @@ def _done() -> RedirectResponse:
     return RedirectResponse(BACK, status_code=303)
 
 
-def _page(request: Request, session: Session, me: User, *, status: str = "", new_secret: str | None = None, new_label: str = "", code: int = 200):
+def _page(request: Request, session: Session, me: User, *, status: str = "", q: str = "", new_secret: str | None = None, new_label: str = "", code: int = 200):
     items_q = select(IngestItem).where(IngestItem.status.not_in(("ignored", "duplicate"))).order_by(IngestItem.id.desc()).limit(100)
     if status in INGEST_STATUSES:
         items_q = select(IngestItem).where(IngestItem.status == status).order_by(IngestItem.id.desc()).limit(100)
@@ -41,17 +41,21 @@ def _page(request: Request, session: Session, me: User, *, status: str = "", new
             seen.add(item.group_key)
             items.append(item)
     sources = {s.id: s for s in session.scalars(select(IngestSource))}
+    shown = [s for s in sources.values() if q.strip().lower() in s.title.lower()] if q.strip() else list(sources.values())
+    topics_by_source: dict[int, list] = {}
+    for t in session.scalars(select(IngestTopic).order_by(IngestTopic.title)):
+        topics_by_source.setdefault(t.source_id, []).append(t)
     return templates.TemplateResponse(request, "settings/ingest.html", {
         "me": me, "tokens": list(session.scalars(select(IngestToken).order_by(IngestToken.id.desc()))),
-        "sources": list(sources.values()), "source_by_id": sources, "items": items, "statuses": INGEST_STATUSES, "status": status,
+        "sources": shown, "source_by_id": sources, "topics_by_source": topics_by_source, "q": q, "items": items, "statuses": INGEST_STATUSES, "status": status,
         "vendors": list(session.scalars(select(Vendor).order_by(Vendor.name))), "new_secret": new_secret, "new_label": new_label,
         "today": date.today().isoformat(),
     }, status_code=code)
 
 
 @router.get("/settings/ingest")
-def inbox(request: Request, status: str = "", session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    return _page(request, session, _admin(session, uid), status=status)
+def inbox(request: Request, status: str = "", q: str = "", session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return _page(request, session, _admin(session, uid), status=status, q=q[:100])
 
 
 @router.post("/settings/ingest/tokens")
@@ -91,6 +95,17 @@ async def update_source(source_id: int, request: Request, session: Session = Dep
         raise HTTPException(status_code=422, detail="Warehouse must be us or china.")
     source.default_warehouse = warehouse or None
     source.enabled = bool(form.get("enabled"))
+    try:
+        skips = skip.parse_skip_words(str(form.get("skip_words") or ""))
+        follows = skip.parse_skip_words(str(form.get("follow_words")) if "follow_words" in form else source.follow_words)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    source.skip_words = ", ".join(skips) or None
+    source.follow_words = ", ".join(follows) or None
+    source.topics_only = bool(form.get("topics_only"))
+    ticked = {int(v) for v in form.getlist("topics") if str(v).isdigit()}
+    for topic in session.scalars(select(IngestTopic).where(IngestTopic.source_id == source.id)):
+        topic.enabled = source.topics_only and topic.id in ticked           # only this group's own topics can be ticked
     session.commit()
     return _done()
 

@@ -211,3 +211,67 @@ def test_the_topic_name_is_a_warehouse_clue(db):
     db.expire_all()
     item = db.get(IngestItem, item.id)
     assert item.status == "imported" and item.warehouse == "us"
+
+
+# ---------------------------------------------------------------- the inbox
+
+from photo_helpers import other_client
+
+
+def test_follow_selection_topic_ticks_and_skip_words_are_saved(client, db):
+    s = mapped(db)
+    a = IngestTopic(source_id=s.id, topic_id="7", title="US warehouse")
+    b = IngestTopic(source_id=s.id, topic_id="8", title="Chatter")
+    db.add_all([a, b])
+    db.commit()
+    r = client.post(f"/settings/ingest/sources/{s.id}", data={"vendor_id": str(s.vendor_id), "enabled": "on", "topics_only": "on",
+                                                              "skip_words": " UK , EU\nuk ", "topics": [str(a.id)]}, follow_redirects=False)
+    assert r.status_code == 303
+    db.expire_all()
+    db.refresh(s)
+    assert (s.topics_only, s.skip_words) == (True, "uk, eu")
+    assert {t.topic_id: t.enabled for t in db.query(IngestTopic)} == {"7": True, "8": False}
+    client.post(f"/settings/ingest/sources/{s.id}", data={"vendor_id": str(s.vendor_id), "enabled": "on", "skip_words": ""})
+    db.expire_all()
+    db.refresh(s)
+    assert (s.topics_only, s.skip_words) == (False, None)
+
+
+def test_follow_words_are_saved_and_the_groups_can_be_searched(client, db):
+    s = mapped(db, title="Acme Peptides")
+    mapped(db, chat_id="-2", title="Zephyr Labs")
+    client.post(f"/settings/ingest/sources/{s.id}", data={"vendor_id": str(s.vendor_id), "follow_words": "Price, ,warehouse, PRICE"})
+    db.expire_all()
+    db.refresh(s)
+    assert s.follow_words == "price, warehouse"
+    page = client.get("/settings/ingest?q=zeph").text
+    assert "Zephyr Labs" in page and "Acme Peptides" not in page
+
+
+def test_a_bad_word_is_refused_and_another_groups_topic_cannot_be_ticked(client, db):
+    s = mapped(db, chat_id="-1")
+    other = mapped(db, chat_id="-2")
+    foreign = IngestTopic(source_id=other.id, topic_id="9", title="x")
+    db.add(foreign)
+    db.commit()
+    assert client.post(f"/settings/ingest/sources/{s.id}", data={"skip_words": "x" * 41}).status_code == 422
+    assert client.post(f"/settings/ingest/sources/{s.id}", data={"follow_words": "x" * 41}).status_code == 422
+    client.post(f"/settings/ingest/sources/{s.id}", data={"topics_only": "on", "topics": [str(foreign.id)]})
+    db.expire_all()
+    assert db.get(IngestTopic, foreign.id).enabled is False
+
+
+def test_the_inbox_shows_topics_words_and_an_items_topic_escaped(client, db):
+    s = mapped(db)
+    db.add(IngestTopic(source_id=s.id, topic_id="7", title="<b>US</b> warehouse"))
+    s.skip_words = "uk"
+    db.commit()
+    text_item(db, s, topic_title="<i>x</i>", text="Zorvex ZX10 10mg*10vials $60")
+    page = client.get("/settings/ingest").text
+    assert "US&lt;/b&gt; warehouse" in page and "<b>US</b>" not in page and 'value="uk"' in page and 'value="price, warehouse"' in page
+
+
+def test_only_the_administrator_can_change_topics_and_words(client, db):
+    s = mapped(db)
+    with other_client() as member:
+        assert member.post(f"/settings/ingest/sources/{s.id}", data={"skip_words": "uk"}).status_code == 404

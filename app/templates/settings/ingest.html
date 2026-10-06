@@ -43,7 +43,8 @@
 
 <section class="builder-step">
   <h2 class="section-title">Groups</h2>
-  <p class="muted small">Groups the watcher can see. Map each to a vendor and switch it on; automatic import needs both.</p>
+  <p class="muted small">Groups the watcher can see. Map each to a vendor and switch it on; automatic import needs both. For a group with topics, tick &ldquo;Only selected topics&rdquo; and choose which topics to follow.</p>
+  <form method="get" action="/settings/ingest" class="inline-form"><label class="field"><span>Find a group</span><input name="q" value="{{ q }}" placeholder="part of the name"></label><button type="submit" class="btn btn-ghost">Search</button></form>
   {% if not sources %}
   <p class="muted">No groups yet. They appear here once the watcher has registered them.</p>
   {% else %}
@@ -70,6 +71,16 @@
           {% if not s.vendor_id %}<button type="submit" form="src{{ s.id }}" name="new_vendor" value="1" class="btn btn-ghost btn-small">Make a vendor named like the group</button>{% endif %}
         </td>
       </tr>
+      <tr>
+        <td colspan="6">
+          <label><input type="checkbox" name="topics_only" form="src{{ s.id }}" {{ 'checked' if s.topics_only }}> Only selected topics</label>
+          {% for t in topics_by_source.get(s.id, []) %}
+          <label class="small"><input type="checkbox" name="topics" value="{{ t.id }}" form="src{{ s.id }}" {{ 'checked' if t.enabled }}> {{ t.title }}</label>
+          {% endfor %}
+          <label class="field small"><span>Auto-follow words</span><input name="follow_words" form="src{{ s.id }}" value="{{ s.follow_words or '' }}" placeholder="price, warehouse"></label>
+          <label class="field small"><span>Skip words</span><input name="skip_words" form="src{{ s.id }}" value="{{ s.skip_words or '' }}" placeholder="UK, EU"></label>
+        </td>
+      </tr>
     {% endfor %}
     </tbody>
   </table></div>
@@ -88,7 +99,7 @@
   {% for i in items %}
   {% set src = source_by_id.get(i.source_id) %}
   <article class="builder-step">
-    <p><strong>{{ src.title if src else 'Unknown group' }}</strong> &middot; {{ i.kind }}{% if i.filename %} &middot; {{ i.filename }}{% endif %}
+    <p><strong>{{ src.title if src else 'Unknown group' }}</strong> &middot; {{ i.kind }}{% if i.topic_title %} &middot; {{ i.topic_title }}{% endif %}{% if i.filename %} &middot; {{ i.filename }}{% endif %}
       &middot; <span class="pill">{{ i.status.replace('_', ' ') }}</span>
       <span class="muted small">{{ i.received_at.strftime('%Y-%m-%d %H:%M') }} UTC</span></p>
     {% if i.reason %}<p class="small">{{ i.reason }}</p>{% endif %}
