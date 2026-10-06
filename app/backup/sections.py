@@ -18,12 +18,13 @@ from app import config
 from app.db import Base
 
 PERSON, INSTALLATION = "person", "installation"
-NOT_BACKED_UP = {"sessions", "alembic_version"}
+# Left out on purpose: sessions are per-browser; ingest tokens are secrets (make a new one after a restore); alert dismissals are noise.
+NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dismissals"}
 
 # File directories attached to rows (and the library's own files), by key.
 FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "LAB_REPORT_DIR",
              "workout_pdfs": "WORKOUT_PDF_DIR", "wallet_qr": "WALLET_QR_DIR",
-             "body_photos": "BODY_PHOTO_DIR"}
+             "body_photos": "BODY_PHOTO_DIR", "ingest": "INGEST_DIR"}
 
 PROFILE_COLUMNS = ("sex", "birth_date", "height_in", "activity_level", "macro_goal", "diet_preset", "life_stage",
                    "custom_protein_pct", "custom_carb_pct", "custom_fat_pct", "water_goal_oz", "timezone", "colorway",
@@ -120,6 +121,9 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
     Section("price_lists", "Price lists", INSTALLATION, (
         Tbl("price_lists"), Tbl("price_list_items"), Tbl("price_alert_ignores", share_drop=True)),
         shareable=True, help="Imported vendor price lists and their items."),
+    Section("ingest", "Price list inbox", INSTALLATION, (
+        Tbl("ingest_sources"), Tbl("ingest_items", file=("stored_file", "ingest"))),
+        help="The chat groups the price-list watcher follows, what it received, and the files still waiting for review. Whole-installation backups only."),
     Section("library", "Library", INSTALLATION, (
         Tbl("peptides"), Tbl("goal_peptides"), Tbl("peptide_cycles"), Tbl("peptide_dosing_tiers"),
         Tbl("peptide_monitoring_tests"), Tbl("peptide_stack_relations")),
@@ -127,7 +131,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
 )}
 
 # Order sections are loaded in: shared data first, so person rows can point at it, and inventory before protocols.
-LOAD_ORDER = ("library", "vendors", "price_lists", "profile", "inventory", "protocols", "workouts", "measurements",
+LOAD_ORDER = ("library", "vendors", "price_lists", "ingest", "profile", "inventory", "protocols", "workouts", "measurements",
               "body_photos", "food", "journal", "labs")
 PERSON_SECTIONS = tuple(k for k in LOAD_ORDER if SECTIONS[k].level == PERSON)
 SHARED_SECTIONS = tuple(k for k in LOAD_ORDER if SECTIONS[k].level == INSTALLATION)
@@ -143,6 +147,8 @@ REFS = {
     ("dose_logs", "peptide_id"): ("peptides", ("name",)),
     ("food_logs", "food_id"): ("foods", ("name", "serving")),
     ("price_lists", "vendor_id"): ("vendors", ("name",)),
+    ("ingest_sources", "vendor_id"): ("vendors", ("name",)),
+    ("ingest_items", "vendor_id"): ("vendors", ("name",)),
     ("price_list_items", "peptide_id"): ("peptides", ("name",)),
 }
 # Shared tables merged by name when an administrator adds a shared section (an existing match is skipped).

@@ -36,7 +36,8 @@ def test_the_registry_covers_every_table_in_the_schema():
 
 
 def test_every_link_leaving_a_section_is_resolved_by_name_or_deliberately_left_empty():
-    deliberately_empty = {("dose_logs", "active_vial_id")}          # a vial belongs to Inventory; empty without it
+    deliberately_empty = {("dose_logs", "active_vial_id"),          # a vial belongs to Inventory; empty without it
+                         ("ingest_items", "price_list_id")}          # a price list has no name to find it by; empty without Price lists
     for section in reg.SECTIONS.values():
         inside = {t.name for t in section.tables}
         for tbl in section.tables:
