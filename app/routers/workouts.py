@@ -1,7 +1,6 @@
 """Workout Plans: manual/PDF creation, the shared review/edit screen, day-of-week scheduling,
 and the one-Active-plan-at-a-time rule."""
 
-import math
 from datetime import date
 from datetime import date as date_type
 from datetime import timedelta
@@ -26,6 +25,8 @@ from app.models import (
 )
 from app.templating import templates
 from app.uploads import UploadError, save_workout_pdf
+from app.workouts import exercise_db
+from app.workouts import logging as workout_logging
 from app.workouts.pdf_parser import extract_text, parse_workout_pdf
 
 router = APIRouter()
@@ -310,9 +311,17 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
     # of a blank form that would silently overwrite it with blanks.
     existing = session.scalar(
         select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
-    prior = {el.exercise_id: el for el in existing.exercise_logs} if existing else {}
+    saved = existing.exercise_logs if existing else []
+    prior = {el.exercise_id: el for el in saved if el.exercise_id is not None}
+    rows = [workout_logging.form_row(session, uid, ex, prior.get(ex.id)) for ex in day.exercises]
+    body_weight = next((el.body_weight_lb for el in saved if el.body_weight_lb), None)         or workout_logging.latest_body_weight(session, uid)
+    net = sum(el.net_kcal for el in saved if el.net_kcal)
+    gross = sum(el.gross_kcal for el in saved if el.gross_kcal)
     return templates.TemplateResponse(request, "workouts/log.html", {
-        "day": day, "log_date": log_date, "units": list(WeightUnit), "prior": prior,
+        "day": day, "log_date": log_date, "units": list(WeightUnit), "rows": rows,
+        "extras": [el for el in saved if el.exercise_id is None], "body_weight": body_weight,
+        "styles": exercise_db.choosable_styles(), "exercise_names": [e.name for e in exercise_db.all_exercises()],
+        "net_kcal": net, "gross_kcal": gross, "has_estimate": any(el.net_kcal for el in saved),
     })
 
 
@@ -321,45 +330,18 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
                             uid: int = Depends(current_user_id)):
     day = _get_own_day(session, plan_day_id, uid)
     raw = await request.form()
-    try:
-        log_date = date_type.fromisoformat(raw["log_date"])
-    except (KeyError, ValueError):
-        raise HTTPException(422, "A valid workout date (YYYY-MM-DD) is required.")
-
-    # Parse every exercise's input before touching the existing log, so a bad value never costs
-    # the user what was already logged for this date.
-    exercise_logs = []
-    for ex in day.exercises:
-        weight_value = raw.get(f"weight_value[{ex.id}]")
-        weight_unit = raw.get(f"weight_unit[{ex.id}]")
-        reps_value = raw.get(f"reps_value[{ex.id}]")
-        try:
-            weight = float(weight_value) if weight_value else None
-            if weight is not None and not math.isfinite(weight):
-                raise ValueError
-        except ValueError:
-            raise HTTPException(422, f"Weight for {ex.name} must be a number.")
-        try:
-            reps = int(reps_value) if reps_value else None
-        except ValueError:
-            raise HTTPException(422, f"Reps for {ex.name} must be a whole number.")
-        try:
-            unit = WeightUnit(weight_unit) if weight_unit else None
-        except ValueError:
-            raise HTTPException(422, f"Unknown weight unit for {ex.name}.")
-        exercise_logs.append(WorkoutExerciseLog(
-            exercise_id=ex.id, name=ex.name, completed=raw.get(f"completed[{ex.id}]") == "on",
-            weight_value=weight, weight_unit=unit, reps_value=reps,
-        ))
+    parsed = workout_logging.parse_log_form(raw, day)          # validates everything before touching the old log
+    body_weight = parsed.body_weight_lb or workout_logging.latest_body_weight(session, uid)
+    exercise_logs = [workout_logging.build_exercise_log(row, body_weight) for row in parsed.rows]
 
     existing = session.scalar(
-        select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
+        select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == parsed.log_date))
     if existing is not None:
         session.delete(existing)
         session.flush()
 
     log = WorkoutLog(owner_id=uid, plan_day_id=day.id, day_label=day.label, plan_name=day.plan.name,
-                     log_date=log_date, exercise_logs=exercise_logs)
+                     log_date=parsed.log_date, exercise_logs=exercise_logs)
     session.add(log)
     session.commit()
     return RedirectResponse("/today", status_code=303)
