@@ -51,3 +51,114 @@ def test_topics_and_the_new_group_settings_survive_a_backup_and_load(client, db,
     topic = db.query(IngestTopic).one()
     assert (source.topics_only, source.skip_words, source.follow_words) == (True, "uk, eu", "price")
     assert (topic.topic_id, topic.title, topic.enabled, topic.source_id) == ("7", "US Price List", True, source.id)
+
+
+# ---------------------------------------------------------------- skip words (pure)
+
+from app.ingest import skip
+
+
+@pytest.mark.parametrize("raw,expected", [("UK, EU", ["uk", "eu"]), ("uk\nEU,uk", ["uk", "eu"]), (" ,, ", []), (None, [])])
+def test_skip_words_are_split_lowered_and_deduplicated(raw, expected):
+    assert skip.parse_skip_words(raw) == expected
+
+
+def test_too_long_or_too_many_skip_words_are_refused():
+    with pytest.raises(ValueError):
+        skip.parse_skip_words("x" * 41)
+    with pytest.raises(ValueError):
+        skip.parse_skip_words(",".join(f"w{n}" for n in range(21)))
+
+
+@pytest.mark.parametrize("text,hit", [("UK stock list", "uk"), ("to uk only", "uk"), ("Duke prices", None), ("Prices (UK)", "uk"),
+                                      ("ukulele", None), ("EU-warehouse", "eu"), ("price list 2026", None)])
+def test_skip_words_match_whole_words_only_in_any_case(text, hit):
+    assert skip.find_skip_word(["uk", "eu"], [text]) == hit
+
+
+# ---------------------------------------------------------------- the API
+
+from app.models import Vendor
+from ingest_helpers import anon_client, bearer, make_token, pdf_bytes
+
+NOW = "2026-10-06T14:30:00+00:00"
+
+
+def mapped(db, **kw):
+    vendor = db.query(Vendor).filter_by(name="Acme Labs").first() or Vendor(name="Acme Labs")
+    db.add(vendor)
+    db.commit()
+    return make_source(db, vendor=vendor, **kw)
+
+
+def test_the_watcher_registers_topics_ticking_those_named_like_the_follow_words_and_titles_refresh(db, me):
+    secret = make_token(db, me)
+    with anon_client() as c:
+        body = {"title": "Acme group", "topics": [{"id": "7", "title": "US warehouse"}, {"id": 8, "title": "Chatter"}, {"id": 9, "title": "UK Price List"}]}
+        assert c.put("/api/ingest/sources/-100777", json=body, headers=bearer(secret)).status_code == 200
+        body["topics"][0]["title"] = "US Prices"
+        c.put("/api/ingest/sources/-100777", json=body, headers=bearer(secret))
+    rows = {t.topic_id: (t.title, t.enabled) for t in db.query(IngestTopic)}
+    assert rows == {"7": ("US Prices", True), "8": ("Chatter", False), "9": ("UK Price List", True)}   # a later rename never changes a tick
+    db.query(IngestTopic).delete()
+    src = db.query(IngestSource).one()
+    src.skip_words = "uk"
+    db.commit()
+    body["topics"][0]["title"] = "US warehouse"
+    with anon_client() as c:
+        c.put("/api/ingest/sources/-100777", json=body, headers=bearer(secret))
+    assert {t.topic_id: t.enabled for t in db.query(IngestTopic)} == {"7": True, "8": False, "9": False}   # skip words win
+
+
+def test_bad_topic_lists_are_refused(db, me):
+    secret = make_token(db, me)
+    with anon_client() as c:
+        for topics in ("x", [{"id": "a b", "title": "t"}], [{"id": "1"}], [{"id": str(n), "title": "t"} for n in range(201)]):
+            r = c.put("/api/ingest/sources/-1", json={"title": "g", "topics": topics}, headers=bearer(secret))
+            assert r.status_code == 422, topics
+
+
+def test_the_source_list_says_whole_group_or_only_the_enabled_topics(db, me):
+    secret = make_token(db, me)
+    mapped(db, chat_id="-1", title="Whole")
+    t = mapped(db, chat_id="-2", title="Some")
+    t.topics_only = True
+    db.add_all([IngestTopic(source_id=t.id, topic_id="7", title="a", enabled=True), IngestTopic(source_id=t.id, topic_id="8", title="b", enabled=False)])
+    db.commit()
+    with anon_client() as c:
+        rows = {r["chat_id"]: r["topics"] for r in c.get("/api/ingest/sources", headers=bearer(secret)).json()}
+    assert rows == {"-1": None, "-2": ["7"]}
+
+
+def test_a_message_from_an_unselected_topic_is_ignored_and_not_stored_and_a_selected_one_keeps_its_topic(db, me):
+    secret = make_token(db, me)
+    s = mapped(db)
+    s.topics_only = True
+    db.add(IngestTopic(source_id=s.id, topic_id="7", title="US Price List", enabled=True))
+    db.commit()
+    with anon_client() as c:
+        def send(topic):
+            return c.post("/api/ingest/messages", data={"chat_id": s.chat_id, "message_id": f"m{topic}", "date": NOW, "topic_id": topic,
+                                                       "topic_title": f"Topic {topic}"},
+                          files=[("files", ("a.pdf", pdf_bytes() + topic.encode(), "application/pdf"))], headers=bearer(secret))
+        wrong = send("8").json()["results"]
+        right = send("7").json()["results"]
+        no_topic = c.post("/api/ingest/messages", data={"chat_id": s.chat_id, "message_id": "x", "date": NOW},
+                          files=[("files", ("b.pdf", pdf_bytes() + b"z", "application/pdf"))], headers=bearer(secret)).json()["results"]
+    assert wrong == [{"status": "ignored", "reason": "topic not followed", "item_id": None}]
+    assert right[0]["status"] == "received" and no_topic[0]["status"] == "ignored"
+    item = db.query(IngestItem).one()
+    assert (item.topic_id, item.topic_title) == ("7", "Topic 7")
+    assert db.query(IngestTopic).filter_by(topic_id="8").one().enabled is False
+
+
+def test_a_whole_group_stores_the_topic_of_each_message_and_photos_of_different_topics_never_cluster(db, me):
+    from ingest_helpers import png_bytes
+    secret = make_token(db, me)
+    s = mapped(db)
+    with anon_client() as c:
+        for n, topic in enumerate(("7", "8"), start=1):
+            c.post("/api/ingest/messages", data={"chat_id": s.chat_id, "message_id": str(n), "date": NOW, "topic_id": topic},
+                   files=[("files", (f"{n}.png", png_bytes(n), "image/png"))], headers=bearer(secret))
+    keys = {i.topic_id: i.group_key for i in db.query(IngestItem)}
+    assert keys["7"] != keys["8"]

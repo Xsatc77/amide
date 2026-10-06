@@ -97,7 +97,7 @@ def test_only_enabled_and_mapped_groups_are_listed_for_watching(db, me):
     make_source(db, vendor=vendor, chat_id="-2", title="Disabled", enabled=False)
     make_source(db, vendor=None, chat_id="-3", title="Unmapped")
     with anon_client() as c:
-        assert c.get("/api/ingest/sources", headers=bearer(secret)).json() == [{"chat_id": "-1", "title": "Mapped and enabled"}]
+        assert c.get("/api/ingest/sources", headers=bearer(secret)).json() == [{"chat_id": "-1", "title": "Mapped and enabled", "topics": None}]
 
 
 def test_the_watcher_reports_a_group_gone_and_active_again(db, me):
