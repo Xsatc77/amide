@@ -16,7 +16,7 @@ from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
 from app.models import (
-    ActivityLevel, BiologicalSex, BodyPhoto, Colorway, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
+    ActivityLevel, BiologicalSex, BodyPhoto, Colorway, Food, FoodLog, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
     Protocol, Share, ShareCategory, User, Vendor,
 )
 from app.settings.rules import TIMEZONES, email_error, timezone_error
@@ -451,6 +451,10 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
         if panel.report_filename:
             report_filenames.append(panel.report_filename)
         session.delete(panel)
+    for log in session.scalars(select(FoodLog).where(FoodLog.owner_id == target.id)):
+        session.delete(log)
+    for food in session.scalars(select(Food).where(Food.owner_id == target.id)):
+        session.delete(food)
     photo_filenames = []
     for photo in session.scalars(select(BodyPhoto).where(BodyPhoto.owner_id == target.id)):
         photo_filenames.append(photo.filename)

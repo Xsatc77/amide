@@ -33,19 +33,23 @@ def table_rows(session: Session, tbl: reg.Tbl, uid: int | None) -> list[dict]:
 
 
 def _attach_refs(session: Session, section: reg.Section, rows_by_table: dict[str, list[dict]]) -> None:
-    """Add `_refs` to rows whose foreign key points outside the section's own tables (and not at a user)."""
+    """Add `_refs` to rows whose foreign key points outside the section's own tables (and not at a user), or at a row of
+    the section's own table that is not in the file (a food log pointing at a built-in starter food)."""
     inside = {t.name for t in section.tables}
     cache: dict[tuple, list | None] = {}
     for tbl in section.tables:
         for fk in reg.table(tbl.name).foreign_keys:
             col, target = fk.parent.name, fk.column.table.name
             ref = reg.REFS.get((tbl.name, col))
-            if target in inside or target == "users" or ref is None:
+            if target == "users" or ref is None:
+                continue
+            present = {r.get("id") for r in rows_by_table.get(target, ())} if target in inside else None
+            if target in inside and present is None:
                 continue
             keys = ref[1]
             for row in rows_by_table.get(tbl.name, ()):
                 value = row.get(col)
-                if value is None:
+                if value is None or (present is not None and value in present):
                     continue
                 if (target, value) not in cache:
                     found = session.execute(

@@ -95,6 +95,10 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
     Section("body_photos", "Body photos", PERSON, (
         Tbl("body_photos", "owner_id = :uid", file=("filename", "body_photos"), file_required=True),),
         help="Your progress photos with their image files. Never offered in a Share file."),
+    Section("food", "Food", PERSON, (
+        Tbl("foods", "owner_id = :uid", share_drop=True),
+        Tbl("food_logs", "owner_id = :uid", share_drop=True)),
+        help="Your own foods and your food log. The built-in starter foods are not backed up. Never offered in a Share file."),
     Section("journal", "Journal", PERSON, (
         Tbl("journal_entries", "owner_id = :uid"),
         Tbl("journal_entry_side_effects", f"entry_id IN ({_ENTRIES})"),
@@ -124,7 +128,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
 
 # Order sections are loaded in: shared data first, so person rows can point at it, and inventory before protocols.
 LOAD_ORDER = ("library", "vendors", "price_lists", "profile", "inventory", "protocols", "workouts", "measurements",
-              "body_photos", "journal", "labs")
+              "body_photos", "food", "journal", "labs")
 PERSON_SECTIONS = tuple(k for k in LOAD_ORDER if SECTIONS[k].level == PERSON)
 SHARED_SECTIONS = tuple(k for k in LOAD_ORDER if SECTIONS[k].level == INSTALLATION)
 SHAREABLE = tuple(k for k in LOAD_ORDER if SECTIONS[k].shareable)
@@ -137,6 +141,7 @@ REFS = {
     ("protocol_items", "peptide_id"): ("peptides", ("name",)),
     ("protocol_items", "inventory_item_id"): ("inventory_items", ("name", "vial_size_mg", "vial_size_unit")),
     ("dose_logs", "peptide_id"): ("peptides", ("name",)),
+    ("food_logs", "food_id"): ("foods", ("name", "serving")),
     ("price_lists", "vendor_id"): ("vendors", ("name",)),
     ("price_list_items", "peptide_id"): ("peptides", ("name",)),
 }

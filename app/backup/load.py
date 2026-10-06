@@ -133,6 +133,8 @@ def _find(ctx: _Ctx, target: str, keys: tuple[str, ...], values: list) -> int | 
     params = {f"k{n}": v for n, v in enumerate(values)}
     if target == "inventory_items":            # a person's inventory is theirs alone: never link to someone else's item
         clause, params["uid"] = f"{clause} AND owner_id = :uid", ctx.uid
+    if target == "foods":                      # a person's own food or a built-in starter food: never someone else's
+        clause, params["uid"] = f"{clause} AND (owner_id IS NULL OR owner_id = :uid)", ctx.uid
     row = ctx.session.execute(text(f'SELECT id FROM "{target}" WHERE {clause}'), params).first()
     return row[0] if row else None
 
@@ -191,9 +193,10 @@ def _insert_row(ctx: _Ctx, section: reg.Section, tbl: reg.Tbl, row: dict) -> Non
         elif target in ctx.loaded:
             mapped = ctx.idmap.get(target, {}).get(value)
             own_parent = target in {t.name for t in section.tables}
-            if mapped is None:                      # the parent row is not in the file: leave the link empty
-                values[col] = None
-                _note(ctx.report.unresolved, f"{tbl.name}.{col}")
+            if mapped is None:                      # the parent row is not in the file: find it by name, else leave it empty
+                values[col] = _resolve_external(ctx, tbl.name, col, row)
+                if values[col] is None:
+                    _note(ctx.report.unresolved, f"{tbl.name}.{col}")
             elif own_parent and (mapped[0] is None or (not mapped[1] and target not in reg.REFERENCE_TABLES)):
                 _note(ctx.report.skipped, section.key)    # its parent in this section was skipped, so this row is too
                 if has_id and row.get("id") is not None:
