@@ -26,6 +26,7 @@ from app.models import (
 from app.templating import templates
 from app.uploads import UploadError, save_workout_pdf
 from app.workouts import exercise_db
+from app.workouts.exercise_match import match_exercise
 from app.workouts import logging as workout_logging
 from app.workouts.pdf_parser import extract_text, parse_workout_pdf
 
@@ -111,6 +112,16 @@ def _get_own_day(session: Session, plan_day_id: int, uid: int) -> WorkoutPlanDay
     return day
 
 
+def _get_own_exercise(session: Session, exercise_id: int, uid: int) -> WorkoutExercise:
+    ex = session.get(WorkoutExercise, exercise_id)
+    if ex is None:
+        raise HTTPException(404, "Exercise not found")
+    day = session.get(WorkoutPlanDay, ex.day_id)
+    if day is None or day.plan.owner_id != uid:
+        raise HTTPException(404, "Exercise not found")
+    return ex
+
+
 def save_workout_plan(session: Session, plan: WorkoutPlan, name: str, days_data: list[dict]) -> WorkoutPlan:
     """Write `name` and reconcile `plan`'s days/exercises against `days_data` by row id.
 
@@ -142,16 +153,23 @@ def save_workout_plan(session: Session, plan: WorkoutPlan, name: str, days_data:
 
 
 def _reconcile_exercises(day: WorkoutPlanDay, exercises_data: list[dict]) -> None:
-    """save_workout_plan's per-day counterpart: same update-by-id / create / remove rules."""
+    """save_workout_plan's per-day counterpart: same update-by-id / create / remove rules. Each exercise is also matched
+    to the exercise database (see app/workouts/exercise_match.py) unless a person already confirmed its match and has
+    not renamed it; a renamed or new exercise starts unconfirmed."""
     existing = {ex.id: ex for ex in day.exercises if ex.id is not None}
     new_exercises = []
     for j, data in enumerate(exercises_data):
         ex = existing.pop(data.get("id"), None) or WorkoutExercise()
+        renamed = ex.name != data["name"]
         ex.position = j
         ex.name = data["name"]
         ex.sets_text = data.get("sets_text")
         ex.reps_text = data.get("reps_text")
         ex.rest_text = data.get("rest_text")
+        if renamed or not ex.db_exercise_confirmed:
+            match = match_exercise(ex.name)
+            ex.db_exercise = match.exercise.name if match.confident else None
+            ex.db_exercise_confirmed = False
         new_exercises.append(ex)
     day.exercises = new_exercises  # any existing exercise not in this list is delete-orphaned
 
@@ -263,6 +281,9 @@ def workouts_edit(plan_id: int, request: Request, session: Session = Depends(get
     return templates.TemplateResponse(request, "workouts/edit.html", {
         "plan": plan, "days": plan.days, "has_logged_history": has_logged_history,
         "weekday_choices": list(zip(WEEKDAY_LETTERS, _WEEKDAY_NAMES)),
+        "suggestions": {ex.id: match_exercise(ex.name).suggestions
+                        for day in plan.days for ex in day.exercises if not ex.db_exercise},
+        "exercise_names": [e.name for e in exercise_db.all_exercises()],
     })
 
 
@@ -290,6 +311,28 @@ async def workouts_schedule(plan_id: int, request: Request, session: Session = D
         day.weekdays = "".join(letter for letter in WEEKDAY_LETTERS if letter in checked) or None
     session.commit()
     return RedirectResponse(f"/workouts/{plan.id}/edit", status_code=303)
+
+
+@router.post("/workouts/exercises/{exercise_id}/match")
+async def workouts_match_exercise(exercise_id: int, request: Request, session: Session = Depends(get_session),
+                                  uid: int = Depends(current_user_id)):
+    """Confirms which database exercise a plan exercise is, so its calories are estimated from it. A suggestion button
+    posts `suggested`; the text box posts `db_exercise` (a database name or a common name). Blank clears the match
+    and keeps it cleared ("no estimate for this one")."""
+    ex = _get_own_exercise(session, exercise_id, uid)
+    raw = await request.form()
+    typed = str(raw.get("suggested") or raw.get("db_exercise") or "").strip()
+    if typed:
+        match = match_exercise(typed)
+        if not match.confident:
+            raise HTTPException(422, f'"{typed}" is not in the exercise database.')
+        ex.db_exercise = match.exercise.name
+    else:
+        ex.db_exercise = None
+    ex.db_exercise_confirmed = True
+    plan_id = session.get(WorkoutPlanDay, ex.day_id).plan_id
+    session.commit()
+    return RedirectResponse(f"/workouts/{plan_id}/edit", status_code=303)
 
 
 @router.post("/workouts/{plan_id}/activate")

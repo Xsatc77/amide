@@ -15,6 +15,18 @@
   <td><input type="text" name="exercise_sets[{{ idx }}][]" value="{{ (ex.sets_text or '') if ex else '' }}" aria-label="Sets"></td>
   <td><input type="text" name="exercise_reps[{{ idx }}][]" value="{{ (ex.reps_text or '') if ex else '' }}" aria-label="Reps"></td>
   <td><input type="text" name="exercise_rest[{{ idx }}][]" value="{{ (ex.rest_text or '') if ex else '' }}" aria-label="Rest"></td>
+  <td class="match-cell">
+    {% if ex and ex.id %}
+      {% if ex.db_exercise %}<span class="tag" title="Calories are estimated from this exercise">{{ ex.db_exercise }}</span>{% if ex.db_exercise_confirmed %} <span class="muted small">confirmed</span>{% endif %}
+      {% else %}<span class="muted small">No estimate yet.</span>
+        {% for s in suggestions.get(ex.id, ()) %}
+        <button type="submit" form="match-{{ ex.id }}" name="suggested" value="{{ s.name }}" class="btn btn-ghost btn-small">Use {{ s.name }}</button>
+        {% endfor %}
+      {% endif %}
+      <input list="exercise-names" form="match-{{ ex.id }}" name="db_exercise" placeholder="Pick another&hellip;" aria-label="Database exercise" autocomplete="off" style="width: 11em">
+      <button type="submit" form="match-{{ ex.id }}" class="btn btn-ghost btn-small">Set</button>
+    {% else %}<span class="muted small">Matched when saved.</span>{% endif %}
+  </td>
   <td><button type="button" class="btn btn-ghost" data-action="remove-exercise" title="Remove exercise">&times;</button></td>
 </tr>
 {% endmacro %}
@@ -29,7 +41,7 @@
   {% if day %}<a class="btn btn-ghost" href="/workouts/day/{{ day.id }}/log">Log</a>{% endif %}
   <button type="button" class="btn btn-ghost" data-action="remove-day">Remove day</button>
   <table class="lib-table">
-    <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Rest</th><th></th></tr></thead>
+    <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Rest</th><th>Estimator</th><th></th></tr></thead>
     <tbody data-exercise-rows>
       {% if day %}
       {% for ex in day.exercises %}{{ exercise_row(idx, ex) }}{% endfor %}
@@ -59,6 +71,13 @@
   {% endif %}
   <button type="submit" class="btn btn-primary">Save</button>
 </form>
+
+{% if plan %}
+{% for day in plan.days %}{% for ex in day.exercises %}
+<form id="match-{{ ex.id }}" method="post" action="/workouts/exercises/{{ ex.id }}/match"></form>
+{% endfor %}{% endfor %}
+<datalist id="exercise-names">{% for n in exercise_names %}<option value="{{ n }}">{% endfor %}</datalist>
+{% endif %}
 
 <template id="workout-day-template">{{ day_fieldset("__I__", "") }}</template>
 <template id="workout-exercise-row-template">{{ exercise_row("__I__") }}</template>
