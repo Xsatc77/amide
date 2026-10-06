@@ -1825,6 +1825,7 @@ git commit -m "feat: log food (find, create, quick add), edit servings, delete, 
 - [ ] **Step 1: Write the failing tests** (`tests/test_food_backup.py`)
 
 ```python
+import json
 from datetime import date
 
 import pytest
