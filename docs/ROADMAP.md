@@ -156,6 +156,10 @@ Firm up the base before anything depends on it.
   - *Withings, Fitbit, Oura, Hume*: check each for an available cloud API; OAuth connectors where possible.
   - *Renpho Smart Scales* (added 2026-10-03): feed weight, body fat %, and BMI into the Measurements page automatically. Renpho's app is cloud-based and no official public API is known (verify before building). Candidate routes, safest first: (1) rely on the Renpho app's own sync to Apple Health / Health Connect and reuse the Shortcut or export-import path above; (2) import a CSV export from the Renpho app; (3) an unofficial cloud API, which would need the user's Renpho login and could break without notice.
   - Requires **personal API tokens** in Amide.
+- **Vendor price lists and the price analyzer.** *Import built 2026-10-05:* `tools/import_price_lists.py` reads price-list PDFs (vendor, optional warehouse and date come from the filename `<Vendor> - [<Warehouse> ]Price List - <date>`), creates the vendor, and stores every product line: code, product, vial size, pack size, pack price, and whether it is a **kit** (exactly 10 vials) or a **box** (fewer), plus extra price tiers and the vendor's shipping wording. A list that names no warehouse is assumed to be China (recorded as assumed). Price history is kept; the newest-dated list per vendor is current the moment it is imported. Amide stores only the parsed data, never the PDFs. **Vendors and price lists are held only in the local database and are never put in the repository (legal).** *Still to build, each as its own spec:*
+  - **Vendor-card price chart:** a dropdown of every peptide the vendor sells, charting price over time with a differently colored line for each vial size (mg / mcg / IU / ml).
+  - **Dashboard "NEW PEPTIDE ALERT":** `NEW PEPTIDE ALERT <peptide> <vendor or vendors>` when an imported list carries a peptide that is new (definition to settle: no library card yet, or new to that vendor), so the library gets a card; expected to be rare once the library is complete.
+  - Not yet read: scanned PDFs, image price lists (need OCR), and spreadsheets.
 - Charts correlating any metric against doses/protocols
 - Multi-user / household support (if wanted)
 - Themes, accessibility pass, full documentation
@@ -264,7 +268,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 ## Known Limitations
 
 ### Library price-list import: vendor naming (resolved 2026-10-05; remaining names are by hand)
-Vendors spell one compound many ways ("BPC157", "BPC 157", "Hexarelin Acetate", "Kiss Peptin-10"). `tools/populate_price_list.py` now matches each price-list name to an existing library card in tiers (`app/library/matching.py`), stopping at the first tier with a hit:
+Vendors spell one compound many ways ("BPC157", "BPC 157", "Hexarelin Acetate", "Kiss Peptin-10"). `tools/import_price_lists.py` now matches each price-list name to an existing library card in tiers (`app/library/matching.py`), stopping at the first tier with a hit:
 1. **exact** name (any case)
 2. **normalized**: spacing, punctuation, case and a trailing "Acetate" ignored
 3. **related**: the card's Aliases (comma-separated; a slash may sit inside one), or the name without its parenthetical ("Aicar" = "AICAR (Acadesine)")
