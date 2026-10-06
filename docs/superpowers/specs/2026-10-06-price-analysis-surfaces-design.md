@@ -70,18 +70,19 @@ card can be created, or an alias added to an existing card.
 It disappears by itself once a matching card or alias exists. Each alert has an **Ignore** action for
 products that are not peptides (stored in a small local table, never in the repository).
 
-**First import:** the owner's first import leaves a backlog of unmatched products (liquids, blends, a few
-peptides). Recommended: show the whole backlog once so it can be triaged with Ignore, then only genuinely new
-products appear. The alternative is to treat each vendor's first list as a silent baseline and alert only on
-products that appear in a *later* list.
+**First import (decided: the owner left it to the assistant's judgment):** the first import leaves a backlog of
+unmatched products. The backlog is shown, because under this definition it is exactly the list of library
+cards still to create; liquids and supplies never appear (only mg, mcg and IU products count), and Ignore
+clears the rest. A silent baseline was rejected: it would hide real peptides that still need a card. The card
+shows the first few alerts and tucks the rest under "Show N more", so a large backlog does not flood the
+dashboard. Ignoring is limited to the administrator, since vendors and prices are shared.
 
 **Visibility:** the same viewers as the existing Alerts card (anyone who sees inventory alerts); vendors are
 shared across users.
 
 **Decided (owner):** "new" means **no library card exists yet** (the definition above).
 
-**Open decision:** the first import: show the whole backlog once, or treat each vendor's first list as a
-silent baseline.
+
 
 ## C. Library card price range
 
@@ -89,11 +90,10 @@ silent baseline.
 range sits on the Half-life line at the far right end of that area. If a card has no Half-life, the range
 still gets its own line there. Cards with no current prices show nothing.
 
-**Recommended basis:** price per vial across all current lists, for the card's most commonly listed vial size,
-shown as `10mg · $5.50 – $12.00 per vial · 7 lists`, so sizes are not mixed. The alternative is cost per mg
-(comparable across sizes, meaningless for IU and ml) or the kit price range per size.
-
-**Open decision:** the basis (above). Also whether blends and boxes (one-vial oils) are included in the range.
+**Decided (owner): price per vial.** Across all current lists, for the card's most commonly listed vial size
+(so sizes are not mixed), shown as `10mg · $5.50 – $12.00 per vial · 7 lists`; a single price shows once.
+Only mg, mcg and IU products count; a pack with no stated size is skipped because its per-vial price is
+unknown. Boxes (for example one-vial oils) are included, since per-vial cost is comparable.
 
 ## Testing
 
