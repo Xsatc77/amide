@@ -1,0 +1,8 @@
+# Copy to config.toml in the watcher's home folder (default: %APPDATA%\amide-watcher). Never commit the real file.
+amide_url = "http://127.0.0.1:8000"
+amide_token = "YOUR_AMIDE_INGEST_TOKEN"        # created in Amide: Settings, Admin, Price list inbox
+telegram_api_id = 0                            # from your own registration at my.telegram.org
+telegram_api_hash = "YOUR_TELEGRAM_API_HASH"
+backfill_days = 7
+poll_seconds = 300
+max_file_mb = 25

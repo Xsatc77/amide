@@ -8,3 +8,12 @@ data/
 .superpowers/
 
 *.amidebackup
+
+# watcher secrets and runtime files
+config.toml
+*.session
+*.session-journal
+state.json
+state.json.bad
+queue/
+watcher.log*
