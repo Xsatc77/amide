@@ -9,6 +9,7 @@ from app import config
 from app.db import get_session
 from app.goals import GOALS
 from app.library.price_lists.analysis import price_range, rematch_items
+from app.library.price_lists.vendor_view import build_price_compare
 from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
 from app.models import DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolItem
 from app.templating import templates
@@ -71,9 +72,11 @@ def library_detail(peptide_id: int, request: Request, session: Session = Depends
         .where(ProtocolItem.peptide_id == p.id, Protocol.owner_id == request.state.user.id)
         .order_by(Protocol.start_date.desc()).distinct()).all()
     dosing_tiers = sorted(p.dosing_tiers, key=lambda t: _TIER_ORDER.get(t.level, 99))
+    shown_range = price_range(session, p.id)
     return templates.TemplateResponse(request, "library/detail.html", {
         "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,
-        "dosing_tiers": dosing_tiers, "price_range": price_range(session, p.id),
+        "dosing_tiers": dosing_tiers, "price_range": shown_range,
+        "price_compare": build_price_compare(session, p.id, shown_range),
     })
 
 

@@ -1121,3 +1121,18 @@ tr.current td { font-weight: 600; background: color-mix(in srgb, var(--accent-so
 .hbar-fill { display: block; height: 100%; background: var(--accent); }
 .hbars strong { text-align: right; font-variant-numeric: tabular-nums; }
 fieldset[data-day] { min-width: 0; }
+
+/* ---------- library: best price per vial popup ---------- */
+.price-link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.price-link:hover { text-decoration-style: solid; }
+.price-compare { width: min(520px, calc(100vw - 32px)); }
+.price-compare-note { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: var(--bg); border-left: 3px solid var(--accent); font-size: 0.9rem; }
+.price-compare-list { list-style: none; margin: 12px 0; padding: 0; }
+.price-compare-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.price-compare-row:first-child { border-top: 0; }
+.price-compare-rank { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); display: grid; place-items: center; font-size: 0.8rem; font-weight: 600; }
+.price-compare-who { flex: 1; min-width: 0; }
+.price-compare-who .tag { margin-left: 6px; }
+.price-compare-price { flex: none; text-align: right; white-space: nowrap; }
+.price-compare-price strong { font-size: 1.2rem; }
+.price-compare-unit { color: var(--muted); font-size: 0.85rem; }

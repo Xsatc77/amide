@@ -6,6 +6,8 @@
 
 {% macro price_range_text(r) %}{{ r.amount | dose_num }}{{ r.unit }} · {{ '$%.2f' | format(r.low) }}{% if r.high != r.low %} – {{ '$%.2f' | format(r.high) }}{% endif %} per vial · {{ r.lists }} list{{ '' if r.lists == 1 else 's' }}{% endmacro %}
 
+{% macro price_chip(r, compare) %}{% if compare %}<button type="button" class="price-range price-link" data-price-compare title="Compare vendors: price per vial">{{ price_range_text(r) }}</button>{% else %}<span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(r) }}</span>{% endif %}{% endmacro %}
+
 {% set is_sheet = p.source.value == "sheet" %}
 
 {% block content %}
@@ -46,7 +48,7 @@
           {% if p.half_life_text %}<dt>Half-life</dt><dd>{{ p.half_life_text }}</dd>{% endif %}
           {% if p.route_summary %}<dt>Route</dt><dd>{{ p.route_summary }}</dd>{% endif %}
           {% if p.cycle %}<dt>Cycle</dt><dd>{{ p.cycle.on_weeks }}w on / {{ p.cycle.off_weeks }}w off</dd>{% endif %}
-          {% if price_range %}<div class="price-aside"><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></div>{% endif %}
+          {% if price_range %}<div class="price-aside">{{ price_chip(price_range, price_compare) }}</div>{% endif %}
         </dl>
       </section>
       {% endif %}
@@ -141,7 +143,7 @@
     {% elif not card %}
     <div class="empty"><p><strong>No card imported for this peptide.</strong></p>
       <p class="muted">Peptides added by you or from the starter list have no card. Your own info is on the right.</p></div>
-    {% if price_range %}<p class="price-range" title="Price per vial across current vendor price lists">Price: {{ price_range_text(price_range) }}</p>{% endif %}
+    {% if price_range %}<p>Price: {{ price_chip(price_range, price_compare) }}</p>{% endif %}
     {% else %}
     {% if card.applications %}
     <section class="lib-section">
@@ -177,14 +179,14 @@
       <h2 class="section-title">Quick practical info</h2>
       {% set shown = namespace(price=false) %}
       <dl class="kv">{% for k, v in card.quick_info.items() %}<dt>{{ k }}</dt>
-        {% if price_range and not shown.price and k | lower == 'half-life' %}{% set shown.price = true %}<dd class="with-aside"><span>{{ v or '—' }}</span><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></dd>
+        {% if price_range and not shown.price and k | lower == 'half-life' %}{% set shown.price = true %}<dd class="with-aside"><span>{{ v or '—' }}</span>{{ price_chip(price_range, price_compare) }}</dd>
         {% else %}<dd>{{ v or '—' }}</dd>{% endif %}
         {% endfor %}
-        {% if price_range and not shown.price %}<dt>Price</dt><dd><span class="price-range" title="Price per vial across current vendor price lists">{{ price_range_text(price_range) }}</span></dd>{% endif %}
+        {% if price_range and not shown.price %}<dt>Price</dt><dd>{{ price_chip(price_range, price_compare) }}</dd>{% endif %}
       </dl>
     </section>
     {% elif price_range %}
-    <section class="lib-section"><p class="price-range" title="Price per vial across current vendor price lists">Price: {{ price_range_text(price_range) }}</p></section>
+    <section class="lib-section"><p>Price: {{ price_chip(price_range, price_compare) }}</p></section>
     {% endif %}
 
     {% if card.regulatory %}
@@ -242,4 +244,27 @@
     </div>
   </aside>
 </div>
+
+{% if price_compare %}
+<script type="application/json" id="price-compare-data">{{ price_compare | tojson }}</script>
+<dialog id="price-compare" class="dialog price-compare" aria-labelledby="price-compare-title">
+  <div class="dialog-head">
+    <h3 id="price-compare-title">Best price per <strong>vial</strong> &middot; {{ p.name }}</h3>
+    <button type="button" class="btn btn-ghost" data-price-close aria-label="Close">&times;</button>
+  </div>
+  <div class="form-section">
+    <p class="price-compare-note"><strong>Per-vial price</strong> = pack price &divide; vials in the pack. It is <strong>not</strong> the kit or box price.</p>
+    <label class="field">
+      <span>Vial size</span>
+      <select data-price-size></select>
+    </label>
+    <ol class="price-compare-list" data-price-list></ol>
+    <p class="small muted">Cheapest vendors first, from each vendor's newest price list. At the same price, the US warehouse is listed first.</p>
+  </div>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if price_compare %}<script src="{{ static_url('js/price-compare.js') }}" defer></script>{% endif %}
 {% endblock %}

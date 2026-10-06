@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 
-from app.library.price_lists.analysis import PricePoint, vendor_price_history
+from app.library.price_lists.analysis import PricePoint, best_prices, vendor_price_history
 from app.library.price_lists.chart import multi_series_chart
 
 # Mid-saturation colors that read on both the light and the dark theme.
@@ -58,3 +58,27 @@ def build_price_history(session: Session, vendor_id: int) -> dict | None:
             "legend": [{"label": label, "color": hue, "dashed": dashed} for label, hue, dashed, _ in labelled],
         })
     return {"products": products}
+
+
+def build_price_compare(session: Session, peptide_id: int, shown_range) -> dict | None:
+    """The data behind a library card's "best price per vial" popup: each vial size with its top vendors, and which size
+    to open on (the size the card's price range shows)."""
+    options = best_prices(session, peptide_id)
+    if not options:
+        return None
+    sizes = []
+    for option in options:
+        vendors = []
+        for v in option.vendors:
+            if v.pack_type == "kit":
+                pack = f"Kit of {v.pack_size} = ${v.pack_price:,.2f}"
+            elif v.pack_type == "box":
+                pack = f"Box of {v.pack_size} = ${v.pack_price:,.2f}"
+            else:
+                pack = f"Pack of {v.pack_size} = ${v.pack_price:,.2f}"
+            vendors.append({"name": v.vendor_name, "id": v.vendor_id, "warehouse": _WAREHOUSE_LABEL.get(v.warehouse, v.warehouse),
+                            "per_vial": f"{v.per_vial:,.2f}", "pack": pack, "date": f"{v.list_date:%m/%d/%Y}"})
+        sizes.append({"label": _size(option.amount, option.unit), "vendors": vendors})
+    default = next((i for i, o in enumerate(options)
+                    if shown_range is not None and (o.amount, o.unit) == (shown_range.amount, shown_range.unit)), 0)
+    return {"sizes": sizes, "default": default}

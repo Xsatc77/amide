@@ -30,7 +30,7 @@ def test_range_sits_at_the_far_end_of_the_half_life_line_of_a_reference_sheet_ca
     p = card(db, "Zorvex", half_life_text="About 4 hours", route_summary="Subcutaneous")
     three_vendors(db, p)
     row = facts(page(client, p))
-    assert row.index("About 4 hours") < row.index("Subcutaneous") < row.index('class="price-range"')
+    assert row.index("About 4 hours") < row.index("Subcutaneous") < row.index('class="price-range')
     assert "10mg · $5.00 – $8.00 per vial · 3 lists" in row
 
 def test_a_single_price_shows_once(client, db):
