@@ -34,6 +34,23 @@
 
   dialog.querySelector('[data-action="add-contact-row"]').addEventListener("click", addRow);
 
+  // Repeatable crypto wallet rows (same idea as the contact rows).
+  const walletRows = dialog.querySelector("[data-wallet-rows]");
+  const walletTemplate = document.getElementById("wallet-row-template");
+  let walletCount = walletRows.querySelectorAll("[data-wallet-row]").length;
+  function wireWallet(row) {
+    row.querySelector('[data-action="remove-wallet-row"]').addEventListener("click", () => row.remove());
+  }
+  walletRows.querySelectorAll("[data-wallet-row]").forEach(wireWallet);
+  dialog.querySelector('[data-action="add-wallet-row"]').addEventListener("click", () => {
+    const fragment = walletTemplate.content.cloneNode(true);
+    fragment.querySelectorAll("[name]").forEach((el) => { el.name = el.name.replace("__I__", String(walletCount)); });
+    const row = fragment.querySelector("[data-wallet-row]");
+    walletCount += 1;
+    walletRows.appendChild(fragment);
+    wireWallet(row);
+  });
+
   document.querySelectorAll('[data-action="edit-vendor"]').forEach((btn) =>
     btn.addEventListener("click", () => dialog.showModal()));
   dialog.querySelectorAll('[data-action="close-vendor-edit"]').forEach((btn) =>
@@ -70,3 +87,16 @@ if (addVendorDialog) {
     btn.addEventListener("click", () => addVendorDialog.close())
   );
 }
+
+// Vendor detail: copy a wallet address to the clipboard.
+document.querySelectorAll("[data-copy]").forEach((btn) =>
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(btn.dataset.copy);
+      btn.textContent = "Copied";
+    } catch {
+      btn.textContent = "Select and copy";
+    }
+    setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+  })
+);

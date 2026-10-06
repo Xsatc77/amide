@@ -204,6 +204,8 @@ class Vendor(Base):
 
     contacts: Mapped[list["VendorContact"]] = relationship(back_populates="vendor", cascade="all, delete-orphan")
     payment_methods: Mapped[list["VendorPaymentMethod"]] = relationship(back_populates="vendor", cascade="all, delete-orphan")
+    wallets: Mapped[list["VendorWallet"]] = relationship(
+        back_populates="vendor", cascade="all, delete-orphan", order_by="VendorWallet.id")
 
 
 class ContactMethodType(Base):
@@ -243,6 +245,23 @@ class VendorPaymentMethod(Base):
 
     vendor: Mapped["Vendor"] = relationship(back_populates="payment_methods")
     method_type: Mapped["PaymentMethodType"] = relationship()
+
+
+WALLET_COINS = ("BTC", "ETH", "USDC", "USDT")
+
+
+class VendorWallet(Base):
+    """A crypto address a vendor accepts payment at: the coin, the address, the network it lives on (USDT on
+    Tron is not USDT on Ethereum) and, optionally, a photo of the vendor's QR code. Shared like the vendor."""
+    __tablename__ = "vendor_wallets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vendor_id: Mapped[int] = mapped_column(ForeignKey("vendors.id", ondelete="CASCADE"), index=True)
+    coin: Mapped[str] = mapped_column(String(8))
+    address: Mapped[str] = mapped_column(String(200))
+    network: Mapped[str | None] = mapped_column(String(60))
+    qr_filename: Mapped[str | None] = mapped_column(String(120))
+
+    vendor: Mapped["Vendor"] = relationship(back_populates="wallets")
 
 
 class VendorFavorite(Base):

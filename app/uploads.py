@@ -161,3 +161,38 @@ async def save_workout_pdf(upload: UploadFile) -> str:
     filename = f"{uuid.uuid4().hex}{ext}"
     (config.WORKOUT_PDF_DIR / filename).write_bytes(data)
     return filename
+
+
+# A wallet QR is shown inline in the page, so only formats every browser displays are accepted.
+WALLET_QR_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+
+
+async def save_wallet_qr(upload: UploadFile) -> str:
+    """Validate and store a photo of a vendor's wallet QR code. Returns the stored filename."""
+    ext = Path(upload.filename or "").suffix.lower()
+    if ext not in WALLET_QR_TYPES:
+        raise UploadError("QR code must be a photo (JPG, PNG or WEBP).")
+
+    data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        raise UploadError(f"QR code photo is larger than {config.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+    if not _sniff_ok(ext, data[:16]):
+        raise UploadError("QR code file contents don't match its file type.")
+
+    config.ensure_dirs()
+    filename = f"{uuid.uuid4().hex}{ext}"
+    (config.WALLET_QR_DIR / filename).write_bytes(data)
+    return filename
+
+
+def wallet_qr_path(filename: str) -> Path:
+    return config.WALLET_QR_DIR / filename
+
+
+def delete_wallet_qr(filename: str | None) -> None:
+    if filename:
+        wallet_qr_path(filename).unlink(missing_ok=True)
+
+
+def wallet_qr_media_type(filename: str) -> str:
+    return WALLET_QR_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")

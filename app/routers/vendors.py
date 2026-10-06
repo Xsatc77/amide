@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,7 +12,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
     ContactMethodType, InventoryItem, Order, OrderItem, PaymentMethodType, Share, ShareCategory,
-    User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod,
+    WALLET_COINS, User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod, VendorWallet,
 )
 from app.library.price_lists.vendor_view import build_price_history
 from app.templating import templates
@@ -139,8 +140,11 @@ def delete_vendor(vendor_id: int, next: str = "/vendors", session: Session = Dep
     vendor = session.get(Vendor, vendor_id)
     if vendor is None:
         raise HTTPException(404, "Vendor not found")
+    qr_files = [w.qr_filename for w in vendor.wallets]
     session.delete(vendor)
     session.commit()
+    for name in qr_files:
+        uploads.delete_wallet_qr(name)
     return RedirectResponse(next, status_code=303)
 
 
@@ -208,6 +212,7 @@ def _detail_context(session: Session, vendor: Vendor, uid: int) -> dict:
         "viewer_id": uid,
         "is_favorite": is_favorite,
         "contacts": _contact_view(vendor),
+        "wallet_coins": WALLET_COINS,
         "contact_types": _contact_method_types(session),
         "payment_types": _payment_method_types(session),
         "checked_payment_type_ids": {pm.method_type_id for pm in vendor.payment_methods},
@@ -245,7 +250,55 @@ def get_vendor_price_list(vendor_id: int, session: Session = Depends(get_session
                         content_disposition_type="inline")
 
 
+@router.get("/vendors/{vendor_id}/wallets/{wallet_id}/qr")
+def get_wallet_qr(vendor_id: int, wallet_id: int, session: Session = Depends(get_session),
+                  uid: int = Depends(current_user_id)):
+    """Serves a wallet's QR photo. Vendors are shared by every user, so this only needs an existence check."""
+    wallet = session.get(VendorWallet, wallet_id)
+    if wallet is None or wallet.vendor_id != vendor_id or not wallet.qr_filename:
+        raise HTTPException(404, "No QR code on file")
+    path = uploads.wallet_qr_path(wallet.qr_filename)
+    if not path.exists():
+        raise HTTPException(404, "QR code file is missing from disk")
+    return FileResponse(path, media_type=uploads.wallet_qr_media_type(wallet.qr_filename),
+                        headers={"X-Content-Type-Options": "nosniff"}, content_disposition_type="inline")
+
+
 # ---------------------------------------------------------------- edit
+
+async def _read_wallet_rows(request: Request) -> list[dict]:
+    """The edit form's repeatable 'wallets-{i}-field' rows, in order. A row with no address is dropped."""
+    form = await request.form()
+    rows: dict[int, dict] = {}
+    for key in form.keys():
+        if not key.startswith("wallets-"):
+            continue
+        idx_str, _, field = key[len("wallets-"):].partition("-")
+        if idx_str.isdigit() and field:
+            rows.setdefault(int(idx_str), {})[field] = form.get(key)
+    out = []
+    for _, row in sorted(rows.items()):
+        upload = row.get("qr")
+        out.append({
+            "id": str(row.get("id") or "").strip(), "coin": str(row.get("coin") or "").strip().upper(),
+            "address": str(row.get("address") or "").strip(), "network": str(row.get("network") or "").strip(),
+            "remove_qr": bool(row.get("remove_qr")),
+            "qr": upload if isinstance(upload, UploadFile) and upload.filename else None,
+        })
+    return [r for r in out if r["address"]]
+
+
+def _wallet_errors(rows: list[dict]) -> str | None:
+    for r in rows:
+        if r["coin"] not in WALLET_COINS:
+            return "Choose a coin (" + ", ".join(WALLET_COINS) + ") for each wallet address."
+        if len(r["address"]) > 200 or re.search(r"\s", r["address"]):
+            return "A wallet address is one string of letters and numbers (200 characters at most)."
+        if len(r["network"]) > 60:
+            return "A wallet's network name is 60 characters at most."
+    return None
+
+
 
 async def _read_edit_form(
     request: Request,
@@ -289,7 +342,10 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         raise HTTPException(404, "Vendor not found")
 
     raw, contact_rows, payment_type_ids, price_list_file, remove_price_list = await _read_edit_form(request)
+    wallet_rows = await _read_wallet_rows(request)
     errors: dict[str, str] = {}
+    if (wallet_error := _wallet_errors(wallet_rows)):
+        errors["wallets"] = wallet_error
     if not raw["name"]:
         errors["name"] = "Vendor name is required."
     if raw["website"] and not raw["website"].lower().startswith(("http://", "https://")):
@@ -311,7 +367,21 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         except uploads.UploadError as e:
             errors["price_list_file"] = str(e)
 
+    saved_qr: list[str] = []  # stored this request; removed again if the submission still fails
+    if not errors:
+        for r in wallet_rows:
+            if r["qr"] is None:
+                continue
+            try:
+                r["qr_saved"] = await uploads.save_wallet_qr(r["qr"])
+                saved_qr.append(r["qr_saved"])
+            except uploads.UploadError as e:
+                errors["wallets"] = str(e)
+                break
+
     if errors:
+        for name in saved_qr:
+            uploads.delete_wallet_qr(name)
         return templates.TemplateResponse(request, "vendors/detail.html", {
             **_detail_context(session, vendor, uid),
             "form": raw,
@@ -384,7 +454,32 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     for type_id in type_ids:
         vendor.payment_methods.append(VendorPaymentMethod(method_type_id=type_id))
 
+    # Wallets: rows that carry an id of this vendor's own wallet update it in place (keeping its QR unless a
+    # new one is uploaded or "remove" is ticked); rows without one are new; wallets left out are deleted.
+    existing = {str(w.id): w for w in vendor.wallets}
+    kept: set[str] = set()
+    stale_qr: list[str] = []
+    for r in wallet_rows:
+        wallet = existing.get(r["id"]) if r["id"] not in kept else None
+        if wallet is None:
+            wallet = VendorWallet()
+            vendor.wallets.append(wallet)
+        else:
+            kept.add(r["id"])
+        wallet.coin, wallet.address, wallet.network = r["coin"], r["address"], r["network"] or None
+        if r.get("qr_saved") or r["remove_qr"]:
+            if wallet.qr_filename:
+                stale_qr.append(wallet.qr_filename)
+            wallet.qr_filename = r.get("qr_saved")
+    for wid, wallet in existing.items():
+        if wid not in kept:
+            if wallet.qr_filename:
+                stale_qr.append(wallet.qr_filename)
+            vendor.wallets.remove(wallet)
+
     session.commit()
+    for name in stale_qr:
+        uploads.delete_wallet_qr(name)
     if price_list_changed and old_price_list_filename and old_price_list_filename != vendor.price_list_filename:
         uploads.delete_price_list(old_price_list_filename)
     return RedirectResponse(f"/vendors/{vendor.id}", status_code=303)

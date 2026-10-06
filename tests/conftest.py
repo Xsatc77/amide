@@ -56,6 +56,8 @@ def clean(client):
         s.commit()
     for f in config.COA_DIR.glob("*"):
         f.unlink()
+    for f in config.WALLET_QR_DIR.glob("*"):
+        f.unlink()
 
 
 @pytest.fixture

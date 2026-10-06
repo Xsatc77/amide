@@ -1063,3 +1063,11 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .step-row > .small { grid-column: 1 / -1; padding: 0; }
   .step-row > .btn-icon { margin-top: 26px; }
 }
+
+/* Vendor crypto wallets */
+.wallet-list { list-style: none; margin: 0 0 var(--space-3, 1rem); padding: 0; display: grid; gap: .75rem; }
+.wallet { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
+.wallet-main { min-width: 0; flex: 1; }
+.wallet-line { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .25rem; }
+.wallet-address { overflow-wrap: anywhere; word-break: break-all; }
+.wallet-qr img { display: block; border-radius: 6px; border: 1px solid var(--border, #ccc); background: #fff; }
