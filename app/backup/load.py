@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.backup import sections as reg
@@ -129,8 +130,10 @@ def _find(ctx: _Ctx, target: str, keys: tuple[str, ...], values: list) -> int | 
     if any(v is None for v in values) and len(values) == 1:
         return None
     clause = " AND ".join(f'"{k}" IS :k{n}' if values[n] is None else f'"{k}" = :k{n}' for n, k in enumerate(keys))
-    row = ctx.session.execute(text(f'SELECT id FROM "{target}" WHERE {clause}'),
-                              {f"k{n}": v for n, v in enumerate(values)}).first()
+    params = {f"k{n}": v for n, v in enumerate(values)}
+    if target == "inventory_items":            # a person's inventory is theirs alone: never link to someone else's item
+        clause, params["uid"] = f"{clause} AND owner_id = :uid", ctx.uid
+    row = ctx.session.execute(text(f'SELECT id FROM "{target}" WHERE {clause}'), params).first()
     return row[0] if row else None
 
 
@@ -166,6 +169,9 @@ def _insert_row(ctx: _Ctx, section: reg.Section, tbl: reg.Tbl, row: dict) -> Non
     table = reg.table(tbl.name)
     has_id = "id" in table.columns
     values = {c: row[c] for c in _columns(tbl) if c in row and c != "id"}
+    if tbl.where is not None:                  # a person's rows always belong to the person loading, whatever the file says
+        for col in reg.person_columns(tbl):
+            values[col] = ctx.uid
     for fk in table.foreign_keys:
         col, target = fk.parent.name, fk.column.table.name
         value = values.get(col)
@@ -209,9 +215,13 @@ def _insert_row(ctx: _Ctx, section: reg.Section, tbl: reg.Tbl, row: dict) -> Non
                 _note(ctx.report.skipped, section.key)
             return
     cols = list(values)
-    sql = f'INSERT OR IGNORE INTO "{tbl.name}" ({", ".join(chr(34) + c + chr(34) for c in cols)}) VALUES ({", ".join(":" + c for c in cols)})'
-    result = ctx.session.execute(text(sql), values)
-    if result.rowcount == 0:
+    sql = f'INSERT INTO "{tbl.name}" ({", ".join(chr(34) + c + chr(34) for c in cols)}) VALUES ({", ".join(":" + c for c in cols)})'
+    try:
+        with ctx.session.begin_nested():
+            ctx.session.execute(text(sql), values)
+    except IntegrityError as exc:
+        if "UNIQUE constraint failed" not in str(exc.orig):    # only a duplicate is skippable; anything else is a bad file
+            raise BackupError(f"A row of {tbl.name.replace('_', ' ')} is missing required data, so nothing was changed.") from exc
         if has_id and row.get("id") is not None:
             ctx.idmap.setdefault(tbl.name, {})[row["id"]] = (None, False)
         _note(ctx.report.skipped, section.key)

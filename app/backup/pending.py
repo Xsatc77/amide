@@ -1,19 +1,27 @@
 """Opened backups waiting for the person's next step.
 
 After a file is decrypted and checked, the preview page needs the contents again to load sections. Rather than ask for
-the file and passphrase twice, the verified archive is kept in a private temporary file for ten minutes under a random
-token tied to the account that opened it. Nothing is kept in the browser. Expired and used files are deleted."""
+the file and passphrase twice, the verified archive is kept for ten minutes under a random token tied to the account that
+opened it. On disk it is encrypted with a random key that exists only in this process's memory, so it is never plaintext
+on disk and cannot be read after a restart (leftover files are deleted). Nothing is kept in the browser. Expired and used
+files are deleted."""
 
 import json
+import os
 import re
 import secrets
 import time
+
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app import config
 from app.backup.container import BackupError
 
 TTL_SECONDS = 600
 _TOKEN = re.compile(r"[A-Za-z0-9_-]{20,64}")
+_EXPIRED = "That step has expired. Open the backup file again."
+_KEYS: dict[str, tuple[int, bytes, float]] = {}      # token -> (account id, key, when it was opened); memory only
 
 
 def _folder():
@@ -22,38 +30,38 @@ def _folder():
     return folder
 
 
-def purge() -> None:
-    """Delete every pending file older than the time to live."""
+def purge(*, everything: bool = False) -> None:
+    """Delete expired entries, and any file this process holds no key for (a leftover from an earlier run)."""
     cutoff = time.time() - TTL_SECONDS
+    for token in [t for t, (_, _, made) in _KEYS.items() if everything or made < cutoff]:
+        _KEYS.pop(token, None)
     for path in _folder().glob("*"):
-        if path.stat().st_mtime < cutoff:
+        if everything or path.stem not in _KEYS:
             path.unlink(missing_ok=True)
 
 
 def put(uid: int, zipped: bytes) -> str:
     purge()
-    token = secrets.token_urlsafe(24)
-    (_folder() / f"{token}.zip").write_bytes(zipped)
-    (_folder() / f"{token}.json").write_text(json.dumps({"uid": uid}), encoding="utf-8")
+    token, key, nonce = secrets.token_urlsafe(24), AESGCM.generate_key(256), os.urandom(12)
+    (_folder() / f"{token}.bin").write_bytes(nonce + AESGCM(key).encrypt(nonce, zipped, token.encode()))
+    _KEYS[token] = (uid, key, time.time())
     return token
 
 
 def get(uid: int, token: str) -> bytes:
     """The archive bytes for this token if it is the caller's and still fresh, else BackupError."""
     purge()
-    if not _TOKEN.fullmatch(token or ""):
-        raise BackupError("That step has expired. Open the backup file again.")
-    meta, data = _folder() / f"{token}.json", _folder() / f"{token}.zip"
+    entry = _KEYS.get(token or "") if _TOKEN.fullmatch(token or "") else None
+    if entry is None or entry[0] != uid:
+        raise BackupError(_EXPIRED)
     try:
-        owner = json.loads(meta.read_text(encoding="utf-8"))["uid"]
-        if owner != uid:
-            raise BackupError("That step has expired. Open the backup file again.")
-        return data.read_bytes()
-    except (OSError, ValueError, KeyError):
-        raise BackupError("That step has expired. Open the backup file again.") from None
+        blob = (_folder() / f"{token}.bin").read_bytes()
+        return AESGCM(entry[1]).decrypt(blob[:12], blob[12:], token.encode())
+    except (OSError, InvalidTag):
+        raise BackupError(_EXPIRED) from None
 
 
 def drop(token: str) -> None:
     if _TOKEN.fullmatch(token or ""):
-        (_folder() / f"{token}.zip").unlink(missing_ok=True)
-        (_folder() / f"{token}.json").unlink(missing_ok=True)
+        _KEYS.pop(token, None)
+        (_folder() / f"{token}.bin").unlink(missing_ok=True)

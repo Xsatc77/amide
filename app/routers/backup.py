@@ -10,6 +10,7 @@ import json
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -116,6 +117,7 @@ def _page(request: Request, session: Session, uid: int, tab: str, status_code: i
 @router.get("/backup")
 def backup_page(request: Request, tab: str = "backup", session: Session = Depends(get_session),
                 uid: int = Depends(current_user_id)):
+    pending.purge()                      # a good moment to clear opened files that were never used
     return _page(request, session, uid, tab)
 
 
@@ -126,8 +128,8 @@ async def create_backup(request: Request, session: Session = Depends(get_session
     kind = str(form.get("kind") or "backup")
     me = session.get(User, uid)
     try:
-        name, blob = make_download(
-            session, me, kind=kind, keys=[str(k) for k in form.getlist("section")],
+        name, blob = await run_in_threadpool(     # key derivation and zipping are slow; keep the server responsive
+            make_download, session, me, kind=kind, keys=[str(k) for k in form.getlist("section")],
             installation=str(form.get("scope") or "person") == "installation",
             passphrase=str(form.get("passphrase") or ""), confirm=str(form.get("confirm") or ""))
     except BackupError as exc:
@@ -156,9 +158,15 @@ async def open_backup(request: Request, file: UploadFile, session: Session = Dep
     try:
         if len(blob) > config.MAX_BACKUP_BYTES:
             raise BackupError("This file is larger than the allowed size.")
-        zipped, archive = open_upload(blob, str(form.get("passphrase") or ""))
+        zipped, archive = await run_in_threadpool(open_upload, blob, str(form.get("passphrase") or ""))
+        me = session.get(User, uid)       # a file whose manifest is incomplete is damaged, not a server error
+        backup_load.describe(archive, username_key=me.username_key, is_admin=bool(me.is_admin), session=session, uid=uid)
+        if not isinstance(archive.manifest.get("created_at", ""), str) or not isinstance(archive.manifest.get("sections", {}), dict):
+            raise BackupError("This backup file is damaged.")
     except BackupError as exc:
         return _page(request, session, uid, "restore", 422, error=str(exc))
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return _page(request, session, uid, "restore", 422, error="This backup file is damaged.")
     token = pending.put(uid, zipped)
     return _preview(request, session, uid, token, archive)
 
@@ -179,8 +187,8 @@ async def load_backup(request: Request, session: Session = Depends(get_session),
         return _page(request, session, uid, "restore", 422, error=str(exc))
     plan = {str(k): str(form.get(f"mode-{k}") or "") for k in form.getlist("load")}
     try:
-        report = backup_load.load(session, archive, uid=uid, username_key=me.username_key, is_admin=bool(me.is_admin),
-                                  plan=plan)
+        report = await run_in_threadpool(
+            backup_load.load, session, archive, uid=uid, username_key=me.username_key, is_admin=bool(me.is_admin), plan=plan)
     except BackupError as exc:
         return _preview(request, session, uid, token, archive, 422, error=str(exc))
     pending.drop(token)
@@ -206,8 +214,9 @@ async def restore_everything(request: Request, session: Session = Depends(get_se
             raise BackupError(f"Type {RESTORE_WORD} to confirm.")
         if str(form.get("safety_passphrase") or "") != str(form.get("safety_confirm") or ""):
             raise BackupError("The two safety-copy passphrases do not match.")
-        report = backup_restore.restore_installation(
-            session, archive, uid=uid, creator=me.username, safety_passphrase=str(form.get("safety_passphrase") or ""))
+        report = await run_in_threadpool(
+            backup_restore.restore_installation, session, archive, uid=uid, creator=me.username,
+            safety_passphrase=str(form.get("safety_passphrase") or ""))
     except BackupError as exc:
         return _preview(request, session, uid, token, archive, 422, error=str(exc))
     pending.drop(token)

@@ -15,7 +15,8 @@
   <dl class="kv kv-tight">
     <dt>Kind</dt><dd>{{ {'backup': 'Backup', 'export': 'Export', 'share': 'Share file'}.get(manifest.kind, manifest.kind) }}{% if manifest.level == 'installation' %} (whole installation){% endif %}</dd>
     <dt>Made by</dt><dd>{{ manifest.creator }}</dd>
-    <dt>Created</dt><dd>{{ manifest.created_at[:10][5:7] }}/{{ manifest.created_at[8:10] }}/{{ manifest.created_at[:4] }} {{ manifest.created_at[11:16] }} UTC</dd>
+    {% set made = (manifest.get('created_at') or '') | string %}
+    <dt>Created</dt><dd>{{ made[5:7] }}/{{ made[8:10] }}/{{ made[:4] }} {{ made[11:16] }} UTC</dd>
     <dt>Database version</dt><dd>{{ manifest.revision or 'unknown' }}</dd>
   </dl>
   {% if manifest.kind == 'share' %}<p class="muted small">A share file: personal records were left out when it was made, and it can only be added, never used to replace anything.</p>{% endif %}

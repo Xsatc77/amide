@@ -20,7 +20,7 @@ from sqlalchemy.schema import sort_tables
 
 from app import config
 from app.backup import sections as reg
-from app.backup.archive import Archive
+from app.backup.archive import Archive, valid_stored_name
 from app.backup.container import BackupError, check_passphrase, seal
 from app.backup.export import build_archive
 from app.backup.load import check_revision
@@ -45,7 +45,7 @@ def write_safety_backup(session: Session, *, uid: int, creator: str, passphrase:
     folder = backups_dir()
     folder.mkdir(parents=True, exist_ok=True)
     data = build_archive(session, kind="backup", uid=uid, creator=creator, keys=[], installation=True)
-    path = folder / f"amide-safety-{datetime.now(timezone.utc):%Y-%m-%d-%H%M%S}.amidebackup"
+    path = folder / f"amide-safety-{datetime.now(timezone.utc):%Y-%m-%d-%H%M%S-%f}-{uuid.uuid4().hex[:6]}.amidebackup"
     path.write_bytes(seal(data, passphrase))
     for old in sorted(folder.glob("amide-safety-*.amidebackup"))[:-SAFETY_KEEP]:
         old.unlink(missing_ok=True)
@@ -86,27 +86,42 @@ def _stage_files(archive: Archive) -> tuple[Path, dict[str, int]]:
     return stage, counts
 
 
-def _swap(stage: Path) -> int:
-    """Move the staged directories in place of the live ones; the old ones are removed once the new are in."""
-    moved = 0
+def _swap(stage: Path) -> None:
+    """Move the staged directories in place of the live ones. If any step fails, the directories already swapped are put
+    back as they were and BackupError says so; the staged files are kept for the person to find."""
     pairs = [(stage / key, reg.file_dir(key)) for key in reg.FILE_DIRS]
     pairs += [(stage / "library" / "cards", config.CARDS_DIR)]
-    for new, live in pairs:
-        if not new.is_dir():
+    done: list[tuple[Path, Path]] = []
+    try:
+        for new, live in pairs:
             new.mkdir(parents=True, exist_ok=True)
-        aside = live.with_name(live.name + ".restore-old")
-        if live.exists():
+            aside = live.with_name(live.name + ".restore-old")
             shutil.rmtree(aside, ignore_errors=True)
-            live.rename(aside)
-        live.parent.mkdir(parents=True, exist_ok=True)
-        new.rename(live)
+            live.parent.mkdir(parents=True, exist_ok=True)
+            if live.exists():
+                live.rename(aside)
+            try:
+                new.rename(live)
+            except OSError:
+                if aside.exists() and not live.exists():
+                    aside.rename(live)
+                raise
+            done.append((live, aside))
+        cards = stage / "library" / "cards.json"
+        if cards.is_file():
+            config.CARDS_JSON.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(cards, config.CARDS_JSON)
+    except OSError as exc:
+        for live, aside in reversed(done):
+            shutil.rmtree(live, ignore_errors=True)
+            if aside.exists():
+                aside.rename(live)
+        raise BackupError(
+            f"The attached files could not be put in place (a file may be in use). The data was restored and the old files "
+            f"are unchanged; the new files are kept in {stage}. Close anything using the data folder, or restore the safety "
+            f"backup, and try again.") from exc
+    for _, aside in done:
         shutil.rmtree(aside, ignore_errors=True)
-        moved += 1
-    cards = stage / "library" / "cards.json"
-    if cards.is_file():
-        config.CARDS_JSON.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(cards, config.CARDS_JSON)
-    return moved
 
 
 def restore_installation(session: Session, archive: Archive, *, uid: int, creator: str,
@@ -125,19 +140,31 @@ def restore_installation(session: Session, archive: Archive, *, uid: int, creato
         stage, counts = _stage_files(archive)
         report.files = sum(counts.values())
         rows = _rows_by_table(archive)
+        if not rows.get("users"):
+            raise BackupError("This backup has no accounts, so restoring it would leave nobody able to sign in.")
         tables = _all_tables()
+        file_columns = {t.name: t.file for s in reg.SECTIONS.values() for t in s.tables if t.file}
         for table in reversed(tables):
             session.execute(text(f'DELETE FROM "{table.name}"'))
         for table in tables:
             names = {c.name for c in table.columns}
+            seen: set = set()
+            inserted = 0
             for row in rows.get(table.name, ()):
                 values = {k: v for k, v in row.items() if k in names}
                 if not values:
                     continue
+                if values.get("id") is not None:          # an order can sit in two people's partitions; insert it once
+                    if values["id"] in seen:
+                        continue
+                    seen.add(values["id"])
+                if table.name in file_columns and not valid_stored_name(values.get(file_columns[table.name][0])):
+                    values[file_columns[table.name][0]] = None      # a stored file name is one plain name or nothing
                 cols = list(values)
-                session.execute(text(f'INSERT OR IGNORE INTO "{table.name}" ({", ".join(chr(34) + c + chr(34) for c in cols)}) '
+                session.execute(text(f'INSERT INTO "{table.name}" ({", ".join(chr(34) + c + chr(34) for c in cols)}) '
                                      f'VALUES ({", ".join(":" + c for c in cols)})'), values)
-            report.rows[table.name] = len(rows.get(table.name, ()))
+                inserted += 1
+            report.rows[table.name] = inserted
         broken = session.execute(text("PRAGMA foreign_key_check")).all()
         if broken:
             raise BackupError("This backup is inconsistent (rows point at data that is not in it); nothing was changed.")
@@ -151,8 +178,6 @@ def restore_installation(session: Session, archive: Archive, *, uid: int, creato
         if isinstance(exc, IntegrityError):
             raise BackupError("This backup is inconsistent (rows point at data that is not in it); nothing was changed.") from exc
         raise BackupError(f"Restore failed and nothing was changed ({type(exc).__name__}).") from exc
-    try:
-        _swap(stage)
-    finally:
-        shutil.rmtree(stage, ignore_errors=True)
+    _swap(stage)                     # on failure the staged files are kept and BackupError explains
+    shutil.rmtree(stage, ignore_errors=True)
     return report

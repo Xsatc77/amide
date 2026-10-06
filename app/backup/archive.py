@@ -6,6 +6,7 @@ and refuses anything oversized or oddly named. Pure bytes in, bytes out."""
 import hashlib
 import io
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 
@@ -19,8 +20,24 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+_PART = re.compile(r"[A-Za-z0-9_()-][A-Za-z0-9._() -]*")
+_DEVICE = re.compile(r"(con|prn|aux|nul|com\d|lpt\d)(\..*)?", re.IGNORECASE)
+
+
 def _safe(name: str) -> bool:
-    return bool(name) and not name.startswith("/") and ".." not in name.split("/") and "\\" not in name
+    """A plain relative name: letters, digits and a few separators only, no drive letter, no `..`, no empty or
+    device-like parts, nothing Windows treats specially. It is the only gate between an archive entry and a path."""
+    if not name or len(name) > 240:
+        return False
+    for part in name.split("/"):
+        if not _PART.fullmatch(part) or part.endswith((".", " ")) or _DEVICE.fullmatch(part):
+            return False
+    return True
+
+
+def valid_stored_name(name) -> bool:
+    """A file name as stored in a database column: one plain component, no folders."""
+    return isinstance(name, str) and bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}", name)) and ".." not in name
 
 
 def write_archive(manifest: dict, entries: dict[str, bytes]) -> bytes:

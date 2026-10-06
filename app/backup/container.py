@@ -16,7 +16,7 @@ SALT_LEN = 16
 NONCE_LEN = 12
 SCRYPT_N = 2 ** 15              # about 100 ms and 32 MB per attempt
 MIN_PASSPHRASE = 8
-_N_MIN, _N_MAX = 2 ** 10, 2 ** 20   # accepted range when reading, so a crafted header cannot ask for gigabytes
+_N_MIN, _N_MAX = 2 ** 10, 2 ** 16   # accepted range when reading, so a crafted header cannot ask for gigabytes
 _HEADER = struct.Struct(">8sI16s12s")
 
 
