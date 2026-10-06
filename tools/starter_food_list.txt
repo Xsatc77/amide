@@ -1,0 +1,319 @@
+# Starter foods: Display name | serving | serving grams | USDA SR Legacy match words (! = must not contain)
+# Simple, everyday foods. Grams are standard household portions.
+
+# --- Eggs and dairy
+Egg, whole, hard-boiled | 1 large | 50 | egg whole cooked hard-boiled
+Egg, scrambled | 1 large | 61 | egg whole cooked scrambled
+Egg, fried | 1 large | 46 | egg whole cooked fried
+Egg whites, raw | 3 large whites | 99 | egg white raw fresh
+Milk, whole | 1 cup | 244 | milk whole 3.25% milkfat with added vitamin d !chocolate !dry
+Milk, 2% | 1 cup | 244 | milk reduced fat fluid 2% milkfat with added vitamin a and vitamin d
+Milk, 1% | 1 cup | 244 | milk lowfat fluid 1% milkfat with added vitamin a and vitamin d
+Milk, skim | 1 cup | 245 | milk nonfat fluid with added vitamin a and vitamin d
+Chocolate milk, lowfat | 1 cup | 250 | milk chocolate fluid commercial reduced fat
+Yogurt, Greek, plain, nonfat | 3/4 cup | 170 | yogurt greek plain nonfat
+Yogurt, Greek, plain, whole milk | 3/4 cup | 170 | yogurt greek plain whole milk
+Yogurt, plain, low fat | 1 cup | 245 | yogurt plain low fat !greek
+Yogurt, fruit, low fat | 1 cup | 245 | yogurt fruit low fat 9 grams protein per 8 ounce
+Cottage cheese, 2% | 1/2 cup | 113 | cheese cottage lowfat 2% milkfat
+Cottage cheese, 1% | 1/2 cup | 113 | cheese cottage lowfat 1% milkfat
+Cheddar cheese | 1 oz | 28 | cheese cheddar
+Mozzarella, part skim | 1 oz | 28 | cheese mozzarella part skim milk
+String cheese | 1 stick | 28 | cheese mozzarella part skim milk
+American cheese, sliced | 1 slice | 21 | cheese pasteurized process american without added vitamin d
+Swiss cheese | 1 oz | 28 | cheese swiss
+Parmesan, grated | 1 tbsp | 5 | cheese parmesan grated
+Feta cheese, crumbled | 1/4 cup | 38 | cheese feta
+Cream cheese | 1 tbsp | 14.5 | cheese cream
+Butter, salted | 1 tbsp | 14 | butter salted
+Sour cream | 2 tbsp | 24 | cream sour cultured
+Half and half | 1 tbsp | 15 | cream fluid half and half
+Ice cream, vanilla | 1/2 cup | 66 | ice creams vanilla !light !fat !rich !soft
+
+# --- Chicken and turkey
+Chicken breast, roasted | 3 oz | 85 | chicken broilers or fryers breast meat only cooked roasted
+Chicken breast, roasted, with skin | 3 oz | 85 | chicken broilers or fryers breast meat and skin cooked roasted
+Chicken thigh, roasted | 3 oz | 85 | chicken broilers or fryers thigh meat only cooked roasted
+Chicken drumstick, roasted | 1 drumstick | 52 | chicken broilers or fryers drumstick meat only cooked roasted
+Chicken, canned | 3 oz | 85 | chicken canned meat only with broth
+Chicken, rotisserie | 3 oz | 85 | chicken roasting meat only cooked roasted
+Turkey breast, roasted | 3 oz | 85 | turkey breast meat only roasted
+Turkey, ground, 93% lean, cooked | 3 oz | 85 | turkey ground 93% lean 7% fat pan-broiled crumbles
+Turkey, deli sliced | 2 oz | 56 | turkey breast sliced prepackaged
+Turkey bacon, cooked | 2 slices | 16 | bacon turkey microwaved
+
+# --- Beef and pork
+Ground beef, 90% lean, cooked | 3 oz | 85 | beef ground 90% lean meat 10% fat patty cooked broiled
+Ground beef, 85% lean, cooked | 3 oz | 85 | beef ground 85% lean meat 15% fat patty cooked broiled
+Ground beef, 80% lean, cooked | 3 oz | 85 | beef ground 80% lean meat 20% fat patty cooked broiled
+Sirloin steak, broiled | 3 oz | 85 | beef top sirloin steak separable lean only trimmed to 1/8 fat all grades cooked broiled
+Beef roast, cooked | 3 oz | 85 | beef chuck arm pot roast separable lean only choice cooked braised
+Beef jerky | 1 oz | 28 | beef jerky chopped and formed
+Pork loin, roasted | 3 oz | 85 | pork fresh loin whole separable lean only cooked roasted
+Pork chop, broiled | 3 oz | 85 | pork fresh loin center loin chops bone-in separable lean only cooked broiled
+Bacon, cooked | 3 slices | 24 | pork cured bacon cooked pan-fried
+Ham, sliced | 2 oz | 56 | ham sliced regular approximately 11% fat
+Pork sausage, cooked | 2 links | 54 | pork sausage link cooked
+Hot dog, beef | 1 frank | 45 | frankfurter beef
+Meatballs, frozen | 3 meatballs | 90 | meatballs frozen italian style
+
+# --- Fish and seafood
+Tuna, canned in water | 3 oz | 85 | fish tuna light canned in water drained solids
+Tuna, canned in oil | 3 oz | 85 | fish tuna light canned in oil drained solids
+Salmon, cooked | 3 oz | 85 | fish salmon atlantic farmed cooked dry heat
+Salmon, canned | 3 oz | 85 | fish salmon pink canned drained solids
+Tilapia, cooked | 3 oz | 85 | fish tilapia cooked dry heat
+Cod, cooked | 3 oz | 85 | fish cod atlantic cooked dry heat
+Shrimp, cooked | 3 oz | 85 | crustaceans shrimp mixed species cooked moist heat
+Sardines, canned in oil | 1 can | 92 | fish sardine atlantic in oil drained solids with bone
+Fish sticks, baked | 4 sticks | 100 | fish sticks frozen prepared
+Crab, canned | 3 oz | 85 | crustaceans crab blue canned
+
+# --- Rice, pasta, oats and grains
+White rice, cooked | 1 cup | 158 | rice white long-grain regular enriched cooked
+Brown rice, cooked | 1 cup | 195 | rice brown long-grain cooked
+Pasta, cooked | 1 cup | 140 | pasta cooked enriched without added salt
+Whole-wheat pasta, cooked | 1 cup | 140 | pasta whole-wheat cooked
+Quinoa, cooked | 1 cup | 185 | quinoa cooked
+Couscous, cooked | 1 cup | 157 | couscous cooked
+Oatmeal, cooked | 1 cup | 234 | cereals oats regular quick unenriched cooked with water without salt
+Oats, dry | 1/2 cup | 40 | cereals oats regular and quick not fortified dry
+Instant oatmeal, plain | 1 packet | 28 | cereals oats instant fortified plain dry
+Corn flakes | 1 cup | 28 | cereals ready-to-eat corn flakes
+Cereal, toasted oat rings | 1 cup | 28 | cereals ready-to-eat general mills cheerios
+Granola | 1/2 cup | 61 | cereals ready-to-eat granola homemade
+Pancakes | 1 pancake | 38 | pancakes plain prepared from recipe
+Waffle | 1 waffle | 75 | waffles plain prepared from recipe
+Ramen noodles, dry | 1 package | 43 | soup ramen noodle any flavor dry
+Mac and cheese, prepared | 1 cup | 200 | macaroni and cheese box mix with cheese sauce prepared
+
+# --- Bread and wraps
+White bread | 1 slice | 25 | bread white commercially prepared includes soft bread crumbs
+Whole-wheat bread | 1 slice | 28 | bread whole-wheat commercially prepared
+Bagel, plain | 1 medium | 105 | bagels plain enriched with calcium propionate
+English muffin | 1 muffin | 57 | english muffins plain enriched with calcium propionate
+Flour tortilla | 1 medium | 49 | tortillas ready-to-bake or -fry flour
+Corn tortilla | 1 tortilla | 26 | tortillas ready-to-bake or -fry corn
+Pita bread | 1 pita | 60 | bread pita white enriched
+Hamburger bun | 1 bun | 43 | rolls hamburger or hotdog plain
+Dinner roll | 1 roll | 28 | rolls dinner plain commercially prepared
+Saltine crackers | 5 crackers | 15 | crackers saltines includes oyster soda soup
+Graham crackers | 2 sheets | 28 | crackers graham plain or honey includes cinnamon
+Rice cake | 1 cake | 9 | snacks rice cakes brown rice plain
+
+# --- Potatoes
+Potato, baked | 1 medium | 173 | potatoes baked flesh and skin without salt
+Sweet potato, baked | 1 medium | 114 | sweet potato cooked baked in skin flesh without salt
+Mashed potatoes | 1/2 cup | 105 | potatoes mashed home-prepared whole milk and margarine added
+French fries, oven-heated | 3 oz | 85 | potatoes french fried all types salt added in processing frozen oven-heated
+Hash browns | 1/2 cup | 78 | potatoes hash brown home-prepared
+
+# --- Beans, lentils and soy
+Black beans, cooked | 1/2 cup | 86 | beans black mature seeds cooked boiled without salt
+Kidney beans, cooked | 1/2 cup | 89 | beans kidney all types mature seeds cooked boiled without salt
+Pinto beans, cooked | 1/2 cup | 86 | beans pinto mature seeds cooked boiled without salt
+Chickpeas, cooked | 1/2 cup | 82 | chickpeas garbanzo beans bengal gram mature seeds cooked boiled without salt
+Lentils, cooked | 1/2 cup | 99 | lentils mature seeds cooked boiled without salt
+Refried beans, canned | 1/2 cup | 126 | refried beans canned traditional style
+Baked beans, canned | 1/2 cup | 127 | beans baked canned plain or vegetarian
+Hummus | 2 tbsp | 30 | hummus commercial
+Tofu, firm | 1/2 cup | 126 | tofu raw firm prepared with calcium sulfate
+Edamame | 1/2 cup | 78 | edamame frozen prepared
+Soy milk | 1 cup | 243 | soymilk original and vanilla unfortified
+
+# --- Nuts, seeds and fats
+Peanut butter | 2 tbsp | 32 | peanut butter smooth style with salt !without
+Almond butter | 2 tbsp | 32 | nuts almond butter plain without salt added
+Almonds | 1 oz | 28 | nuts almonds
+Walnuts | 1 oz | 28 | nuts walnuts english
+Cashews, dry roasted | 1 oz | 28 | nuts cashew nuts dry roasted without salt added
+Peanuts, dry roasted | 1 oz | 28 | peanuts all types dry-roasted without salt
+Pistachios | 1 oz | 28 | nuts pistachio nuts raw
+Sunflower seeds | 1 oz | 28 | seeds sunflower seed kernels dry roasted without salt
+Chia seeds | 1 tbsp | 12 | seeds chia seeds dried
+Flaxseed, ground | 1 tbsp | 7 | seeds flaxseed
+Olive oil | 1 tbsp | 13.5 | oil olive salad or cooking
+Mayonnaise | 1 tbsp | 14 | salad dressing mayonnaise regular
+Avocado | 1/2 fruit | 100 | avocados raw all commercial varieties
+Ranch dressing | 2 tbsp | 30 | salad dressing ranch dressing regular
+Italian dressing | 2 tbsp | 30 | salad dressing italian dressing commercial regular
+
+# --- Condiments and sweets
+Ketchup | 1 tbsp | 17 | catsup
+Mustard, yellow | 1 tsp | 5 | mustard prepared yellow
+BBQ sauce | 2 tbsp | 36 | sauce barbecue
+Salsa | 2 tbsp | 32 | sauce salsa ready-to-serve
+Soy sauce | 1 tbsp | 16 | soy sauce made from soy and wheat shoyu
+Honey | 1 tbsp | 21 | honey
+Sugar, white | 1 tsp | 4 | sugars granulated
+Jelly | 1 tbsp | 20 | jams and preserves
+Maple syrup | 1/4 cup | 80 | syrups maple
+Pancake syrup | 1/4 cup | 80 | syrups table blends pancake
+Chocolate chip cookie | 1 cookie | 16 | cookies chocolate chip commercially prepared regular
+Brownie | 1 square | 56 | cookies brownies commercially prepared
+Dark chocolate | 1 oz | 28 | candies semisweet chocolate
+
+# --- Fruit
+Banana | 1 medium | 118 | bananas raw
+Apple | 1 medium | 182 | apples raw with skin distribution !without
+Orange | 1 medium | 131 | oranges raw all commercial varieties
+Strawberries | 1 cup | 152 | strawberries raw
+Blueberries | 1 cup | 148 | blueberries raw
+Raspberries | 1 cup | 123 | raspberries raw
+Grapes | 1 cup | 151 | grapes red or green european type such as thompson seedless raw
+Watermelon | 1 cup diced | 152 | watermelon raw
+Cantaloupe | 1 cup | 177 | melons cantaloupe raw
+Pineapple | 1 cup | 165 | pineapple raw all varieties
+Mango | 1 cup | 165 | mangos raw
+Peach | 1 medium | 150 | peaches yellow raw
+Pear | 1 medium | 178 | pears raw
+Kiwi | 1 medium | 69 | kiwifruit green raw
+Grapefruit | 1/2 fruit | 123 | grapefruit raw pink and red
+Cherries, sweet | 1 cup | 138 | cherries sweet raw
+Plum | 1 medium | 66 | plums raw
+Tangerine | 1 medium | 88 | tangerines mandarin oranges raw
+Raisins | 1/4 cup | 40 | raisins seedless
+Dried cranberries | 1/4 cup | 40 | cranberries dried sweetened
+Applesauce, unsweetened | 1/2 cup | 122 | applesauce canned unsweetened without added ascorbic acid
+Orange juice | 1 cup | 248 | orange juice raw
+Apple juice | 1 cup | 248 | apple juice canned or bottled unsweetened without added ascorbic acid
+Dates, Medjool | 1 date | 24 | dates medjool
+
+# --- Vegetables
+Broccoli, cooked | 1 cup | 156 | broccoli cooked boiled drained without salt
+Broccoli, raw | 1 cup chopped | 91 | broccoli raw
+Carrots, raw | 1 medium | 61 | carrots raw
+Baby carrots | 10 carrots | 100 | carrots baby raw
+Spinach, raw | 1 cup | 30 | spinach raw
+Spinach, cooked | 1/2 cup | 90 | spinach cooked boiled drained without salt
+Kale, raw | 1 cup | 21 | kale raw
+Romaine lettuce | 1 cup shredded | 47 | lettuce cos or romaine raw
+Iceberg lettuce | 1 cup shredded | 72 | lettuce iceberg includes crisphead types raw
+Tomato | 1 medium | 123 | tomatoes red ripe raw year round average
+Cucumber | 1/2 cup slices | 52 | cucumber with peel raw
+Bell pepper, green | 1 medium | 119 | peppers sweet green raw
+Bell pepper, red | 1 medium | 119 | peppers sweet red raw
+Onion | 1/2 cup chopped | 80 | onions raw
+Green beans, cooked | 1/2 cup | 62 | beans snap green cooked boiled drained without salt
+Corn, cooked | 1/2 cup | 82 | corn sweet yellow cooked boiled drained without salt
+Green peas, cooked | 1/2 cup | 80 | peas green cooked boiled drained without salt
+Cauliflower, cooked | 1/2 cup | 62 | cauliflower cooked boiled drained without salt
+Zucchini, cooked | 1/2 cup | 90 | squash summer zucchini includes skin cooked boiled drained without salt
+Mushrooms, raw | 1 cup | 70 | mushrooms white raw
+Celery | 1 stalk | 40 | celery raw
+Asparagus, cooked | 4 spears | 60 | asparagus cooked boiled drained !frozen !canned !salt
+Cabbage, raw | 1 cup | 70 | cabbage raw
+Brussels sprouts, cooked | 1/2 cup | 78 | brussels sprouts cooked boiled drained without salt
+Butternut squash, cooked | 1/2 cup | 102 | squash winter butternut cooked baked without salt
+Mixed vegetables, frozen, cooked | 1/2 cup | 91 | vegetables mixed frozen cooked boiled drained without salt
+Dill pickle | 1 spear | 35 | pickles cucumber dill or kosher dill
+Black olives | 5 large | 22 | olives ripe canned small-extra large
+Tomato sauce, canned | 1/2 cup | 122 | tomato products canned sauce
+Pasta sauce | 1/2 cup | 125 | sauce pasta spaghetti marinara ready-to-serve
+Canned tomatoes | 1/2 cup | 121 | tomatoes red ripe canned packed in tomato juice
+
+# --- Snacks
+Popcorn, air-popped | 3 cups | 24 | snacks popcorn air-popped
+Potato chips | 1 oz | 28 | snacks potato chips plain salted
+Tortilla chips | 1 oz | 28 | snacks tortilla chips plain white corn
+Pretzels | 1 oz | 28 | snacks pretzels hard plain salted
+Granola bar | 1 bar | 24 | snacks granola bars hard plain
+
+# --- Drinks
+Coffee, black | 1 cup | 237 | beverages coffee brewed prepared with tap water
+Tea, black | 1 cup | 237 | beverages tea black brewed prepared with tap water
+Cola | 12 oz | 368 | carbonated cola regular
+Beer, regular | 12 oz | 356 | alcoholic beverage beer regular all
+Red wine | 5 oz | 147 | alcoholic beverage wine table red
+Almond milk, unsweetened | 1 cup | 262 | beverages almond milk unsweetened shelf stable
+Protein powder, whey | 1 scoop | 31 | beverages protein powder whey based
+
+# --- Soups and prepared
+Chicken noodle soup | 1 cup | 241 | soup chicken noodle canned prepared with equal volume water
+Tomato soup | 1 cup | 244 | soup tomato canned prepared with equal volume water !rice !beef !bisque
+Chili with beans, canned | 1 cup | 253 | chili with beans canned
+Pizza, cheese | 1 slice | 107 | pizza cheese topping regular crust frozen cooked
+Cheeseburger, fast food | 1 sandwich | 119 | fast foods cheeseburger single regular patty plain
+Chicken tenders, fast food | 3 pieces | 90 | fast foods chicken tenders
+
+# --- More meats, deli and fish
+Salami | 2 slices | 46 | salami cooked beef and pork
+Pepperoni | 1 oz | 28 | pepperoni beef and pork sliced
+Bologna | 1 slice | 28 | bologna beef and pork
+Roast beef, deli sliced | 2 oz | 56 | roast beef deli style prepackaged sliced
+Chicken breast, deli sliced | 2 oz | 56 | chicken breast fat-free oven-roasted
+Luncheon meat, canned | 2 oz | 56 | luncheon meat pork canned
+Bratwurst, cooked | 1 link | 85 | bratwurst pork cooked
+Pork ribs, cooked | 3 oz | 85 | pork fresh spareribs separable lean and fat cooked braised
+Lamb loin chop, broiled | 3 oz | 85 | lamb loin separable lean only 1/4 choice cooked broiled
+Catfish, cooked | 3 oz | 85 | fish catfish channel farmed cooked dry heat
+Halibut, cooked | 3 oz | 85 | fish halibut atlantic and pacific cooked dry heat
+Trout, cooked | 3 oz | 85 | fish trout rainbow farmed cooked dry heat
+Scallops, cooked | 3 oz | 85 | mollusks scallop mixed species cooked breaded and fried
+Lobster, cooked | 3 oz | 85 | crustaceans lobster northern cooked moist heat
+Tuna salad | 1/2 cup | 103 | tuna salad
+
+# --- More dairy and grains
+Heavy cream | 1 tbsp | 15 | cream fluid heavy whipping
+Buttermilk, lowfat | 1 cup | 245 | milk buttermilk fluid cultured lowfat
+Ricotta, part skim | 1/2 cup | 124 | cheese ricotta part skim milk
+Provolone | 1 oz | 28 | cheese provolone
+Barley, cooked | 1 cup | 157 | barley pearled cooked
+Bulgur, cooked | 1 cup | 182 | bulgur cooked
+Grits, cooked | 1 cup | 242 | cereals corn grits white regular and quick enriched cooked with water
+Cream of wheat, cooked | 1 cup | 251 | cereals farina enriched cooked with water
+Bran flakes | 1 cup | 39 | cereals ready-to-eat wheat bran flakes
+Puffed rice cereal | 1 cup | 14 | cereals ready-to-eat rice puffed
+Blueberry muffin | 1 large muffin | 113 | muffins blueberry commercially prepared
+Cornbread | 1 piece | 65 | cornbread prepared from recipe made with low fat (2%) milk
+Biscuit | 1 biscuit | 60 | biscuits plain or buttermilk prepared from recipe
+Croissant | 1 medium | 57 | croissants butter
+Donut, glazed | 1 donut | 60 | doughnuts yeast-leavened glazed enriched
+Popcorn, oil-popped | 3 cups | 33 | snacks popcorn oil-popped white popcorn
+Boiled potato | 1 medium | 167 | potatoes boiled cooked in skin flesh without salt
+
+# --- More fruit and vegetables
+Blackberries | 1 cup | 144 | blackberries raw
+Apricots | 3 medium | 105 | apricots raw
+Nectarine | 1 medium | 142 | nectarines raw
+Papaya | 1 cup | 145 | papayas raw
+Lemon | 1 fruit | 58 | lemons raw without peel
+Prunes | 5 prunes | 42 | plums dried prunes uncooked
+Fruit cocktail, canned | 1/2 cup | 124 | fruit cocktail canned juice pack solids and liquids
+Peaches, canned | 1/2 cup | 124 | peaches canned juice pack solids and liquids
+Pears, canned | 1/2 cup | 124 | pears canned juice pack solids and liquids
+Pumpkin, canned | 1/2 cup | 122 | pumpkin canned without salt
+Beets, canned | 1/2 cup | 85 | beets canned drained solids
+Eggplant, cooked | 1/2 cup | 49 | eggplant cooked boiled drained without salt
+Radishes | 1/2 cup | 58 | radishes raw
+Green onion | 1/4 cup chopped | 25 | onions spring or scallions includes tops and bulb raw
+Garlic | 1 clove | 3 | garlic raw
+Sweet corn on the cob | 1 ear | 90 | corn sweet yellow cooked boiled drained without salt
+Collard greens, cooked | 1/2 cup | 95 | collards cooked boiled drained without salt
+Sauerkraut | 1/2 cup | 71 | sauerkraut canned solids and liquids
+Potato salad | 1/2 cup | 125 | potato salad home-prepared
+Cranberry juice cocktail | 1 cup | 253 | cranberry juice cocktail bottled
+Tomato juice | 1 cup | 243 | tomato juice canned without salt added
+Grape juice | 1 cup | 253 | grape juice canned or bottled unsweetened without added ascorbic acid
+Lemonade | 1 cup | 248 | beverages lemonade powder prepared with water
+Hot chocolate | 1 cup | 266 | beverages cocoa mix powder prepared with water
+Energy drink | 8 oz | 240 | beverages energy drink
+Gelatin dessert, prepared | 1/2 cup | 135 | gelatin desserts dry mix prepared with water
+Pudding, chocolate | 1/2 cup | 130 | puddings chocolate ready-to-eat
+Sherbet | 1/2 cup | 97 | sherbet orange
+Ice pop | 1 pop | 59 | ice pops
+Milk chocolate candy bar | 1 bar | 43 | candies milk chocolate
+Jelly beans | 10 beans | 30 | candies jellybeans
+Apple pie | 1 slice | 125 | pie apple commercially prepared enriched flour
+Cake, yellow, with frosting | 1 slice | 64 | cake yellow commercially prepared with chocolate frosting
+Margarine | 1 tbsp | 14 | margarine regular 80% fat
+Coconut oil | 1 tbsp | 13.6 | oil coconut
+Vegetable oil | 1 tbsp | 13.6 | oil vegetable soybean refined
+Tartar sauce | 1 tbsp | 14 | tartar sauce
+Gravy, brown | 1/4 cup | 60 | gravy beef canned ready-to-serve
+Beef stew, canned | 1 cup | 252 | beef stew canned entree
+Spaghetti with meatballs, canned | 1 cup | 252 | spaghetti with meatballs in tomato sauce canned
+Taco, fast food | 1 taco | 78 | fast foods taco with beef cheese and lettuce hard shell
+Burrito, bean and cheese | 1 burrito | 160 | fast foods burrito with beans and cheese
+French fries, fast food | 1 medium order | 117 | fast foods potato french fried in vegetable oil
+Cookie, oatmeal raisin | 1 cookie | 18 | cookies oatmeal with raisins

@@ -1,8 +1,2812 @@
 [
-  {"name": "Egg, whole, hard-boiled", "serving": "1 large", "serving_g": 50, "calories": 77.5, "protein_g": 6.3, "carb_g": 0.6, "fat_g": 5.3, "fiber_g": 0},
-  {"name": "Chicken breast, roasted", "serving": "3 oz", "serving_g": 85, "calories": 140, "protein_g": 26.4, "carb_g": 0, "fat_g": 3, "fiber_g": 0},
-  {"name": "White rice, cooked", "serving": "1 cup", "serving_g": 158, "calories": 205, "protein_g": 4.2, "carb_g": 44.5, "fat_g": 0.4, "fiber_g": 0.6},
-  {"name": "Oatmeal, cooked", "serving": "1 cup", "serving_g": 234, "calories": 166, "protein_g": 5.9, "carb_g": 28.1, "fat_g": 3.6, "fiber_g": 4},
-  {"name": "Banana", "serving": "1 medium", "serving_g": 118, "calories": 105, "protein_g": 1.3, "carb_g": 27, "fat_g": 0.4, "fiber_g": 3.1},
-  {"name": "Peanut butter", "serving": "2 tbsp", "serving_g": 32, "calories": 188, "protein_g": 8, "carb_g": 6.9, "fat_g": 16, "fiber_g": 2.6}
+ {
+  "name": "Almond butter",
+  "serving": "2 tbsp",
+  "serving_g": 32.0,
+  "calories": 196.5,
+  "protein_g": 6.7,
+  "fat_g": 17.8,
+  "carb_g": 6.0,
+  "fiber_g": 3.3
+ },
+ {
+  "name": "Almond milk, unsweetened",
+  "serving": "1 cup",
+  "serving_g": 262.0,
+  "calories": 39.3,
+  "protein_g": 1.0,
+  "fat_g": 2.5,
+  "carb_g": 3.4,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Almonds",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 162.1,
+  "protein_g": 5.9,
+  "fat_g": 14.0,
+  "carb_g": 6.0,
+  "fiber_g": 3.5
+ },
+ {
+  "name": "American cheese, sliced",
+  "serving": "1 slice",
+  "serving_g": 21.0,
+  "calories": 77.9,
+  "protein_g": 3.8,
+  "fat_g": 6.7,
+  "carb_g": 0.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Apple",
+  "serving": "1 medium",
+  "serving_g": 182.0,
+  "calories": 94.6,
+  "protein_g": 0.5,
+  "fat_g": 0.3,
+  "carb_g": 25.1,
+  "fiber_g": 4.4
+ },
+ {
+  "name": "Apple juice",
+  "serving": "1 cup",
+  "serving_g": 248.0,
+  "calories": 114.1,
+  "protein_g": 0.2,
+  "fat_g": 0.3,
+  "carb_g": 28.0,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Apple pie",
+  "serving": "1 slice",
+  "serving_g": 125.0,
+  "calories": 296.2,
+  "protein_g": 2.4,
+  "fat_g": 13.8,
+  "carb_g": 42.5,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Applesauce, unsweetened",
+  "serving": "1/2 cup",
+  "serving_g": 122.0,
+  "calories": 51.2,
+  "protein_g": 0.2,
+  "fat_g": 0.1,
+  "carb_g": 13.7,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Apricots",
+  "serving": "3 medium",
+  "serving_g": 105.0,
+  "calories": 50.4,
+  "protein_g": 1.5,
+  "fat_g": 0.4,
+  "carb_g": 11.7,
+  "fiber_g": 2.1
+ },
+ {
+  "name": "Asparagus, cooked",
+  "serving": "4 spears",
+  "serving_g": 60.0,
+  "calories": 13.2,
+  "protein_g": 1.4,
+  "fat_g": 0.1,
+  "carb_g": 2.5,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Avocado",
+  "serving": "1/2 fruit",
+  "serving_g": 100.0,
+  "calories": 160.0,
+  "protein_g": 2.0,
+  "fat_g": 14.7,
+  "carb_g": 8.5,
+  "fiber_g": 6.7
+ },
+ {
+  "name": "Baby carrots",
+  "serving": "10 carrots",
+  "serving_g": 100.0,
+  "calories": 35.0,
+  "protein_g": 0.6,
+  "fat_g": 0.1,
+  "carb_g": 8.2,
+  "fiber_g": 2.9
+ },
+ {
+  "name": "Bacon, cooked",
+  "serving": "3 slices",
+  "serving_g": 24.0,
+  "calories": 112.3,
+  "protein_g": 8.1,
+  "fat_g": 8.4,
+  "carb_g": 0.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Bagel, plain",
+  "serving": "1 medium",
+  "serving_g": 105.0,
+  "calories": 277.2,
+  "protein_g": 11.1,
+  "fat_g": 1.4,
+  "carb_g": 55.0,
+  "fiber_g": 1.7
+ },
+ {
+  "name": "Baked beans, canned",
+  "serving": "1/2 cup",
+  "serving_g": 127.0,
+  "calories": 119.4,
+  "protein_g": 6.0,
+  "fat_g": 0.5,
+  "carb_g": 26.8,
+  "fiber_g": 5.2
+ },
+ {
+  "name": "Banana",
+  "serving": "1 medium",
+  "serving_g": 118.0,
+  "calories": 105.0,
+  "protein_g": 1.3,
+  "fat_g": 0.4,
+  "carb_g": 27.0,
+  "fiber_g": 3.1
+ },
+ {
+  "name": "Barley, cooked",
+  "serving": "1 cup",
+  "serving_g": 157.0,
+  "calories": 193.1,
+  "protein_g": 3.5,
+  "fat_g": 0.7,
+  "carb_g": 44.3,
+  "fiber_g": 6.0
+ },
+ {
+  "name": "BBQ sauce",
+  "serving": "2 tbsp",
+  "serving_g": 36.0,
+  "calories": 61.9,
+  "protein_g": 0.3,
+  "fat_g": 0.2,
+  "carb_g": 14.7,
+  "fiber_g": 0.3
+ },
+ {
+  "name": "Beef jerky",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 114.8,
+  "protein_g": 9.3,
+  "fat_g": 7.2,
+  "carb_g": 3.1,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Beef roast, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 180.2,
+  "protein_g": 28.4,
+  "fat_g": 6.5,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Beef stew, canned",
+  "serving": "1 cup",
+  "serving_g": 252.0,
+  "calories": 249.5,
+  "protein_g": 11.1,
+  "fat_g": 13.9,
+  "carb_g": 19.8,
+  "fiber_g": 2.3
+ },
+ {
+  "name": "Beer, regular",
+  "serving": "12 oz",
+  "serving_g": 356.0,
+  "calories": 153.1,
+  "protein_g": 1.6,
+  "fat_g": 0.0,
+  "carb_g": 12.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Beets, canned",
+  "serving": "1/2 cup",
+  "serving_g": 85.0,
+  "calories": 26.4,
+  "protein_g": 0.8,
+  "fat_g": 0.1,
+  "carb_g": 6.1,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Bell pepper, green",
+  "serving": "1 medium",
+  "serving_g": 119.0,
+  "calories": 23.8,
+  "protein_g": 1.0,
+  "fat_g": 0.2,
+  "carb_g": 5.5,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Bell pepper, red",
+  "serving": "1 medium",
+  "serving_g": 119.0,
+  "calories": 30.9,
+  "protein_g": 1.2,
+  "fat_g": 0.4,
+  "carb_g": 7.2,
+  "fiber_g": 2.5
+ },
+ {
+  "name": "Biscuit",
+  "serving": "1 biscuit",
+  "serving_g": 60.0,
+  "calories": 211.8,
+  "protein_g": 4.2,
+  "fat_g": 9.8,
+  "carb_g": 26.8,
+  "fiber_g": 0.9
+ },
+ {
+  "name": "Black beans, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 86.0,
+  "calories": 113.5,
+  "protein_g": 7.6,
+  "fat_g": 0.5,
+  "carb_g": 20.4,
+  "fiber_g": 7.5
+ },
+ {
+  "name": "Black olives",
+  "serving": "5 large",
+  "serving_g": 22.0,
+  "calories": 25.5,
+  "protein_g": 0.2,
+  "fat_g": 2.4,
+  "carb_g": 1.3,
+  "fiber_g": 0.4
+ },
+ {
+  "name": "Blackberries",
+  "serving": "1 cup",
+  "serving_g": 144.0,
+  "calories": 61.9,
+  "protein_g": 2.0,
+  "fat_g": 0.7,
+  "carb_g": 13.8,
+  "fiber_g": 7.6
+ },
+ {
+  "name": "Blueberries",
+  "serving": "1 cup",
+  "serving_g": 148.0,
+  "calories": 84.4,
+  "protein_g": 1.1,
+  "fat_g": 0.5,
+  "carb_g": 21.4,
+  "fiber_g": 3.6
+ },
+ {
+  "name": "Blueberry muffin",
+  "serving": "1 large muffin",
+  "serving_g": 113.0,
+  "calories": 423.8,
+  "protein_g": 5.1,
+  "fat_g": 18.2,
+  "carb_g": 59.9,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Boiled potato",
+  "serving": "1 medium",
+  "serving_g": 167.0,
+  "calories": 145.3,
+  "protein_g": 3.1,
+  "fat_g": 0.2,
+  "carb_g": 33.6,
+  "fiber_g": 3.0
+ },
+ {
+  "name": "Bologna",
+  "serving": "1 slice",
+  "serving_g": 28.0,
+  "calories": 86.2,
+  "protein_g": 4.3,
+  "fat_g": 6.9,
+  "carb_g": 1.5,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Bran flakes",
+  "serving": "1 cup",
+  "serving_g": 39.0,
+  "calories": 152.1,
+  "protein_g": 4.0,
+  "fat_g": 1.3,
+  "carb_g": 31.1,
+  "fiber_g": 6.6
+ },
+ {
+  "name": "Bratwurst, cooked",
+  "serving": "1 link",
+  "serving_g": 85.0,
+  "calories": 283.1,
+  "protein_g": 11.7,
+  "fat_g": 24.8,
+  "carb_g": 2.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Broccoli, cooked",
+  "serving": "1 cup",
+  "serving_g": 156.0,
+  "calories": 54.6,
+  "protein_g": 3.7,
+  "fat_g": 0.6,
+  "carb_g": 11.2,
+  "fiber_g": 5.1
+ },
+ {
+  "name": "Broccoli, raw",
+  "serving": "1 cup chopped",
+  "serving_g": 91.0,
+  "calories": 30.9,
+  "protein_g": 2.6,
+  "fat_g": 0.3,
+  "carb_g": 6.0,
+  "fiber_g": 2.4
+ },
+ {
+  "name": "Brown rice, cooked",
+  "serving": "1 cup",
+  "serving_g": 195.0,
+  "calories": 239.8,
+  "protein_g": 5.3,
+  "fat_g": 1.9,
+  "carb_g": 49.9,
+  "fiber_g": 3.1
+ },
+ {
+  "name": "Brownie",
+  "serving": "1 square",
+  "serving_g": 56.0,
+  "calories": 226.8,
+  "protein_g": 2.7,
+  "fat_g": 9.1,
+  "carb_g": 35.8,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Brussels sprouts, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 78.0,
+  "calories": 28.1,
+  "protein_g": 2.0,
+  "fat_g": 0.4,
+  "carb_g": 5.5,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Bulgur, cooked",
+  "serving": "1 cup",
+  "serving_g": 182.0,
+  "calories": 151.1,
+  "protein_g": 5.6,
+  "fat_g": 0.4,
+  "carb_g": 33.8,
+  "fiber_g": 8.2
+ },
+ {
+  "name": "Burrito, bean and cheese",
+  "serving": "1 burrito",
+  "serving_g": 160.0,
+  "calories": 328.0,
+  "protein_g": 11.8,
+  "fat_g": 9.7,
+  "carb_g": 50.0,
+  "fiber_g": 6.7
+ },
+ {
+  "name": "Butter, salted",
+  "serving": "1 tbsp",
+  "serving_g": 14.0,
+  "calories": 100.4,
+  "protein_g": 0.1,
+  "fat_g": 11.4,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Buttermilk, lowfat",
+  "serving": "1 cup",
+  "serving_g": 245.0,
+  "calories": 98.0,
+  "protein_g": 8.1,
+  "fat_g": 2.6,
+  "carb_g": 11.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Butternut squash, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 102.0,
+  "calories": 40.8,
+  "protein_g": 0.9,
+  "fat_g": 0.1,
+  "carb_g": 10.7,
+  "fiber_g": 3.3
+ },
+ {
+  "name": "Cabbage, raw",
+  "serving": "1 cup",
+  "serving_g": 70.0,
+  "calories": 17.5,
+  "protein_g": 0.9,
+  "fat_g": 0.1,
+  "carb_g": 4.1,
+  "fiber_g": 1.8
+ },
+ {
+  "name": "Cake, yellow, with frosting",
+  "serving": "1 slice",
+  "serving_g": 64.0,
+  "calories": 242.6,
+  "protein_g": 2.0,
+  "fat_g": 11.4,
+  "carb_g": 35.4,
+  "fiber_g": 1.0
+ },
+ {
+  "name": "Canned tomatoes",
+  "serving": "1/2 cup",
+  "serving_g": 121.0,
+  "calories": 19.4,
+  "protein_g": 1.0,
+  "fat_g": 0.3,
+  "carb_g": 4.2,
+  "fiber_g": 2.3
+ },
+ {
+  "name": "Cantaloupe",
+  "serving": "1 cup",
+  "serving_g": 177.0,
+  "calories": 60.2,
+  "protein_g": 1.5,
+  "fat_g": 0.3,
+  "carb_g": 14.4,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Carrots, raw",
+  "serving": "1 medium",
+  "serving_g": 61.0,
+  "calories": 25.0,
+  "protein_g": 0.6,
+  "fat_g": 0.1,
+  "carb_g": 5.8,
+  "fiber_g": 1.7
+ },
+ {
+  "name": "Cashews, dry roasted",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 160.7,
+  "protein_g": 4.3,
+  "fat_g": 13.0,
+  "carb_g": 9.2,
+  "fiber_g": 0.8
+ },
+ {
+  "name": "Catfish, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 122.4,
+  "protein_g": 15.7,
+  "fat_g": 6.1,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cauliflower, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 62.0,
+  "calories": 14.3,
+  "protein_g": 1.1,
+  "fat_g": 0.3,
+  "carb_g": 2.5,
+  "fiber_g": 1.4
+ },
+ {
+  "name": "Celery",
+  "serving": "1 stalk",
+  "serving_g": 40.0,
+  "calories": 5.6,
+  "protein_g": 0.3,
+  "fat_g": 0.1,
+  "carb_g": 1.2,
+  "fiber_g": 0.6
+ },
+ {
+  "name": "Cereal, toasted oat rings",
+  "serving": "1 cup",
+  "serving_g": 28.0,
+  "calories": 104.2,
+  "protein_g": 3.5,
+  "fat_g": 1.8,
+  "carb_g": 20.5,
+  "fiber_g": 2.8
+ },
+ {
+  "name": "Cheddar cheese",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 114.8,
+  "protein_g": 6.8,
+  "fat_g": 9.5,
+  "carb_g": 0.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cheeseburger, fast food",
+  "serving": "1 sandwich",
+  "serving_g": 119.0,
+  "calories": 366.5,
+  "protein_g": 19.6,
+  "fat_g": 17.5,
+  "carb_g": 33.4,
+  "fiber_g": 2.4
+ },
+ {
+  "name": "Cherries, sweet",
+  "serving": "1 cup",
+  "serving_g": 138.0,
+  "calories": 86.9,
+  "protein_g": 1.5,
+  "fat_g": 0.3,
+  "carb_g": 22.1,
+  "fiber_g": 2.9
+ },
+ {
+  "name": "Chia seeds",
+  "serving": "1 tbsp",
+  "serving_g": 12.0,
+  "calories": 58.3,
+  "protein_g": 2.0,
+  "fat_g": 3.7,
+  "carb_g": 5.1,
+  "fiber_g": 4.1
+ },
+ {
+  "name": "Chicken breast, deli sliced",
+  "serving": "2 oz",
+  "serving_g": 56.0,
+  "calories": 44.2,
+  "protein_g": 9.4,
+  "fat_g": 0.2,
+  "carb_g": 1.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chicken breast, roasted",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 140.2,
+  "protein_g": 26.4,
+  "fat_g": 3.0,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chicken breast, roasted, with skin",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 167.4,
+  "protein_g": 25.3,
+  "fat_g": 6.6,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chicken drumstick, roasted",
+  "serving": "1 drumstick",
+  "serving_g": 52.0,
+  "calories": 80.6,
+  "protein_g": 12.6,
+  "fat_g": 3.0,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chicken noodle soup",
+  "serving": "1 cup",
+  "serving_g": 241.0,
+  "calories": 57.8,
+  "protein_g": 2.8,
+  "fat_g": 1.8,
+  "carb_g": 7.2,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Chicken tenders, fast food",
+  "serving": "3 pieces",
+  "serving_g": 90.0,
+  "calories": 243.9,
+  "protein_g": 17.3,
+  "fat_g": 12.6,
+  "carb_g": 15.5,
+  "fiber_g": 1.1
+ },
+ {
+  "name": "Chicken thigh, roasted",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 152.2,
+  "protein_g": 21.0,
+  "fat_g": 6.9,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chicken, canned",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 140.2,
+  "protein_g": 18.5,
+  "fat_g": 6.8,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chicken, rotisserie",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 141.9,
+  "protein_g": 21.3,
+  "fat_g": 5.6,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Chickpeas, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 82.0,
+  "calories": 134.5,
+  "protein_g": 7.3,
+  "fat_g": 2.1,
+  "carb_g": 22.5,
+  "fiber_g": 6.2
+ },
+ {
+  "name": "Chili with beans, canned",
+  "serving": "1 cup",
+  "serving_g": 253.0,
+  "calories": 260.6,
+  "protein_g": 15.5,
+  "fat_g": 9.5,
+  "carb_g": 33.5,
+  "fiber_g": 8.3
+ },
+ {
+  "name": "Chocolate chip cookie",
+  "serving": "1 cookie",
+  "serving_g": 16.0,
+  "calories": 72.2,
+  "protein_g": 1.0,
+  "fat_g": 2.9,
+  "carb_g": 10.8,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Chocolate milk, lowfat",
+  "serving": "1 cup",
+  "serving_g": 250.0,
+  "calories": 195.0,
+  "protein_g": 7.5,
+  "fat_g": 4.8,
+  "carb_g": 30.3,
+  "fiber_g": 1.8
+ },
+ {
+  "name": "Coconut oil",
+  "serving": "1 tbsp",
+  "serving_g": 13.6,
+  "calories": 121.3,
+  "protein_g": 0.0,
+  "fat_g": 13.5,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cod, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 89.2,
+  "protein_g": 19.4,
+  "fat_g": 0.7,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Coffee, black",
+  "serving": "1 cup",
+  "serving_g": 237.0,
+  "calories": 2.4,
+  "protein_g": 0.3,
+  "fat_g": 0.0,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cola",
+  "serving": "12 oz",
+  "serving_g": 368.0,
+  "calories": 154.6,
+  "protein_g": 0.0,
+  "fat_g": 0.9,
+  "carb_g": 38.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Collard greens, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 95.0,
+  "calories": 31.4,
+  "protein_g": 2.6,
+  "fat_g": 0.7,
+  "carb_g": 5.4,
+  "fiber_g": 3.8
+ },
+ {
+  "name": "Cookie, oatmeal raisin",
+  "serving": "1 cookie",
+  "serving_g": 18.0,
+  "calories": 79.4,
+  "protein_g": 1.1,
+  "fat_g": 2.8,
+  "carb_g": 12.4,
+  "fiber_g": 0.6
+ },
+ {
+  "name": "Corn flakes",
+  "serving": "1 cup",
+  "serving_g": 28.0,
+  "calories": 107.5,
+  "protein_g": 1.7,
+  "fat_g": 0.3,
+  "carb_g": 24.6,
+  "fiber_g": 0.8
+ },
+ {
+  "name": "Corn tortilla",
+  "serving": "1 tortilla",
+  "serving_g": 26.0,
+  "calories": 56.7,
+  "protein_g": 1.5,
+  "fat_g": 0.7,
+  "carb_g": 11.6,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Corn, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 82.0,
+  "calories": 78.7,
+  "protein_g": 2.8,
+  "fat_g": 1.2,
+  "carb_g": 17.2,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Cornbread",
+  "serving": "1 piece",
+  "serving_g": 65.0,
+  "calories": 172.9,
+  "protein_g": 4.4,
+  "fat_g": 4.6,
+  "carb_g": 28.3,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cottage cheese, 1%",
+  "serving": "1/2 cup",
+  "serving_g": 113.0,
+  "calories": 81.4,
+  "protein_g": 14.0,
+  "fat_g": 1.2,
+  "carb_g": 3.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cottage cheese, 2%",
+  "serving": "1/2 cup",
+  "serving_g": 113.0,
+  "calories": 91.5,
+  "protein_g": 11.8,
+  "fat_g": 2.6,
+  "carb_g": 5.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Couscous, cooked",
+  "serving": "1 cup",
+  "serving_g": 157.0,
+  "calories": 175.8,
+  "protein_g": 6.0,
+  "fat_g": 0.3,
+  "carb_g": 36.5,
+  "fiber_g": 2.2
+ },
+ {
+  "name": "Crab, canned",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 70.5,
+  "protein_g": 15.2,
+  "fat_g": 0.6,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cranberry juice cocktail",
+  "serving": "1 cup",
+  "serving_g": 253.0,
+  "calories": 136.6,
+  "protein_g": 0.0,
+  "fat_g": 0.3,
+  "carb_g": 34.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cream cheese",
+  "serving": "1 tbsp",
+  "serving_g": 14.5,
+  "calories": 50.8,
+  "protein_g": 0.9,
+  "fat_g": 5.0,
+  "carb_g": 0.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Cream of wheat, cooked",
+  "serving": "1 cup",
+  "serving_g": 251.0,
+  "calories": 133.0,
+  "protein_g": 4.6,
+  "fat_g": 0.9,
+  "carb_g": 27.4,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Croissant",
+  "serving": "1 medium",
+  "serving_g": 57.0,
+  "calories": 231.4,
+  "protein_g": 4.7,
+  "fat_g": 12.0,
+  "carb_g": 26.1,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Cucumber",
+  "serving": "1/2 cup slices",
+  "serving_g": 52.0,
+  "calories": 7.8,
+  "protein_g": 0.3,
+  "fat_g": 0.1,
+  "carb_g": 1.9,
+  "fiber_g": 0.3
+ },
+ {
+  "name": "Dark chocolate",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 134.4,
+  "protein_g": 1.2,
+  "fat_g": 8.4,
+  "carb_g": 17.9,
+  "fiber_g": 1.7
+ },
+ {
+  "name": "Dates, Medjool",
+  "serving": "1 date",
+  "serving_g": 24.0,
+  "calories": 66.5,
+  "protein_g": 0.4,
+  "fat_g": 0.0,
+  "carb_g": 18.0,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Dill pickle",
+  "serving": "1 spear",
+  "serving_g": 35.0,
+  "calories": 4.2,
+  "protein_g": 0.2,
+  "fat_g": 0.1,
+  "carb_g": 0.8,
+  "fiber_g": 0.3
+ },
+ {
+  "name": "Dinner roll",
+  "serving": "1 roll",
+  "serving_g": 28.0,
+  "calories": 86.8,
+  "protein_g": 3.0,
+  "fat_g": 1.8,
+  "carb_g": 14.6,
+  "fiber_g": 0.6
+ },
+ {
+  "name": "Donut, glazed",
+  "serving": "1 donut",
+  "serving_g": 60.0,
+  "calories": 252.6,
+  "protein_g": 3.7,
+  "fat_g": 13.6,
+  "carb_g": 28.8,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Dried cranberries",
+  "serving": "1/4 cup",
+  "serving_g": 40.0,
+  "calories": 123.2,
+  "protein_g": 0.1,
+  "fat_g": 0.4,
+  "carb_g": 33.1,
+  "fiber_g": 2.1
+ },
+ {
+  "name": "Edamame",
+  "serving": "1/2 cup",
+  "serving_g": 78.0,
+  "calories": 94.4,
+  "protein_g": 9.3,
+  "fat_g": 4.1,
+  "carb_g": 6.9,
+  "fiber_g": 4.1
+ },
+ {
+  "name": "Egg whites, raw",
+  "serving": "3 large whites",
+  "serving_g": 99.0,
+  "calories": 51.5,
+  "protein_g": 10.8,
+  "fat_g": 0.2,
+  "carb_g": 0.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Egg, fried",
+  "serving": "1 large",
+  "serving_g": 46.0,
+  "calories": 90.2,
+  "protein_g": 6.3,
+  "fat_g": 6.8,
+  "carb_g": 0.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Egg, scrambled",
+  "serving": "1 large",
+  "serving_g": 61.0,
+  "calories": 90.9,
+  "protein_g": 6.1,
+  "fat_g": 6.7,
+  "carb_g": 1.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Egg, whole, hard-boiled",
+  "serving": "1 large",
+  "serving_g": 50.0,
+  "calories": 77.5,
+  "protein_g": 6.3,
+  "fat_g": 5.3,
+  "carb_g": 0.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Eggplant, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 49.0,
+  "calories": 17.1,
+  "protein_g": 0.4,
+  "fat_g": 0.1,
+  "carb_g": 4.3,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Energy drink",
+  "serving": "8 oz",
+  "serving_g": 240.0,
+  "calories": 110.4,
+  "protein_g": 0.6,
+  "fat_g": 0.2,
+  "carb_g": 29.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "English muffin",
+  "serving": "1 muffin",
+  "serving_g": 57.0,
+  "calories": 133.9,
+  "protein_g": 4.4,
+  "fat_g": 1.0,
+  "carb_g": 26.2,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Feta cheese, crumbled",
+  "serving": "1/4 cup",
+  "serving_g": 38.0,
+  "calories": 100.7,
+  "protein_g": 5.4,
+  "fat_g": 8.2,
+  "carb_g": 1.5,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Fish sticks, baked",
+  "serving": "4 sticks",
+  "serving_g": 100.0,
+  "calories": 277.0,
+  "protein_g": 11.0,
+  "fat_g": 16.2,
+  "carb_g": 21.7,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Flaxseed, ground",
+  "serving": "1 tbsp",
+  "serving_g": 7.0,
+  "calories": 37.4,
+  "protein_g": 1.3,
+  "fat_g": 3.0,
+  "carb_g": 2.0,
+  "fiber_g": 1.9
+ },
+ {
+  "name": "Flour tortilla",
+  "serving": "1 medium",
+  "serving_g": 49.0,
+  "calories": 149.9,
+  "protein_g": 4.0,
+  "fat_g": 3.9,
+  "carb_g": 24.2,
+  "fiber_g": 1.7
+ },
+ {
+  "name": "French fries, fast food",
+  "serving": "1 medium order",
+  "serving_g": 117.0,
+  "calories": 365.0,
+  "protein_g": 4.0,
+  "fat_g": 17.2,
+  "carb_g": 48.5,
+  "fiber_g": 4.4
+ },
+ {
+  "name": "French fries, oven-heated",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 142.8,
+  "protein_g": 2.3,
+  "fat_g": 4.4,
+  "carb_g": 24.4,
+  "fiber_g": 2.2
+ },
+ {
+  "name": "Fruit cocktail, canned",
+  "serving": "1/2 cup",
+  "serving_g": 124.0,
+  "calories": 57.0,
+  "protein_g": 0.6,
+  "fat_g": 0.0,
+  "carb_g": 14.7,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Garlic",
+  "serving": "1 clove",
+  "serving_g": 3.0,
+  "calories": 4.5,
+  "protein_g": 0.2,
+  "fat_g": 0.0,
+  "carb_g": 1.0,
+  "fiber_g": 0.1
+ },
+ {
+  "name": "Gelatin dessert, prepared",
+  "serving": "1/2 cup",
+  "serving_g": 135.0,
+  "calories": 81.0,
+  "protein_g": 1.6,
+  "fat_g": 0.0,
+  "carb_g": 19.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Graham crackers",
+  "serving": "2 sheets",
+  "serving_g": 28.0,
+  "calories": 120.4,
+  "protein_g": 1.9,
+  "fat_g": 3.0,
+  "carb_g": 21.7,
+  "fiber_g": 1.0
+ },
+ {
+  "name": "Granola",
+  "serving": "1/2 cup",
+  "serving_g": 61.0,
+  "calories": 298.3,
+  "protein_g": 8.3,
+  "fat_g": 14.8,
+  "carb_g": 32.9,
+  "fiber_g": 5.4
+ },
+ {
+  "name": "Granola bar",
+  "serving": "1 bar",
+  "serving_g": 24.0,
+  "calories": 113.0,
+  "protein_g": 2.4,
+  "fat_g": 4.8,
+  "carb_g": 15.5,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Grape juice",
+  "serving": "1 cup",
+  "serving_g": 253.0,
+  "calories": 151.8,
+  "protein_g": 0.9,
+  "fat_g": 0.3,
+  "carb_g": 37.4,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Grapefruit",
+  "serving": "1/2 fruit",
+  "serving_g": 123.0,
+  "calories": 36.9,
+  "protein_g": 0.7,
+  "fat_g": 0.1,
+  "carb_g": 9.2,
+  "fiber_g": 1.4
+ },
+ {
+  "name": "Grapes",
+  "serving": "1 cup",
+  "serving_g": 151.0,
+  "calories": 104.2,
+  "protein_g": 1.1,
+  "fat_g": 0.2,
+  "carb_g": 27.3,
+  "fiber_g": 1.4
+ },
+ {
+  "name": "Gravy, brown",
+  "serving": "1/4 cup",
+  "serving_g": 60.0,
+  "calories": 31.8,
+  "protein_g": 2.2,
+  "fat_g": 1.4,
+  "carb_g": 2.9,
+  "fiber_g": 0.2
+ },
+ {
+  "name": "Green beans, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 62.0,
+  "calories": 21.7,
+  "protein_g": 1.2,
+  "fat_g": 0.2,
+  "carb_g": 4.9,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Green onion",
+  "serving": "1/4 cup chopped",
+  "serving_g": 25.0,
+  "calories": 8.0,
+  "protein_g": 0.5,
+  "fat_g": 0.0,
+  "carb_g": 1.8,
+  "fiber_g": 0.7
+ },
+ {
+  "name": "Green peas, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 80.0,
+  "calories": 67.2,
+  "protein_g": 4.3,
+  "fat_g": 0.2,
+  "carb_g": 12.5,
+  "fiber_g": 4.4
+ },
+ {
+  "name": "Grits, cooked",
+  "serving": "1 cup",
+  "serving_g": 242.0,
+  "calories": 171.8,
+  "protein_g": 4.1,
+  "fat_g": 1.1,
+  "carb_g": 35.7,
+  "fiber_g": 1.9
+ },
+ {
+  "name": "Ground beef, 80% lean, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 229.5,
+  "protein_g": 21.9,
+  "fat_g": 15.1,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Ground beef, 85% lean, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 212.5,
+  "protein_g": 22.0,
+  "fat_g": 13.1,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Ground beef, 90% lean, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 184.4,
+  "protein_g": 22.2,
+  "fat_g": 10.0,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Half and half",
+  "serving": "1 tbsp",
+  "serving_g": 15.0,
+  "calories": 19.6,
+  "protein_g": 0.5,
+  "fat_g": 1.7,
+  "carb_g": 0.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Halibut, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 94.3,
+  "protein_g": 19.2,
+  "fat_g": 1.4,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Ham, sliced",
+  "serving": "2 oz",
+  "serving_g": 56.0,
+  "calories": 91.8,
+  "protein_g": 9.3,
+  "fat_g": 4.9,
+  "carb_g": 2.0,
+  "fiber_g": 0.7
+ },
+ {
+  "name": "Hamburger bun",
+  "serving": "1 bun",
+  "serving_g": 43.0,
+  "calories": 120.0,
+  "protein_g": 4.2,
+  "fat_g": 1.7,
+  "carb_g": 21.6,
+  "fiber_g": 0.8
+ },
+ {
+  "name": "Hash browns",
+  "serving": "1/2 cup",
+  "serving_g": 78.0,
+  "calories": 206.7,
+  "protein_g": 2.3,
+  "fat_g": 9.8,
+  "carb_g": 27.4,
+  "fiber_g": 2.5
+ },
+ {
+  "name": "Heavy cream",
+  "serving": "1 tbsp",
+  "serving_g": 15.0,
+  "calories": 51.0,
+  "protein_g": 0.4,
+  "fat_g": 5.4,
+  "carb_g": 0.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Honey",
+  "serving": "1 tbsp",
+  "serving_g": 21.0,
+  "calories": 63.8,
+  "protein_g": 0.1,
+  "fat_g": 0.0,
+  "carb_g": 17.3,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Hot chocolate",
+  "serving": "1 cup",
+  "serving_g": 266.0,
+  "calories": 146.3,
+  "protein_g": 2.4,
+  "fat_g": 1.5,
+  "carb_g": 30.7,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Hot dog, beef",
+  "serving": "1 frank",
+  "serving_g": 45.0,
+  "calories": 144.9,
+  "protein_g": 5.3,
+  "fat_g": 13.2,
+  "carb_g": 1.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Hummus",
+  "serving": "2 tbsp",
+  "serving_g": 30.0,
+  "calories": 71.1,
+  "protein_g": 2.3,
+  "fat_g": 5.3,
+  "carb_g": 4.5,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Ice cream, vanilla",
+  "serving": "1/2 cup",
+  "serving_g": 66.0,
+  "calories": 136.6,
+  "protein_g": 2.3,
+  "fat_g": 7.3,
+  "carb_g": 15.6,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Ice pop",
+  "serving": "1 pop",
+  "serving_g": 59.0,
+  "calories": 47.8,
+  "protein_g": 0.0,
+  "fat_g": 0.1,
+  "carb_g": 11.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Iceberg lettuce",
+  "serving": "1 cup shredded",
+  "serving_g": 72.0,
+  "calories": 10.1,
+  "protein_g": 0.6,
+  "fat_g": 0.1,
+  "carb_g": 2.1,
+  "fiber_g": 0.9
+ },
+ {
+  "name": "Instant oatmeal, plain",
+  "serving": "1 packet",
+  "serving_g": 28.0,
+  "calories": 101.4,
+  "protein_g": 3.3,
+  "fat_g": 1.9,
+  "carb_g": 19.5,
+  "fiber_g": 2.8
+ },
+ {
+  "name": "Italian dressing",
+  "serving": "2 tbsp",
+  "serving_g": 30.0,
+  "calories": 72.0,
+  "protein_g": 0.1,
+  "fat_g": 6.3,
+  "carb_g": 3.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Jelly",
+  "serving": "1 tbsp",
+  "serving_g": 20.0,
+  "calories": 55.6,
+  "protein_g": 0.1,
+  "fat_g": 0.0,
+  "carb_g": 13.8,
+  "fiber_g": 0.2
+ },
+ {
+  "name": "Jelly beans",
+  "serving": "10 beans",
+  "serving_g": 30.0,
+  "calories": 112.5,
+  "protein_g": 0.0,
+  "fat_g": 0.0,
+  "carb_g": 28.1,
+  "fiber_g": 0.1
+ },
+ {
+  "name": "Kale, raw",
+  "serving": "1 cup",
+  "serving_g": 21.0,
+  "calories": 7.3,
+  "protein_g": 0.6,
+  "fat_g": 0.3,
+  "carb_g": 0.9,
+  "fiber_g": 0.9
+ },
+ {
+  "name": "Ketchup",
+  "serving": "1 tbsp",
+  "serving_g": 17.0,
+  "calories": 17.2,
+  "protein_g": 0.2,
+  "fat_g": 0.0,
+  "carb_g": 4.7,
+  "fiber_g": 0.1
+ },
+ {
+  "name": "Kidney beans, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 89.0,
+  "calories": 113.0,
+  "protein_g": 7.7,
+  "fat_g": 0.4,
+  "carb_g": 20.3,
+  "fiber_g": 5.7
+ },
+ {
+  "name": "Kiwi",
+  "serving": "1 medium",
+  "serving_g": 69.0,
+  "calories": 42.1,
+  "protein_g": 0.8,
+  "fat_g": 0.4,
+  "carb_g": 10.1,
+  "fiber_g": 2.1
+ },
+ {
+  "name": "Lamb loin chop, broiled",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 183.6,
+  "protein_g": 25.5,
+  "fat_g": 8.3,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Lemon",
+  "serving": "1 fruit",
+  "serving_g": 58.0,
+  "calories": 16.8,
+  "protein_g": 0.6,
+  "fat_g": 0.2,
+  "carb_g": 5.4,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Lemonade",
+  "serving": "1 cup",
+  "serving_g": 248.0,
+  "calories": 67.0,
+  "protein_g": 0.0,
+  "fat_g": 0.2,
+  "carb_g": 17.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Lentils, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 99.0,
+  "calories": 114.8,
+  "protein_g": 8.9,
+  "fat_g": 0.4,
+  "carb_g": 19.9,
+  "fiber_g": 7.8
+ },
+ {
+  "name": "Lobster, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 75.7,
+  "protein_g": 16.1,
+  "fat_g": 0.7,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Luncheon meat, canned",
+  "serving": "2 oz",
+  "serving_g": 56.0,
+  "calories": 187.0,
+  "protein_g": 7.0,
+  "fat_g": 17.0,
+  "carb_g": 1.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Mac and cheese, prepared",
+  "serving": "1 cup",
+  "serving_g": 200.0,
+  "calories": 328.0,
+  "protein_g": 13.4,
+  "fat_g": 10.0,
+  "carb_g": 46.2,
+  "fiber_g": 2.4
+ },
+ {
+  "name": "Mango",
+  "serving": "1 cup",
+  "serving_g": 165.0,
+  "calories": 99.0,
+  "protein_g": 1.4,
+  "fat_g": 0.6,
+  "carb_g": 24.7,
+  "fiber_g": 2.6
+ },
+ {
+  "name": "Maple syrup",
+  "serving": "1/4 cup",
+  "serving_g": 80.0,
+  "calories": 208.0,
+  "protein_g": 0.0,
+  "fat_g": 0.0,
+  "carb_g": 53.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Margarine",
+  "serving": "1 tbsp",
+  "serving_g": 14.0,
+  "calories": 99.8,
+  "protein_g": 0.0,
+  "fat_g": 11.2,
+  "carb_g": 0.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Mashed potatoes",
+  "serving": "1/2 cup",
+  "serving_g": 105.0,
+  "calories": 118.7,
+  "protein_g": 2.1,
+  "fat_g": 4.4,
+  "carb_g": 17.8,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Mayonnaise",
+  "serving": "1 tbsp",
+  "serving_g": 14.0,
+  "calories": 95.2,
+  "protein_g": 0.1,
+  "fat_g": 10.5,
+  "carb_g": 0.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Meatballs, frozen",
+  "serving": "3 meatballs",
+  "serving_g": 90.0,
+  "calories": 257.4,
+  "protein_g": 13.0,
+  "fat_g": 20.0,
+  "carb_g": 7.3,
+  "fiber_g": 2.1
+ },
+ {
+  "name": "Milk chocolate candy bar",
+  "serving": "1 bar",
+  "serving_g": 43.0,
+  "calories": 230.1,
+  "protein_g": 3.3,
+  "fat_g": 12.8,
+  "carb_g": 25.5,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Milk, 1%",
+  "serving": "1 cup",
+  "serving_g": 244.0,
+  "calories": 102.5,
+  "protein_g": 8.2,
+  "fat_g": 2.4,
+  "carb_g": 12.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Milk, 2%",
+  "serving": "1 cup",
+  "serving_g": 244.0,
+  "calories": 122.0,
+  "protein_g": 8.1,
+  "fat_g": 4.8,
+  "carb_g": 11.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Milk, skim",
+  "serving": "1 cup",
+  "serving_g": 245.0,
+  "calories": 83.3,
+  "protein_g": 8.3,
+  "fat_g": 0.2,
+  "carb_g": 12.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Milk, whole",
+  "serving": "1 cup",
+  "serving_g": 244.0,
+  "calories": 148.8,
+  "protein_g": 7.7,
+  "fat_g": 7.9,
+  "carb_g": 11.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Mixed vegetables, frozen, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 91.0,
+  "calories": 59.1,
+  "protein_g": 2.6,
+  "fat_g": 0.1,
+  "carb_g": 11.9,
+  "fiber_g": 4.0
+ },
+ {
+  "name": "Mozzarella, part skim",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 71.1,
+  "protein_g": 6.8,
+  "fat_g": 4.5,
+  "carb_g": 0.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Mushrooms, raw",
+  "serving": "1 cup",
+  "serving_g": 70.0,
+  "calories": 15.4,
+  "protein_g": 2.2,
+  "fat_g": 0.2,
+  "carb_g": 2.3,
+  "fiber_g": 0.7
+ },
+ {
+  "name": "Mustard, yellow",
+  "serving": "1 tsp",
+  "serving_g": 5.0,
+  "calories": 3.0,
+  "protein_g": 0.2,
+  "fat_g": 0.2,
+  "carb_g": 0.3,
+  "fiber_g": 0.2
+ },
+ {
+  "name": "Nectarine",
+  "serving": "1 medium",
+  "serving_g": 142.0,
+  "calories": 62.5,
+  "protein_g": 1.5,
+  "fat_g": 0.5,
+  "carb_g": 15.0,
+  "fiber_g": 2.4
+ },
+ {
+  "name": "Oatmeal, cooked",
+  "serving": "1 cup",
+  "serving_g": 234.0,
+  "calories": 166.1,
+  "protein_g": 5.9,
+  "fat_g": 3.6,
+  "carb_g": 28.1,
+  "fiber_g": 4.0
+ },
+ {
+  "name": "Oats, dry",
+  "serving": "1/2 cup",
+  "serving_g": 40.0,
+  "calories": 151.6,
+  "protein_g": 5.3,
+  "fat_g": 2.6,
+  "carb_g": 27.1,
+  "fiber_g": 4.0
+ },
+ {
+  "name": "Olive oil",
+  "serving": "1 tbsp",
+  "serving_g": 13.5,
+  "calories": 119.3,
+  "protein_g": 0.0,
+  "fat_g": 13.5,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Onion",
+  "serving": "1/2 cup chopped",
+  "serving_g": 80.0,
+  "calories": 32.0,
+  "protein_g": 0.9,
+  "fat_g": 0.1,
+  "carb_g": 7.5,
+  "fiber_g": 1.4
+ },
+ {
+  "name": "Orange",
+  "serving": "1 medium",
+  "serving_g": 131.0,
+  "calories": 61.6,
+  "protein_g": 1.2,
+  "fat_g": 0.2,
+  "carb_g": 15.4,
+  "fiber_g": 3.1
+ },
+ {
+  "name": "Orange juice",
+  "serving": "1 cup",
+  "serving_g": 248.0,
+  "calories": 111.6,
+  "protein_g": 1.7,
+  "fat_g": 0.5,
+  "carb_g": 25.8,
+  "fiber_g": 0.5
+ },
+ {
+  "name": "Pancake syrup",
+  "serving": "1/4 cup",
+  "serving_g": 80.0,
+  "calories": 187.2,
+  "protein_g": 0.0,
+  "fat_g": 0.0,
+  "carb_g": 49.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Pancakes",
+  "serving": "1 pancake",
+  "serving_g": 38.0,
+  "calories": 86.3,
+  "protein_g": 2.4,
+  "fat_g": 3.7,
+  "carb_g": 10.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Papaya",
+  "serving": "1 cup",
+  "serving_g": 145.0,
+  "calories": 62.4,
+  "protein_g": 0.7,
+  "fat_g": 0.4,
+  "carb_g": 15.7,
+  "fiber_g": 2.5
+ },
+ {
+  "name": "Parmesan, grated",
+  "serving": "1 tbsp",
+  "serving_g": 5.0,
+  "calories": 21.0,
+  "protein_g": 1.4,
+  "fat_g": 1.4,
+  "carb_g": 0.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Pasta sauce",
+  "serving": "1/2 cup",
+  "serving_g": 125.0,
+  "calories": 62.5,
+  "protein_g": 1.7,
+  "fat_g": 2.0,
+  "carb_g": 9.3,
+  "fiber_g": 2.2
+ },
+ {
+  "name": "Pasta, cooked",
+  "serving": "1 cup",
+  "serving_g": 140.0,
+  "calories": 221.2,
+  "protein_g": 8.1,
+  "fat_g": 1.3,
+  "carb_g": 43.2,
+  "fiber_g": 2.5
+ },
+ {
+  "name": "Peach",
+  "serving": "1 medium",
+  "serving_g": 150.0,
+  "calories": 58.5,
+  "protein_g": 1.4,
+  "fat_g": 0.4,
+  "carb_g": 14.3,
+  "fiber_g": 2.2
+ },
+ {
+  "name": "Peaches, canned",
+  "serving": "1/2 cup",
+  "serving_g": 124.0,
+  "calories": 54.6,
+  "protein_g": 0.8,
+  "fat_g": 0.0,
+  "carb_g": 14.3,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Peanut butter",
+  "serving": "2 tbsp",
+  "serving_g": 32.0,
+  "calories": 191.4,
+  "protein_g": 7.1,
+  "fat_g": 16.4,
+  "carb_g": 7.1,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Peanuts, dry roasted",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 164.4,
+  "protein_g": 6.8,
+  "fat_g": 13.9,
+  "carb_g": 6.0,
+  "fiber_g": 2.4
+ },
+ {
+  "name": "Pear",
+  "serving": "1 medium",
+  "serving_g": 178.0,
+  "calories": 101.5,
+  "protein_g": 0.6,
+  "fat_g": 0.2,
+  "carb_g": 27.1,
+  "fiber_g": 5.5
+ },
+ {
+  "name": "Pears, canned",
+  "serving": "1/2 cup",
+  "serving_g": 124.0,
+  "calories": 62.0,
+  "protein_g": 0.4,
+  "fat_g": 0.1,
+  "carb_g": 16.0,
+  "fiber_g": 2.0
+ },
+ {
+  "name": "Pepperoni",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 141.1,
+  "protein_g": 5.4,
+  "fat_g": 13.0,
+  "carb_g": 0.3,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Pineapple",
+  "serving": "1 cup",
+  "serving_g": 165.0,
+  "calories": 82.5,
+  "protein_g": 0.9,
+  "fat_g": 0.2,
+  "carb_g": 21.6,
+  "fiber_g": 2.3
+ },
+ {
+  "name": "Pinto beans, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 86.0,
+  "calories": 123.0,
+  "protein_g": 7.7,
+  "fat_g": 0.6,
+  "carb_g": 22.5,
+  "fiber_g": 7.7
+ },
+ {
+  "name": "Pistachios",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 156.8,
+  "protein_g": 5.6,
+  "fat_g": 12.7,
+  "carb_g": 7.6,
+  "fiber_g": 3.0
+ },
+ {
+  "name": "Pita bread",
+  "serving": "1 pita",
+  "serving_g": 60.0,
+  "calories": 165.0,
+  "protein_g": 5.5,
+  "fat_g": 0.7,
+  "carb_g": 33.4,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Pizza, cheese",
+  "serving": "1 slice",
+  "serving_g": 107.0,
+  "calories": 286.8,
+  "protein_g": 11.1,
+  "fat_g": 13.1,
+  "carb_g": 31.1,
+  "fiber_g": 2.4
+ },
+ {
+  "name": "Plum",
+  "serving": "1 medium",
+  "serving_g": 66.0,
+  "calories": 30.4,
+  "protein_g": 0.5,
+  "fat_g": 0.2,
+  "carb_g": 7.5,
+  "fiber_g": 0.9
+ },
+ {
+  "name": "Popcorn, air-popped",
+  "serving": "3 cups",
+  "serving_g": 24.0,
+  "calories": 92.9,
+  "protein_g": 3.1,
+  "fat_g": 1.1,
+  "carb_g": 18.7,
+  "fiber_g": 3.5
+ },
+ {
+  "name": "Popcorn, oil-popped",
+  "serving": "3 cups",
+  "serving_g": 33.0,
+  "calories": 165.0,
+  "protein_g": 3.0,
+  "fat_g": 9.3,
+  "carb_g": 18.9,
+  "fiber_g": 3.3
+ },
+ {
+  "name": "Pork chop, broiled",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 158.1,
+  "protein_g": 21.9,
+  "fat_g": 7.1,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Pork loin, roasted",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 177.7,
+  "protein_g": 24.3,
+  "fat_g": 8.2,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Pork ribs, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 337.4,
+  "protein_g": 24.7,
+  "fat_g": 25.8,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Pork sausage, cooked",
+  "serving": "2 links",
+  "serving_g": 54.0,
+  "calories": 175.5,
+  "protein_g": 10.0,
+  "fat_g": 14.7,
+  "carb_g": 0.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Potato chips",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 149.0,
+  "protein_g": 1.8,
+  "fat_g": 9.5,
+  "carb_g": 15.1,
+  "fiber_g": 0.9
+ },
+ {
+  "name": "Potato salad",
+  "serving": "1/2 cup",
+  "serving_g": 125.0,
+  "calories": 178.8,
+  "protein_g": 3.4,
+  "fat_g": 10.2,
+  "carb_g": 14.0,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Potato, baked",
+  "serving": "1 medium",
+  "serving_g": 173.0,
+  "calories": 160.9,
+  "protein_g": 4.3,
+  "fat_g": 0.2,
+  "carb_g": 36.6,
+  "fiber_g": 3.8
+ },
+ {
+  "name": "Pretzels",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 107.5,
+  "protein_g": 2.8,
+  "fat_g": 0.8,
+  "carb_g": 22.5,
+  "fiber_g": 1.0
+ },
+ {
+  "name": "Protein powder, whey",
+  "serving": "1 scoop",
+  "serving_g": 31.0,
+  "calories": 109.1,
+  "protein_g": 24.2,
+  "fat_g": 0.5,
+  "carb_g": 1.9,
+  "fiber_g": 1.0
+ },
+ {
+  "name": "Provolone",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 98.3,
+  "protein_g": 7.2,
+  "fat_g": 7.5,
+  "carb_g": 0.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Prunes",
+  "serving": "5 prunes",
+  "serving_g": 42.0,
+  "calories": 100.8,
+  "protein_g": 0.9,
+  "fat_g": 0.2,
+  "carb_g": 26.8,
+  "fiber_g": 3.0
+ },
+ {
+  "name": "Pudding, chocolate",
+  "serving": "1/2 cup",
+  "serving_g": 130.0,
+  "calories": 184.6,
+  "protein_g": 2.7,
+  "fat_g": 6.0,
+  "carb_g": 29.9,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Puffed rice cereal",
+  "serving": "1 cup",
+  "serving_g": 14.0,
+  "calories": 56.3,
+  "protein_g": 0.9,
+  "fat_g": 0.1,
+  "carb_g": 12.6,
+  "fiber_g": 0.2
+ },
+ {
+  "name": "Pumpkin, canned",
+  "serving": "1/2 cup",
+  "serving_g": 122.0,
+  "calories": 41.5,
+  "protein_g": 1.3,
+  "fat_g": 0.3,
+  "carb_g": 9.9,
+  "fiber_g": 3.5
+ },
+ {
+  "name": "Quinoa, cooked",
+  "serving": "1 cup",
+  "serving_g": 185.0,
+  "calories": 222.0,
+  "protein_g": 8.1,
+  "fat_g": 3.6,
+  "carb_g": 39.4,
+  "fiber_g": 5.2
+ },
+ {
+  "name": "Radishes",
+  "serving": "1/2 cup",
+  "serving_g": 58.0,
+  "calories": 9.3,
+  "protein_g": 0.4,
+  "fat_g": 0.1,
+  "carb_g": 2.0,
+  "fiber_g": 0.9
+ },
+ {
+  "name": "Raisins",
+  "serving": "1/4 cup",
+  "serving_g": 40.0,
+  "calories": 120.4,
+  "protein_g": 1.3,
+  "fat_g": 0.1,
+  "carb_g": 32.0,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Ramen noodles, dry",
+  "serving": "1 package",
+  "serving_g": 43.0,
+  "calories": 189.2,
+  "protein_g": 4.4,
+  "fat_g": 7.6,
+  "carb_g": 25.9,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Ranch dressing",
+  "serving": "2 tbsp",
+  "serving_g": 30.0,
+  "calories": 129.0,
+  "protein_g": 0.4,
+  "fat_g": 13.4,
+  "carb_g": 1.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Raspberries",
+  "serving": "1 cup",
+  "serving_g": 123.0,
+  "calories": 64.0,
+  "protein_g": 1.5,
+  "fat_g": 0.8,
+  "carb_g": 14.7,
+  "fiber_g": 8.0
+ },
+ {
+  "name": "Red wine",
+  "serving": "5 oz",
+  "serving_g": 147.0,
+  "calories": 125.0,
+  "protein_g": 0.1,
+  "fat_g": 0.0,
+  "carb_g": 3.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Refried beans, canned",
+  "serving": "1/2 cup",
+  "serving_g": 126.0,
+  "calories": 113.4,
+  "protein_g": 6.3,
+  "fat_g": 2.5,
+  "carb_g": 17.1,
+  "fiber_g": 4.7
+ },
+ {
+  "name": "Rice cake",
+  "serving": "1 cake",
+  "serving_g": 9.0,
+  "calories": 34.8,
+  "protein_g": 0.7,
+  "fat_g": 0.3,
+  "carb_g": 7.3,
+  "fiber_g": 0.4
+ },
+ {
+  "name": "Ricotta, part skim",
+  "serving": "1/2 cup",
+  "serving_g": 124.0,
+  "calories": 171.1,
+  "protein_g": 14.1,
+  "fat_g": 9.8,
+  "carb_g": 6.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Roast beef, deli sliced",
+  "serving": "2 oz",
+  "serving_g": 56.0,
+  "calories": 64.4,
+  "protein_g": 10.4,
+  "fat_g": 2.1,
+  "carb_g": 0.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Romaine lettuce",
+  "serving": "1 cup shredded",
+  "serving_g": 47.0,
+  "calories": 8.0,
+  "protein_g": 0.6,
+  "fat_g": 0.1,
+  "carb_g": 1.5,
+  "fiber_g": 1.0
+ },
+ {
+  "name": "Salami",
+  "serving": "2 slices",
+  "serving_g": 46.0,
+  "calories": 154.6,
+  "protein_g": 10.1,
+  "fat_g": 11.9,
+  "carb_g": 1.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Salmon, canned",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 117.3,
+  "protein_g": 19.6,
+  "fat_g": 4.3,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Salmon, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 175.1,
+  "protein_g": 18.8,
+  "fat_g": 10.5,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Salsa",
+  "serving": "2 tbsp",
+  "serving_g": 32.0,
+  "calories": 9.3,
+  "protein_g": 0.5,
+  "fat_g": 0.1,
+  "carb_g": 2.1,
+  "fiber_g": 0.6
+ },
+ {
+  "name": "Saltine crackers",
+  "serving": "5 crackers",
+  "serving_g": 15.0,
+  "calories": 62.7,
+  "protein_g": 1.4,
+  "fat_g": 1.3,
+  "carb_g": 11.1,
+  "fiber_g": 0.4
+ },
+ {
+  "name": "Sardines, canned in oil",
+  "serving": "1 can",
+  "serving_g": 92.0,
+  "calories": 191.4,
+  "protein_g": 22.7,
+  "fat_g": 10.5,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Sauerkraut",
+  "serving": "1/2 cup",
+  "serving_g": 71.0,
+  "calories": 13.5,
+  "protein_g": 0.6,
+  "fat_g": 0.1,
+  "carb_g": 3.0,
+  "fiber_g": 2.1
+ },
+ {
+  "name": "Scallops, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 183.6,
+  "protein_g": 15.4,
+  "fat_g": 9.3,
+  "carb_g": 8.6,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Sherbet",
+  "serving": "1/2 cup",
+  "serving_g": 97.0,
+  "calories": 139.7,
+  "protein_g": 1.1,
+  "fat_g": 1.9,
+  "carb_g": 29.5,
+  "fiber_g": 1.3
+ },
+ {
+  "name": "Shrimp, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 101.2,
+  "protein_g": 19.4,
+  "fat_g": 1.4,
+  "carb_g": 1.3,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Sirloin steak, broiled",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 151.3,
+  "protein_g": 25.0,
+  "fat_g": 5.0,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Sour cream",
+  "serving": "2 tbsp",
+  "serving_g": 24.0,
+  "calories": 47.5,
+  "protein_g": 0.6,
+  "fat_g": 4.6,
+  "carb_g": 1.1,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Soy milk",
+  "serving": "1 cup",
+  "serving_g": 243.0,
+  "calories": 131.2,
+  "protein_g": 7.9,
+  "fat_g": 4.3,
+  "carb_g": 15.3,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Soy sauce",
+  "serving": "1 tbsp",
+  "serving_g": 16.0,
+  "calories": 8.5,
+  "protein_g": 1.3,
+  "fat_g": 0.1,
+  "carb_g": 0.8,
+  "fiber_g": 0.1
+ },
+ {
+  "name": "Spaghetti with meatballs, canned",
+  "serving": "1 cup",
+  "serving_g": 252.0,
+  "calories": 252.0,
+  "protein_g": 11.0,
+  "fat_g": 10.4,
+  "carb_g": 28.9,
+  "fiber_g": 6.8
+ },
+ {
+  "name": "Spinach, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 90.0,
+  "calories": 20.7,
+  "protein_g": 2.7,
+  "fat_g": 0.2,
+  "carb_g": 3.4,
+  "fiber_g": 2.2
+ },
+ {
+  "name": "Spinach, raw",
+  "serving": "1 cup",
+  "serving_g": 30.0,
+  "calories": 6.9,
+  "protein_g": 0.9,
+  "fat_g": 0.1,
+  "carb_g": 1.1,
+  "fiber_g": 0.7
+ },
+ {
+  "name": "Strawberries",
+  "serving": "1 cup",
+  "serving_g": 152.0,
+  "calories": 48.6,
+  "protein_g": 1.0,
+  "fat_g": 0.5,
+  "carb_g": 11.7,
+  "fiber_g": 3.0
+ },
+ {
+  "name": "String cheese",
+  "serving": "1 stick",
+  "serving_g": 28.0,
+  "calories": 71.1,
+  "protein_g": 6.8,
+  "fat_g": 4.5,
+  "carb_g": 0.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Sugar, white",
+  "serving": "1 tsp",
+  "serving_g": 4.0,
+  "calories": 15.5,
+  "protein_g": 0.0,
+  "fat_g": 0.0,
+  "carb_g": 4.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Sunflower seeds",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 163.0,
+  "protein_g": 5.4,
+  "fat_g": 13.9,
+  "carb_g": 6.7,
+  "fiber_g": 3.1
+ },
+ {
+  "name": "Sweet corn on the cob",
+  "serving": "1 ear",
+  "serving_g": 90.0,
+  "calories": 86.4,
+  "protein_g": 3.1,
+  "fat_g": 1.4,
+  "carb_g": 18.9,
+  "fiber_g": 2.2
+ },
+ {
+  "name": "Sweet potato, baked",
+  "serving": "1 medium",
+  "serving_g": 114.0,
+  "calories": 102.6,
+  "protein_g": 2.3,
+  "fat_g": 0.2,
+  "carb_g": 23.6,
+  "fiber_g": 3.8
+ },
+ {
+  "name": "Swiss cheese",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 110.0,
+  "protein_g": 7.5,
+  "fat_g": 8.7,
+  "carb_g": 0.4,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Taco, fast food",
+  "serving": "1 taco",
+  "serving_g": 78.0,
+  "calories": 176.3,
+  "protein_g": 6.9,
+  "fat_g": 9.9,
+  "carb_g": 15.5,
+  "fiber_g": 3.0
+ },
+ {
+  "name": "Tangerine",
+  "serving": "1 medium",
+  "serving_g": 88.0,
+  "calories": 46.6,
+  "protein_g": 0.7,
+  "fat_g": 0.3,
+  "carb_g": 11.7,
+  "fiber_g": 1.6
+ },
+ {
+  "name": "Tartar sauce",
+  "serving": "1 tbsp",
+  "serving_g": 14.0,
+  "calories": 29.5,
+  "protein_g": 0.1,
+  "fat_g": 2.3,
+  "carb_g": 1.9,
+  "fiber_g": 0.1
+ },
+ {
+  "name": "Tea, black",
+  "serving": "1 cup",
+  "serving_g": 237.0,
+  "calories": 2.4,
+  "protein_g": 0.0,
+  "fat_g": 0.0,
+  "carb_g": 0.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Tilapia, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 108.8,
+  "protein_g": 22.2,
+  "fat_g": 2.3,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Tofu, firm",
+  "serving": "1/2 cup",
+  "serving_g": 126.0,
+  "calories": 181.4,
+  "protein_g": 21.8,
+  "fat_g": 11.0,
+  "carb_g": 3.5,
+  "fiber_g": 2.9
+ },
+ {
+  "name": "Tomato",
+  "serving": "1 medium",
+  "serving_g": 123.0,
+  "calories": 22.1,
+  "protein_g": 1.1,
+  "fat_g": 0.2,
+  "carb_g": 4.8,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Tomato juice",
+  "serving": "1 cup",
+  "serving_g": 243.0,
+  "calories": 41.3,
+  "protein_g": 2.1,
+  "fat_g": 0.7,
+  "carb_g": 8.6,
+  "fiber_g": 1.0
+ },
+ {
+  "name": "Tomato sauce, canned",
+  "serving": "1/2 cup",
+  "serving_g": 122.0,
+  "calories": 29.3,
+  "protein_g": 1.5,
+  "fat_g": 0.4,
+  "carb_g": 6.5,
+  "fiber_g": 1.8
+ },
+ {
+  "name": "Tomato soup",
+  "serving": "1 cup",
+  "serving_g": 244.0,
+  "calories": 78.1,
+  "protein_g": 1.7,
+  "fat_g": 0.5,
+  "carb_g": 18.2,
+  "fiber_g": 1.2
+ },
+ {
+  "name": "Tortilla chips",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 132.2,
+  "protein_g": 2.0,
+  "fat_g": 5.8,
+  "carb_g": 19.0,
+  "fiber_g": 1.5
+ },
+ {
+  "name": "Trout, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 142.8,
+  "protein_g": 20.2,
+  "fat_g": 6.3,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Tuna salad",
+  "serving": "1/2 cup",
+  "serving_g": 103.0,
+  "calories": 192.6,
+  "protein_g": 16.5,
+  "fat_g": 9.5,
+  "carb_g": 9.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Tuna, canned in oil",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 168.3,
+  "protein_g": 24.8,
+  "fat_g": 7.0,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Tuna, canned in water",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 98.6,
+  "protein_g": 21.7,
+  "fat_g": 0.7,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Turkey bacon, cooked",
+  "serving": "2 slices",
+  "serving_g": 16.0,
+  "calories": 58.9,
+  "protein_g": 4.7,
+  "fat_g": 4.1,
+  "carb_g": 0.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Turkey breast, roasted",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 125.0,
+  "protein_g": 25.6,
+  "fat_g": 1.8,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Turkey, deli sliced",
+  "serving": "2 oz",
+  "serving_g": 56.0,
+  "calories": 59.4,
+  "protein_g": 8.3,
+  "fat_g": 2.1,
+  "carb_g": 1.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Turkey, ground, 93% lean, cooked",
+  "serving": "3 oz",
+  "serving_g": 85.0,
+  "calories": 181.1,
+  "protein_g": 23.0,
+  "fat_g": 9.9,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Vegetable oil",
+  "serving": "1 tbsp",
+  "serving_g": 13.6,
+  "calories": 120.2,
+  "protein_g": 0.0,
+  "fat_g": 13.6,
+  "carb_g": 0.0,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Waffle",
+  "serving": "1 waffle",
+  "serving_g": 75.0,
+  "calories": 218.2,
+  "protein_g": 5.9,
+  "fat_g": 10.6,
+  "carb_g": 24.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Walnuts",
+  "serving": "1 oz",
+  "serving_g": 28.0,
+  "calories": 183.1,
+  "protein_g": 4.3,
+  "fat_g": 18.3,
+  "carb_g": 3.8,
+  "fiber_g": 1.9
+ },
+ {
+  "name": "Watermelon",
+  "serving": "1 cup diced",
+  "serving_g": 152.0,
+  "calories": 45.6,
+  "protein_g": 0.9,
+  "fat_g": 0.2,
+  "carb_g": 11.5,
+  "fiber_g": 0.6
+ },
+ {
+  "name": "White bread",
+  "serving": "1 slice",
+  "serving_g": 25.0,
+  "calories": 66.5,
+  "protein_g": 2.2,
+  "fat_g": 0.8,
+  "carb_g": 12.4,
+  "fiber_g": 0.7
+ },
+ {
+  "name": "White rice, cooked",
+  "serving": "1 cup",
+  "serving_g": 158.0,
+  "calories": 205.4,
+  "protein_g": 4.3,
+  "fat_g": 0.4,
+  "carb_g": 44.5,
+  "fiber_g": 0.6
+ },
+ {
+  "name": "Whole-wheat bread",
+  "serving": "1 slice",
+  "serving_g": 28.0,
+  "calories": 70.6,
+  "protein_g": 3.5,
+  "fat_g": 1.0,
+  "carb_g": 12.0,
+  "fiber_g": 1.7
+ },
+ {
+  "name": "Whole-wheat pasta, cooked",
+  "serving": "1 cup",
+  "serving_g": 140.0,
+  "calories": 208.6,
+  "protein_g": 8.4,
+  "fat_g": 2.4,
+  "carb_g": 42.1,
+  "fiber_g": 5.5
+ },
+ {
+  "name": "Yogurt, fruit, low fat",
+  "serving": "1 cup",
+  "serving_g": 245.0,
+  "calories": 242.6,
+  "protein_g": 9.8,
+  "fat_g": 2.8,
+  "carb_g": 45.7,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Yogurt, Greek, plain, nonfat",
+  "serving": "3/4 cup",
+  "serving_g": 170.0,
+  "calories": 91.8,
+  "protein_g": 16.2,
+  "fat_g": 0.4,
+  "carb_g": 5.8,
+  "fiber_g": 0.3
+ },
+ {
+  "name": "Yogurt, Greek, plain, whole milk",
+  "serving": "3/4 cup",
+  "serving_g": 170.0,
+  "calories": 164.9,
+  "protein_g": 15.3,
+  "fat_g": 8.5,
+  "carb_g": 6.8,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Yogurt, plain, low fat",
+  "serving": "1 cup",
+  "serving_g": 245.0,
+  "calories": 154.3,
+  "protein_g": 12.9,
+  "fat_g": 3.8,
+  "carb_g": 17.2,
+  "fiber_g": 0.0
+ },
+ {
+  "name": "Zucchini, cooked",
+  "serving": "1/2 cup",
+  "serving_g": 90.0,
+  "calories": 13.5,
+  "protein_g": 1.0,
+  "fat_g": 0.3,
+  "carb_g": 2.4,
+  "fiber_g": 0.9
+ }
 ]
