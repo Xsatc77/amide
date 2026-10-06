@@ -12,6 +12,7 @@ from watcher.state import State
 ALBUM_SETTLE_SECONDS = 5
 BACKOFF = (30, 60, 120, 300, 900)
 PAUSE_BETWEEN_GROUPS = 1.0
+SEND_PAUSE = 1.2                      # Amide allows 60 requests a minute per token
 STRIKES_TO_REPORT = 2
 MAX_DOWNLOAD_TRIES = 3
 MAX_TEXT = 8000                       # Amide refuses longer text
@@ -187,6 +188,7 @@ class Runner:
                     self.log.warning("Amide refused message %s (%s); dropped", payload.message_id, outcome.detail)
                 self.queue.remove(item)
                 self._failures, self._next_attempt = 0, None
+                await self.sleep(SEND_PAUSE)
             elif outcome.kind == "auth":
                 self._pause()
                 return

@@ -273,3 +273,12 @@ def test_an_albums_joined_captions_are_cut_to_the_servers_limit(tmp_path):
         m.attachments = [Attachment("1.jpg", "image", 5)]
     poll(runner)
     assert len(amide.sent[0].text) <= 8000
+
+
+def test_deliveries_are_paced_under_amides_request_limit(tmp_path):
+    tg = FakeTelegram(groups=[Group("-100", "g")], messages={"-100": [msg("-100", n, f"m{n}", 100 - n) for n in range(1, 5)]})
+    runner, tg, amide, state, queue, slept = build(tmp_path, tg=tg)
+    poll(runner)
+    assert len(amide.sent) == 4
+    from watcher.runner import SEND_PAUSE
+    assert SEND_PAUSE >= 1.1 and slept.count(SEND_PAUSE) >= 4                               # about 50 a minute at most
