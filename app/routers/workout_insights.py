@@ -117,3 +117,65 @@ def energy(request: Request, goal: str = "maintain", carb: str = "moderate",
            uid: int = Depends(current_user_id)):
     return templates.TemplateResponse(request, "workouts/energy.html",
                                       _energy_context(session, uid, goal, carb, range_key))
+
+
+PROGRESS_RANGES = ("30", "90", "365", "all")
+
+
+def _line(points: list[tuple[date, float]], label: str, color: str, tips: list[str]) -> dict | None:
+    """One-series line chart from the price chart's geometry, with a color and a tip per point."""
+    chart = multi_series_chart({label: points})
+    if chart is None:
+        return None
+    series = chart["series"][label]
+    series["color"] = color
+    for dot, tip in zip(series["points"], tips):
+        dot["tip"] = tip
+    return chart
+
+
+def _progress_context(session: Session, uid: int, exercise: str, range_key: str) -> dict:
+    today = date.today()
+    range_key = range_key if range_key in PROGRESS_RANGES else "90"
+    everything = load_logged(session, uid)
+    names = progress.exercises_by_recency(everything)
+    if not names:
+        return {"empty": True, "range": range_key, "ranges": PROGRESS_RANGES}
+    chosen = exercise if exercise in names else names[0]
+    rows = progress.in_range(everything, progress.range_start(range_key, today), today)
+
+    history = progress.exercise_history(rows, chosen)
+    load_points = [(p.log_date, p.top_load_lb) for p in history if p.top_load_lb]
+    load_tips = [f"{p.log_date:%b %d, %Y}: top load {p.top_load_lb:,.0f} lb; about {p.net_kcal:,.0f} kcal net (estimated)"
+                 for p in history if p.top_load_lb]
+    volume_points = [(p.log_date, p.volume_lb) for p in history if p.volume_lb]
+    volume_tips = [f"{p.log_date:%b %d, %Y}: {p.volume_lb:,.0f} lb total volume; about {p.net_kcal:,.0f} kcal net (estimated)"
+                   for p in history if p.volume_lb]
+
+    weeks, by_area = progress.weekly_volume_by_area(rows)
+    area_colors = color_map(by_area)
+    weekly = charts.stacked_bars(weeks, by_area, width=720, height=260) if weeks else None
+    if weekly:
+        for bar in weekly["bars"]:
+            index = weeks.index(bar["label"])
+            parts = ", ".join(f"{area} {values[index]:,.0f} lb" for area, values in by_area.items() if values[index])
+            bar["tip"] = f"Week of {bar['label']:%b %d}: {parts or 'no volume'}"
+
+    equipment = progress.burn_by_equipment(rows)
+    equipment_colors = color_map([name for name, _ in equipment])
+    top = progress.top_exercises_by_kcal(rows)
+    return {
+        "empty": False, "names": names, "chosen": chosen, "range": range_key, "ranges": PROGRESS_RANGES,
+        "load_chart": _line(load_points, "Top load (lb)", PALETTE[0], load_tips),
+        "volume_chart": _line(volume_points, "Volume (lb)", PALETTE[2], volume_tips),
+        "records": progress.personal_records(everything), "weekly": weekly, "area_colors": area_colors,
+        "ring": charts.ring(equipment), "equipment_colors": equipment_colors,
+        "top": [(name, kcal, round(kcal / top[0][1] * 100)) for name, kcal in top],
+    }
+
+
+@router.get("/workouts/progress")
+def progress_tab(request: Request, exercise: str = "", range_key: str = Query("90", alias="range"),
+                 session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return templates.TemplateResponse(request, "workouts/progress.html",
+                                      _progress_context(session, uid, exercise, range_key))

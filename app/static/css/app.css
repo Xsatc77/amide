@@ -1108,3 +1108,14 @@ tr.current td { font-weight: 600; background: color-mix(in srgb, var(--accent-so
 .wk-chart .wk-target { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 6 4; }
 .wk-chart .wk-bar:hover rect { opacity: .85; }
 .chips .tag.active { background: var(--accent); color: #fff; }
+
+.progress-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; }
+.burn-split { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; }
+.burn-ring { width: 200px; height: 200px; flex: none; }
+.burn-ring .ring-total { fill: var(--text); font-size: 13px; font-weight: 600; }
+.ring-legend { flex-direction: column; }
+.hbars { list-style: none; padding: 0; margin: .5rem 0; display: grid; gap: .4rem; }
+.hbars li { display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr 6rem; gap: .5rem; align-items: center; }
+.hbar-track { display: block; height: 12px; border-radius: 6px; background: var(--border); overflow: hidden; }
+.hbar-fill { display: block; height: 100%; background: var(--accent); }
+.hbars strong { text-align: right; font-variant-numeric: tabular-nums; }
