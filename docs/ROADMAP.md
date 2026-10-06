@@ -160,6 +160,7 @@ Firm up the base before anything depends on it.
   - **Vendor-card price chart:** a dropdown of every peptide the vendor sells, charting price over time with a differently colored line for each vial size (mg / mcg / IU / ml).
   - **Dashboard "NEW PEPTIDE ALERT":** `NEW PEPTIDE ALERT <peptide> <vendor or vendors>` when an imported list carries a peptide that is new (definition to settle: no library card yet, or new to that vendor), so the library gets a card; expected to be rare once the library is complete.
   - Not yet read: scanned PDFs, image price lists (need OCR), and spreadsheets.
+  - *First import, 2026-10-05:* 11 price lists, 1,313 product lines (1,096 matched to a library card; 1,292 kits, 6 boxes, 15 with no pack size stated), 9 vendors created and 1 existing vendor reused. 7 of the 11 lists named no warehouse and were recorded as an assumed China. One scanned PDF, 6 image lists and 1 spreadsheet were skipped. 117 distinct products matched no library card (liquids, blends and a few peptides): these are the candidates the new-peptide alert will surface.
 - Charts correlating any metric against doses/protocols
 - Multi-user / household support (if wanted)
 - Themes, accessibility pass, full documentation
