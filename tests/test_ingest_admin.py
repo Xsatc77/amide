@@ -166,3 +166,15 @@ def test_the_migration_clears_text_already_kept_for_ignored_messages(db):
     db.commit()
     db.expire_all()
     assert db.get(IngestItem, kept.id).caption is None
+
+
+def test_the_inbox_has_jump_links_and_collapsible_tokens_and_groups(client, db):
+    vendor = vendor_row(db)
+    source = make_source(db, vendor=None)
+    text_item(db, source)
+    run()                                                                      # one list waiting for review
+    page = client.get("/settings/ingest").text
+    assert 'href="#received"' in page and 'id="received"' in page and "1 waiting for review" in page
+    assert '<details class="inbox-fold" id="groups">' in page and '<details class="inbox-fold" id="tokens">' in page
+    assert '<details class="inbox-fold" id="groups" open>' not in page          # collapsed until opened
+    assert '<details class="inbox-fold" id="groups" open>' in client.get("/settings/ingest?q=acme").text   # a search opens it

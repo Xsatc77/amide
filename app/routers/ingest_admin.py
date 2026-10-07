@@ -40,6 +40,7 @@ def _page(request: Request, session: Session, me: User, *, status: str = "", q: 
         if item.group_key not in seen:
             seen.add(item.group_key)
             items.append(item)
+    waiting = len({i.group_key for i in session.scalars(select(IngestItem).where(IngestItem.status.in_(("needs_review", "failed"))))})
     sources = {s.id: s for s in session.scalars(select(IngestSource))}
     shown = [s for s in sources.values() if q.strip().lower() in s.title.lower()] if q.strip() else list(sources.values())
     topics_by_source: dict[int, list] = {}
@@ -48,7 +49,7 @@ def _page(request: Request, session: Session, me: User, *, status: str = "", q: 
     return templates.TemplateResponse(request, "settings/ingest.html", {
         "me": me, "tokens": list(session.scalars(select(IngestToken).order_by(IngestToken.id.desc()))),
         "sources": shown, "source_by_id": sources, "topics_by_source": topics_by_source, "q": q, "items": items, "statuses": INGEST_STATUSES, "status": status,
-        "vendors": list(session.scalars(select(Vendor).order_by(Vendor.name))), "new_secret": new_secret, "new_label": new_label,
+        "waiting": waiting, "vendors": list(session.scalars(select(Vendor).order_by(Vendor.name))), "new_secret": new_secret, "new_label": new_label,
         "today": date.today().isoformat(),
     }, status_code=code)
 

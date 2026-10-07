@@ -11,8 +11,15 @@
   <a class="btn btn-ghost" href="/settings#admin">Back to Settings</a>
 </div>
 
+<nav class="inbox-jump" aria-label="Jump to a section">
+  <a class="btn btn-primary btn-small" href="#received">Received{% if waiting %} &middot; {{ waiting }} waiting for review{% endif %}</a>
+  <a class="btn btn-ghost btn-small" href="#groups">Groups</a>
+  <a class="btn btn-ghost btn-small" href="#tokens">Tokens</a>
+</nav>
+
 <section class="builder-step">
-  <h2 class="section-title">Tokens</h2>
+<details class="inbox-fold" id="tokens">
+  <summary><h2 class="section-title">Tokens</h2></summary>
   <p class="muted small">The watcher program presents a token to hand lists to Amide. A token can only hand over lists; it cannot read anything.</p>
   {% if new_secret %}
   <div class="notice-box">
@@ -39,10 +46,12 @@
     </tbody>
   </table></div>
   {% endif %}
+</details>
 </section>
 
 <section class="builder-step">
-  <h2 class="section-title">Groups</h2>
+<details class="inbox-fold" id="groups"{{ ' open' if q }}>
+  <summary><h2 class="section-title">Groups</h2></summary>
   <p class="muted small">Groups the watcher can see. Map each to a vendor and switch it on; automatic import needs both. For a group with topics, tick &ldquo;Only selected topics&rdquo; and choose which topics to follow.</p>
   <form method="get" action="/settings/ingest" class="inline-form"><label class="field"><span>Find a group</span><input name="q" value="{{ q }}" placeholder="part of the name"></label><button type="submit" class="btn btn-ghost">Search</button></form>
   {% if not sources %}
@@ -85,9 +94,10 @@
     </tbody>
   </table></div>
   {% endif %}
+</details>
 </section>
 
-<section class="builder-step">
+<section class="builder-step" id="received">
   <h2 class="section-title">Received</h2>
   <div class="tabs" role="tablist" aria-label="Filter by status">
     <a href="/settings/ingest" class="tab {{ 'active' if not status }}">Lists</a>
