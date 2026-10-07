@@ -104,3 +104,12 @@ def test_lockout(s):
     assert not sessions.is_locked(u, now=T0 + timedelta(minutes=15, seconds=1))
     sessions.clear_failures(u)
     assert u.failed_attempts == 0 and u.locked_until is None
+
+
+def test_the_shipped_minimum_password_length_is_eight():
+    import os
+    import subprocess
+    import sys
+    env = {k: v for k, v in os.environ.items() if k != "AMIDE_PASSWORD_MIN_LENGTH"}
+    out = subprocess.run([sys.executable, "-c", "from app import config; print(config.PASSWORD_MIN_LENGTH)"], env=env, capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "8"

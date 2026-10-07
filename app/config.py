@@ -36,8 +36,8 @@ CARDS_JSON = LIBRARY_DIR / "cards.json"
 
 BRANDING_DIR = DATA_DIR / "branding"  # optional banner.{svg,png,jpg,jpeg,webp} replaces the built-in one
 
-# Sign-in. Minimum password length is kept low for now; raise it with AMIDE_PASSWORD_MIN_LENGTH.
-PASSWORD_MIN_LENGTH = int(os.environ.get("AMIDE_PASSWORD_MIN_LENGTH", "4"))
+# Sign-in. Minimum password length (AMIDE_PASSWORD_MIN_LENGTH); the complexity rules in app/auth/passwords.py apply on top of it.
+PASSWORD_MIN_LENGTH = int(os.environ.get("AMIDE_PASSWORD_MIN_LENGTH", "8"))
 SESSION_IDLE_MINUTES = 10  # no Amide tab open this long -> signed out, legal notice again
 LOCKOUT_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15

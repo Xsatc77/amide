@@ -8,6 +8,7 @@ import pytest
 _TMP = tempfile.mkdtemp(prefix="amide-test-")
 os.environ["AMIDE_DATA_DIR"] = _TMP
 os.environ["AMIDE_INGEST_WORKER"] = "0"
+os.environ["AMIDE_PASSWORD_MIN_LENGTH"] = "4"      # the suite signs in with short throwaway passwords; the shipped default is tested in test_auth_rules
 
 from fastapi.testclient import TestClient  # noqa: E402
 

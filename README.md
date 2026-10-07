@@ -43,25 +43,18 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 
 ## Status
 
-**v1.0 — Active Vials.** Reconstituting a Lyophilized inventory item (from the Inventory page or the Calculator) creates a tracked Active Vial — concentration, total content, discard-by date, and doses per vial, shown as a card with the real vial icon. Expired vials flag themselves for a one-time-per-24-hours discard prompt; discarding never deletes the record, just retires it. A default discard window (in days) is configurable in Settings.
+**v1.0.** Everything in the goal list above exists in some form except Peptide Learning and the health-tracker integrations. In one place:
 
-**v0.9 — Sharing.** Per-person sharing, off by default: grant specific users a read-only view of your Inventory, your Protocols (personal data), or both, from the new Sharing section in Settings. Shared inventory merges into the viewer's own list, tagged by owner; shared protocols show in a separate "Shared with me" tab, never mixed into your own view or Calendar. Vendors are now a shared list across all users (like the peptide library) — what you bought from one stays private unless you share your inventory.
+- **Dashboard:** today's schedule, alerts, compliance bars (Protocol, H2O, Diet, Workout) over a window you choose, workouts this week, water goal, cost snapshot, weight, body diagram, journal quick note, items in shipment.
+- **Inventory and orders:** stock with COAs, expiration and storage; orders with tracking numbers and status like a parcel; low-stock and expiry alerts; supplies (syringes, pads, BAC water ranked by your priority).
+- **Protocols and dosing:** goal-driven builder, titration, cycles on and off, specific days, a Today view with injection-site picker, calendar, catch-up for missed doses, and a **Shop this protocol** plan that finds the cheapest one- or two-order purchase from the price lists (text file or email to share it).
+- **Reconstitution:** calculator with IU support and a teaching mode; Active Vials with discard dates; peptide pens.
+- **Vendors and price lists:** contacts, payment methods, price history charts, price lists read from PDF, photo (OCR) and spreadsheet, and an optional Telegram watcher that files lists you follow for review ([watcher/README.md](watcher/README.md)).
+- **Body and health:** weight and measurements, body photos (blurred until you reveal them), journal, labs, food and macros, workouts with calorie estimates and a fitness test.
+- **Library:** the peptide library with doses, sizes, price ranges and your own notes.
+- **You and your data:** accounts with optional two-factor, opt-in sharing, encrypted backup, export and restore. Self-hosted: nothing leaves your machine unless you turn an integration on.
 
-**v0.8 — Settings.** A Settings page (from the username menu) for changing your username/password, turning two-factor authentication on or off, setting an email (for future sharing features) and timezone, and picking a colorway — Light, Dark, or one of seven named palettes, including a pure-black-and-white High Contrast option. Admins get a Manage Users panel: add accounts, reset passwords, remove someone's two-factor authentication, or delete an account (which also removes everything they own, after two confirmations).
-
-**v0.7 — Inventory Foundations.** The inventory form adapts to the medium: amount + unit (mg/mcg/IU), volume for Liquid, units-per-package for Autoinjector/Pill, plus expiration date and storage location, each required only where it makes sense. Vendors are now their own table (type a name to reuse or create it, like the peptide picker). The inventory list has search, medium filters, and sortable columns. Backup & restore (JSON + CSV export, additive-only import) is on the account menu.
-
-**v0.6 — Reconstitution Calculator.** Live vial + BAC water + dose → concentration, draw volume and U-100 syringe units, with a syringe-fill visual, presets, and a reverse solver (pick the units you want, it works out the water). Pre-fills from Inventory (lyophilized items) or a Protocol's dose. *Not yet built:* turning a mixed vial into a tracked "Active Vial" that depletes inventory and has a discard-by date — that's still open, see the roadmap.
-
-**v0.5 — Calendar.** Month, week and day views of every dose your active and scheduled protocols call for (titration steps included). Click any line, block or card to see exactly what's due.
-
-**v0.4 — Accounts & legal notice.** Every visit after 10 minutes away starts with the legal notice, then New User / Login. Each user's inventory and protocols are private (the library is shared). Optional two-factor authentication with an authenticator app. See *Accounts* below.
-
-**v0.3 — Peptide Library.** A searchable Library of your peptide cards (details as text plus the original card image), with your own dose range, frequency, aliases, notes and goal stacks per peptide. The protocol builder searches the whole library as you type. See *Importing your peptide cards* below.
-
-**v0.2 — Protocols.** Build protocols from goals (suggested peptide stacks), set your own dose and schedule per peptide, optional titration steps, and see active protocols as cards; saved protocols can be paused, ended, repeated, or deleted.
-
-**v0.1 — Inventory.** Add, edit, and delete inventory items (name, count, vial size, medium, lot/batch #, cost, vendor, order/shipped/arrival dates, COA photo/PDF with lab-measured vial size and purity, notes). See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
+What came when: [CHANGELOG.md](CHANGELOG.md). What is next: [docs/ROADMAP.md](docs/ROADMAP.md). Running it for real (HTTPS, backups, updates): [docs/DEPLOYING.md](docs/DEPLOYING.md).
 
 ## Running Amide
 
@@ -121,7 +114,7 @@ Card text and images are saved in `data/library/` (private, never committed). To
 | `AMIDE_DATA_DIR` | `./data` (`/data` in Docker) | Where the database and uploads are stored |
 | `AMIDE_DATABASE_URL` | `sqlite:///<data dir>/amide.db` | Override to use another database |
 | `AMIDE_MAX_UPLOAD_MB` | `15` | Max COA upload size |
-| `AMIDE_PASSWORD_MIN_LENGTH` | `4` | Minimum password length (raise this for stronger passwords) |
+| `AMIDE_PASSWORD_MIN_LENGTH` | `8` | Minimum password length |
 
 ### Accounts
 
@@ -142,7 +135,7 @@ Card text and images are saved in `data/library/` (private, never committed). To
   (In Docker: `docker compose exec amide python -m app.users list`.)
 - **Banner:** put your own image at `data/branding/banner.svg` (or `.png`, `.jpg`, `.webp`) and it replaces the built-in one on the sign-in screens.
 
-> Logins over plain `http://` are fine on your home network. To reach Amide over the internet, put it behind HTTPS (a reverse proxy) or a VPN.
+> Logins over plain `http://` are fine on your home network. To reach Amide over the internet, put it behind HTTPS (a reverse proxy) or a VPN: see [docs/DEPLOYING.md](docs/DEPLOYING.md).
 
 ## Tech stack
 

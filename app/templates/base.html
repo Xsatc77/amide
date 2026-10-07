@@ -8,24 +8,25 @@
   <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to main content</a>
   <header class="topbar">
     <a class="brand" href="/">
       <img src="{{ static_url('favicon.svg') }}" alt="" width="28" height="28">
       <span>Amide</span>
     </a>
-    <nav class="nav">
+    <nav class="nav" aria-label="Main">
       {% set active = active_nav | default('') %}
-      <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">Dashboard</a>
-      <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">Inventory</a>
-      <a href="/vendors" class="{{ 'active' if active == 'vendors' }}">Vendors</a>
-      <a href="/protocols" class="{{ 'active' if active == 'protocols' }}">Protocols</a>
-      <a href="/measurements" class="{{ 'active' if active == 'measurements' }}">Body</a>
-      <a href="/calendar" class="{{ 'active' if active == 'calendar' }}">Calendar</a>
-      <a href="/today" class="{{ 'active' if active == 'today' }}">Today</a>
-      <a href="/workouts" class="{{ 'active' if active == 'workouts' }}">Workouts</a>
-      <a href="/fitness-test" class="{{ 'active' if active == 'fitness_test' }}">Fitness Test</a>
-      <a href="/library" class="{{ 'active' if active == 'library' }}">Library</a>
-      <a href="/calculator" class="{{ 'active' if active == 'calculator' }}">Calculator</a>
+      <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}"{% if active == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+      <a href="/inventory" class="{{ 'active' if active == 'inventory' }}"{% if active == 'inventory' %} aria-current="page"{% endif %}>Inventory</a>
+      <a href="/vendors" class="{{ 'active' if active == 'vendors' }}"{% if active == 'vendors' %} aria-current="page"{% endif %}>Vendors</a>
+      <a href="/protocols" class="{{ 'active' if active == 'protocols' }}"{% if active == 'protocols' %} aria-current="page"{% endif %}>Protocols</a>
+      <a href="/measurements" class="{{ 'active' if active == 'measurements' }}"{% if active == 'measurements' %} aria-current="page"{% endif %}>Body</a>
+      <a href="/calendar" class="{{ 'active' if active == 'calendar' }}"{% if active == 'calendar' %} aria-current="page"{% endif %}>Calendar</a>
+      <a href="/today" class="{{ 'active' if active == 'today' }}"{% if active == 'today' %} aria-current="page"{% endif %}>Today</a>
+      <a href="/workouts" class="{{ 'active' if active == 'workouts' }}"{% if active == 'workouts' %} aria-current="page"{% endif %}>Workouts</a>
+      <a href="/fitness-test" class="{{ 'active' if active == 'fitness_test' }}"{% if active == 'fitness_test' %} aria-current="page"{% endif %}>Fitness Test</a>
+      <a href="/library" class="{{ 'active' if active == 'library' }}"{% if active == 'library' %} aria-current="page"{% endif %}>Library</a>
+      <a href="/calculator" class="{{ 'active' if active == 'calculator' }}"{% if active == 'calculator' %} aria-current="page"{% endif %}>Calculator</a>
     </nav>
     {% set me = request.state.user %}
     {% if me %}
@@ -41,7 +42,7 @@
     </details>
     {% endif %}
   </header>
-  <main class="page">
+  <main id="main" class="page" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
   {% include "_footer.html" %}

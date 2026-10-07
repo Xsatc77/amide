@@ -1261,3 +1261,12 @@ fieldset[data-day] { min-width: 0; }
 .shop-unavailable { margin: 12px 0; padding: 8px 10px; border-left: 4px solid #d4a017; background: color-mix(in srgb, #d4a017 12%, var(--surface)); border-radius: 4px; }
 .shop-alts summary { cursor: pointer; font-weight: 600; margin: 10px 0 4px; }
 .current-list { margin: 8px 0; } .current-list summary { cursor: pointer; font-weight: 600; } .current-list .shop-table { margin-top: 8px; }
+
+/* Accessibility: a way past the navigation, a visible focus ring on everything clickable, and no motion for people who ask for none. */
+.skip-link { position: absolute; left: 8px; top: -48px; z-index: 1000; padding: 8px 14px; border-radius: var(--radius); background: var(--accent); color: var(--accent-text, #fff); font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 8px; }
+main:focus { outline: none; }
+a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
