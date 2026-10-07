@@ -441,7 +441,7 @@ section + section { margin-top: 36px; }
    this specific has no sensible narrow-screen equivalent. */
 .dashboard-layout {
   display: grid; gap: 16px; align-items: stretch;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 1.35fr) minmax(0, 1fr);
   grid-template-rows: auto auto auto auto auto auto;
   grid-template-areas:
     "schedule body alerts"
@@ -478,7 +478,7 @@ section + section { margin-top: 36px; }
 .dash-silhouette-center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
 /* Fluid, not fixed -- grows with the (now taller) Body card's own available width instead of
    sitting at a fixed size with dead space around it, capped so it never overruns the card. */
-.dash-silhouette { width: 100%; max-width: 420px; margin: 0 auto; }
+.dash-silhouette { width: 100%; max-width: 640px; margin: 0 auto; }
 .dash-chart-slot .card { height: 100%; margin: 0; box-sizing: border-box; }
 
 /* The Journal quick-capture form fills the rest of its (now row-matched, often taller) card

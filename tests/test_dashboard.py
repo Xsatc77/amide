@@ -498,3 +498,16 @@ def test_dashboard_low_stock_ignores_items_that_were_just_ordered_and_returns_wh
         s.commit()
     t = html.unescape(client.get("/dashboard").text)
     assert "Zorvex Justordered" in t and "low stock (1 left" in t
+
+
+def test_dashboard_body_diagram_is_cropped_to_the_figure_and_its_labels(client, db):
+    """The empty left margin of the shared 400-wide drawing made the Body card's figure small: the dashboard crops to what is drawn."""
+    import re
+    from app.routers.measurements import _LABEL_SLOTS, _silhouette_shape
+    box = re.search(r'<svg viewBox="([\d. ]+)" class="body-silhouette"', client.get("/dashboard").text)
+    x, y, w, h = (float(n) for n in box.group(1).split())
+    assert (y, h) == (0, 440) and w < 400
+    for sex in ("Male", "Female"):                                    # nothing drawn falls outside the crop
+        xs = [float(n) for n in re.findall(r"-?\d+\.?\d*", _silhouette_shape(sex)["body_path"])][0::2]
+        assert x <= min(xs) and max(xs) <= x + w
+    assert max(slot[0] for slot in _LABEL_SLOTS.values()) <= x + w

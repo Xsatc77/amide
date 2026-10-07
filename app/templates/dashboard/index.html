@@ -72,7 +72,7 @@
   </div>
   <div class="dash-silhouette-center">
     <div class="silhouette-wrap dash-silhouette">
-      <svg viewBox="0 0 400 440" class="body-silhouette" aria-label="Body measurement diagram">
+      <svg viewBox="80 0 312 440" class="body-silhouette" aria-label="Body measurement diagram">
         <path d="{{ body_panel.silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
         {% for key, pt in (body_panel.silhouette or {}).items() %}
           {{ silhouette_point(key, pt, body_panel.silhouette_shape) }}
