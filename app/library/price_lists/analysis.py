@@ -43,7 +43,7 @@ def price_range(session: Session, peptide_id: int) -> PriceRange | None:
     current = [p.id for p in current_lists(session)]
     items = session.scalars(select(PriceListItem).where(
         PriceListItem.peptide_id == peptide_id, PriceListItem.price_list_id.in_(current),
-        PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price.is_not(None),
+        PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price > 0,
         PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)).all()
     by_size: dict[tuple[float, str], list[PriceListItem]] = defaultdict(list)
     for it in items:
@@ -89,7 +89,7 @@ def best_prices(session: Session, peptide_id: int, limit: int = 5) -> list[SizeO
     current = {p.id: p for p in current_lists(session)}
     items = session.scalars(select(PriceListItem).where(
         PriceListItem.peptide_id == peptide_id, PriceListItem.price_list_id.in_(list(current)),
-        PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price.is_not(None),
+        PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price > 0,
         PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)).all()
     best: dict[tuple[float, str], dict] = defaultdict(dict)
     for it in items:
@@ -139,7 +139,7 @@ def vendor_price_history(session: Session, vendor_id: int) -> list[ProductHistor
         select(PriceListItem, PriceList.list_date, PriceList.warehouse, Peptide.name)
         .join(PriceList, PriceListItem.price_list_id == PriceList.id)
         .outerjoin(Peptide, PriceListItem.peptide_id == Peptide.id)
-        .where(PriceList.vendor_id == vendor_id, PriceListItem.pack_price.is_not(None),
+        .where(PriceList.vendor_id == vendor_id, PriceListItem.pack_price > 0,
                PriceListItem.product_name.is_not(None))).all()
     products: dict[str, ProductHistory] = {}
     spellings: dict[str, Counter] = defaultdict(Counter)

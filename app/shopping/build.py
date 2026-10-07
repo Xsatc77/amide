@@ -104,7 +104,7 @@ def _offers(session: Session, needs: list[Need], factors: dict[int, float | None
     out: list[Offer] = []
     for row in session.scalars(select(PriceListItem).where(
             PriceListItem.peptide_id.in_(ids), PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit.in_(_SIZE_UNITS),
-            PriceListItem.pack_price.is_not(None), PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)):
+            PriceListItem.pack_price > 0, PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)):
         need = by_key[str(row.peptide_id)]
         size_mg_or_iu, base_unit = _base(row.vial_amount, row.vial_unit)
         if base_unit != need.unit:                                   # IU against mass: bridge with the product's IU per mg

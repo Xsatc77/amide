@@ -134,3 +134,22 @@ def test_a_photo_of_plain_price_lines_is_read_from_its_lines():
             ["Zorvex ZX5 5mg*10vials $50", "Zorvex ZX10 10mg*10vials $60", "Quillamine QU5 5mg*10vials $55"])]
     data = readers.read_images([blank()], recognize=lines_only)
     assert [(r.code, r.pack_price) for r in data.rows] == [("ZX5", 50.0), ("ZX10", 60.0), ("QU5", 55.0)]
+
+
+def inventory_like(stocked=1, empty=46):
+    """A warehouse stock sheet: the numbers are quantities, mostly zero, which a reader takes for prices."""
+    rows = [readers.ParsedRow(code=None, name="Zorvex", spec=Spec(10, "mg", 10), pack_price=0.0) for _ in range(empty)]
+    rows += [readers.ParsedRow(code=None, name="Quillamine", spec=Spec(10, "mg", 10), pack_price=53.0) for _ in range(stocked)]
+    return readers.PriceListData(rows=rows)
+
+
+def test_a_price_of_zero_is_not_a_price():
+    assert readers.priced_fraction(inventory_like(stocked=0)) == 0.0
+    assert readers.looks_like_price_list(inventory_like(stocked=0), "price list", None)[0] is False
+
+
+def test_a_stock_sheet_is_not_a_price_list_even_when_its_caption_says_price():
+    caption = "The latest overseas warehouse inventory list - price is $10 higher, shipping cost is $32"
+    ok, reason = readers.looks_like_price_list(inventory_like(stocked=1), caption, "photo.jpg")
+    assert ok is False and "not a price list" in reason
+    assert readers.looks_like_price_list(inventory_like(stocked=5), caption, None)[0] is False

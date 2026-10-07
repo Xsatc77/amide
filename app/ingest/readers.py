@@ -29,10 +29,15 @@ def _data(rows: list[ParsedRow], lines: list[str]) -> PriceListData:
     return PriceListData(rows=rows, shipping_note=note, warehouse_hint=hint, unread_spec_lines=unread_spec_lines(lines, rows))
 
 
+def has_price(row: ParsedRow) -> bool:
+    """A real price: a stock sheet's quantities (0 in stock) are not prices."""
+    return row.pack_price is not None and row.pack_price > 0
+
+
 def prefer_priced(table_rows: list[ParsedRow], line_rows: list[ParsedRow]) -> list[ParsedRow]:
     """Of a table reading and a line-by-line reading of the same page, the one that found more prices (the table wins a tie)."""
     def priced(rows):
-        return sum(1 for r in rows if r.pack_price is not None)
+        return sum(1 for r in rows if has_price(r))
     return line_rows if priced(line_rows) > priced(table_rows) else table_rows
 
 
@@ -106,16 +111,17 @@ def read_text(text: str) -> PriceListData:
 
 
 def priced_fraction(data: PriceListData) -> float:
-    return (sum(1 for r in data.rows if r.pack_price is not None) / len(data.rows)) if data.rows else 0.0
+    return (sum(1 for r in data.rows if has_price(r)) / len(data.rows)) if data.rows else 0.0
 
 
 def looks_like_price_list(data: PriceListData, caption: str | None, filename: str | None) -> tuple[bool, str | None]:
     """A price list has at least 3 rows with a price (and most rows priced), or says "price" in its name or caption and
-    has at least one priced row. Anything else is chatter, a photo of something else, or a certificate."""
-    priced = sum(1 for r in data.rows if r.pack_price is not None)
+    has at least one priced row and most rows priced. Anything else is chatter, a photo of something else, a certificate,
+    or a warehouse stock sheet (its quantities read as prices, mostly zero)."""
+    priced = sum(1 for r in data.rows if has_price(r))
     named = bool(_PRICE_WORDS.search(caption or "") or _PRICE_WORDS.search(filename or ""))
     if priced >= 3 and priced_fraction(data) >= 0.6:
         return True, None
-    if named and priced >= 1:
+    if named and priced >= 1 and priced_fraction(data) >= 0.5:
         return True, None
     return False, "not a price list (too few priced rows)"

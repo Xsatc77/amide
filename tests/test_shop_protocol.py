@@ -263,3 +263,17 @@ def test_the_shop_dialog_has_the_share_buttons(client, db, me):
     two_peptide_protocol(db, me)
     page = client.get("/protocols").text
     assert 'id="shop-download"' in page and 'id="shop-email"' in page
+
+
+def test_a_zero_price_line_is_never_offered(client, db, me):
+    zorvex, quillamine = lists(db)
+    stock = make_vendor(db, "Stockroom Labs")
+    make_list(db, stock, TODAY, item("Zorvex", 10, 0, card=make_card(db, "Zorvex Two")), item("Zorvex", 10, 0))
+    with SessionLocal() as s:
+        plist = s.scalar(select(PriceList).where(PriceList.vendor_name == "Stockroom Labs"))
+        for row in plist.items:
+            row.peptide_id = zorvex
+        s.commit()
+    pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY)])
+    sources = shop(client, pid).json()["plan"]["sources"]
+    assert [s["vendor"] for s in sources] == ["Zephyr Labs"]

@@ -7,7 +7,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ingest.readers import priced_fraction
+from app.ingest.readers import has_price, priced_fraction
 from app.library.price_lists.analysis import current_lists
 from app.library.price_lists.importer import synthetic_filename
 from app.library.price_lists.reader import PriceListData
@@ -57,7 +57,7 @@ def same_content(session: Session, vendor_id: int, warehouse: str, data: PriceLi
     if current is None:
         return False
     old = sorted((i.code or "", round(i.pack_price, 2)) for i in current.items if i.pack_price is not None)
-    new = sorted((r.code or "", round(r.pack_price, 2)) for r in data.rows if r.pack_price is not None)
+    new = sorted((r.code or "", round(r.pack_price, 2)) for r in data.rows if has_price(r))
     return bool(new) and old == new
 
 
