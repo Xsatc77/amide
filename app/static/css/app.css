@@ -570,7 +570,7 @@ section + section { margin-top: 36px; }
 .goal-card {
   position: relative; text-align: left; font: inherit; color: var(--text); cursor: pointer;
   display: flex; flex-direction: column; gap: 4px;
-  background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+  background: var(--surface); border: 1.5px solid var(--border); border-left: 5px solid var(--goal-color, var(--border)); border-radius: var(--radius); padding: 14px 16px;
 }
 .goal-card:hover { border-color: var(--goal-color, var(--accent)); }
 .goal-card[aria-pressed="true"] { border-color: var(--goal-color, var(--accent)); background: color-mix(in srgb, var(--goal-color, var(--accent-soft)) 25%, var(--surface)); }
@@ -976,13 +976,21 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .calc-result { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; padding: 20px; }
 .calc-units { text-align: center; font-size: 3rem; font-weight: 800; color: var(--accent); line-height: 1; }
 .calc-units-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
-.calc-syringe-visual { display: flex; flex-direction: column; gap: 4px; }
-.calc-syringe-barrel { position: relative; height: 34px; border: 2px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; }
-.calc-syringe-fill { position: absolute; inset: 0; width: 0; background: var(--accent-soft); border-right: 2px solid var(--accent); transition: width 0.15s ease; }
-.calc-syringe-fill.over { background: var(--danger-soft); border-color: var(--danger); }
+.calc-syringe-visual { --syringe-left: 52px; --syringe-right: 70px; display: flex; flex-direction: column; gap: 4px; }
+.calc-syringe { display: flex; align-items: center; height: 46px; }
+/* needle and hub on the left, then the barrel (the fill is the liquid drawn up), then the flange and plunger rod on the right */
+.calc-needle { width: 34px; height: 2px; background: var(--muted); border-radius: 2px 0 0 2px; flex: none; }
+.calc-hub { width: 18px; height: 14px; background: var(--border); border: 2px solid var(--muted); border-radius: 3px 0 0 3px; border-right: 0; box-sizing: border-box; flex: none; }
+.calc-syringe-barrel { position: relative; flex: 1; height: 34px; border: 2px solid var(--muted); border-radius: 4px; overflow: hidden;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--surface) 70%, white) 0%, var(--bg) 45%, color-mix(in srgb, var(--bg) 85%, var(--muted)) 100%); }
+.calc-flange { width: 6px; height: 46px; background: var(--muted); border-radius: 3px; flex: none; }
+.calc-plunger { width: 64px; height: 8px; background: var(--muted); border-radius: 0 3px 3px 0; position: relative; flex: none; }
+.calc-plunger::after { content: ""; position: absolute; right: -2px; top: -7px; width: 6px; height: 22px; background: var(--muted); border-radius: 3px; }
+.calc-syringe-fill { position: absolute; inset: 0; width: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 45%, transparent)); border-right: 2px solid var(--accent); transition: width 0.15s ease; }
+.calc-syringe-fill.over { background: linear-gradient(to bottom, color-mix(in srgb, var(--danger) 22%, transparent), color-mix(in srgb, var(--danger) 45%, transparent)); border-color: var(--danger); }
 .calc-syringe-ticks { position: absolute; inset: 0; }
 .calc-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); }
-.calc-syringe-scale { position: relative; height: 16px; font-size: 0.7rem; color: var(--muted); }
+.calc-syringe-scale { position: relative; height: 16px; font-size: 0.7rem; color: var(--muted); margin-left: var(--syringe-left); margin-right: var(--syringe-right); }
 .calc-syringe-scale span { position: absolute; transform: translateX(-50%); }
 .calc-kv { font-size: 0.95rem; }
 .calc-kv dt { font-size: 0.8rem; }
@@ -1233,7 +1241,10 @@ fieldset[data-day] { min-width: 0; }
 
 /* Dashboard: compliance bars */
 .compliance-windows { margin: 0 0 10px; }
+.compliance-windows select, .inv-sort select, .journal-day-picker input[type="date"] { font: inherit; color: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .compliance-windows select { width: 100%; }
+.inv-sort { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.journal-day-picker { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: 8px; }
 .compliance-chart { display: grid; grid-template-columns: 2.6rem 1fr; gap: 6px; align-items: stretch; }
 .compliance-axis { display: flex; flex-direction: column; justify-content: space-between; height: 160px; font-size: 0.7rem; color: var(--muted); text-align: right; line-height: 1; }
 .compliance-plot { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: start; }

@@ -18,3 +18,10 @@ def test_the_workouts_import_form_uses_classes_with_a_tight_gap(client, db):
     form = page.split('action="/workouts/upload"')[1].split("</form>")[0]
     assert "style=" not in form.split(">")[0] and "margin-left: 0.5rem" not in form
     assert ".workout-import" in CSS and 'class="workout-import"' in page
+
+
+def test_goal_cards_carry_their_goal_colour_and_the_bare_selects_follow_the_theme():
+    card = re.search(r"\.goal-card \{[^}]*\}", CSS).group(0)
+    assert "border-left: 5px solid var(--goal-color" in card
+    selects = re.search(r"\.compliance-windows select, \.inv-sort select[^{]*\{[^}]*\}", CSS).group(0)
+    assert "background: var(--surface)" in selects and "color: inherit" in selects

@@ -144,9 +144,13 @@
       {{ '%g' % result.units if result.units is not none else '—' }}<span class="calc-units-label">units</span>
     </div>
     <div class="calc-syringe-visual" aria-hidden="true">
-      <div class="calc-syringe-barrel">
-        <div class="calc-syringe-fill" id="calc-fill" style="width: 0%"></div>
-        <div class="calc-syringe-ticks" id="calc-ticks"></div>
+      <div class="calc-syringe">
+        <span class="calc-needle"></span><span class="calc-hub"></span>
+        <div class="calc-syringe-barrel">
+          <div class="calc-syringe-fill" id="calc-fill" style="width: 0%"></div>
+          <div class="calc-syringe-ticks" id="calc-ticks"></div>
+        </div>
+        <span class="calc-flange"></span><span class="calc-plunger"></span>
       </div>
       <div class="calc-syringe-scale" id="calc-scale"></div>
     </div>
