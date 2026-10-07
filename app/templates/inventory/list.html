@@ -8,6 +8,7 @@
     <h1>Inventory</h1>
     <p class="muted">{{ items | length }} item{{ '' if items | length == 1 else 's' }}</p>
   </div>
+  <a class="btn btn-ghost" href="/inventory/orders">Orders &amp; tracking</a>
   <button type="button" class="btn btn-primary btn-add" data-action="add" aria-label="Add inventory item">
     <span aria-hidden="true">+</span> Add item
   </button>
@@ -125,7 +126,7 @@
 {{ item_table('supplies', 'Supplies', supply_items, false) }}
 
 <section id="in-transit" aria-labelledby="in-transit-heading">
-  <h2 id="in-transit-heading" class="section-title">In-transit</h2>
+  <h2 id="in-transit-heading" class="section-title">In-transit <a class="small" href="/inventory/orders">Track orders</a></h2>
   {% if in_transit_groups %}
   <div class="table-wrap">
     <table class="inv-table">

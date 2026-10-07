@@ -440,6 +440,7 @@ class Order(Base):
     order_date: Mapped[date] = mapped_column(Date)
     shipped_date: Mapped[date | None] = mapped_column(Date)
     arrival_date: Mapped[date | None] = mapped_column(Date)
+    delivered_date: Mapped[date | None] = mapped_column(Date)   # the package reached the door; check-in (arrival_date) comes after
     tracking_site: Mapped[str | None] = mapped_column(String(500))
     tracking_number: Mapped[str | None] = mapped_column(String(100))
     vendor: Mapped[str | None] = mapped_column(String(200))

@@ -367,6 +367,16 @@
     buildLines(orderId, errorData);
     if (Object.keys(errorData.errors).length) alertBox.hidden = false;
     dialog.showModal();
+  } else {
+    // Arrived from the Orders tab's Check in button: ?checkin=<order id> opens that order's dialog.
+    const wanted = new URLSearchParams(window.location.search).get("checkin");
+    if (wanted && checkinData[wanted]) {
+      clearErrors();
+      form.reset();
+      form.action = `${window.location.pathname}/orders/${wanted}/check-in`;
+      buildLines(wanted, null);
+      dialog.showModal();
+    }
   }
 })();
 

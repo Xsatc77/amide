@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% set active_nav = "inventory" %}
+{% block title %}Orders{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Orders</h1>
+    <p class="muted">Where each order stands, from ordered to checked in.</p>
+  </div>
+  <a class="btn btn-ghost" href="/inventory">Back to Inventory</a>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Filter orders">
+  {% for key, label in tabs %}<a href="/inventory/orders{{ '?status=' + key if key }}" class="tab {{ 'active' if status == key }}">{{ label }}</a>{% endfor %}
+</div>
+
+{% if not cards %}
+<div class="empty"><p><strong>No orders here.</strong></p><p class="muted">Orders appear as you add them from Inventory (New order).</p></div>
+{% endif %}
+
+{% for card in cards %}
+{% set o = card.order %}
+{% set t = card.timeline %}
+{% set err = errors.get(o.id, {}) if errors else {} %}
+<article class="card order-card" id="order-{{ o.id }}">
+  <header class="order-head">
+    <div>
+      <strong>{{ o.vendor or 'Order' }}</strong>
+      <span class="muted small">ordered {{ o.order_date | shortdate }}</span>
+    </div>
+    <span class="pill order-status order-status-{{ t.status }}">{{ t.status_label }}</span>
+  </header>
+
+  <ol class="order-timeline" aria-label="Order progress">
+    {% for s in t.steps %}
+    <li class="step step-{{ s.state }}">
+      <span class="dot" aria-hidden="true">{{ '&#10003;' | safe if s.state == 'done' else '' }}</span>
+      <span class="label">{{ s.label }}</span>
+      <span class="when muted small">{{ (s.date | shortdate) if s.date else '' }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+
+  {% if t.status != 'checked_in' %}
+  <p class="small {{ 'order-late' if t.late == 'late' else 'order-warn' if t.late == 'warn' else 'muted' }}">
+    {% if t.status == 'waiting' %}Waiting to ship for {{ t.days }} day{{ '' if t.days == 1 else 's' }}{% elif t.status == 'in_transit' %}Day {{ t.days }} in transit{% else %}Delivered {{ t.days }} day{{ '' if t.days == 1 else 's' }} ago, not checked in yet{% endif %}
+    {% if t.late == 'late' %} &mdash; later than your shipment-delay setting{% elif t.late == 'warn' %} &mdash; getting close to your shipment-delay setting{% endif %}
+  </p>
+  {% endif %}
+
+  <ul class="order-lines">
+    {% for item, li in card.lines %}
+    <li><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}{% if li.received_quantity is not none %} <span class="muted small">(received {{ li.received_quantity }})</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+
+  <div class="order-tracking">
+    {% if o.tracking_number %}<span>Tracking: <code>{{ o.tracking_number }}</code></span>
+      <button type="button" class="btn btn-ghost btn-small" data-copy="{{ o.tracking_number }}">Copy</button>{% endif %}
+    {% if card.link %}<a class="btn btn-primary btn-small" href="{{ card.link.url }}" target="_blank" rel="noopener"
+         {% if card.link.copy_first %}data-copy="{{ o.tracking_number }}"{% endif %}>{{ card.link.label }}</a>{% endif %}
+    {% if not o.tracking_number and not card.link %}<span class="muted small">No tracking number yet.</span>{% endif %}
+  </div>
+
+  <div class="order-actions">
+    <details>
+      <summary class="btn btn-ghost btn-small">{{ 'Edit tracking' if o.tracking_number or o.tracking_site else 'Add tracking' }}</summary>
+      <form method="post" action="/inventory/orders/{{ o.id }}/tracking" class="inline-form">
+        <label class="field"><span>Tracking number</span><input name="tracking_number" maxlength="100" value="{{ o.tracking_number or '' }}"></label>
+        <label class="field"><span>Tracking site (optional; use {number} where the number goes)</span><input name="tracking_site" maxlength="500" value="{{ o.tracking_site or '' }}" placeholder="https://..."></label>
+        <button type="submit" class="btn btn-primary btn-small">Save</button>
+      </form>
+    </details>
+    {% if t.status == 'waiting' %}
+    <form method="post" action="/inventory/orders/{{ o.id }}/ship" class="inline-form">
+      <input type="date" name="shipped_date" value="{{ today_iso }}" aria-label="Shipped date">
+      <button type="submit" class="btn btn-ghost btn-small">Mark shipped</button>
+    </form>
+    {% endif %}
+    {% if t.status in ('waiting', 'in_transit') %}
+    <form method="post" action="/inventory/orders/{{ o.id }}/deliver" class="inline-form">
+      <input type="date" name="delivered_date" value="{{ today_iso }}" aria-label="Delivered date">
+      <button type="submit" class="btn btn-ghost btn-small">Mark delivered</button>
+    </form>
+    {% endif %}
+    {% if t.status != 'checked_in' %}
+    <a class="btn btn-primary btn-small" href="/inventory/{{ card.lines[0][0].id }}?checkin={{ o.id }}">Check in</a>
+    {% endif %}
+  </div>
+  {% for message in err.values() %}<small class="error">{{ message }}</small>{% endfor %}
+</article>
+{% endfor %}
+
+<script src="/static/js/order-tracking.js" defer></script>
+{% endblock %}

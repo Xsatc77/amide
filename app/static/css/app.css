@@ -1185,3 +1185,27 @@ fieldset[data-day] { min-width: 0; }
 .inbox-fold > summary::-webkit-details-marker { display: none; }
 .inbox-fold > summary h2::before { content: "\25B8  "; }
 .inbox-fold[open] > summary h2::before { content: "\25BE  "; }
+
+/* Orders tab: Amazon-style timeline */
+.order-card { margin: 0 0 1rem; padding: 1rem 1.25rem; }
+.order-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+.order-status { white-space: nowrap; }
+.order-timeline { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 0.5rem 0 0.75rem; padding: 0; }
+.order-timeline .step { position: relative; text-align: center; padding-top: 1.75rem; }
+.order-timeline .step::before { content: ""; position: absolute; top: 0.6rem; left: -50%; width: 100%; height: 3px; background: var(--border); }
+.order-timeline .step:first-child::before { display: none; }
+.order-timeline .step-done::before, .order-timeline .step-current::before { background: var(--accent); }
+.order-timeline .dot { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 1.3rem; height: 1.3rem; border-radius: 50%;
+  border: 3px solid var(--border); background: var(--surface); color: #fff; font-size: 0.8rem; line-height: 1rem; }
+.order-timeline .step-done .dot { background: var(--accent); border-color: var(--accent); }
+.order-timeline .step-current .dot { border-color: var(--accent); }
+.order-timeline .label { display: block; font-weight: 600; }
+.order-timeline .step-todo .label { font-weight: 400; opacity: 0.6; }
+.order-late { color: var(--danger, #b91c1c); font-weight: 600; }
+.order-warn { color: #b45309; font-weight: 600; }
+.order-lines { margin: 0.5rem 0; padding-left: 1.1rem; }
+.order-tracking, .order-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+.order-actions details[open] { flex-basis: 100%; }
+@media (max-width: 560px) { .order-timeline .label { font-size: 0.8rem; } .order-head { flex-direction: column; align-items: flex-start; } }
+.order-timeline .when { display: block; font-size: 0.75rem; }
+@media (max-width: 560px) { .order-timeline .when { font-size: 0.62rem; overflow-wrap: anywhere; } }
