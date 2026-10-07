@@ -19,6 +19,7 @@ from app.protocols.course_totals import compute_course_totals
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
+from app.protocols import premade
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
 from app.templating import templates
@@ -152,7 +153,8 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
 
     return templates.TemplateResponse(request, "protocols/list.html",
                                       {"active_views": active, "saved_views": saved, "shared_views": shared_views,
-                                       "goals": GOALS, "statuses": list(Status), "course_totals": course_totals})
+                                       "goals": GOALS, "statuses": list(Status), "course_totals": course_totals,
+                                       "premade_groups": premade.groups()})
 
 
 @router.get("/protocols/titration-steps")
@@ -344,9 +346,20 @@ def _parse(session: Session, form: dict[str, list[str]], uid: int):
     )
 
 
+def _known_peptide_id(session: Session, name: str) -> int | None:
+    """The library peptide a premade's name refers to, by name or alias (case-insensitive), else None."""
+    wanted = name.strip().lower()
+    for pp in session.scalars(select(Peptide)):
+        if pp.name.lower() == wanted or wanted in [a.strip().lower() for a in (pp.aliases or "").split(",")]:
+            return pp.id
+    return None
+
+
 @router.get("/protocols/new")
 def new_protocol(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
         uid: int = Depends(current_user_id)):
+    if template := premade.BY_SLUG.get(request.query_params.get("premade", "")):
+        return _render_builder(request, session, premade.to_state(template, lambda n: _known_peptide_id(session, n), today), today=today)
     goals = [g for g in dict.fromkeys(request.query_params.getlist("goal")) if g in GOALS_BY_SLUG]
     return _render_builder(request, session, blank_state(goals, today), today=today)
 

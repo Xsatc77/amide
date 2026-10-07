@@ -98,6 +98,21 @@
   </div>
 </section>
 
+{# ---------- Premade protocols ---------- #}
+<section id="premade" aria-labelledby="premade-heading">
+  <h2 id="premade-heading" class="section-title">Or Start From A Premade Protocol</h2>
+  <p class="muted small">Common published schedules. Each opens in the builder so you can change anything before saving. Review with your provider.</p>
+  {% for group, items in premade_groups %}
+  <h3 class="small muted">{{ group }}</h3>
+  <ul class="premade-list">
+    {% for p in items %}
+    <li><a href="/protocols/new?premade={{ p.slug }}"><strong>{{ p.name }}</strong></a>
+      <span class="small muted">{{ p.summary }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+
 {# ---------- Saved protocols ---------- #}
 <section id="saved-protocols" aria-labelledby="saved-heading">
   <div class="section-head">
