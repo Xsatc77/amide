@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <h1>Reconstitution Calculator</h1>
-    <p class="muted">Vial + BAC water + dose → concentration, draw volume and U-100 syringe units.</p>
+    <p class="muted">Vial + BAC water + dose → concentration, draw volume and U-100 syringe units. Pick any peptide to practice; the &ldquo;Why?&rdquo; panel explains every number.</p>
   </div>
 </div>
 
@@ -14,34 +14,78 @@
 <div class="alert" role="alert">{{ reconstitute_error }}</div>
 {% endif %}
 
+<div class="alert calc-practice" id="calc-practice" role="status" hidden>Practice mode: nothing here is saved. To reconstitute a real vial, choose it under &ldquo;From Inventory&rdquo;.</div>
+
 <div class="calc-layout">
   <form id="calc-form" class="builder-step calc-form" novalidate>
     <fieldset class="form-section">
-      <legend>Vial</legend>
+      <legend>Peptide</legend>
       <div class="grid">
         {% if data.inventory %}
         <label class="field span-2">
-          <span>From Inventory <span class="muted small">(lyophilized items only)</span></span>
+          <span>From Inventory <span class="muted small">(lyophilized items in stock)</span></span>
           <select id="calc-inventory">
             <option value="">— Choose an item —</option>
-            {% for i in data.inventory %}<option value="{{ i.id }}" data-vial-mg="{{ '%g' % i.vial_mg }}"{{ ' selected' if selected_item_id == i.id else '' }}>{{ i.name }} ({{ '%g' % i.vial_mg }} mg)</option>{% endfor %}
+            {% for i in data.inventory %}<option value="{{ i.id }}" data-vial-mg="{{ '%g' % i.vial_mg }}"{{ ' selected' if selected_item_id == i.id else '' }}>{{ i.name }} ({{ '%g' % i.vial_mg }} {{ i.unit }})</option>{% endfor %}
           </select>
         </label>
         {% endif %}
+        <label class="field span-2">
+          <span>Practice with any peptide <span class="muted small">(master list)</span></span>
+          <select id="calc-library">
+            <option value="">— Choose a peptide —</option>
+            {% for p in data.library %}<option value="lib-{{ p.id }}">{{ p.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <div class="field span-2" id="calc-levels-wrap" hidden>
+          <span class="small muted">Library dose</span>
+          <div class="chips" id="calc-levels"></div>
+          <small class="muted" id="calc-level-note"></small>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Vial</legend>
+      <div class="grid">
         <label class="field">
-          <span>Vial Amount (mg)</span>
+          <span>Vial Amount</span>
           <input id="calc-vial" type="number" min="0" step="any" inputmode="decimal" value="{{ state.vial_mg }}">
         </label>
-        <div class="field">
+        <label class="field">
+          <span>Vial measured in</span>
+          <select id="calc-vial-unit">
+            {% for u in ('mg', 'mcg', 'IU') %}<option value="{{ u }}" {{ 'selected' if state.vial_unit == u }}>{{ u }}</option>{% endfor %}
+          </select>
+        </label>
+        <div class="field span-2">
           <span class="small muted">Presets</span>
-          <div class="chips">{% for mg in (5, 10, 15, 20, 30) %}<button type="button" class="chip" data-fill="calc-vial" data-value="{{ mg }}">{{ mg }} mg</button>{% endfor %}</div>
+          <div class="chips" id="calc-vial-presets">
+            {% for mg in (5, 10, 15, 20, 30) %}<button type="button" class="chip" data-fill="calc-vial" data-value="{{ mg }}" data-presets="mass">{{ mg }} mg</button>{% endfor %}
+            {% for iu in (5, 10, 36) %}<button type="button" class="chip" data-fill="calc-vial" data-value="{{ iu }}" data-presets="IU" hidden>{{ iu }} IU</button>{% endfor %}
+          </div>
         </div>
+        <label class="field span-2" id="calc-iu-wrap" hidden>
+          <span>IU per mg <span class="muted small">(this product)</span></span>
+          <input id="calc-iu-per-mg" type="number" min="0" step="any" inputmode="decimal" value="{{ state.iu_per_mg }}" placeholder="e.g. 3 for HGH">
+          <small class="muted" id="calc-iu-note">The vial and the dose use different units, so this converts between them.</small>
+        </label>
       </div>
     </fieldset>
 
     <fieldset class="form-section">
       <legend>BAC Water</legend>
       <div class="grid">
+        {% if data.bac %}
+        <label class="field span-2">
+          <span>BAC water <span class="muted small">(used when you reconstitute)</span></span>
+          <select id="calc-bac">
+            <option value="">Automatic (your priority order)</option>
+            {% for b in data.bac %}<option value="{{ b.id }}">{{ b.name }}{% if b.open %} — open, {{ '%g' % b.open.ml_left }} mL left{% endif %} — {{ b.in_stock }} in stock</option>{% endfor %}
+          </select>
+          <small class="muted" id="calc-bac-info"></small>
+        </label>
+        {% endif %}
         <label class="field">
           <span>Water Added (mL)</span>
           <input id="calc-water" type="number" min="0" step="any" inputmode="decimal" value="{{ state.water_ml }}">
@@ -74,6 +118,7 @@
           <select id="calc-dose-unit">
             <option value="mg" {{ 'selected' if state.dose_unit == 'mg' }}>mg</option>
             <option value="mcg" {{ 'selected' if state.dose_unit == 'mcg' }}>mcg</option>
+            <option value="IU" {{ 'selected' if state.dose_unit == 'IU' }}>IU</option>
           </select>
         </label>
       </div>
@@ -106,10 +151,21 @@
       <div class="calc-syringe-scale" id="calc-scale"></div>
     </div>
     <dl class="kv calc-kv">
-      <dt>Concentration</dt><dd id="calc-concentration">{% if result.concentration_mg_ml is not none %}{{ '%g' % result.concentration_mg_ml }} mg/mL <span class="muted">({{ '%g' % result.concentration_mcg_ml }} mcg/mL)</span>{% else %}—{% endif %}</dd>
+      <dt>Concentration</dt><dd id="calc-concentration">{% if result.concentration is not none %}{{ '%g' % result.concentration }} {{ result.concentration_unit }}/mL{% if result.concentration_mcg_ml is not none %} <span class="muted">({{ '%g' % result.concentration_mcg_ml }} mcg/mL)</span>{% endif %}{% else %}—{% endif %}</dd>
       <dt>Draw volume</dt><dd id="calc-draw">{{ '%g' % result.draw_ml ~ ' mL' if result.draw_ml is not none else '—' }}</dd>
       <dt>Doses per vial</dt><dd id="calc-doses">{{ result.doses_per_vial if result.doses_per_vial is not none else '—' }}</dd>
     </dl>
+
+    <section class="calc-why" id="calc-why" aria-labelledby="calc-why-heading">
+      <h2 id="calc-why-heading" class="section-title">Why?</h2>
+      <p class="muted small" id="calc-why-empty">Enter a vial, water and dose to see the steps.</p>
+      <ol class="calc-steps" id="calc-steps"></ol>
+      <div id="calc-issues"></div>
+      <div id="calc-fixes" hidden>
+        <p class="small"><strong>Water amounts that work</strong> <span id="calc-range"></span></p>
+        <div class="chips" id="calc-suggestions"></div>
+      </div>
+    </section>
 
     <details class="calc-target">
       <summary>Solve water for a target unit mark</summary>
@@ -126,7 +182,7 @@
         <thead><tr><th>Units</th><th>mL</th></tr></thead>
         <tbody>{% for u in (1, 2.5, 5, 10, 20, 30, 50, 100) %}<tr><td>{{ u }}</td><td>{{ '%g' % (u / 100) }}</td></tr>{% endfor %}</tbody>
       </table>
-      <p class="muted small">1 mg = 1,000 mcg. Syringe units measure liquid volume, not peptide weight — the amount per unit depends on concentration.</p>
+      <p class="muted small">1 mg = 1,000 mcg. IU is an activity unit, not a weight: HGH is about 3 IU per mg. Syringe units measure liquid volume, not peptide weight — the amount per unit depends on concentration.</p>
     </details>
   </div>
 </div>
@@ -139,6 +195,7 @@
     <div class="form-section">
       <dl class="kv calc-kv">
         <dt>Water added</dt><dd data-fill="water-ml"></dd>
+        <dt>BAC water</dt><dd data-fill="bac"></dd>
         <dt>Concentration</dt><dd data-fill="concentration"></dd>
         <dt>Per dose</dt><dd data-fill="dose"></dd>
         <dt>Doses per vial</dt><dd data-fill="doses"></dd>
@@ -151,6 +208,8 @@
       <input type="hidden" name="water_ml" data-water-ml-value>
       <input type="hidden" name="dose_value" data-dose-value>
       <input type="hidden" name="dose_unit" data-dose-unit-value>
+      <input type="hidden" name="iu_per_mg" data-iu-per-mg-value>
+      <input type="hidden" name="bac_item_id" data-bac-item-id>
       <label class="field checkbox-field">
         <input type="checkbox" name="load_into_pen" value="1">
         <span>Load into a peptide pen?</span>

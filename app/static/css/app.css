@@ -1210,3 +1210,14 @@ fieldset[data-day] { min-width: 0; }
 @media (max-width: 560px) { .order-timeline .label { font-size: 0.8rem; } .order-head { flex-direction: column; align-items: flex-start; } }
 .order-timeline .when { display: block; font-size: 0.75rem; }
 @media (max-width: 560px) { .order-timeline .when { font-size: 0.62rem; overflow-wrap: anywhere; } }
+
+/* Calculator: the Why? panel and practice banner */
+.calc-why { border-top: 1px solid var(--border); padding-top: 14px; }
+.calc-why .section-title { font-size: 1rem; margin: 0 0 8px; }
+.calc-steps { margin: 0 0 8px; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.5; }
+.calc-step { margin-bottom: 4px; }
+.calc-issue { margin: 6px 0; padding: 8px 10px; border-left: 4px solid var(--danger); background: var(--danger-soft); border-radius: 4px; font-size: 0.9rem; }
+.calc-note { margin: 6px 0; padding: 8px 10px; border-left: 4px solid #d4a017; background: color-mix(in srgb, #d4a017 12%, var(--surface)); border-radius: 4px; font-size: 0.9rem; }
+.calc-ok { margin: 6px 0; color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+.calc-practice { margin-bottom: 12px; }
+#calc-levels .chip[aria-pressed="true"] { border-color: var(--accent); font-weight: 600; }

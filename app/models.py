@@ -412,6 +412,8 @@ class InventoryItem(Base):
     # Supply items only: which supply this is (alcohol pad, recon syringe, ...). BAC Water only: 1 = used first, 4 = last, none = after all ranked.
     supply_type: Mapped[SupplyType | None] = mapped_column(_enum_column(SupplyType))
     bac_priority: Mapped[int | None] = mapped_column(Integer)
+    # IU vials (and IU doses): how many IU are in 1 mg of this product (about 3 for HGH). Empty until it is entered in the calculator.
+    iu_per_mg: Mapped[float | None] = mapped_column(Float)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -605,6 +607,9 @@ class ActiveVial(Base):
     dose_unit: Mapped[DoseUnit | None] = mapped_column(_enum_column(DoseUnit))
     doses_total: Mapped[int | None] = mapped_column(Integer)
     dispensing_method: Mapped[DispensingMethod] = mapped_column(_enum_column(DispensingMethod), default=DispensingMethod.SYRINGE)
+    # The unit the vial is measured in (mg, mcg or IU): concentration_mg_ml is then per mL in THIS unit (the column name is historic).
+    vial_unit: Mapped[str] = mapped_column(String(10), default="mg", server_default="mg")
+    iu_per_mg: Mapped[float | None] = mapped_column(Float)     # bridges IU and mass doses for this vial
     volume_remaining_ml: Mapped[float] = mapped_column(Float)
     date_mixed: Mapped[date] = mapped_column(Date)
     discard_by: Mapped[date] = mapped_column(Date)

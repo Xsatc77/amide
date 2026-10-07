@@ -60,20 +60,29 @@ def _plan_supplies(session: Session, uid: int, needs: dict[SupplyType, int], pla
                     break
 
 
-def _plan_bac(session: Session, uid: int, water_ml: float, today: date, plan: Plan) -> None:
-    """An open BAC vial with enough water left first; otherwise the best-ranked bottle in stock (rank 1 first, unranked last)."""
-    open_vials = session.scalars(
-        select(ActiveVial).join(InventoryItem, ActiveVial.inventory_item_id == InventoryItem.id)
-        .where(ActiveVial.owner_id == uid, InventoryItem.category == Category.BAC_WATER, ActiveVial.discarded_at.is_(None),
-               ActiveVial.discard_by >= today, ActiveVial.volume_remaining_ml >= water_ml - EMPTY_EPSILON)
-        .order_by(ActiveVial.discard_by, ActiveVial.id)).all()
+def _plan_bac(session: Session, uid: int, water_ml: float, today: date, plan: Plan, bac_item_id: int | None = None) -> None:
+    """An open BAC vial with enough water left first; otherwise the best-ranked bottle in stock (rank 1 first, unranked last).
+    With `bac_item_id` only that BAC item is considered (the user picked a bottle)."""
+    chosen = None
+    if bac_item_id is not None:
+        chosen = session.get(InventoryItem, bac_item_id)
+        if chosen is None or chosen.owner_id != uid or chosen.category != Category.BAC_WATER:
+            plan.errors.append("That is not one of your BAC Water items")
+            return
+    query = (select(ActiveVial).join(InventoryItem, ActiveVial.inventory_item_id == InventoryItem.id)
+             .where(ActiveVial.owner_id == uid, InventoryItem.category == Category.BAC_WATER, ActiveVial.discarded_at.is_(None),
+                    ActiveVial.discard_by >= today, ActiveVial.volume_remaining_ml >= water_ml - EMPTY_EPSILON)
+             .order_by(ActiveVial.discard_by, ActiveVial.id))
+    if chosen is not None:
+        query = query.where(ActiveVial.inventory_item_id == chosen.id)
+    open_vials = session.scalars(query).all()
     if open_vials:
         plan.open_vial = open_vials[0]
         return
     stock = [i for i in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid, InventoryItem.category == Category.BAC_WATER)
-                                        .order_by(InventoryItem.id)) if i.available_count > 0]
+                                        .order_by(InventoryItem.id)) if i.available_count > 0 and (chosen is None or i.id == chosen.id)]
     if not stock:
-        plan.errors.append("No BAC Water Available")
+        plan.errors.append(f"No BAC Water Available ({chosen.name} has none left)" if chosen is not None else "No BAC Water Available")
         return
     stock.sort(key=lambda i: (i.bac_priority is None, i.bac_priority or 0, i.id))
     bottle = stock[0]
@@ -84,10 +93,11 @@ def _plan_bac(session: Session, uid: int, water_ml: float, today: date, plan: Pl
     plan.new_bottle, plan.bottle_ml = bottle, size
 
 
-def plan_reconstitution(session: Session, uid: int, *, water_ml: float, pen: bool, today: date | None = None) -> Plan:
+def plan_reconstitution(session: Session, uid: int, *, water_ml: float, pen: bool, today: date | None = None,
+                        bac_item_id: int | None = None) -> Plan:
     today = today or date.today()
     plan = Plan()
-    _plan_bac(session, uid, water_ml, today, plan)
+    _plan_bac(session, uid, water_ml, today, plan, bac_item_id)
     _plan_supplies(session, uid, _needs(recon=True, pen=pen), plan)
     return plan
 

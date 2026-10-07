@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.calculator.reconstitution import _DOSE_UNITS_TO_MG
+from app.calculator import units as unit_math
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.dosing.site import eligible_sites, recommend
@@ -47,12 +47,12 @@ def _open_vial_for_item(session: Session, inventory_item_id: int) -> ActiveVial 
 
 
 def _dose_volume_ml(dose_value: float | None, dose_unit: DoseUnit, vial: ActiveVial) -> float | None:
-    """None when the dose can't be converted to mL (an IU dose has no universal mg conversion --
-    the Calculator's own compute() has the same limitation) or there's no dose value at all."""
-    factor = _DOSE_UNITS_TO_MG.get(dose_unit.value)
-    if dose_value is None or factor is None:
+    """None when the dose can't be converted to mL (no dose value, or IU against mass with no IU-per-mg on the vial). The dose is
+    converted into the vial's own unit and divided by its concentration (per mL, in that unit)."""
+    if dose_value is None or not vial.concentration_mg_ml:
         return None
-    return (dose_value * factor) / vial.concentration_mg_ml
+    in_vial_unit = unit_math.convert(dose_value, dose_unit.value, vial.vial_unit or "mg", vial.iu_per_mg)
+    return None if in_vial_unit is None else in_vial_unit / vial.concentration_mg_ml
 
 
 def _last_site_for_peptide(session: Session, uid: int, peptide_id: int) -> InjectionSite | None:

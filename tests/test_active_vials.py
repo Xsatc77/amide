@@ -153,32 +153,29 @@ def test_reconstitute_commit_requires_ownership(client, db, lyo_item):
     assert r.status_code == 404
 
 
-def test_calculator_page_excludes_non_mg_inventory_items(client, db, lyo_item, mcg_item):
-    """vial_size_mg is only ever milligrams to the reconstitution math; an mcg- or IU-labeled
-    item would silently compute a wildly wrong concentration if offered here."""
+def test_calculator_page_offers_mcg_and_iu_items_with_their_own_unit(client, db, lyo_item, mcg_item):
+    """An mcg or IU item is offered with its unit in the label; the math then runs in that unit, so it can never be read as milligrams."""
     t = text(client.get("/calculator"))
-    assert f'<option value="{lyo_item}"' in t
-    assert f'<option value="{mcg_item}"' not in t
+    assert f'<option value="{lyo_item}"' in t and "(10 mg)" in t
+    assert f'<option value="{mcg_item}"' in t and "(500 mcg)" in t
 
 
-def test_reconstitute_commit_rejects_non_mg_item(client, db, mcg_item):
+def test_reconstitute_commit_keeps_an_mcg_vial_in_mcg_not_a_thousand_times_off(client, db, mcg_item):
     r = client.post("/calculator/reconstitute", data={
         "inventory_item_id": str(mcg_item), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": "2026-12-31",
     }, follow_redirects=False)
-    assert r.status_code == 404
+    assert r.status_code == 303
     with SessionLocal() as s:
-        assert s.query(ActiveVial).filter_by(inventory_item_id=mcg_item).count() == 0
+        vial = s.scalar(select(ActiveVial).where(ActiveVial.inventory_item_id == mcg_item))
+        assert (vial.vial_unit, vial.concentration_mg_ml, vial.doses_total) == ("mcg", 250.0, 2)      # 500 mcg / 2 mL; 250 mcg doses
         item = s.get(InventoryItem, mcg_item)
-        assert item.reconstituted_count == 0  # untouched
-        assert item.count == 0  # untouched -- vestigial for Medicine
+        assert item.reconstituted_count == 1 and item.count == 0
 
 
-def test_reconstitute_dropdown_excludes_non_mg_items(client, db, mcg_item):
-    """Items with vial_size_unit != mg are excluded from the calculator dropdown (1000x concentration error prevention)."""
-    # Test the calculator dropdown - mcg items should not appear there
+def test_reconstitute_dropdown_includes_mcg_items(client, db, mcg_item):
     t = text(client.get("/calculator"))
-    assert f'<option value="{mcg_item}"' not in t
+    assert f'<option value="{mcg_item}"' in t
 
 
 def test_reconstitute_dropdown_excludes_zero_stock_items(client, db, lyo_item, me):
@@ -373,7 +370,10 @@ def test_bac_water_item_never_reconstitutable(client, db, me):
     item_id = _create_item("AV BAC Water", category="BAC Water", quantity=4,
                            arrival_date=date(2026, 8, 10), uid=me)
     t = text(client.get("/calculator"))
-    assert f'<option value="{item_id}"' not in t
+    start = t.find('id="calc-inventory"')
+    peptide_picker = t[start:t.index("</select>", start)] if start >= 0 else ""         # with no peptide in stock the picker is not drawn at all
+    assert f'<option value="{item_id}"' not in peptide_picker                 # BAC water is chosen in its own picker, never as the vial
+    assert f'<option value="{item_id}">AV BAC Water' in t
     r = client.post("/calculator/reconstitute", data={
         "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": "2026-12-31",

@@ -9,7 +9,7 @@ import math
 from dataclasses import dataclass
 from datetime import timedelta
 
-from app.calculator.reconstitution import _DOSE_UNITS_TO_MG
+from app.calculator import units as unit_math
 from app.calendar.schedule import is_due
 from app.models import Frequency, Medium, PurchasingUnit
 from app.protocols.status import current_step, current_week
@@ -76,10 +76,6 @@ def _scheduled_total(item, protocol, inventory_by_id: dict, normally_supplied_by
                 total += dose
 
     inv = inventory_by_id.get(item.inventory_item_id) if item.inventory_item_id else None
-    dose_factor = _DOSE_UNITS_TO_MG.get(unit)
-
-    if dose_factor is None:
-        return ItemTotal(item.peptide.name, unit, False, total, None, None, "IU — vial count not calculable", lib_specs)
 
     # Use inventory item if linked; fall back to library card normally-supplied vial size
     vial_size_amount = None
@@ -99,13 +95,16 @@ def _scheduled_total(item, protocol, inventory_by_id: dict, normally_supplied_by
     if vial_size_amount is None or vial_size_unit is None:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "No inventory item linked", lib_specs)
 
-    vial_factor = _DOSE_UNITS_TO_MG.get(vial_size_unit.value)
-    if not vial_factor:
+    if vial_size_unit.value not in unit_math.UNITS or not vial_size_amount:
         return ItemTotal(item.peptide.name, unit, False, total, None, None, "Inventory item has no vial size set", lib_specs)
 
-    total_mg = total * dose_factor
-    vial_mg = vial_size_amount * vial_factor
-    vials_estimate = math.ceil(total_mg / vial_mg - 1e-9)
+    # Both sides in the vial's own unit; IU against mass needs the item's IU-per-mg.
+    iu_per_mg = getattr(inv, "iu_per_mg", None) if inv is not None else None
+    total_in_vial_unit = unit_math.convert(total, unit, vial_size_unit.value, iu_per_mg)
+    if total_in_vial_unit is None:
+        note = "IU vs mass — enter this item's IU per mg in the Calculator to count vials" if "IU" in (unit, vial_size_unit.value) else "IU — vial count not calculable"
+        return ItemTotal(item.peptide.name, unit, False, total, None, None, note, lib_specs)
+    vials_estimate = math.ceil(total_in_vial_unit / vial_size_amount - 1e-9)
     bac_water_ml = vials_estimate * _BAC_WATER_ML_PER_VIAL
     return ItemTotal(item.peptide.name, unit, False, total, vials_estimate, bac_water_ml, None, lib_specs)
 
