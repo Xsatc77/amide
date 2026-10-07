@@ -146,6 +146,21 @@
     </div>
     {% endfor %}
   </div>
+  {% set planned = workout_week | rejectattr('status', 'equalto', 'rest') | list | length %}
+  {% set done = workout_week | selectattr('status', 'equalto', 'done') | list | length %}
+  {% set missed = workout_week | selectattr('status', 'equalto', 'missed') | list | length %}
+  {% set next_up = workout_week | selectattr('status', 'equalto', 'upcoming') | first %}
+  <div class="workout-week-summary">
+    {% if planned %}
+    <div class="workout-week-meter" role="img" aria-label="{{ done }} of {{ planned }} planned workouts done this week">
+      <i style="width: {{ (done / planned * 100) | round | int }}%"></i>
+    </div>
+    <p class="workout-week-line"><strong>{{ done }} of {{ planned }}</strong> planned workouts done{% if missed %} <span class="muted">· {{ missed }} missed</span>{% endif %}</p>
+    <p class="small muted">{% if next_up %}{% if next_up.is_today %}Next up: today ({{ next_up.label }}){% else %}Next up: {{ next_up.label }}, {{ next_up.date.strftime('%b') }} {{ next_up.date.day }}{% endif %}{% elif done == planned %}Everything planned this week is done.{% else %}No more workouts planned this week.{% endif %}</p>
+    {% else %}
+    <p class="small muted">Nothing scheduled this week. Give a workout day its weekdays in the plan editor to see it here.</p>
+    {% endif %}
+  </div>
 </section>
 {% endif %}
 

@@ -511,6 +511,10 @@ section + section { margin-top: 36px; }
 .water-quick-picks { display: flex; gap: 8px; margin-bottom: 12px; }
 
 .workout-week-row { display: flex; justify-content: space-between; gap: 4px; }
+.workout-week-summary { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 6px; }
+.workout-week-summary p { margin: 0; }
+.workout-week-meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.workout-week-meter i { display: block; height: 100%; background: var(--tier-beginner); border-radius: 4px; }
 .workout-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .workout-day-label { font-size: 0.7rem; color: var(--muted); }
 .workout-day-dot { width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; }
@@ -521,6 +525,8 @@ section + section { margin-top: 36px; }
 .workout-day-today .workout-day-dot { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
 .workout-day-today .workout-day-label { color: var(--text); font-weight: 600; }
 .measurement-chart { display: block; width: 100%; height: auto; color: var(--accent); }
+.measurement-chart .grid { stroke: var(--border); stroke-width: 1; }
+.measurement-chart .axis-label { fill: var(--muted); font-size: 15px; }
 .vial-card-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .vial-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .vial-card-body { display: flex; align-items: center; gap: 14px; }
@@ -1360,5 +1366,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .day-pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
 
 /* Premade protocols list */
+/* Red and black caution tape around a peptide that is commonly flagged with one of the person's medicines */
+.caution-tape {
+  border: 6px solid transparent !important; border-radius: var(--radius);
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+              repeating-linear-gradient(45deg, #c1121f 0, #c1121f 10px, #000000 10px, #000000 20px) border-box;
+}
+.medicine-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.medicine-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; }
 .premade-list { list-style: none; margin: 0 0 var(--space-3, 12px); padding: 0; display: grid; gap: 8px; }
 .premade-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }

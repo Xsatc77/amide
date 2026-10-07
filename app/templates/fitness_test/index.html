@@ -17,7 +17,9 @@
     {% endif %}
     {% if e.chart %}
     <svg viewBox="0 0 {{ e.chart.width }} {{ e.chart.height }}" class="measurement-chart" role="img" aria-label="{{ e.label }} over time">
+      {% for t in e.chart.y_axis.ticks %}<line class="grid" x1="{{ e.chart.y_axis.left }}" x2="{{ e.chart.y_axis.right }}" y1="{{ t.y }}" y2="{{ t.y }}"></line><text class="axis-label" x="{{ e.chart.y_axis.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.value }}</text>{% endfor %}
       <polyline points="{{ e.chart.poly }}" fill="none" stroke="currentColor" stroke-width="2"></polyline>
+      {% for cx, cy in e.chart.points %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="currentColor"></circle>{% endfor %}
     </svg>
     {% else %}
     <p class="muted small">Log at least two results to see a trend.</p>

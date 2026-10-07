@@ -63,7 +63,8 @@ class Section:
 
 SECTIONS: dict[str, Section] = {s.key: s for s in (
     Section("profile", "Profile and preferences", PERSON, (
-        Tbl("users", "id = :uid", columns=PROFILE_COLUMNS),),
+        Tbl("users", "id = :uid", columns=PROFILE_COLUMNS),
+        Tbl("user_medicines", "owner_id = :uid")),
         help="Body profile, goals, timezone and display preferences. Never your password, 2FA or email."),
     Section("inventory", "Inventory", PERSON, (
         Tbl("inventory_items", "owner_id = :uid"),

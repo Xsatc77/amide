@@ -2,11 +2,14 @@
    the Dashboard's condensed "Body" panel -- imported with `{% from %}` (not `{% import %}` as sm)
    so every existing unprefixed call site keeps working unchanged. #}
 
+{% macro y_grid(axis) %}{% if axis %}{% for t in axis.ticks %}<line class="grid" x1="{{ axis.left }}" x2="{{ axis.right }}" y1="{{ t.y }}" y2="{{ t.y }}"></line><text class="axis-label" x="{{ axis.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.value }}</text>{% endfor %}{% endif %}{% endmacro %}
+
 {% macro line_chart(chart, label, stroke='currentColor') %}
 {% if chart %}
 <div class="card">
   <h3>{{ label }}</h3>
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
+    {{ y_grid(chart.y_axis) }}
     {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
     <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
     {% for cx, cy in chart.points %}{% set d, v = chart.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}" class="chart-point"

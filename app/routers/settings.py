@@ -23,6 +23,7 @@ from app.models import (
     ActivityLevel, BiologicalSex, BodyPhoto, Colorway, Food, FoodLog, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
     Protocol, Share, ShareCategory, User, Vendor,
 )
+from app.models import UserMedicine
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.templating import templates
 from app.users import user_rows
@@ -58,6 +59,8 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
         "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset), "life_stages": LIFE_STAGES,
         "shipping": saved_shipping(me),
+        "medicines": session.scalars(select(UserMedicine).where(UserMedicine.owner_id == me.id)
+                                     .order_by(UserMedicine.name.collate("NOCASE"))).all(),
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
         "ntfy_server": config.NTFY_SERVER,
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
@@ -244,6 +247,42 @@ async def change_label_settings(request: Request, session: Session = Depends(get
     me.auto_print_labels, me.label_size = bool(form.get("auto_print_labels")), size
     session.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+MAX_MEDICINES = 60
+
+
+@router.post("/settings/medicines")
+async def add_medicine(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    name = " ".join(str(form.get("name") or "").split())
+    notes = " ".join(str(form.get("notes") or "").split()) or None
+    errors = {}
+    if not name:
+        errors["medicine_name"] = "Enter the medicine's name."
+    elif len(name) > 80 or (notes and len(notes) > 200):
+        errors["medicine_name"] = "That is too long: 80 characters for the name, 200 for the note."
+    else:
+        have = session.scalars(select(UserMedicine).where(UserMedicine.owner_id == uid)).all()
+        if any(m.name.casefold() == name.casefold() for m in have):
+            errors["medicine_name"] = "That medicine is already on your list."
+        elif len(have) >= MAX_MEDICINES:
+            errors["medicine_name"] = f"Your list can hold {MAX_MEDICINES} medicines. Remove one first."
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+    session.add(UserMedicine(owner_id=uid, name=name, notes=notes))
+    session.commit()
+    return RedirectResponse("/settings#medicines", status_code=303)
+
+
+@router.post("/settings/medicines/{medicine_id}/delete")
+def delete_medicine(medicine_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    med = session.get(UserMedicine, medicine_id)
+    if med is None or med.owner_id != uid:
+        raise HTTPException(status_code=404)
+    session.delete(med)
+    session.commit()
+    return RedirectResponse("/settings#medicines", status_code=303)
 
 
 @router.post("/settings/shopping")

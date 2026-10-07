@@ -11,7 +11,7 @@ from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.library.price_lists.analysis import rematch_items
 from app.models import (
-    WEEKDAY_LETTERS, WEEKDAY_NAMES, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
+    WEEKDAY_LETTERS, WEEKDAY_NAMES, UserMedicine, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
     Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
     User,
 )
@@ -19,6 +19,7 @@ from app.protocols.course_totals import compute_course_totals
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
+from app.library.interactions import cautions_for
 from app.protocols import premade
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
@@ -201,12 +202,20 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
     # Library specifications will be shown in the UI when available
     peptides = session.scalars(select(Peptide).order_by(Peptide.name)).all()
 
+    meds = list(session.scalars(select(UserMedicine.name).where(UserMedicine.owner_id == uid)))
+    cautions = {}
+    for pp in peptides if meds else []:
+        found = cautions_for(pp.name, pp.aliases, meds)
+        if found:
+            cautions[str(pp.id)] = found
+
     def choices(enum_cls):
         return [[m.value, m.label] for m in enum_cls]
 
     return {
         "state": state,
         "errors": errors,
+        "cautions": cautions,
         "is_new": is_new,
         "goals": [{"slug": g.slug, "label": g.label, "description": g.description} for g in GOALS],
         "stacks": stacks,

@@ -11,6 +11,7 @@
   <nav class="settings-nav" aria-label="Settings sections">
     <a href="#user">User</a>
     <a href="#sharing">Sharing</a>
+    <a href="#medicines">Medicines</a>
     <a href="#display">Display</a>
     <a href="#integrations">Integrations</a>
     {% if me.is_admin %}<a href="#admin">Admin</a>{% endif %}
@@ -332,6 +333,30 @@
       {% else %}
       <p class="muted">No other users yet — sharing options appear once someone else has an account.</p>
       {% endif %}
+    </section>
+
+    <section id="medicines" class="builder-step">
+      <h2 class="section-title">Medicines</h2>
+      <p class="small muted">List the prescription and over-the-counter medicines you take. Peptides that are commonly flagged
+        alongside them get red and black caution tape in the library, on your protocols and in the builder. It is a prompt to ask
+        your prescriber or pharmacist, not advice, and no tape does not mean no interaction.</p>
+      {% if medicines %}
+      <ul class="medicine-list">
+        {% for m in medicines %}
+        <li><span><strong>{{ m.name }}</strong>{% if m.notes %} <span class="muted small">{{ m.notes }}</span>{% endif %}</span>
+          <form method="post" action="/settings/medicines/{{ m.id }}/delete" class="inline">
+            <button type="submit" class="btn btn-ghost" aria-label="Remove {{ m.name }}">Remove</button></form></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted small">No medicines listed.</p>{% endif %}
+      <form method="post" action="/settings/medicines" class="settings-form" novalidate>
+        <label class="field {{ 'has-error' if errors.medicine_name }}"><span>Medicine</span>
+          <input type="text" name="name" maxlength="80" placeholder="e.g. metformin" autocomplete="off">
+          {{ err('medicine_name') }}</label>
+        <label class="field"><span>Note (optional)</span>
+          <input type="text" name="notes" maxlength="200" placeholder="e.g. 500 mg twice a day" autocomplete="off"></label>
+        <button type="submit" class="btn btn-primary">Add medicine</button>
+      </form>
     </section>
 
     <section id="display" class="builder-step">

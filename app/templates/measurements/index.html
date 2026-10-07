@@ -2,7 +2,7 @@
 {% set active_nav = "measurements" %}
 {% block title %}Weight & Measurements{% endblock %}
 
-{% from "measurements/_silhouette_macros.html" import line_chart, silhouette_point %}
+{% from "measurements/_silhouette_macros.html" import line_chart, y_grid, silhouette_point %}
 
 {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 
@@ -39,6 +39,7 @@
 <div class="card">
   <h3>Blood Pressure</h3>
   <svg viewBox="0 0 {{ bp.width }} {{ bp.height }}" class="measurement-chart" role="img" aria-label="Blood Pressure over time">
+    {{ y_grid(bp.y_axis) }}
     <polyline points="{{ bp.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
     {% for cx, cy in bp.points_a %}{% set d, v = bp.raw_a[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)" class="chart-point"
       data-date="{{ d | shortdate }}" data-value="{{ v }} systolic"></circle>{% endfor %}

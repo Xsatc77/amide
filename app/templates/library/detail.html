@@ -39,6 +39,14 @@
 
 <div class="lib-layout">
   <div class="lib-main">
+    {% set cx = peptide_cautions(p.name, p.aliases) %}
+    {% if cx %}
+    <section class="lib-section caution-tape" aria-label="Cautions with your medicines">
+      <h2 class="section-title">Caution with your medicines</h2>
+      <ul>{% for c in cx %}<li><strong>{{ c.medicine }}</strong>: {{ c.note }}</li>{% endfor %}</ul>
+      <p class="small muted">A prompt to ask your prescriber or pharmacist, not advice. Edit your list in Settings.</p>
+    </section>
+    {% endif %}
     {% if is_sheet %}
       {% if p.summary %}<p class="lead">{{ p.summary }}</p>{% endif %}
 

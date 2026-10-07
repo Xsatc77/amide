@@ -1212,6 +1212,16 @@ class JournalCustomEffect(Base):
     name: Mapped[str] = mapped_column(String(40))
 
 
+class UserMedicine(Base):
+    """A medicine a person takes, listed in Settings so peptide cautions can be shown."""
+    __tablename__ = "user_medicines"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_user_medicine"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    notes: Mapped[str | None] = mapped_column(String(200))
+
+
 class JournalEntryCustomEffect(Base):
     """A custom side effect ticked on one entry. The name is kept as written, so removing it from the list never changes past days."""
     __tablename__ = "journal_entry_custom_effects"

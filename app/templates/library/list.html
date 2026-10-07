@@ -25,7 +25,8 @@
   {% for p in peptides %}
   {% set is_sheet = p.source.value == "sheet" %}
   {% set search = [p.name, p.aliases or '', p.card_class or '', p.category or '', (p.tags or []) | join(' ')] | join(' ') | lower %}
-  <a class="lib-tile" href="/library/{{ p.id }}"
+  {% set cx = peptide_cautions(p.name, p.aliases) %}
+  <a class="lib-tile{{ ' caution-tape' if cx }}" href="/library/{{ p.id }}"{% if cx %} title="Caution with {{ cx | map(attribute='medicine') | unique | join(', ') }}. Open the peptide for details."{% endif %}
      data-search="{{ search }}"
      data-goals="{{ goal_map.get(p.id, []) | join(' ') }}"
      data-added="{{ '1' if p.source in added_sources else '0' }}">

@@ -298,16 +298,31 @@ def _in_window(rows: list[BodyMeasurement], start: date | None) -> list[BodyMeas
     return rows if start is None else [r for r in rows if r.measured_at >= start]
 
 
+PAD_LEFT = 46        # room for the value labels beside the line charts' axis
+
+
 def _scaled_points(points: list[tuple[date, float]], min_d: date, max_d: date, min_v: float,
-                   max_v: float, width: int, height: int, pad_x: int, pad_y: int) -> list[tuple[float, float]]:
+                   max_v: float, width: int, height: int, pad_x: int, pad_y: int,
+                   pad_l: int | None = None) -> list[tuple[float, float]]:
+    pad_l = pad_x if pad_l is None else pad_l
     span_d = (max_d - min_d).days or 1
     span_v = (max_v - min_v) or None
     coords = []
     for d, v in points:
-        cx = pad_x + (d - min_d).days / span_d * (width - 2 * pad_x)
+        cx = pad_l + (d - min_d).days / span_d * (width - pad_l - pad_x)
         cy = height / 2 if span_v is None else height - pad_y - (v - min_v) / span_v * (height - 2 * pad_y)
         coords.append((round(cx, 1), round(cy, 1)))
     return coords
+
+
+def _y_axis(min_v: float, max_v: float, width: int, height: int, pad_x: int, pad_y: int, pad_l: int) -> dict:
+    """Reference lines for the value axis: the low, middle and high of the plotted range (one line when flat)."""
+    values = [max_v] if max_v == min_v else [max_v, (max_v + min_v) / 2, min_v]
+    span = (max_v - min_v) or None
+    return {"ticks": [{"value": f"{v:.1f}".rstrip("0").rstrip("."),
+                       "y": round(height / 2 if span is None else height - pad_y - (v - min_v) / span * (height - 2 * pad_y), 1)}
+                      for v in values],
+            "left": pad_l, "right": width - pad_x}
 
 
 def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 160,
@@ -329,16 +344,18 @@ def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 
     band_values = [v for _, lo, hi in band for v in (lo, hi)] if band else []
     min_d, max_d = min(dates), max(dates)
     min_v, max_v = min(values + band_values), max(values + band_values)
-    coords = _scaled_points(points, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+    pad_l = PAD_LEFT
+    coords = _scaled_points(points, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y, pad_l)
     result = {"width": width, "height": height, "points": coords, "raw": points,
+             "y_axis": _y_axis(min_v, max_v, width, height, pad_x, pad_y, pad_l),
              "poly": " ".join(f"{x},{y}" for x, y in coords), "band": None,
              "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
     if band:
         band_sorted = sorted(band)
         top = _scaled_points([(d, hi) for d, _, hi in band_sorted],
-                             min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+                             min_d, max_d, min_v, max_v, width, height, pad_x, pad_y, pad_l)
         bottom = _scaled_points([(d, lo) for d, lo, _ in reversed(band_sorted)],
-                                min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+                                min_d, max_d, min_v, max_v, width, height, pad_x, pad_y, pad_l)
         result["band"] = " ".join(f"{x},{y}" for x, y in top + bottom)
     return result
 
@@ -354,9 +371,10 @@ def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, f
     dates = [d for d, _ in all_points]
     values = [v for _, v in all_points]
     min_d, max_d, min_v, max_v = min(dates), max(dates), min(values), max(values)
-    a = _scaled_points(points_a, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
-    b = _scaled_points(points_b, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y)
+    a = _scaled_points(points_a, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y, PAD_LEFT)
+    b = _scaled_points(points_b, min_d, max_d, min_v, max_v, width, height, pad_x, pad_y, PAD_LEFT)
     return {"width": width, "height": height, "points_a": a, "points_b": b,
+           "y_axis": _y_axis(min_v, max_v, width, height, pad_x, pad_y, PAD_LEFT),
            "raw_a": points_a, "raw_b": points_b,
            "poly_a": " ".join(f"{x},{y}" for x, y in a), "poly_b": " ".join(f"{x},{y}" for x, y in b),
            "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}

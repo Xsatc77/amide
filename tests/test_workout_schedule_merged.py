@@ -84,3 +84,12 @@ def test_the_old_schedule_route_still_works(client, db, me):
 def test_a_day_added_in_the_browser_gets_its_boxes_renumbered(client, db):
     js = client.get("/static/js/workouts.js").text
     assert "weekdays[" in js
+
+
+def test_the_dashboard_week_card_summarises_progress(client, db, me):
+    from datetime import date
+    from app.models import WEEKDAY_LETTERS
+    today = WEEKDAY_LETTERS[date.today().weekday()]
+    make_plan(client, me, **{"weekdays[0][]": [today], "weekdays_present[0]": ["1"]})
+    page = client.get("/dashboard").text
+    assert "workout-week-summary" in page and "0 of 1" in page and "Next up: today" in page

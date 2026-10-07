@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
+from jinja2 import pass_context
 
 from app.goals import GOALS_BY_SLUG
 from app.library.tag_goals import goal_colors_for_tag
@@ -21,6 +22,32 @@ def static_url(path: str) -> str:
 
 
 templates.env.globals["static_url"] = static_url
+
+
+@pass_context
+def peptide_cautions(ctx, name, aliases=None):
+    """Cautions between this peptide and the signed-in person's medicine list (Settings), for the red-and-black tape.
+    The list is read once per request."""
+    request = ctx.get("request")
+    user = getattr(getattr(request, "state", None), "user", None)
+    if user is None:
+        return []
+    meds = getattr(request.state, "medicine_names", None)
+    if meds is None:
+        from sqlalchemy import select
+
+        from app.db import SessionLocal
+        from app.models import UserMedicine
+        with SessionLocal() as s:
+            meds = list(s.scalars(select(UserMedicine.name).where(UserMedicine.owner_id == user.id)))
+        request.state.medicine_names = meds
+    if not meds:
+        return []
+    from app.library.interactions import cautions_for
+    return cautions_for(name or "", aliases, meds)
+
+
+templates.env.globals["peptide_cautions"] = peptide_cautions
 
 
 def money(value: float | None) -> str:

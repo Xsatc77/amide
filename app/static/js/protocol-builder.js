@@ -271,13 +271,17 @@
     const inventoryOptions = [["", "— Not linked —"], ...data.inventory.map((inv) => [String(inv.id),
       [inv.name, inv.vial_size_mg ? `${inv.vial_size_mg} mg` : null, inv.medium].filter(Boolean).join(" · ")])];
 
-    const card = h("div", { class: "item-card" },
+    const flagged = it.peptide_id ? data.cautions?.[it.peptide_id] : null;
+    const card = h("div", { class: "item-card" + (flagged ? " caution-tape" : "") },
       h("div", { class: "item-card-head" },
         h("h3", {}, itemName(it), it.new_name ? h("span", { class: "tag new-tag", text: "New to library" }) : null,
           it.peptide_id ? h("a", { class: "small view-card", href: `/library/${it.peptide_id}`, target: "_blank",
             rel: "noopener", text: "View card" }) : null),
         h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": `Remove ${itemName(it)}`,
           onclick: () => { items = items.filter((x) => x !== it); changed(); } }, "×")),
+      flagged ? h("div", { class: "small caution-note" },
+        h("strong", { text: "Caution with your medicines: " }),
+        flagged.map((c) => `${c.medicine} - ${c.note}`).join(" ")) : null,
       it.peptide_id
         ? h("input", { type: "hidden", name: `${p}-peptide_id`, value: it.peptide_id })
         : h("input", { type: "hidden", name: `${p}-new_name`, value: it.new_name }),
