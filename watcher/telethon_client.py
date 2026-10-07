@@ -1,6 +1,7 @@
 """The real Telegram connection (Telethon). Thin on purpose: all decisions live in the runner. Read only: it never sends,
 reacts, joins, leaves or marks anything read."""
 
+import time
 from datetime import datetime, timezone
 
 from telethon import errors, types
@@ -10,6 +11,7 @@ from watcher.ports import Access, Attachment, Group, TgMessage, Topic
 
 _PDF = {"application/pdf"}
 _IMAGES = {"image/jpeg", "image/png"}
+TOPIC_CACHE_SECONDS, PAGE, MAX_TOPICS = 3600, 100, 1000
 _XLSX = {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
 
 
@@ -46,18 +48,32 @@ class TelethonClient:
         groups = []
         async for dialog in self._client.iter_dialogs():
             if dialog.is_group or dialog.is_channel:        # never private chats or bots
-                topics = await self._topics(dialog.entity) if getattr(dialog.entity, "forum", False) else []
+                topics = await self._topics(dialog.entity, str(dialog.id)) if getattr(dialog.entity, "forum", False) else []
                 groups.append(Group(chat_id=str(dialog.id), title=(dialog.name or "").strip() or str(dialog.id), topics=topics))
         return groups
 
-    async def _topics(self, entity) -> list[Topic]:
-        """The topics of a forum group (any trouble means none: the group is then followed whole or not at all)."""
+    async def _topics(self, entity, chat_id: str = "") -> list[Topic]:
+        """All topics of a forum group (paged), asked for at most once an hour; trouble keeps the last known list."""
+        cache = self.__dict__.setdefault("_topic_cache", {})
+        cached = cache.get(chat_id)
+        if cached is not None and time.time() - cached[0] < TOPIC_CACHE_SECONDS:
+            return cached[1]
         try:
             from telethon.tl.functions.messages import GetForumTopicsRequest
-            result = await self._client(GetForumTopicsRequest(peer=entity, offset_date=None, offset_id=0, offset_topic=0, limit=100))
-            return [Topic(str(t.id), t.title) for t in result.topics if getattr(t, "title", None)]
+            found: list[Topic] = []
+            offset_date, offset_id, offset_topic = None, 0, 0
+            while len(found) < MAX_TOPICS:
+                page = (await self._client(GetForumTopicsRequest(peer=entity, offset_date=offset_date, offset_id=offset_id,
+                                                                 offset_topic=offset_topic, limit=PAGE))).topics
+                found.extend(Topic(str(t.id), t.title) for t in page if getattr(t, "title", None))
+                last = next((t for t in reversed(page) if getattr(t, "date", None) is not None), None)
+                if len(page) < PAGE or last is None:
+                    break
+                offset_date, offset_id, offset_topic = last.date, last.top_message, last.id
+            cache[chat_id] = (time.time(), found)
+            return found
         except Exception:
-            return []
+            return cached[1] if cached is not None else []
 
     async def messages_since(self, chat_id: str, min_id: int, since: datetime | None, topic_id: str | None = None) -> list[TgMessage]:
         entity = await self._client.get_input_entity(int(chat_id))

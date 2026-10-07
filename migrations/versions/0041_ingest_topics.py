@@ -29,7 +29,7 @@ def upgrade() -> None:
     op.create_index('ix_ingest_topics_source_id', 'ingest_topics', ['source_id'])
     op.add_column('ingest_sources', sa.Column('topics_only', sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column('ingest_sources', sa.Column('skip_words', sa.String(1200)))
-    op.add_column('ingest_sources', sa.Column('follow_words', sa.String(1200), server_default='price, warehouse'))
+    op.add_column('ingest_sources', sa.Column('follow_words', sa.String(1200), server_default='price, prices, pricing, pricelist, warehouse'))
     op.add_column('ingest_items', sa.Column('topic_id', sa.String(32)))
     op.add_column('ingest_items', sa.Column('topic_title', sa.String(200)))
 

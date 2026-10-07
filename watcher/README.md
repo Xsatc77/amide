@@ -32,7 +32,7 @@ vendor and switched on in Amide. For every other group it sends Amide the title,
 
 Some groups are split into topics (named threads such as "US warehouse" or "Chatter"). The watcher registers each forum group's
 topics with Amide. In the inbox's Groups table, tick **Only selected topics** for the group and choose the topics to follow.
-A new topic whose name contains one of the group's **auto-follow words** (default `price, warehouse`) starts ticked; others
+A new topic whose name contains one of the group's **auto-follow words** (default `price, prices, pricing, pricelist, warehouse`) starts ticked; others
 start off. **Skip words** (for example `UK, EU`) set aside any list whose caption, filename, topic name or text mentions them.
 A topic's name also helps decide the warehouse. Groups without topics work as before.
 

@@ -98,3 +98,38 @@ def test_forum_groups_list_their_topics_and_per_topic_reads_pass_the_topic_to_te
     assert fake.kwargs.get("reply_to") == 7 and fake.kwargs.get("min_id") == 5
     run(client.messages_since("-100", 0, datetime(2026, 1, 1, tzinfo=timezone.utc)))
     assert "reply_to" not in fake.kwargs
+
+
+def test_more_than_a_hundred_topics_are_all_listed_and_the_list_is_cached_and_kept_on_errors():
+    class Page:
+        def __init__(self, ids):
+            self.topics = [SimpleNamespace(id=i, title=f"T{i}", date=datetime(2026, 1, 1, tzinfo=timezone.utc), top_message=i) for i in ids]
+
+    class Fake(FakeTg):
+        def __init__(self):
+            super().__init__()
+            self.requests, self.fail = 0, False
+
+        def iter_dialogs(self):
+            async def gen():
+                yield SimpleNamespace(id=-100, name="Big forum", is_group=True, is_channel=True, entity=SimpleNamespace(forum=True))
+            return gen()
+
+        async def __call__(self, request):
+            self.requests += 1
+            if self.fail:
+                raise ConnectionError("down")
+            return Page(range(1, 101)) if request.offset_topic == 0 else Page(range(101, 151)) if request.offset_topic == 100 else Page([])
+
+    fake = Fake()
+    client = client_with(fake)
+    groups = run(client.list_groups())
+    assert len(groups[0].topics) == 150
+    used = fake.requests
+    run(client.list_groups())
+    assert fake.requests == used                                           # cached: not asked again every poll
+    client._topic_cache.clear()
+    fake.fail = True
+    client._topic_cache["-100"] = (0.0, groups[0].topics)                  # an old copy, expired
+    again = run(client.list_groups())
+    assert len(again[0].topics) == 150                                     # an error keeps the last known list

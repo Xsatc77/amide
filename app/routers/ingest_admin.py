@@ -105,7 +105,7 @@ async def update_source(source_id: int, request: Request, session: Session = Dep
     source.topics_only = bool(form.get("topics_only"))
     ticked = {int(v) for v in form.getlist("topics") if str(v).isdigit()}
     for topic in session.scalars(select(IngestTopic).where(IngestTopic.source_id == source.id)):
-        topic.enabled = source.topics_only and topic.id in ticked           # only this group's own topics can be ticked
+        topic.enabled = topic.id in ticked           # only this group's own topics can be ticked; the switch decides whether ticks are used
     session.commit()
     return _done()
 

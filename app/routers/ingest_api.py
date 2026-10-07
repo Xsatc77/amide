@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
@@ -43,6 +44,7 @@ async def _json(request: Request) -> dict:
 
 _TOPIC_ID = re.compile(r"[0-9]{1,32}")
 MAX_TOPICS = 200
+MAX_TOPICS_PER_SOURCE = 500
 
 
 def _topics_from(body: dict) -> list[tuple[str, str]]:
@@ -67,15 +69,28 @@ def _starts_ticked(source: IngestSource, title: str) -> bool:
     return follows and skip.find_skip_word(skip.safe_words(source.skip_words), [title]) is None
 
 
-def _remember_topic(session: Session, source: IngestSource, topic_id: str, title: str) -> tuple[IngestTopic, bool]:
-    topic = session.scalar(select(IngestTopic).where(IngestTopic.source_id == source.id, IngestTopic.topic_id == topic_id))
-    created = topic is None
-    if topic is None:
-        topic = IngestTopic(source_id=source.id, topic_id=topic_id, title=title, enabled=_starts_ticked(source, title))
-        session.add(topic)
-    elif title and topic.title != title:
-        topic.title = title                                   # a rename refreshes the title only, never the tick
-    return topic, created
+def _remember_topic(session: Session, source: IngestSource, topic_id: str, title: str | None) -> tuple[IngestTopic | None, bool]:
+    """(topic, created). A known topic's title is refreshed (never its tick, never to a made-up title); a new one is added,
+    ticked only when named like the group's follow words; a group already holding the maximum number of topics adds no more."""
+    def find():
+        return session.scalar(select(IngestTopic).where(IngestTopic.source_id == source.id, IngestTopic.topic_id == topic_id))
+    topic = find()
+    if topic is not None:
+        if title and topic.title != title:
+            topic.title = title
+        return topic, False
+    count = session.scalar(select(func.count()).select_from(IngestTopic).where(IngestTopic.source_id == source.id))
+    if count >= MAX_TOPICS_PER_SOURCE:
+        return None, False
+    name = title or f"Topic {topic_id}"
+    try:
+        with session.begin_nested():                         # two requests may meet the same new topic: the loser reads the winner's row
+            topic = IngestTopic(source_id=source.id, topic_id=topic_id, title=name, enabled=_starts_ticked(source, name))
+            session.add(topic)
+            session.flush()
+        return topic, True
+    except IntegrityError:
+        return find(), False
 
 
 @router.put("/sources/{chat_id}")
@@ -137,12 +152,6 @@ async def receive_message(request: Request, session: Session = Depends(get_sessi
     topic_title = str(form.get("topic_title") or "").strip()[:200] or None
     if topic_id and not _TOPIC_ID.fullmatch(topic_id):
         raise HTTPException(422, "topic_id must be numeric")
-    remembered, created = None, False
-    if topic_id:
-        remembered, created = _remember_topic(session, source, topic_id, topic_title or f"Topic {topic_id}")
-        session.commit()
-    if source.topics_only and (remembered is None or created or not remembered.enabled):      # a topic seen for the first time waits for the next message
-        return {"results": [{"status": "ignored", "reason": "topic not followed", "item_id": None}]}
     try:
         received_at = datetime.fromisoformat(str(form.get("date") or "").replace("Z", "+00:00"))
     except ValueError:
@@ -153,6 +162,12 @@ async def receive_message(request: Request, session: Session = Depends(get_sessi
     uploads = [f for f in form.getlist("files") if isinstance(f, UploadFile)]
     if not message_id or len(uploads) > config.INGEST_MAX_FILES or len(text) > config.INGEST_MAX_TEXT:
         raise HTTPException(422, "message_id is required; at most 10 files and 8000 characters of text")
+    remembered, created = None, False
+    if topic_id:                                            # only after the request is known to be valid: bad requests make no topic rows
+        remembered, created = _remember_topic(session, source, topic_id, topic_title)
+        session.commit()
+    if source.topics_only and (remembered is None or created or not remembered.enabled):      # a topic seen for the first time waits for the next message
+        return {"results": [{"status": "ignored", "reason": "topic not followed", "item_id": None}]}
     files = [(f.filename or "", await f.read(config.INGEST_MAX_FILE_BYTES + 1)) for f in uploads]
     album = str(form.get("album_id") or "").strip()[:64] or None
 

@@ -24,9 +24,10 @@ def parse_skip_words(raw: str | None) -> list[str]:
 def find_skip_word(words: list[str], texts) -> str | None:
     """The first of `words` found as a whole word (letters or digits on either side mean it is part of another word)."""
     for text in texts:
-        lowered = (text or "").lower()
+        folded = (text or "").casefold()
         for word in words:
-            if lowered and re.search(r"(?<![a-z0-9])" + re.escape(word) + r"(?![a-z0-9])", lowered):
+            # a letter or digit of any alphabet on either side means the word is part of a longer one; "_" and punctuation do not
+            if folded and re.search(r"(?<![^\W_])" + re.escape(word.casefold()) + r"(?![^\W_])", folded):
                 return word
     return None
 

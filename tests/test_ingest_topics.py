@@ -7,7 +7,7 @@ from ingest_helpers import make_source
 
 def test_a_source_defaults_to_the_whole_group_with_no_skip_words_and_the_default_follow_words(db):
     s = make_source(db)
-    assert (s.topics_only, s.skip_words, s.follow_words) == (False, None, "price, warehouse")
+    assert (s.topics_only, s.skip_words, s.follow_words) == (False, None, "price, prices, pricing, pricelist, warehouse")
 
 
 def test_topics_are_unique_per_group_default_off_and_go_with_the_group(db):
@@ -268,10 +268,59 @@ def test_the_inbox_shows_topics_words_and_an_items_topic_escaped(client, db):
     db.commit()
     text_item(db, s, topic_title="<i>x</i>", text="Zorvex ZX10 10mg*10vials $60")
     page = client.get("/settings/ingest").text
-    assert "US&lt;/b&gt; warehouse" in page and "<b>US</b>" not in page and 'value="uk"' in page and 'value="price, warehouse"' in page
+    assert "US&lt;/b&gt; warehouse" in page and "<b>US</b>" not in page and 'value="uk"' in page and 'value="price, prices, pricing, pricelist, warehouse"' in page
 
 
 def test_only_the_administrator_can_change_topics_and_words(client, db):
     s = mapped(db)
     with other_client() as member:
         assert member.post(f"/settings/ingest/sources/{s.id}", data={"skip_words": "uk"}).status_code == 404
+
+
+# ---------------------------------------------------------------- review fixes
+
+def test_topic_ticks_are_kept_when_only_selected_topics_is_switched_off(client, db):
+    s = mapped(db)
+    a = IngestTopic(source_id=s.id, topic_id="7", title="US warehouse", enabled=True)
+    db.add(a)
+    db.commit()
+    client.post(f"/settings/ingest/sources/{s.id}", data={"vendor_id": str(s.vendor_id), "enabled": "on", "topics": [str(a.id)]})
+    db.expire_all()
+    assert db.get(IngestTopic, a.id).enabled is True                       # the switch decides what is read; it never erases the ticks
+
+
+@pytest.mark.parametrize("word,text,hit", [("ук", "лукас", None), ("ук", "ук склад", "ук"), ("uk", "uk_list.txt", "uk"), ("uk", "übuk", None),
+                                           ("straße", "STRASSE list", "straße"), ("ÜK", "üK stock", "ük")])
+def test_whole_word_matching_understands_other_alphabets(word, text, hit):
+    assert skip.find_skip_word(skip.parse_skip_words(word), [text]) == hit
+
+
+@pytest.mark.parametrize("title,ticked", [("US Prices", True), ("Pricing", True), ("Pricelist", True), ("US Price List", True), ("Chatter", False)])
+def test_common_price_topic_names_start_ticked_by_default(db, me, title, ticked):
+    secret = make_token(db, me)
+    with anon_client() as c:
+        c.put("/api/ingest/sources/-1", json={"title": "g", "topics": [{"id": "5", "title": title}]}, headers=bearer(secret))
+    assert db.query(IngestTopic).one().enabled is ticked
+
+
+def test_a_message_without_a_title_never_renames_a_known_topic_and_bad_requests_create_no_topic_rows(db, me):
+    secret = make_token(db, me)
+    s = mapped(db)
+    db.add(IngestTopic(source_id=s.id, topic_id="7", title="US warehouse", enabled=True))
+    db.commit()
+    with anon_client() as c:
+        c.post("/api/ingest/messages", data={"chat_id": s.chat_id, "message_id": "1", "date": NOW, "topic_id": "7", "text": "hi"}, headers=bearer(secret))
+        bad = c.post("/api/ingest/messages", data={"chat_id": s.chat_id, "message_id": "2", "date": "not a date", "topic_id": "99"}, headers=bearer(secret))
+    assert bad.status_code == 422
+    assert db.query(IngestTopic).filter_by(topic_id="7").one().title == "US warehouse"
+    assert db.query(IngestTopic).filter_by(topic_id="99").count() == 0
+
+
+def test_a_group_cannot_collect_unlimited_topics(db, me, monkeypatch):
+    from app.routers import ingest_api
+    monkeypatch.setattr(ingest_api, "MAX_TOPICS_PER_SOURCE", 3)
+    secret = make_token(db, me)
+    with anon_client() as c:
+        for n in range(1, 6):
+            c.put("/api/ingest/sources/-1", json={"title": "g", "topics": [{"id": str(n), "title": f"t{n}"}]}, headers=bearer(secret))
+    assert db.query(IngestTopic).count() == 3

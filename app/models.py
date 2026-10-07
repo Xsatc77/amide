@@ -1343,7 +1343,7 @@ class IngestSource(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
     topics_only: Mapped[bool] = mapped_column(Boolean, default=False)           # follow only the ticked topics of a forum group
     skip_words: Mapped[str | None] = mapped_column(String(1200))                # lists mentioning these words are set aside
-    follow_words: Mapped[str | None] = mapped_column(String(1200), default="price, warehouse")   # a new topic named like these starts ticked
+    follow_words: Mapped[str | None] = mapped_column(String(1200), default="price, prices, pricing, pricelist, warehouse")   # a new topic named like these starts ticked
 
 
 class IngestTopic(Base):
