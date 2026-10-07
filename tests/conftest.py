@@ -44,6 +44,8 @@ def me(client):
 
 @pytest.fixture(autouse=True)
 def clean(client):
+    from app.ingest import tokens
+    tokens.limiter._hits.clear()          # the per-token request counter must not leak from one test into the next
     yield
     with SessionLocal() as s:
         s.query(PriceAlertIgnore).delete()

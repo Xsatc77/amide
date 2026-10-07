@@ -1183,5 +1183,5 @@ fieldset[data-day] { min-width: 0; }
 .inbox-jump { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; position: sticky; top: 0; z-index: 5; padding: 0.5rem 0; background: var(--bg, inherit); }
 .inbox-fold > summary { cursor: pointer; list-style: none; }
 .inbox-fold > summary::-webkit-details-marker { display: none; }
-.inbox-fold > summary h2::before { content: "B8  "; }
-.inbox-fold[open] > summary h2::before { content: "BE  "; }
+.inbox-fold > summary h2::before { content: "\25B8  "; }
+.inbox-fold[open] > summary h2::before { content: "\25BE  "; }
