@@ -1,0 +1,137 @@
+"""Turning a protocol and the vendors' current price lists into a shopping plan (the database side of app.shopping.planner)."""
+
+import math
+import re
+from dataclasses import asdict
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.calculator import units as unit_math
+from app.library.price_lists.analysis import current_lists
+from app.models import InventoryItem, Peptide, PriceListItem, User
+from app.protocols.course_totals import compute_course_totals
+from app.shopping.planner import Need, Offer, Plan, plan_protocol
+
+DEFAULT_SHIPPING = {"china": 60.0, "us": 30.0}
+MAX_FEE = 10_000.0
+BAC_BOTTLE_ML = 30
+_HARD = re.compile(r"testosterone|\btrt\b|\bhgh\b|somatropin|growth hormone", re.IGNORECASE)
+_SIZE_UNITS = ("mg", "mcg", "IU")
+
+
+def is_hard_to_find(name: str) -> bool:
+    """Testosterone products and HGH (somatropin, 191AA): scarce, so a second vendor is allowed. The HGH fragments are not."""
+    return "fragment" not in name.lower() and bool(_HARD.search(name))
+
+
+def saved_shipping(user: User) -> dict:
+    return {"china": user.shop_china_shipping_cents / 100 if user.shop_china_shipping_cents is not None else DEFAULT_SHIPPING["china"],
+            "us": user.shop_us_shipping_cents / 100 if user.shop_us_shipping_cents is not None else DEFAULT_SHIPPING["us"]}
+
+
+def parse_fee(raw) -> float | None:
+    try:
+        value = float(str(raw).strip().lstrip("$"))
+    except ValueError:
+        return None
+    return round(value, 2) if 0 <= value <= MAX_FEE and math.isfinite(value) else None
+
+
+def _base(amount: float, unit: str) -> tuple[float, str]:
+    """An amount as mg (for mg and mcg) or IU."""
+    return (amount / 1000, "mg") if unit == "mcg" else (amount, unit)
+
+
+def _needs(protocol, totals, inventory_by_id, peptides_by_id) -> tuple[list[Need], list[dict], float]:
+    """(needs by peptide, notes for items that cannot be shopped, BAC water mL for the whole course)."""
+    amounts: dict[int, float] = {}
+    units: dict[int, str] = {}
+    factors: dict[int, float | None] = {}
+    notes: list[dict] = []
+    bac_ml = 0.0
+    for item, total in zip(protocol.items, totals):
+        bac_ml += total.bac_water_ml or 0.0
+        peptide = peptides_by_id.get(item.peptide_id) or item.peptide
+        inv = inventory_by_id.get(item.inventory_item_id) if item.inventory_item_id else None
+        if total.total_amount is not None:
+            amount, unit = _base(total.total_amount, item.dose_unit.value)
+        elif total.vials_estimate:                                  # as needed: the vials the popup says, at the size it is based on
+            size, size_unit = None, None
+            if inv is not None and inv.vial_size_mg:
+                size, size_unit = inv.vial_size_mg, inv.vial_size_unit.value
+            elif peptide.normally_supplied_amount and peptide.normally_supplied_unit:
+                size, size_unit = peptide.normally_supplied_amount, peptide.normally_supplied_unit.value
+            if size is None:
+                notes.append({"name": peptide.name, "reason": "As needed, and no vial size is known: choose one yourself"})
+                continue
+            amount, unit = _base(size * total.vials_estimate, size_unit)
+        else:
+            notes.append({"name": peptide.name, "reason": total.note or "No quantity to buy"})
+            continue
+        key = item.peptide_id
+        if key in amounts and units[key] != unit:
+            notes.append({"name": peptide.name, "reason": "Doses in different units could not be combined"})
+            continue
+        amounts[key] = amounts.get(key, 0.0) + amount
+        units[key] = unit
+        factors[key] = (inv.iu_per_mg if inv is not None and inv.iu_per_mg else None) or unit_math.default_iu_per_mg(peptide.name)
+    needs = [Need(key=str(k), name=(peptides_by_id.get(k).name if peptides_by_id.get(k) else str(k)), amount=a, unit=units[k], hard=is_hard_to_find(peptides_by_id[k].name))
+             for k, a in amounts.items() if k in peptides_by_id]
+    return needs, notes, bac_ml, factors
+
+
+def _offers(session: Session, needs: list[Need], factors: dict[int, float | None]) -> list[Offer]:
+    ids = [int(n.key) for n in needs]
+    lists = {p.id: p for p in current_lists(session)}
+    if not ids or not lists:
+        return []
+    by_key = {n.key: n for n in needs}
+    out: list[Offer] = []
+    for row in session.scalars(select(PriceListItem).where(
+            PriceListItem.peptide_id.in_(ids), PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit.in_(_SIZE_UNITS),
+            PriceListItem.pack_price.is_not(None), PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)):
+        need = by_key[str(row.peptide_id)]
+        size_mg_or_iu, base_unit = _base(row.vial_amount, row.vial_unit)
+        if base_unit != need.unit:                                   # IU against mass: bridge with the product's IU per mg
+            factor = factors.get(row.peptide_id)
+            if not factor:
+                continue
+            size_mg_or_iu = size_mg_or_iu * factor if need.unit == "IU" else size_mg_or_iu / factor
+        plist = lists[row.price_list_id]
+        out.append(Offer(vendor_id=plist.vendor_id, vendor_name=plist.vendor_name, warehouse=plist.warehouse.value, list_date=plist.list_date,
+                         need_key=need.key, size=size_mg_or_iu, size_label=f"{row.vial_amount:g} {row.vial_unit}", pack_size=row.pack_size,
+                         pack_price=row.pack_price, pack_type=row.pack_type))
+    return out
+
+
+def _plan_json(plan: Plan, chosen_total: float | None = None) -> dict:
+    out = {"total": plan.total, "items_total": plan.items_total, "shipping_total": plan.shipping_total, "reason": plan.reason,
+           "missing": [n.name for n in plan.missing],
+           "sources": [{"vendor": s.vendor_name, "vendor_id": s.vendor_id, "warehouse": s.warehouse, "list_date": s.list_date.isoformat(), "shipping": s.shipping,
+                        "items_total": s.items_total, "total": s.total,
+                        "lines": [{"peptide": l.need.name, "size_label": l.offer.size_label, "pack_type": l.offer.pack_type, "pack_size": l.offer.pack_size,
+                                   "packs": l.packs, "vials_needed": l.vials, "per_vial": round(l.offer.pack_price / l.offer.pack_size, 2), "cost": l.cost,
+                                   "leftover_vials": l.leftover_vials} for l in s.lines]} for s in plan.sources]}
+    if chosen_total is not None:
+        out["vs_chosen"] = round(plan.total - chosen_total, 2)
+    return out
+
+
+def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict) -> dict:
+    """The JSON the Shopping plan dialog shows."""
+    if protocol.end_date is None:
+        return {"status": "no_end_date"}
+    inventory_by_id = {i.id: i for i in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid))}
+    peptides_by_id = {p.id: p for p in session.scalars(select(Peptide).where(Peptide.id.in_({it.peptide_id for it in protocol.items})))}
+    totals = compute_course_totals(protocol, inventory_by_id, peptides_by_id) or []
+    needs, notes, bac_ml, factors = _needs(protocol, totals, inventory_by_id, peptides_by_id)
+    base = {"status": "ok", "protocol": {"id": protocol.id, "name": protocol.name}, "shipping": shipping,
+            "bac": {"ml": round(bac_ml, 1), "bottles": math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9)} if bac_ml > 0 else None}
+    if not needs and not notes:
+        return base | {"status": "nothing_to_buy", "plan": None, "alternatives": [], "unshoppable": []}
+    result = plan_protocol(needs, _offers(session, needs, factors), shipping)
+    unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable]
+    return base | {"plan": _plan_json(result.plan) if result.plan else None,
+                   "alternatives": [_plan_json(p, result.plan.total) for p in result.alternatives] if result.plan else [],
+                   "unshoppable": unshoppable}

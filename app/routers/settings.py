@@ -15,6 +15,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
+from app.shopping.build import parse_fee, saved_shipping
 from app.models import (
     ActivityLevel, BiologicalSex, BodyPhoto, Colorway, Food, FoodLog, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
     Protocol, Share, ShareCategory, User, Vendor,
@@ -53,6 +54,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "other_users": other_users, "my_shares": my_shares,
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
         "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset), "life_stages": LIFE_STAGES,
+        "shipping": saved_shipping(me),
     }
     if me.is_admin:
         users = user_rows(session)
@@ -177,6 +179,23 @@ async def change_discard_window(request: Request, session: Session = Depends(get
                       status_code=422)
 
     _me(session, uid).default_discard_days = days
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/shopping")
+async def change_shopping_defaults(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    china, us = parse_fee(form.get("china_shipping", "")), parse_fee(form.get("us_shipping", ""))
+    errors = {}
+    if china is None:
+        errors["china_shipping"] = "Enter a dollar amount from 0 to 10,000."
+    if us is None:
+        errors["us_shipping"] = "Enter a dollar amount from 0 to 10,000."
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+    me = _me(session, uid)
+    me.shop_china_shipping_cents, me.shop_us_shipping_cents = round(china * 100), round(us * 100)
     session.commit()
     return RedirectResponse("/settings", status_code=303)
 

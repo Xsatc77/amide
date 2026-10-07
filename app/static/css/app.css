@@ -1242,3 +1242,20 @@ fieldset[data-day] { min-width: 0; }
 .compliance-count { font-size: 0.72rem; }
 .compliance-value { min-height: 2.5em; text-align: center; line-height: 1.2; }
 .compliance-value .muted { font-size: 0.75rem; font-weight: 400; }
+
+/* Protocols: the Shop this protocol dialog */
+.shop-dialog { width: min(760px, 96vw); }
+.shop-fees { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 0 20px 12px; }
+.shop-fees .field { min-width: 130px; }
+#shop-body { padding: 0 20px 20px; max-height: 65vh; overflow-y: auto; }
+.shop-reason { font-weight: 600; margin: 4px 0 10px; }
+.shop-plan-title { font-size: 1.05rem; margin: 6px 0; }
+.shop-alt-title { font-size: 0.95rem; margin: 10px 0 4px; }
+.shop-source { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0; }
+.shop-source-head { margin-bottom: 6px; }
+.shop-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.shop-table th, .shop-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.shop-ship { margin: 6px 0 0; }
+.shop-total { font-size: 1.15rem; font-weight: 800; margin: 8px 0; }
+.shop-unavailable { margin: 12px 0; padding: 8px 10px; border-left: 4px solid #d4a017; background: color-mix(in srgb, #d4a017 12%, var(--surface)); border-radius: 4px; }
+.shop-alts summary { cursor: pointer; font-weight: 600; margin: 10px 0 4px; }

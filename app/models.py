@@ -943,6 +943,9 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(64))
     colorway: Mapped[Colorway | None] = mapped_column(_enum_column(Colorway))
     default_discard_days: Mapped[int | None] = mapped_column(Integer)
+    # What the Shop-this-protocol plan assumes shipping costs per vendor order, in cents (empty = the app's default: $60 China, $30 US).
+    shop_china_shipping_cents: Mapped[int | None] = mapped_column(Integer)
+    shop_us_shipping_cents: Mapped[int | None] = mapped_column(Integer)
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
     photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")

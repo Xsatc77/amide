@@ -57,6 +57,10 @@
         </form>
         {{ share_button() }}
       </footer>
+      <button type="button" class="btn-icon shop-btn" data-protocol-id="{{ p.id }}"
+        aria-label="Shop this protocol: {{ p.name }}" title="Shop this protocol">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6"></path></svg>
+      </button>
       <button type="button" class="btn-icon totals-btn" data-protocol-id="{{ p.id }}"
         aria-label="Total course quantities for {{ p.name }}" title="Total course quantities">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="7" x2="16" y2="7"></line><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line></svg>
@@ -123,6 +127,10 @@
             {{ p.start_date | shortdate }} – {{ (p.ended_on or p.end_date) | shortdate or 'ongoing' }}
           </td>
           <td class="actions">
+            <button type="button" class="btn-icon shop-btn" data-protocol-id="{{ p.id }}"
+              aria-label="Shop this protocol: {{ p.name }}" title="Shop this protocol">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6"></path></svg>
+            </button>
             <button type="button" class="btn-icon totals-btn" data-protocol-id="{{ p.id }}"
               aria-label="Total course quantities for {{ p.name }}" title="Total course quantities">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="7" x2="16" y2="7"></line><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line></svg>
@@ -195,8 +203,23 @@
   <div id="course-totals-body"></div>
 </dialog>
 <script type="application/json" id="course-totals-data">{{ course_totals | tojson }}</script>
+
+<dialog id="shop-dialog" class="dialog shop-dialog" aria-labelledby="shop-title">
+  <header class="dialog-head">
+    <h2 id="shop-title">Shop this protocol</h2>
+    <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Close">×</button>
+  </header>
+  <div class="shop-fees">
+    <label class="field"><span>China shipping ($)</span><input id="shop-china" type="number" min="0" max="10000" step="0.01" inputmode="decimal"></label>
+    <label class="field"><span>US shipping ($)</span><input id="shop-us" type="number" min="0" max="10000" step="0.01" inputmode="decimal"></label>
+    <button type="button" class="btn btn-ghost" id="shop-save-defaults">Save as my defaults</button>
+    <small class="muted" id="shop-save-note" role="status"></small>
+  </div>
+  <div id="shop-body"><p class="muted">Looking for the cheapest way to buy this course&hellip;</p></div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ static_url('js/protocols.js') }}" defer></script>
+<script src="{{ static_url('js/protocol-shop.js') }}" defer></script>
 {% endblock %}

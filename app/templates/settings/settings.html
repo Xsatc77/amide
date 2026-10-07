@@ -143,6 +143,23 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
 
+      <form method="post" action="/settings/shopping" class="settings-form" novalidate>
+        <h3 class="small muted">Shopping</h3>
+        <p class="small muted">What the &ldquo;Shop this protocol&rdquo; plan assumes each vendor order costs to ship. You can also change these
+          in the plan itself for a single look.</p>
+        <label class="field {{ 'has-error' if errors.china_shipping }}">
+          <span>Shipping from a China warehouse ($ per order)</span>
+          <input name="china_shipping" type="number" min="0" max="10000" step="0.01" inputmode="decimal" value="{{ '%g' % shipping.china }}">
+          {{ err('china_shipping') }}
+        </label>
+        <label class="field {{ 'has-error' if errors.us_shipping }}">
+          <span>Shipping from a US warehouse ($ per order)</span>
+          <input name="us_shipping" type="number" min="0" max="10000" step="0.01" inputmode="decimal" value="{{ '%g' % shipping.us }}">
+          {{ err('us_shipping') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+
       <form method="post" action="/settings/body-profile" class="settings-form" novalidate>
         <h3 class="small muted">Body profile</h3>
         <p class="small muted">Used by the macro calculator to estimate your calorie and macro targets.</p>
