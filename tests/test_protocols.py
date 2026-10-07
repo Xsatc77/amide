@@ -235,8 +235,8 @@ def test_new_builder_embeds_merged_suggestions(client, db):
     assert data["state"]["goals"] == ["fat-loss", "glp1-weight"]
     assert data["state"]["items"] == [] and data["is_new"] is True
     assert data["stacks"]["fat-loss"][0] == peptide_id(db, "Retatrutide")
-    assert set(data["stacks"]) == {g for g in data["stacks"]} and len(data["stacks"]) == 8
-    assert len(data["peptides"]) >= 105 and len(data["goals"]) == 8
+    assert set(data["stacks"]) == {g for g in data["stacks"]} and len(data["stacks"]) == 10
+    assert len(data["peptides"]) >= 105 and len(data["goals"]) == 10
     assert form_action(r.text) == "/protocols"
 
 

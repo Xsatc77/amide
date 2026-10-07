@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+<div class="print-tools no-print">
+  <button type="button" class="btn btn-primary" data-print>Print</button>
+  <a class="btn btn-ghost" href="/protocols">Back to protocols</a>
+</div>
+
+<article class="protocol-print">
+  <h1>{{ p.name }}</h1>
+  <p class="muted">
+    {{ status.label }} · starts {{ p.start_date | shortdate }}{% if p.end_date %} · ends {{ p.end_date | shortdate }}{% endif %}
+    {% if goals %} · Goals: {{ goals | map(attribute='label') | join(', ') }}{% endif %}
+  </p>
+  {% if p.notes %}<p class="print-notes">{{ p.notes }}</p>{% endif %}
+
+  <table class="print-table">
+    <thead><tr><th>Peptide</th><th>Dose and schedule</th><th>Details</th></tr></thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td><strong>{{ it.name }}</strong></td>
+        <td>{{ it.desc }}</td>
+        <td>
+          {% if it.steps %}<div>Titration:</div><ul class="print-list">{% for s in it.steps %}<li>{{ s }}</li>{% endfor %}</ul>{% endif %}
+          {% if it.off %}<ul class="print-list">{% for o in it.off %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+          {% if it.notes %}<div>{{ it.notes }}</div>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="small muted print-foot">Research Use Only. Informational only, not medical advice. Printed from Amide.</p>
+</article>
+{% endblock %}
+{% block scripts %}<script src="{{ static_url('js/labels.js') }}" defer></script>{% endblock %}

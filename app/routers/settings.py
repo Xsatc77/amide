@@ -6,10 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import re
+import secrets
 import zoneinfo
 from datetime import date, timezone
 
-from app import body_photos, uploads
+from app import body_photos, config, reminders, uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -57,6 +59,8 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset), "life_stages": LIFE_STAGES,
         "shipping": saved_shipping(me),
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
+        "ntfy_server": config.NTFY_SERVER,
+        "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
     }
     if me.is_admin:
         users = user_rows(session)
@@ -183,6 +187,50 @@ async def change_discard_window(request: Request, session: Session = Depends(get
     _me(session, uid).default_discard_days = days
     session.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/reminders")
+async def change_reminders(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Turn dose reminders (ntfy push messages) on or off and set the topic they go to."""
+    form = await request.form()
+    me = _me(session, uid)
+    topic = str(form.get("ntfy_topic") or "").strip()
+    enabled = bool(form.get("ntfy_enabled"))
+    if enabled and not topic:
+        topic = "amide-" + secrets.token_urlsafe(18).replace("_", "x")        # hard to guess: on the public ntfy server the name is the only secret
+    if topic and not re.fullmatch(r"[A-Za-z0-9_-]{6,64}", topic):
+        return _render(request, session, errors={"ntfy_topic": "Use 6 to 64 letters, digits, dashes or underscores."}, status_code=422)
+    me.ntfy_enabled, me.ntfy_topic = enabled, topic or None
+    session.commit()
+    return RedirectResponse("/settings#reminders", status_code=303)
+
+
+@router.post("/settings/reminders/test")
+def test_reminder(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    me = _me(session, uid)
+    if not me.ntfy_topic:
+        raise HTTPException(422, "Turn reminders on first")
+    try:
+        reminders.send_ntfy(config.NTFY_SERVER, me.ntfy_topic, "Amide reminders are working", "You will get a message like this when a dose is due.")
+    except Exception:
+        raise HTTPException(502, "The reminder server could not be reached") from None
+    return RedirectResponse("/settings#reminders", status_code=303)
+
+
+@router.post("/settings/calendar-feed")
+async def change_calendar_feed(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Make (or replace) the secret address of the private calendar feed, or turn the feed off."""
+    form = await request.form()
+    me = _me(session, uid)
+    action = str(form.get("action") or "")
+    if action == "create":
+        me.calendar_token = secrets.token_urlsafe(32)
+    elif action == "off":
+        me.calendar_token = None
+    else:
+        raise HTTPException(422, "Unknown action")
+    session.commit()
+    return RedirectResponse("/settings#calendar-feed", status_code=303)
 
 
 @router.post("/settings/labels")

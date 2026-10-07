@@ -195,6 +195,25 @@
     return h("label", { class: `field ${cls}` }, h("span", { text: label }), control);
   }
 
+  // "Ramp up": start dose, increase, weeks per step and a target fill in the step rows (the arithmetic is on the server).
+  function rampHelper(it) {
+    const values = { start: "", increase: "", weeks: "", target: "" };
+    const input = (name, label) => h("label", { class: "small ramp-field" }, h("span", { text: label }),
+      h("input", { type: "number", min: "0", step: "any", inputmode: "decimal", "aria-label": label, oninput: (e) => (values[name] = e.target.value) }));
+    const note = h("span", { class: "small muted", role: "status" });
+    return h("details", { class: "ramp-helper" },
+      h("summary", { class: "small", text: "Fill the steps from a ramp" }),
+      h("div", { class: "inline-inputs" }, input("start", "Start"), input("increase", "Increase"), input("weeks", "Weeks per step"), input("target", "Target")),
+      h("button", { type: "button", class: "btn btn-ghost", onclick: async () => {
+        note.textContent = "";
+        const response = await fetch(`/protocols/titration-steps?${new URLSearchParams(values)}`);
+        const body = await response.json();
+        if (!response.ok) { note.textContent = body.detail || "Check the numbers."; return; }
+        it.steps = body.steps.map((s) => ({ start_week: String(s.start_week), end_week: s.end_week === null ? "" : String(s.end_week), dose: String(s.dose) }));
+        changed();
+      } }, "Fill steps"), note);
+  }
+
   function stepRow(it, i, j, step, unitLabel) {
     const p = `items-${i}-steps-${j}`;
     const num = (name, value, placeholder) => h("input", {
@@ -286,7 +305,8 @@
           const next = last && last.end_week ? String(Number(last.end_week) + 1) : last ? "" : "1";
           it.steps.push({ start_week: next, end_week: "", dose: "" });
           changed();
-        } }, "+ Add step")),
+        } }, "+ Add step"),
+        rampHelper(it)),
       it.frequency === "as_needed" ? null : h("div", { class: "cycle-offs" },
         h("div", { class: "steps-head" }, h("strong", { class: "small", text: "Cycle on/off" })),
         it.cycle_offs.map((c, j) => cycleOffRow(it, i, j, c)),

@@ -80,6 +80,12 @@ Database migrations run automatically at startup. Back up first.
 
 See the environment-variable table in the README. The ones that matter for a public-facing install: `AMIDE_PASSWORD_MIN_LENGTH` (default 8), `AMIDE_PORT`, `AMIDE_DATA_DIR`, `AMIDE_MAX_UPLOAD_MB` and `AMIDE_MAX_BACKUP_MB`.
 
-## 6. Price-list ingest and the Telegram watcher (optional, advanced)
+## 6. Installing Amide on a phone, calendar subscriptions and reminders
+
+- **Install to the home screen:** open Amide in the phone's browser over HTTPS (a plain `http://` address on your home network will not offer it, except on `localhost`) and choose Add to Home Screen.
+- **Calendar subscription:** Settings, Subscribe to your calendar makes a private address. Your calendar app needs to reach it, so from outside your home network it must be your HTTPS address.
+- **Reminders:** Settings, Dose reminders turns on ntfy push messages. Amide posts to `AMIDE_NTFY_SERVER` (default `https://ntfy.sh`), so the server needs internet access for this one feature. Leave it off and Amide makes no outside calls.
+
+## 7. Price-list ingest and the Telegram watcher (optional, advanced)
 
 Amide can read price lists posted in chat groups through a separate program, `watcher/`, that runs on your own computer with your own Telegram account. It is optional and nothing in Amide depends on it. See [watcher/README.md](../watcher/README.md).

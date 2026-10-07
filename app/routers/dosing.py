@@ -11,7 +11,7 @@ from app.calculator import units as unit_math
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.dosing.site import eligible_sites, recommend
-from app.models import ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, Protocol, ProtocolItem, User
+from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, Protocol, ProtocolItem, User
 from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
 from app.auth.deps import current_user_id
@@ -103,6 +103,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
         .order_by(DoseLog.logged_at)).all()
     logged_ids = {dl.protocol_item_id for dl in todays_logs}
     due = [(occ, item) for occ, item in all_due if item.protocol_item_id not in logged_ids]
+    due.sort(key=lambda pair: TIME_ORDER[pair[1].time_of_day])          # Fasting first through Bedtime, then Any
 
     from app.routers.workouts import workouts_due_today
     workout_days_due = workouts_due_today(session, uid, today)

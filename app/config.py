@@ -21,6 +21,8 @@ PHOTO_MAX_SIDE = 2000
 PHOTO_MAX_PIXELS = 50_000_000
 INGEST_DIR = UPLOAD_DIR / "ingest"
 INGEST_WORKER_ENABLED = os.environ.get("AMIDE_INGEST_WORKER", "1") != "0"
+REMINDERS_ENABLED = os.environ.get("AMIDE_REMINDERS", "1") != "0"           # the dose-reminder loop (it only acts for users who turned reminders on)
+NTFY_SERVER = os.environ.get("AMIDE_NTFY_SERVER", "https://ntfy.sh")          # where reminders are posted: ntfy.sh or your own ntfy server
 INGEST_SETTLE_SECONDS = 60
 INGEST_CLUSTER_MINUTES = 5
 INGEST_MAX_FILE_BYTES = 25 * 1024 * 1024

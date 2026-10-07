@@ -25,6 +25,13 @@
       meta.className = "small muted";
       meta.textContent = [i.time, i.route, i.inventory && `Inventory: ${i.inventory}`].filter(Boolean).join(" · ");
       li.append(head, dose, meta);
+      if (occ.today && !i.logged) {            // due today and not logged yet: straight to the Today page's site picker and Log button
+        const log = document.createElement("a");
+        log.className = "btn btn-primary cal-log-link";
+        log.href = `/today#dose-${i.item_id}`;
+        log.textContent = "Pick site & log dose";
+        li.append(log);
+      }
       return li;
     }));
     dialog.showModal();

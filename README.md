@@ -115,6 +115,8 @@ Card text and images are saved in `data/library/` (private, never committed). To
 | `AMIDE_DATABASE_URL` | `sqlite:///<data dir>/amide.db` | Override to use another database |
 | `AMIDE_MAX_UPLOAD_MB` | `15` | Max COA upload size |
 | `AMIDE_PASSWORD_MIN_LENGTH` | `8` | Minimum password length |
+| `AMIDE_NTFY_SERVER` | `https://ntfy.sh` | Where dose reminders are posted, for users who turn them on (use your own ntfy server if you run one) |
+| `AMIDE_REMINDERS` | `1` | Set to `0` to switch the reminder loop off entirely |
 
 ### Accounts
 

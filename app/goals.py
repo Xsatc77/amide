@@ -20,6 +20,8 @@ GOALS: tuple[Goal, ...] = (
     Goal("wellness", "Wellness / General Health", "Immune, mood and general support", "wellness"),
     Goal("glp1-weight", "GLP-1 / Weight Management", "Incretin-based weight management", "glp1-weight"),
     Goal("sleep-recovery", "Sleep & Recovery", "Rest and restoration", "sleep-recovery"),
+    Goal("supplements", "Vitamins & Supplements", "Non-peptide: vitamins, minerals, supplements", "supplements"),
+    Goal("prescriptions", "Prescriptions", "Non-peptide: medicines your doctor prescribed", "prescriptions"),
 )
 
 GOALS_BY_SLUG: dict[str, Goal] = {g.slug: g for g in GOALS}

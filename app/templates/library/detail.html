@@ -57,12 +57,13 @@
       <section class="lib-section">
         <h2 class="section-title">Dosing (community)</h2>
         <table class="lib-table">
-          <thead><tr><th>Level</th><th>Dose</th><th>Frequency</th><th>Time of day</th></tr></thead>
+          <thead><tr><th>Level</th><th>Dose</th><th>Frequency</th><th>Time of day</th><th><span class="sr-only">Calculator</span></th></tr></thead>
           <tbody>
             {% for t in dosing_tiers %}
             <tr><td><span class="tier-badge tier-{{ t.level.value | lower }}">{{ t.level.value }}</span></td>
                 <td>{{ t.dose_text or '—' }}</td><td>{{ t.frequency_text or '—' }}</td>
-                <td>{{ t.time_of_day.value if t.time_of_day else '—' }}</td></tr>
+                <td>{{ t.time_of_day.label if t.time_of_day else '—' }}</td>
+                <td>{% if calc_urls.get(t.level) %}<a href="{{ calc_urls[t.level] }}">Open in calculator</a>{% endif %}</td></tr>
             {% endfor %}
           </tbody>
         </table>

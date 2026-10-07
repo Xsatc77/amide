@@ -2,22 +2,23 @@
 
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import current_user_id
+from app.calendar.ical import build_calendar
 from app.calendar.layout import initials, month_rows, month_weeks
 from app.calendar.schedule import DueItem, Occurrence, as_needed, occurrences, week_number, week_start
 from app.db import get_session
-from app.models import DoseLog, DoseStatus, Protocol, ProtocolItem, TimeOfDay
+from app.models import DoseLog, DoseStatus, Protocol, ProtocolItem, TimeOfDay, User
 from app.routers.protocols import get_today
 from app.templating import templates
 
 router = APIRouter()
 
 VIEWS = ("month", "week", "day")
-SLOTS = [(TimeOfDay.AM, "am"), (TimeOfDay.PM, "pm"), (TimeOfDay.BEDTIME, "bedtime"), (TimeOfDay.ANY, "any")]
+SLOTS = [(m, m.value) for m in TimeOfDay]
 PALETTE_SIZE = 8
 
 
@@ -40,19 +41,20 @@ def _dose_text(item: DueItem) -> str:
     return f"{item.dose:g} {item.unit}" if item.dose is not None else "Dose not set"
 
 
-def _item_json(item: DueItem) -> dict:
-    return {"peptide": item.peptide, "dose": _dose_text(item), "step": item.step,
+def _item_json(item: DueItem, logged: bool = False) -> dict:
+    return {"peptide": item.peptide, "dose": _dose_text(item), "step": item.step, "item_id": item.protocol_item_id, "logged": logged,
             "time": item.time_of_day.label, "route": item.route, "inventory": item.inventory}
 
 
-def _details(occs: list[Occurrence], colors: dict[int, int], adherence: dict[str, str]) -> dict:
+def _details(occs: list[Occurrence], colors: dict[int, int], adherence: dict[str, str], item_adherence: dict | None = None, today: date | None = None) -> dict:
+    item_adherence = item_adherence or {}
     return {
         f"{o.protocol_id}|{o.date.isoformat()}": {
             "name": o.protocol_name, "date": f"{o.date:%A, %B} {o.date.day}, {o.date.year}",
             "color": colors.get(o.protocol_id, 0),
             "status": adherence.get(f"{o.protocol_id}|{o.date.isoformat()}", "upcoming"),
-            "edit_url": f"/protocols/{o.protocol_id}/edit",
-            "items": [_item_json(i) for i in o.items],
+            "edit_url": f"/protocols/{o.protocol_id}/edit", "today": o.date == today,
+            "items": [_item_json(i, item_adherence.get((i.protocol_item_id, o.date)) in ("on_time", "late")) for i in o.items],
         }
         for o in occs
     }
@@ -116,6 +118,20 @@ def _adherence(session: Session, uid: int, occs: list[Occurrence],
     return aggregate, per_item
 
 
+@router.get("/calendar/feed/{token}.ics", include_in_schema=False)
+def calendar_feed(token: str, session: Session = Depends(get_session)):
+    """The private iCal feed: the owner's doses from a week ago to three months ahead. Authenticated by the secret in the address alone."""
+    user = session.scalar(select(User).where(User.calendar_token == token)) if token else None
+    if user is None:
+        raise HTTPException(404)
+    today = date.today()
+    protocols = session.scalars(select(Protocol).where(Protocol.owner_id == user.id).options(
+        selectinload(Protocol.items).selectinload(ProtocolItem.peptide), selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+        selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs), selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item))).all()
+    body = build_calendar(occurrences(protocols, today - timedelta(days=7), today + timedelta(days=90)))
+    return Response(body, media_type="text/calendar; charset=utf-8", headers={"Cache-Control": "no-store"})
+
+
 @router.get("/calendar")
 def calendar_page(request: Request, view: str = "month", date_param: str | None = Query(None, alias="date"),
                   session: Session = Depends(get_session), today: date = Depends(get_today),
@@ -156,7 +172,7 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     occs = occurrences(protocols, first, last)
     adherence, item_adherence = _adherence(session, uid, occs, today)
     ctx |= {"title": title, "prev_url": _url(view, prev), "next_url": _url(view, nxt),
-            "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors, adherence)},
+            "today_url": _url(view, today), "data": {"occurrences": _details(occs, colors, adherence, item_adherence, today)},
             "adherence": adherence, "item_adherence": item_adherence, "initials": initials}
 
     from app.routers.fitness_test import fitness_test_logged_dates  # deferred: mirrors workouts' own
@@ -170,7 +186,8 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
         days = [first + timedelta(days=i) for i in range(7)]
         cells = {key: [[(o, it) for o in occs if o.date == d for it in _by_slot(o, slot)] for d in days]
                  for slot, key in SLOTS}
-        ctx |= {"days": days, "cells": cells}
+        used = [(slot, key) for slot, key in SLOTS if any(cells[key])]          # a slot nothing is due in takes no row: the later ones move up
+        ctx |= {"days": days, "cells": cells, "slots": used}
     else:
         ctx["sections"] = [(slot, key, [(o, _by_slot(o, slot)) for o in occs if _by_slot(o, slot)])
                            for slot, key in SLOTS]

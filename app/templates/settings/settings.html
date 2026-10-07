@@ -143,6 +143,30 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
 
+      <div class="settings-form" id="reminders">
+        <h3 class="small muted">Dose reminders (ntfy)</h3>
+        <p class="small muted">Amide can push a message to your phone when a dose is due and not yet logged, at the time of day set on the protocol (Fasting 6:30, Waking 7:00, AM 8:00, Pre-workout 4:30 PM, Post-workout 6:30 PM, PM 8:00 PM, Before bed 9:30 PM, Bedtime 10:00 PM; &ldquo;Any time&rdquo; doses get no reminder), in your own time zone. Install the free <strong>ntfy</strong> app and subscribe to your topic. <strong>This is the one thing Amide sends to the outside on its own</strong>: a short message (peptide and dose) to {{ ntfy_server }}.</p>
+        <form method="post" action="/settings/reminders" novalidate>
+          <label class="field check-field"><input type="checkbox" name="ntfy_enabled" value="1" {{ 'checked' if me.ntfy_enabled }}><span>Send me dose reminders</span></label>
+          <label class="field {{ 'has-error' if errors.ntfy_topic }}"><span>Topic (leave empty and one is made for you)</span>
+            <input name="ntfy_topic" maxlength="64" value="{{ me.ntfy_topic or '' }}" autocomplete="off">{{ err('ntfy_topic') }}</label>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+        {% if me.ntfy_topic %}<form method="post" action="/settings/reminders/test"><button type="submit" class="btn btn-ghost">Send a test message</button></form>{% endif %}
+      </div>
+
+      <div class="settings-form" id="calendar-feed">
+        <h3 class="small muted">Subscribe to your calendar</h3>
+        <p class="small muted">A private address your phone or computer calendar (Apple, Google, Outlook) can subscribe to. Every dose due in the next three months shows up at its time of day, with a pop-up alert. Anyone with the address can read your dose schedule, so keep it to yourself; making a new one cancels the old one.</p>
+        {% if calendar_feed_url %}
+        <label class="field"><span>Address</span><input type="text" readonly value="{{ calendar_feed_url }}" onclick="this.select()"></label>
+        <form method="post" action="/settings/calendar-feed" class="inline"><input type="hidden" name="action" value="create"><button type="submit" class="btn btn-ghost">Make a new address</button></form>
+        <form method="post" action="/settings/calendar-feed" class="inline"><input type="hidden" name="action" value="off"><button type="submit" class="btn btn-ghost btn-danger">Turn off</button></form>
+        {% else %}
+        <form method="post" action="/settings/calendar-feed"><input type="hidden" name="action" value="create"><button type="submit" class="btn btn-primary">Create a private calendar address</button></form>
+        {% endif %}
+      </div>
+
       <form method="post" action="/settings/labels" class="settings-form" novalidate>
         <h3 class="small muted">Vial labels</h3>
         <p class="small muted">When you check in an order, a page of vial labels (name, size, lot, blank boxes for the reconstitution and expiry dates, "Research Use Only") opens and your browser's print window appears by itself.</p>

@@ -19,6 +19,7 @@ from app.protocols.course_totals import compute_course_totals
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
+from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
 from app.templating import templates
 
@@ -152,6 +153,35 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
     return templates.TemplateResponse(request, "protocols/list.html",
                                       {"active_views": active, "saved_views": saved, "shared_views": shared_views,
                                        "goals": GOALS, "statuses": list(Status), "course_totals": course_totals})
+
+
+@router.get("/protocols/titration-steps")
+def titration_steps(request: Request, uid: int = Depends(current_user_id)):
+    """The step rows for a ramp: ?start=&increase=&weeks=&target= (the builder's ramp helper)."""
+    q = request.query_params
+    try:
+        return {"steps": ramp(q.get("start"), q.get("increase"), q.get("weeks"), q.get("target"))}
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
+@router.get("/protocols/{protocol_id}/print")
+def print_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+                   uid: int = Depends(current_user_id)):
+    """A one-page printable view: the owner's protocol, or one shared with them."""
+    p = session.scalar(_protocol_query(uid).where(Protocol.id == protocol_id)) or session.scalar(_shared_protocol_query(uid).where(Protocol.id == protocol_id))
+    if p is None:
+        raise HTTPException(404, "Protocol not found")
+    items = []
+    for it in p.items:
+        steps = []
+        if p.titration_enabled:
+            for st in it.steps:
+                span = f"Weeks {st.start_week}-{st.end_week}" if st.end_week and st.end_week != st.start_week else (f"Week {st.start_week}" if st.end_week else f"Week {st.start_week} onward")
+                steps.append(f"{span}: {_amount(st.dose, it.dose_unit)}")
+        items.append({"name": it.peptide.name, "desc": describe_item(it), "notes": it.notes, "steps": steps,
+                      "off": [f"Off in weeks {c.start_week}-{c.end_week}" if c.end_week != c.start_week else f"Off in week {c.start_week}" for c in it.cycle_offs]})
+    return templates.TemplateResponse(request, "protocols/print.html", {"p": p, "items": items, "status": protocol_status(p, today), "goals": [g for g in GOALS if g.slug in p.goal_slugs]})
 
 
 # ---------------------------------------------------------------- builder

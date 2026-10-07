@@ -109,7 +109,7 @@
           <th class="num">Count</th>
           {% if show_medium %}<th class="num">Amount</th><th>Medium</th>{% else %}<th class="num">Cost</th><th>Vendor</th>{% endif %}
           <th>Storage</th>
-          {% if show_medium %}<th>Expires</th><th>Arrived</th>{% endif %}
+          {% if show_medium %}<th>Expires</th><th>Arrived</th><th>Runs out</th>{% endif %}
           <th><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -132,6 +132,7 @@
           {% if show_medium %}
           <td data-label="Expires">{{ item.next_expiration | shortdate if item.next_expiration else '—' }}</td>
           <td data-label="Arrived">{{ item.first_arrival | shortdate if item.first_arrival else '—' }}</td>
+          <td data-label="Runs out">{% if item.id in run_outs %}{{ run_outs[item.id].date | shortdate }} <span class="muted small">({{ run_outs[item.id].days }} days)</span>{% else %}—{% endif %}</td>
           {% endif %}
           <td class="actions">
             {% if item.owner_id == viewer_id %}

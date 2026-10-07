@@ -647,10 +647,19 @@ class Frequency(LabeledEnum):
 
 
 class TimeOfDay(LabeledEnum):
-    AM = ("am", "AM")
-    PM = ("pm", "PM")
+    """In the order they happen in a day; the calendar and Today list doses in this order and show only the ones in use."""
+    FASTING = ("fasting", "Fasting")
+    WAKING = ("waking", "Waking")                        # right after waking
+    AM = ("am", "AM")                                    # first half of the day
+    PRE_WORKOUT = ("pre_workout", "Pre-workout")         # up to an hour before
+    POST_WORKOUT = ("post_workout", "Post-workout")      # up to an hour after
+    PM = ("pm", "PM")                                    # second half of the day
+    BEFORE_BED = ("before_bed", "Before bed")            # up to an hour before
     BEDTIME = ("bedtime", "Bedtime")
     ANY = ("any", "Any time")
+
+
+TIME_ORDER = {m: n for n, m in enumerate(TimeOfDay)}
 
 
 class Route(LabeledEnum):
@@ -934,6 +943,18 @@ class ProtocolItemCycleOff(Base):
     end_week: Mapped[int] = mapped_column(Integer)
 
 
+class DoseReminder(Base):
+    """A reminder already sent, so a dose is reminded once per day."""
+    __tablename__ = "dose_reminders"
+    __table_args__ = (UniqueConstraint("user_id", "protocol_item_id", "for_date", name="uq_dose_reminder"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    protocol_item_id: Mapped[int] = mapped_column(Integer)
+    for_date: Mapped[date] = mapped_column(Date)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 # ---------------------------------------------------------------- accounts
 
 class User(Base):
@@ -962,6 +983,9 @@ class User(Base):
     shop_us_shipping_cents: Mapped[int | None] = mapped_column(Integer)
     auto_print_labels: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")      # open the vial labels when an order is checked in
     label_size: Mapped[str] = mapped_column(String(10), default="5160", server_default="5160")
+    calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)      # secret address of the private iCal feed; none = feed off
+    ntfy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # push the dose reminders to ntfy
+    ntfy_topic: Mapped[str | None] = mapped_column(String(100))
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
     photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")

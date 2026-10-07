@@ -12,12 +12,13 @@ from sqlalchemy.orm import Session, selectinload
 from app import compliance
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
+from app.inventory.runout import ALERT_DAYS as RUNOUT_ALERT_DAYS, runs_out
 from app.library.price_lists.analysis import new_peptides
 from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
 from app.db import get_session
 from app.models import (
-    ActiveVial, BodyMeasurement, Category, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
+    TIME_ORDER, ActiveVial, BodyMeasurement, Category, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
     Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, naive_utcnow,
 )
 from app.protocols.status import Status, protocol_status
@@ -57,7 +58,8 @@ def _todays_schedule(session: Session, uid: int, today: date) -> list[dict]:
             selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
         )).all()
     occs = occurrences(protocols, today, today)
-    due = [(occ, item) for occ in occs for item in occ.items]
+    due = sorted(((occ, item) for occ in occs for item in occ.items), key=lambda pair: TIME_ORDER[pair[1].time_of_day])
+    step_counts = {i.id: len(i.steps) for p in protocols if p.titration_enabled for i in p.items}
     logs = {dl.protocol_item_id: dl for dl in session.scalars(
         select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date == today))}
     rows = []
@@ -66,9 +68,19 @@ def _todays_schedule(session: Session, uid: int, today: date) -> list[dict]:
         status = "Due"
         if log is not None:
             status = "Logged" if log.status in (DoseStatus.ON_TIME, DoseStatus.LATE) else "Skipped"
+        total = step_counts.get(item.protocol_item_id, 0)
         rows.append({"peptide": item.peptide, "dose": item.dose, "unit": item.unit,
-                    "time_of_day": item.time_of_day, "status": status})
+                    "time_of_day": item.time_of_day, "status": status,
+                    "step": f"Step {item.step} of {total}" if item.step and total > 1 else None})
     return rows
+
+
+def _runout_alerts(session: Session, uid: int, today: date) -> list[dict]:
+    """Stock an active protocol will use up within the alert window, with nothing on order to replace it (needs the protocols, so Personal data)."""
+    on_order = _items_on_order(session, uid)
+    names = {i.id: i.name for i in session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid))}
+    soon = [(item_id, r) for item_id, r in runs_out(session, uid, today).items() if r.days <= RUNOUT_ALERT_DAYS and item_id not in on_order]
+    return [{"id": item_id, "name": names[item_id], "days": r.days, "date": r.date} for item_id, r in sorted(soon, key=lambda x: x[1].days)]
 
 
 def _items_on_order(session: Session, uid: int) -> set[int]:
@@ -249,6 +261,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             "low_stock": low_stock_alerts(threshold_items, default_threshold, on_order=_items_on_order(session, effective_uid)),
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
+            "runout": _runout_alerts(session, effective_uid, today) if ShareCategory.PERSONAL_DATA in categories else [],
             "new_peptides": new_peptides(session),
             "new_lists": new_list_alerts(session, uid, naive_utcnow()),
             "groups_gone": group_gone_alerts(session, session.get(User, uid)),

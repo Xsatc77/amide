@@ -57,6 +57,7 @@
         </form>
         {{ share_button() }}
       </footer>
+      <a class="btn-icon print-btn" href="/protocols/{{ p.id }}/print" target="_blank" rel="noopener" aria-label="Print {{ p.name }}" title="Print this protocol"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></a>
       <button type="button" class="btn-icon shop-btn" data-protocol-id="{{ p.id }}"
         aria-label="Shop this protocol: {{ p.name }}" title="Shop this protocol">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6"></path></svg>
@@ -127,6 +128,7 @@
             {{ p.start_date | shortdate }} – {{ (p.ended_on or p.end_date) | shortdate or 'ongoing' }}
           </td>
           <td class="actions">
+            <a class="btn-icon print-btn" href="/protocols/{{ p.id }}/print" target="_blank" rel="noopener" aria-label="Print {{ p.name }}" title="Print this protocol"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></a>
             <button type="button" class="btn-icon shop-btn" data-protocol-id="{{ p.id }}"
               aria-label="Shop this protocol: {{ p.name }}" title="Shop this protocol">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6"></path></svg>

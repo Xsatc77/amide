@@ -2,13 +2,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.auth import gate
 from app.db import SessionLocal
 from app.food.foods import load_starter
+from app import reminders
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
@@ -23,9 +24,10 @@ async def lifespan(_: FastAPI):
     upgrade_db()
     with SessionLocal() as session:
         load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
-    task = worker.start()
+    task, reminder_task = worker.start(), reminders.start()
     yield
     await worker.stop(task)
+    await reminders.stop(reminder_task)
 
 
 app = FastAPI(title="Amide", lifespan=lifespan)
@@ -62,6 +64,13 @@ app.include_router(fitness_test.router)
 @app.get("/", include_in_schema=False)
 def index():
     return RedirectResponse(auth.HOME)
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """The service worker must be served from the root to control every page."""
+    return FileResponse(Path(__file__).parent / "static" / "sw.js", media_type="application/javascript",
+                        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"})
 
 
 @app.get("/healthz", include_in_schema=False)

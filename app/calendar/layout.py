@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from app.calendar.schedule import DueItem, Occurrence, week_number, week_start
 from app.models import TimeOfDay
 
-_SLOT_ORDER = {TimeOfDay.AM: 0, TimeOfDay.PM: 1, TimeOfDay.BEDTIME: 2, TimeOfDay.ANY: 3}
+_SLOT_ORDER = {m: n for n, m in enumerate(TimeOfDay)}
 
 
 def initials(name: str) -> str:

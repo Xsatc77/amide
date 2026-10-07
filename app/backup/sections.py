@@ -19,7 +19,7 @@ from app.db import Base
 
 PERSON, INSTALLATION = "person", "installation"
 # Left out on purpose: sessions are per-browser; ingest tokens are secrets (make a new one after a restore); alert dismissals are noise.
-NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dismissals"}
+NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dismissals", "dose_reminders"}
 
 # File directories attached to rows (and the library's own files), by key.
 FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "LAB_REPORT_DIR",

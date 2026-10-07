@@ -56,7 +56,7 @@
   {% else %}
   <ul class="dose-list">
     {% for row in schedule %}
-    <li><strong>{{ row.peptide }}</strong> — {{ row.dose }} {{ row.unit }} · {{ row.time_of_day.label }}
+    <li><strong>{{ row.peptide }}</strong> — {{ row.dose }} {{ row.unit }} · {{ row.time_of_day.label }}{% if row.step %} · <span class="muted">{{ row.step }}</span>{% endif %}
       <span class="tag">{{ row.status }}</span></li>
     {% endfor %}
   </ul>
@@ -94,13 +94,16 @@
     {% if can_ignore %}<form method="post" action="/price-alerts/ignore" class="inline"><input type="hidden" name="name" value="{{ n.name }}"><button type="submit" class="btn btn-ghost small" title="Not a peptide: stop alerting">Ignore</button></form>{% endif %}
   </li>
   {% endmacro %}
-  {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment or alerts.new_peptides or alerts.new_lists or alerts.groups_gone %}
+  {% set has_alerts = alerts.low_stock or alerts.expiration or alerts.shipment or alerts.runout or alerts.new_peptides or alerts.new_lists or alerts.groups_gone %}
   {% if not has_alerts %}
   <p class="muted">Nothing needs attention.</p>
   {% else %}
   <ul class="dose-list">
     {% for a in alerts.low_stock %}
     <li><a href="/inventory">{{ a.name }}</a> — low stock ({{ a.available_count }} left, threshold {{ a.threshold }})</li>
+    {% endfor %}
+    {% for a in alerts.runout %}
+    <li><a href="/inventory">{{ a.name }}</a> — runs out in {{ a.days }} day{{ '' if a.days == 1 else 's' }} ({{ a.date | shortdate }}) at your current doses</li>
     {% endfor %}
     {% for a in alerts.expiration %}
     <li><a href="/inventory#active-vials">{{ a.name }}</a> — {{ 'expired' if a.severity == 'expired' else 'expiring soon' }}</li>

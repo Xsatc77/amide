@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import config
 from app.db import get_session
+from app.calculator import units as unit_math
 from app.goals import GOALS
 from app.library.price_lists.analysis import price_range, rematch_items
 from app.library.price_lists.vendor_view import build_price_compare
@@ -73,7 +74,13 @@ def library_detail(peptide_id: int, request: Request, session: Session = Depends
         .order_by(Protocol.start_date.desc()).distinct()).all()
     dosing_tiers = sorted(p.dosing_tiers, key=lambda t: _TIER_ORDER.get(t.level, 99))
     shown_range = price_range(session, p.id)
+    calc_urls = {}
+    for t in dosing_tiers:                           # a tier whose dose is a plain amount (250mcg, 1.5 mg, 3 IU) opens the calculator with it filled in
+        parsed = unit_math.parse_dose_text(t.dose_text)
+        if parsed:
+            calc_urls[t.level] = f"/calculator?dose_value={parsed[0]:g}&dose_unit={parsed[1]}"
     return templates.TemplateResponse(request, "library/detail.html", {
+        "calc_urls": calc_urls,
         "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,
         "dosing_tiers": dosing_tiers, "price_range": shown_range,
         "price_compare": build_price_compare(session, p.id, shown_range),

@@ -15,6 +15,7 @@ from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_pen_conversion
 from app.inventory.labels import labels_for_order
+from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
 from app.models import (
@@ -690,6 +691,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
         if v.owner_id == uid and v.discard_by < date.today()
         and (v.last_discard_prompt_at is None or now - v.last_discard_prompt_at > timedelta(hours=24))
     }
+    run_outs = runs_out(session, uid, date.today())
     label_vial = None
     if request.query_params.get("labels", "").isdigit():            # just reconstituted: dates to write on the label
         candidate = session.get(ActiveVial, int(request.query_params["labels"]))
@@ -699,6 +701,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
         "inventory/list.html",
         {
             "label_vial": label_vial,
+            "run_outs": run_outs,
             "items": items,
             "medicine_items": medicine_items,
             "sort": sort,
