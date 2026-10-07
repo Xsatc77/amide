@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app import compliance
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
 from app.library.price_lists.analysis import new_peptides
@@ -68,33 +69,6 @@ def _todays_schedule(session: Session, uid: int, today: date) -> list[dict]:
         rows.append({"peptide": item.peptide, "dose": item.dose, "unit": item.unit,
                     "time_of_day": item.time_of_day, "status": status})
     return rows
-
-
-def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
-    """Percentage of every dose actually DUE in the last 30 days (today inclusive) that was logged
-    on time or late. The denominator is every due item from occurrences() in the window -- not just
-    the ones that happen to have a DoseLog row -- since DoseStatus.MISSED is never persisted (see
-    app.models.DoseStatus's own docstring); a silently-missed dose must still count against
-    adherence, the same way the Calendar's missed_items() surfaces it as a red dot. 29-day lookback
-    (today - 29) plus today itself = a 30-day window, matching the "last 30 days" label exactly
-    (today - 30 would make it 31 days inclusive)."""
-    since = today - timedelta(days=29)
-    protocols = session.scalars(
-        select(Protocol).where(Protocol.owner_id == uid).options(
-            selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
-            selectinload(Protocol.items).selectinload(ProtocolItem.steps),
-            selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs),
-            selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item),
-        )).all()
-    occs = occurrences(protocols, since, today)
-    total_due = sum(len(occ.items) for occ in occs)
-    if total_due == 0:
-        return None
-    logs = session.scalars(
-        select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date >= since,
-                              DoseLog.scheduled_date <= today)).all()
-    on_time_or_late = sum(1 for l in logs if l.status in (DoseStatus.ON_TIME, DoseStatus.LATE))
-    return round(100 * on_time_or_late / total_due)
 
 
 def _items_on_order(session: Session, uid: int) -> set[int]:
@@ -179,13 +153,19 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     effective_uid, categories = _resolve_viewer(session, uid, viewer_id_int)
 
     schedule = None
-    adherence_pct = None
+    compliance_view = None
     water = None
     body_panel = None
     workout_week = None
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
-        adherence_pct = _adherence_pct(session, effective_uid, today)
+        window = compliance.parse_window(request.query_params.get("compliance"))
+        viewer_qs = f"&viewer_id={effective_uid}" if effective_uid != uid else ""
+        compliance_view = {
+            "bars": compliance.bars(session, session.get(User, effective_uid), today, window),
+            "windows": [{"value": "lifetime" if w == 0 else w, "label": compliance.window_label(w), "selected": w == window} for w in compliance.WINDOWS],
+            "viewer_qs": viewer_qs,
+        }
 
         # A 7-day Mon-Sun strip, not a "due today" list -- see week_status's own docstring for why
         # (a day stays visible with its outcome instead of vanishing once it's logged).
@@ -289,7 +269,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "alerts": alerts,
         "can_ignore_alerts": bool(request.state.user.is_admin),
         "cost_snapshot": cost_snapshot,
-        "adherence_pct": adherence_pct,
+        "compliance": compliance_view,
         "water": water,
         "body_panel": body_panel,
         "workout_week": workout_week,

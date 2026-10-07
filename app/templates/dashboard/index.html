@@ -150,13 +150,27 @@
 <section class="card dash-panel dash-area-adherence" aria-labelledby="adherence-heading" style="--panel-accent: var(--tier-beginner);">
   <div class="panel-head">
     {{ panel_icon('check') }}
-    <h2 id="adherence-heading" class="section-title">Adherence (Last 30 Days)</h2>
+    <h2 id="adherence-heading" class="section-title">Compliance</h2>
   </div>
-  {% if adherence_pct is not none %}
-  <p class="panel-stat">{{ adherence_pct }}%</p>
-  {% else %}
-  <p class="muted">No doses logged yet.</p>
-  {% endif %}
+  <nav class="compliance-windows" aria-label="Time window">
+    {% for w in compliance.windows %}<a href="/dashboard?compliance={{ w.value }}{{ compliance.viewer_qs }}" class="chip"{% if w.selected %} aria-current="true"{% endif %}>{{ w.label }}</a>{% endfor %}
+  </nav>
+  <div class="compliance-chart" role="group" aria-label="Compliance with your plans, 0 to 100 percent">
+    <div class="compliance-axis" aria-hidden="true"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
+    <div class="compliance-plot">
+      <div class="compliance-grid" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      {% for b in compliance.bars %}
+      <div class="compliance-col">
+        <div class="compliance-track" title="{{ b.note }}{% if b.total %} ({{ b.good }} of {{ b.total }}){% endif %}">
+          <div class="compliance-bar compliance-{{ b.key }}" style="height: {{ b.pct if b.pct is not none else 0 }}%"></div>
+        </div>
+        <span class="compliance-value">{% if b.pct is not none %}{{ b.pct }}%{% else %}<span class="muted">No data</span>{% endif %}</span>
+        <span class="compliance-label">{{ b.label }}</span>
+        <span class="compliance-count muted small">{% if b.total %}{{ b.good }} of {{ b.total }}{% else %}&nbsp;{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
 </section>
 {% endif %}
 
