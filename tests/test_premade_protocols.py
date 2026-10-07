@@ -24,7 +24,7 @@ def test_no_premade_text_names_a_person():
 
 def test_the_protocols_page_lists_them(client, db):
     page = client.get("/protocols").text
-    assert "Premade Protocol" in page
+    assert "Examples From The Peptide Community" in page and "not a recommendation" in page
     for p in PREMADE:
         assert f"/protocols/new?premade={p.slug}" in page
 
