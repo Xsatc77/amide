@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% set active_nav = "library" %}
+{% block title %}Goal stacks{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Goal stacks</h1>
+    <p class="muted">The order here is the order the protocol builder suggests each goal's peptides. Add or remove a peptide from a stack on its library card.</p>
+  </div>
+  <a class="btn btn-ghost" href="/library">Back to the library</a>
+</div>
+{% for s in stacks %}
+<section class="card" id="goal-{{ s.goal.slug }}" aria-labelledby="stack-{{ s.goal.slug }}">
+  <h2 id="stack-{{ s.goal.slug }}" class="section-title">{{ s.goal.label }}</h2>
+  {% if s.entries %}
+  <ol class="stack-list">
+    {% for pid, name in s.entries %}
+    <li>
+      <a href="/library/{{ pid }}">{{ name }}</a>
+      <form method="post" action="/library/stacks/{{ s.goal.slug }}/move" class="inline">
+        <input type="hidden" name="peptide_id" value="{{ pid }}">
+        <button type="submit" name="direction" value="up" class="btn btn-ghost btn-icon" aria-label="Move {{ name }} up in {{ s.goal.label }}"{% if loop.first %} disabled{% endif %}>&uarr;</button>
+        <button type="submit" name="direction" value="down" class="btn btn-ghost btn-icon" aria-label="Move {{ name }} down in {{ s.goal.label }}"{% if loop.last %} disabled{% endif %}>&darr;</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}<p class="muted">No peptides in this stack yet.</p>{% endif %}
+</section>
+{% endfor %}
+{% endblock %}

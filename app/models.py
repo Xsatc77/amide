@@ -836,6 +836,20 @@ class PeptideMonitoringTest(Base):
     peptide: Mapped["Peptide"] = relationship(back_populates="monitoring_tests")
 
 
+class PeptideNote(Base):
+    """A person's private note or saved article about a library peptide (Peptide Learning)."""
+
+    __tablename__ = "peptide_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    peptide_id: Mapped[int] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    url: Mapped[str | None] = mapped_column(String(500))
+    body: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class GoalPeptide(Base):
     """One peptide in a goal's suggested stack."""
 

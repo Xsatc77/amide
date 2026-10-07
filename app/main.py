@@ -13,7 +13,7 @@ from app import reminders
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
-    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, legal, library,
+    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, legal, library, library_extras,
     measurements, order_tracking, price_alerts, protocol_shop, protocols, settings, vendors, workout_insights, workouts,
 )
 
@@ -38,6 +38,7 @@ app.include_router(dashboard.router)
 app.include_router(labels.router)              # before inventory too: "/inventory/orders/<id>/labels"
 app.include_router(order_tracking.router)      # before inventory: "/inventory/orders" must not be read as an item id
 app.include_router(inventory.router)
+app.include_router(library_extras.router)     # before library: "/library/stacks" must not be read as a peptide id
 app.include_router(vendors.router)
 app.include_router(protocol_shop.router)
 app.include_router(protocols.router)

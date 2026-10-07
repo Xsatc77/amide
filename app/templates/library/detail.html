@@ -246,6 +246,29 @@
   </aside>
 </div>
 
+<section class="lib-section" id="learning" aria-labelledby="learning-heading">
+  <h2 id="learning-heading" class="section-title">My notes and saved articles</h2>
+  <p class="small muted">Private to you. <a href="/library/learning">See all your notes</a>.</p>
+  {% if my_notes %}
+  <ul class="note-list">
+    {% for n in my_notes %}
+    <li class="card">
+      <strong>{{ n.title }}</strong> <span class="muted small">{{ n.created_at | shortdate if n.created_at }}</span>
+      {% if n.url %}<div><a href="{{ n.url }}" target="_blank" rel="noopener noreferrer">{{ n.url }}</a></div>{% endif %}
+      {% if n.body %}<p class="note-body">{{ n.body }}</p>{% endif %}
+      <form method="post" action="/library/notes/{{ n.id }}/delete" class="inline" data-confirm="Delete this note?"><button type="submit" class="btn btn-ghost btn-danger">Delete</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted small">Nothing saved yet.</p>{% endif %}
+  <form method="post" action="/library/{{ p.id }}/notes" class="settings-form">
+    <label class="field"><span>Title</span><input name="title" maxlength="200" required></label>
+    <label class="field"><span>Web link (optional)</span><input name="url" type="url" maxlength="500" placeholder="https://..."></label>
+    <label class="field"><span>Note (optional)</span><textarea name="body" rows="3" maxlength="10000"></textarea></label>
+    <button type="submit" class="btn btn-primary">Save note</button>
+  </form>
+</section>
+
 {% if price_compare %}
 <script type="application/json" id="price-compare-data">{{ price_compare | tojson }}</script>
 <dialog id="price-compare" class="dialog price-compare" aria-labelledby="price-compare-title">

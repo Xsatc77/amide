@@ -12,7 +12,7 @@ from app.goals import GOALS
 from app.library.price_lists.analysis import price_range, rematch_items
 from app.library.price_lists.vendor_view import build_price_compare
 from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
-from app.models import DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideSource, Protocol, ProtocolItem
+from app.models import DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideNote, PeptideSource, Protocol, ProtocolItem
 from app.templating import templates
 
 router = APIRouter()
@@ -79,8 +79,10 @@ def library_detail(peptide_id: int, request: Request, session: Session = Depends
         parsed = unit_math.parse_dose_text(t.dose_text)
         if parsed:
             calc_urls[t.level] = f"/calculator?dose_value={parsed[0]:g}&dose_unit={parsed[1]}"
+    my_notes = session.scalars(select(PeptideNote).where(PeptideNote.owner_id == request.state.user.id, PeptideNote.peptide_id == p.id)
+                               .order_by(PeptideNote.created_at.desc(), PeptideNote.id.desc())).all()
     return templates.TemplateResponse(request, "library/detail.html", {
-        "calc_urls": calc_urls,
+        "calc_urls": calc_urls, "my_notes": my_notes,
         "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,
         "dosing_tiers": dosing_tiers, "price_range": shown_range,
         "price_compare": build_price_compare(session, p.id, shown_range),

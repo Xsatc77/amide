@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set active_nav = "library" %}
+{% block title %}Learning{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Learning</h1>
+    <p class="muted">Your private notes and saved articles, across the library ({{ total }}). Add one from a peptide's library card.</p>
+  </div>
+  <a class="btn btn-ghost" href="/library">Back to the library</a>
+</div>
+<form method="get" action="/library/learning" class="lib-toolbar">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search your notes" aria-label="Search your notes">
+  <button type="submit" class="btn btn-ghost">Search</button>
+</form>
+{% if notes %}
+<ul class="note-list">
+  {% for n in notes %}
+  <li class="card">
+    <strong>{{ n.title }}</strong> <span class="muted small">on <a href="/library/{{ n.peptide_id }}#learning">{{ names.get(n.peptide_id, '?') }}</a>{% if n.created_at %} · {{ n.created_at | shortdate }}{% endif %}</span>
+    {% if n.url %}<div><a href="{{ n.url }}" target="_blank" rel="noopener noreferrer">{{ n.url }}</a></div>{% endif %}
+    {% if n.body %}<p class="note-body">{{ n.body }}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">{{ 'Nothing matches your search.' if q else 'No notes yet.' }}</p>{% endif %}
+{% endblock %}

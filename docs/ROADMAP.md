@@ -180,10 +180,10 @@ Firm up the base before anything depends on it.
 
 ## Phase 8 — v0.9: Peptide Library & Learning
 
-- ✅ *Card import, Library screens and owner-editable doses/goal stacks shipped in v0.3.* Still open [E]: Peptide Learning (saved articles/notes per peptide), reordering peptides within a goal stack.
+- ✅ *Card import, Library screens and owner-editable doses/goal stacks shipped in v0.3.* ✅ Peptide Learning and reordering a goal stack (both built 2026-10-07; see below).
 
 - **Library:** a reference entry per peptide (aliases, common vial sizes, storage, typical reconstitution, half-life, notes, sources). Starts from a small seed file you can extend; inventory and protocols link to it.
-- **Learning [E]:** personal notes, saved articles and studies, tagged by peptide.
+- ✅ **Learning (built 2026-10-07):** each person's private notes and saved articles (title, web link, text) on a peptide's library card, all listed and searchable at Library, My notes; part of the person's backup. **Goal stacks:** Library, Goal stacks lists each goal's suggested peptides with up and down buttons.
 - Needs care on **sourcing and legal wording**. Everything framed as reference, never as dosing advice (consistent with the README's legal notice).
 
 ## Phase 9 — v1.0: Integrations & Polish
@@ -292,7 +292,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 - ✅ HGH-specific dosing calculations (IU vials, IU-to-mcg conversion, teaching tool; built 2026-10-06)
 
 **Library**
-- [E] Per-peptide "open calculator prefilled with Beginner/Moderate/Advanced/Custom dosing" button
+- ✅ (built 2026-10-07: an "Open in calculator" link on each dosing tier whose dose is a plain amount) Per-peptide "open calculator prefilled with Beginner/Moderate/Advanced/Custom dosing" button
 - [E] Find peptides still showing the old card-style entry (High/Moderate/Low evidence tag) and get them onto the sheet-style entry — confirmed two distinct causes, both real:
   1. **31 peptides have a real sheet-style entry that already exists under a slightly different name** (e.g. card "Amylin" vs sheet "Amylin (IAPP)"; card "Atosiban" vs sheet "Atosiban (Tractocile)"), so the import's exact-name match created a second row instead of updating the original — these are the "two entries, same thing" duplicates. A fix belongs in `load_sheets`'s matching logic (e.g. also check aliases), not a data-entry job.
   2. **35 peptides have no matching source file at all yet** (e.g. AMG-133/MariTide, Nafarelin, Epitalon, GLP-1, GIP, and 30 others) — genuinely still card-only, matching "anything with a High/Moderate/Low tag potentially."
