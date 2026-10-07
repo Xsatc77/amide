@@ -97,6 +97,15 @@ def _adherence_pct(session: Session, uid: int, today: date) -> int | None:
     return round(100 * on_time_or_late / total_due)
 
 
+def _items_on_order(session: Session, uid: int) -> set[int]:
+    """Ids of `uid`'s items with an order line on an order that has not arrived (been checked in) yet."""
+    return set(session.scalars(
+        select(OrderItem.inventory_item_id)
+        .join(Order, OrderItem.order_id == Order.id)
+        .join(InventoryItem, OrderItem.inventory_item_id == InventoryItem.id)
+        .where(InventoryItem.owner_id == uid, Order.arrival_date.is_(None))))
+
+
 def _in_transit_groups(session: Session, uid: int) -> list[dict]:
     """Unarrived orders grouped by order, same scope as the Inventory page's In-transit table:
     only `uid`'s own Medicine / BAC Water lines (an order can span users' items; never expose
@@ -258,7 +267,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
                 id=item.id, name=item.name, available_count=item.available_count, expiration_date=earliest))
 
         alerts = {
-            "low_stock": low_stock_alerts(threshold_items, default_threshold),
+            "low_stock": low_stock_alerts(threshold_items, default_threshold, on_order=_items_on_order(session, effective_uid)),
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
             "new_peptides": new_peptides(session),

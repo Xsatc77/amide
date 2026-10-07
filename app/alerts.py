@@ -6,11 +6,15 @@ from datetime import date, timedelta
 EXPIRING_SOON_DAYS = 7
 
 
-def low_stock_alerts(items, default_threshold: int) -> list[dict]:
+def low_stock_alerts(items, default_threshold: int, on_order=frozenset()) -> list[dict]:
     """`items` need `.id`, `.name`, `.available_count`, `.low_stock_threshold`. None on the item's
-    own threshold means "use default_threshold" -- 0 is a real, valid threshold, never coerced."""
+    own threshold means "use default_threshold" -- 0 is a real, valid threshold, never coerced.
+    An item whose id is in `on_order` (it has an order that has not been checked in yet) is skipped:
+    it is already being restocked, and until it arrives it only looks empty."""
     out = []
     for item in items:
+        if item.id in on_order:
+            continue
         threshold = item.low_stock_threshold if item.low_stock_threshold is not None else default_threshold
         if item.available_count <= threshold:
             out.append({"item_id": item.id, "name": item.name,

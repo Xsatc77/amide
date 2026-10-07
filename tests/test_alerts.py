@@ -98,3 +98,13 @@ def test_shipment_arrived_never_alerts():
     orders = [_Order(1, "VendorX", order_date=today - timedelta(days=60),
                      shipped_date=today - timedelta(days=55), arrival_date=today - timedelta(days=1))]
     assert shipment_alerts(orders, today=today, threshold_days=21) == []
+
+
+def test_an_item_already_on_order_is_not_a_low_stock_alert():
+    items = [_Item(1, "On order", available_count=0, low_stock_threshold=None), _Item(2, "Not on order", available_count=0, low_stock_threshold=None)]
+    assert [a["name"] for a in low_stock_alerts(items, default_threshold=5, on_order={1})] == ["Not on order"]
+
+
+def test_low_stock_still_alerts_every_item_when_nothing_is_on_order():
+    items = [_Item(1, "A", available_count=0, low_stock_threshold=None)]
+    assert len(low_stock_alerts(items, default_threshold=5)) == 1 and len(low_stock_alerts(items, default_threshold=5, on_order=set())) == 1

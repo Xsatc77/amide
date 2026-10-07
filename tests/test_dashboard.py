@@ -348,11 +348,11 @@ def test_dashboard_expiration_alert_ignores_lot_on_unarrived_order(client, db):
         _checked_in_order_item(s, uid, "InTransitPeptide", date.today() + timedelta(days=1),
                                arrival_date=None)
     t = html.unescape(client.get("/dashboard").text)
-    # The item appears twice: flagged low-stock (available_count is 0 while in transit) and listed
-    # in the Items In Shipment card. What must NOT happen is an *expiration* alert for it, since
-    # its only expiration_date lives on a line whose order hasn't arrived.
-    assert t.count("InTransitPeptide") == 2
-    assert "expiring soon" not in t
+    # The item appears once: in the Items In Shipment card. It is not a low-stock alert (it is already
+    # on order) and not an *expiration* alert, since its only expiration_date lives on a line whose
+    # order hasn't arrived.
+    assert t.count("InTransitPeptide") == 1
+    assert "expiring soon" not in t and "low stock" not in t
 
 
 def test_adherence_pct_counts_unlogged_missed_doses_in_denominator(client, db):
@@ -475,3 +475,26 @@ def test_shipment_card_never_shows_another_users_line_on_the_same_order(client, 
     card = _shipment_card(client)
     assert "MyShippingPeptide" in card
     assert "TheirShippingPeptide" not in card
+
+
+def test_dashboard_low_stock_ignores_items_that_were_just_ordered_and_returns_when_they_arrive_short(client, db):
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        item = InventoryItem(owner_id=uid, name="Zorvex Justordered", category=Category.MEDICINE,
+                             medium=Medium.LYOPHILIZED, vial_size_mg=10, count=0)
+        s.add(item)
+        s.flush()
+        order = Order(vendor="Acme", order_date=date.today() - timedelta(days=2))
+        s.add(order)
+        s.flush()
+        line = OrderItem(order_id=order.id, inventory_item_id=item.id, quantity=1)
+        s.add(line)
+        s.commit()
+        order_id = order.id
+    assert "low stock" not in html.unescape(client.get("/dashboard").text)             # on its way: nothing to warn about yet
+    with SessionLocal() as s:                                                           # it arrives, but only 1 vial (threshold 5)
+        s.get(Order, order_id).arrival_date = date.today()
+        s.query(OrderItem).filter_by(order_id=order_id).update({"received_quantity": 1})
+        s.commit()
+    t = html.unescape(client.get("/dashboard").text)
+    assert "Zorvex Justordered" in t and "low stock (1 left" in t
