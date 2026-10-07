@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.library.matching import match_name
 from app.models import (
     DosingTierLevel,
     Peptide,
@@ -90,6 +91,18 @@ _SHEET_COLUMNS = (
 )
 
 
+def _card_for_sheet(session: Session, name: str, aliases: list[str]) -> Peptide | None:
+    """The one imported CARD entry a sheet is about when the names differ a little ("Amylin" and "Amylin (IAPP)", or a sheet that lists the card's
+    name as an alias). Only entries that came from the card import qualify, never anything the user added or edited, and two possible cards
+    mean no guess: the sheet then becomes its own entry as before."""
+    cards = session.scalars(select(Peptide).where(Peptide.source == PeptideSource.CARD)).all()
+    for candidate in [name, *aliases]:
+        match = match_name(candidate, cards)
+        if match is not None and match.how in ("exact", "normalized", "related"):
+            return match.cards[0] if len(match.cards) == 1 else None
+    return None
+
+
 def load_sheets(session: Session, sheets: list[dict], force_names: set[str] | None = None) -> LoadReport:
     """Load parsed peptide reference sheets (app.library.sheet_parser.parse_sheet output, plus two
     caller-added keys -- "usage_tips" and "sheet_sections_simple", both hand-curated per file
@@ -111,6 +124,10 @@ def load_sheets(session: Session, sheets: list[dict], force_names: set[str] | No
     for sheet in sheets:
         name = sheet["name"].strip()
         peptide = session.scalar(select(Peptide).where(Peptide.name == name))
+        if peptide is None:
+            peptide = _card_for_sheet(session, name, [a.strip() for a in (sheet.get("aliases") or []) if a and a.strip()])
+            if peptide is not None:
+                peptide.name = name                     # the sheet's name wins, so there is one entry (and protocols keep pointing at it)
         if (
             peptide is not None
             and peptide.source in (PeptideSource.STARTER, PeptideSource.CUSTOM)

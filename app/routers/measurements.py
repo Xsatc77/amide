@@ -472,7 +472,13 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "as_of": as_of.isoformat(),
     }
     if tab == "journal":
-        context.update(journal.journal_tab_context(session, uid))
+        edit_raw = (extra or {}).get("journal_edit") or request.query_params.get("edit")
+        try:
+            edit_day = journal.parse_entry_date(edit_raw) if edit_raw else None
+        except ValueError:
+            edit_day = None
+        context.update(journal.journal_tab_context(session, uid, edit_day))
+        context["journal_open"] = edit_day is not None
     elif tab == "labs":
         context.update(labs.labs_tab_context(session, uid, range_key, window_start))
     if tab == "measurements" and me_user:
@@ -496,11 +502,13 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
 
 @router.get("/measurements")
 def list_measurements(request: Request, tab: str = "measurements",
-                      range_param: str = Query(DEFAULT_RANGE, alias="range"),
+                      range_param: str | None = Query(None, alias="range"),
                       as_of_param: str | None = Query(None, alias="as_of"),
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     if tab == "macros":                    # the old Macros tab is now the Food tab
         return RedirectResponse("/measurements?tab=food", status_code=303)
+    if range_param is None and tab == "labs":          # labs are drawn a few times a year: show all of them unless a range is picked
+        range_param = "lifetime"
     return _render(request, session, uid, tab=tab, range_param=range_param, as_of_param=as_of_param)
 
 

@@ -1251,6 +1251,7 @@ class LabResult(Base):
     marker: Mapped[LabMarker] = mapped_column(_enum_column(LabMarker))
     marker_other: Mapped[str | None] = mapped_column(String(80))
     value: Mapped[float] = mapped_column(Float)
+    qualifier: Mapped[str | None] = mapped_column(String(1))      # "<" or ">" when the lab reported "less than" / "greater than" this value
     unit: Mapped[str | None] = mapped_column(String(20))
     range_low: Mapped[float | None] = mapped_column(Float)
     range_high: Mapped[float | None] = mapped_column(Float)

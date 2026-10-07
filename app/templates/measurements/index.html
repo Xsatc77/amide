@@ -292,12 +292,19 @@
   <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
   <button type="button" class="btn" data-action="open-workout-log">Log Workout</button>
   <a class="btn" href="/measurements?tab=measurements&add_photo=1#body-photos">Add body photo</a>
+  <form method="get" action="/measurements" class="inline journal-day-picker">
+    <input type="hidden" name="tab" value="journal">
+    <label class="small muted" for="journal-edit-date">Add or edit an entry for another day</label>
+    <input type="date" id="journal-edit-date" name="edit" min="2000-01-01" max="{{ today_iso }}" required>
+    <button type="submit" class="btn btn-ghost">Open</button>
+  </form>
 </section>
 
-<dialog id="journal-dialog" class="dialog"{{ ' open' if errors }}>
+<dialog id="journal-dialog" class="dialog"{{ ' open' if errors or journal_open }}>
   <form method="post" action="/journal/entries" class="settings-form" novalidate>
+    <input type="hidden" name="entry_date" value="{{ journal_form_date.isoformat() }}">
     <header class="dialog-head">
-      <h2>Today's entry</h2>
+      <h2>{% if journal_form_is_today %}Today's entry{% else %}Entry for {{ journal_form_date | shortdate }}{% endif %}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
 
@@ -395,6 +402,15 @@
   </form>
 </dialog>
 
+{% if journal_charts %}
+<section aria-labelledby="journal-trends-heading">
+  <h2 id="journal-trends-heading" class="section-title">Trends</h2>
+  <div class="dashboard-placeholders">
+    {% for c in journal_charts %}{{ line_chart(c.chart, c.label) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section aria-labelledby="journal-entries-heading">
   <h2 id="journal-entries-heading" class="section-title">Entries</h2>
   {% if not journal_entries %}
@@ -420,7 +436,7 @@
       <tbody>
         {% for e in journal_entries %}
         <tr>
-          <td data-label="Date">{{ e.date | shortdate }}</td>
+          <td data-label="Date">{{ e.date | shortdate }}{% if not e.owner_name %} <a class="small" href="/measurements?tab=journal&edit={{ e.date.isoformat() }}">Edit</a>{% endif %}</td>
           <td data-label="Mood">{{ e.mood if e.mood is not none else '—' }}</td>
           <td data-label="Energy">{{ e.energy if e.energy is not none else '—' }}</td>
           <td data-label="Sleep">{{ e.sleep_quality if e.sleep_quality is not none else '—' }}</td>
@@ -517,7 +533,7 @@
 
     <fieldset class="form-section">
       <legend>Results</legend>
-      <p class="muted small">Fill in as many lines as you need -- blank lines are ignored.</p>
+      <p class="muted small">Every marker has a line. Fill in the ones you have: blank lines are ignored. A result can be a number, 0, a negative number, or less/greater than one (<5, >100). Use Add marker for anything not listed.</p>
       {{ err('rows') }}
       <div class="table-wrap">
         <table class="lab-bulk-table">
@@ -527,7 +543,7 @@
           <tbody data-lab-rows-container></tbody>
         </table>
       </div>
-      <button type="button" class="btn" data-action="add-lab-row">Add another line</button>
+      <button type="button" class="btn" data-action="add-lab-row">Add marker</button>
     </fieldset>
 
     <footer class="dialog-foot">
@@ -548,7 +564,7 @@
       </select>
       <input name="marker_other[]" data-lab-marker-other hidden maxlength="80" placeholder="Other marker name">
     </td>
-    <td><input name="value[]" type="number" step="any"></td>
+    <td><input name="value[]" type="text" inputmode="decimal" pattern="[<>]?\s*-?[0-9]*\.?[0-9]*" placeholder="e.g. 4.2 or &lt;5" autocomplete="off"></td>
     <td><input name="unit[]" maxlength="20"></td>
     <td><input name="range_low[]" type="number" step="any"></td>
     <td><input name="range_high[]" type="number" step="any"></td>
@@ -602,7 +618,7 @@
           {% for r in panel.results %}
           <tr class="{{ 'lab-out-of-range' if r.out_of_range }}">
             <td data-label="Marker">{{ r.marker_label }}</td>
-            <td data-label="Value">{{ r.value }}</td>
+            <td data-label="Value">{{ r.qualifier }}{{ r.value }}</td>
             <td data-label="Unit">{{ r.unit or '—' }}</td>
             <td data-label="Range">
               {%- if r.range_low is not none and r.range_high is not none -%}

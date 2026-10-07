@@ -54,11 +54,12 @@ def _get_own_panel(session: Session, panel_id: int, uid: int) -> LabPanel:
 def _result_view(r: LabResult) -> dict:
     marker_label = r.marker_other if r.marker is LabMarker.OTHER else r.marker.value
     out_of_range = None
-    if r.range_low is not None and r.range_high is not None:
+    if r.range_low is not None and r.range_high is not None and not r.qualifier:       # "<5" has no exact value to compare
         out_of_range = not (r.range_low <= r.value <= r.range_high)
     return {
         "marker_label": marker_label,
         "value": r.value,
+        "qualifier": r.qualifier or "",
         "unit": r.unit,
         "range_low": r.range_low,
         "range_high": r.range_high,
@@ -93,7 +94,7 @@ def _panel_edit_data(p: LabPanel) -> dict:
         "id": p.id, "drawn_at": p.drawn_at.isoformat(), "notes": p.notes or "",
         "rows": [
             {"marker": r.marker.name, "marker_other": r.marker_other or "",
-             "value": r.value, "unit": r.unit or "",
+             "value": f"{r.qualifier or ''}{r.value:.10g}", "unit": r.unit or "",
              "range_low": r.range_low, "range_high": r.range_high}
             for r in p.results
         ],
@@ -228,8 +229,10 @@ def _parse_lab_rows(form) -> tuple[list[dict], list[dict], dict]:
         # fine but produce nan/inf chart coordinates downstream. Rejecting both here, before any DB
         # write, keeps a bad row a normal per-row 422 instead of a 500 or silently-broken chart.
         value: float | None = None
+        qualifier = value_raw[0] if value_raw[:1] in ("<", ">") else None          # "<5" and ">100" are results too
+        number_text = value_raw[1:].strip() if qualifier else value_raw
         try:
-            parsed_value = float(value_raw)
+            parsed_value = float(number_text)
             if not math.isfinite(parsed_value):
                 raise ValueError
             value = parsed_value
@@ -260,6 +263,7 @@ def _parse_lab_rows(form) -> tuple[list[dict], list[dict], dict]:
             "marker": marker,
             "marker_other": marker_other_raw or None,
             "value": value,
+            "qualifier": qualifier,
             "unit": unit or None,
             "range_low": range_low,
             "range_high": range_high,

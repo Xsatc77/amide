@@ -10,7 +10,7 @@
   const rowsContainer = dialog.querySelector("[data-lab-rows-container]");
   const template = document.getElementById("lab-row-template");
   const titleEl = dialog.querySelector("[data-lab-dialog-title]");
-  const DEFAULT_BLANK_ROWS = 25;
+  const OTHER_BLANK_ROWS = 3;
 
   function clearRowErrors(row) {
     row.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
@@ -46,6 +46,19 @@
 
   function addBlankRows(n) {
     for (let i = 0; i < n; i++) addRow();
+  }
+
+  // One line for every marker in the list (none twice), then a few blank lines for markers that are not listed: type the
+  // name under "Other", or use "Add marker" for more.
+  function addMarkerRows() {
+    const present = new Set([...rowsContainer.querySelectorAll("[data-lab-marker-select]")].map((s) => s.value));
+    const options = [...template.content.querySelectorAll("[data-lab-marker-select] option")].map((o) => o.value).filter((v) => v && v !== "OTHER");
+    for (const marker of options) {
+      if (present.has(marker)) continue;
+      const row = addRow();
+      row.querySelector("[data-lab-marker-select]").value = marker;
+    }
+    addBlankRows(OTHER_BLANK_ROWS);
   }
 
   // Fills one row's fields from a posted-row object (raw strings, as posted) and marks any of
@@ -96,7 +109,7 @@
     delete form.dataset.labPanelId;
     if (titleEl) titleEl.textContent = "New lab panel";
     rowsContainer.innerHTML = "";
-    addBlankRows(DEFAULT_BLANK_ROWS);
+    addMarkerRows();
   }
 
   function openForEdit(panelId) {
@@ -111,10 +124,8 @@
     form.elements["notes"].value = panel.notes || "";
     rowsContainer.innerHTML = "";
     panel.rows.forEach((rowData) => fillRow(addRow(), rowData));
-    // Still a bulk sheet while editing -- pad with blank lines so there's room to add new results
-    // alongside fixing existing ones, not just enough rows to hold what's already there.
-    const extra = Math.max(0, DEFAULT_BLANK_ROWS - panel.rows.length);
-    addBlankRows(extra);
+    // Still the full sheet while editing: a line for every marker not already in the panel, so new results can be added alongside.
+    addMarkerRows();
     dialog.showModal();
   }
 
@@ -173,7 +184,7 @@
         range: rowErrors[`range_${i}`],
       });
     });
-    addBlankRows(Math.max(0, DEFAULT_BLANK_ROWS - rows.length));
+    addMarkerRows();
     dialog.showModal();
   }
 })();

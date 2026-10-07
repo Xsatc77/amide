@@ -143,7 +143,23 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
     }
 
 
-def journal_tab_context(session: Session, viewer_uid: int) -> dict:
+EARLIEST_ENTRY = date(2000, 1, 1)
+
+
+def parse_entry_date(raw: str | None) -> date:
+    """An entry's day: today or earlier, no older than 2000. Raises ValueError with a message for the form."""
+    try:
+        day = date.fromisoformat((raw or "").strip())
+    except ValueError:
+        raise ValueError("Pick a valid date for the entry.") from None
+    if day > date.today():
+        raise ValueError("An entry cannot be for a day that has not happened yet.")
+    if day < EARLIEST_ENTRY:
+        raise ValueError("That date is too far back.")
+    return day
+
+
+def journal_tab_context(session: Session, viewer_uid: int, form_date: date | None = None) -> dict:
     viewer = session.get(User, viewer_uid)
     viewer_tz = viewer.timezone if viewer else None
 
@@ -174,16 +190,28 @@ def journal_tab_context(session: Session, viewer_uid: int) -> dict:
     # there instead of blank -- re-saving must edit that same row, not silently wipe it (spec's
     # "Full entry form" section). Only the read side of get_or_create_entry's lookup; never create
     # a row here, since merely opening the dialog/viewing the tab must not touch the database.
-    today_row = session.scalar(_journal_query(viewer_uid).where(JournalEntry.entry_date == date.today()))
+    target = form_date or date.today()                  # the day the entry dialog is for: today, or the earlier day being added or edited
+    today_row = session.scalar(_journal_query(viewer_uid).where(JournalEntry.entry_date == target))
     today_entry = (
-        _entry_view(today_row, doses_for(session, viewer_uid, date.today()),
-                   workouts_for(session, viewer_uid, date.today()), viewer_tz=viewer_tz)
+        _entry_view(today_row, doses_for(session, viewer_uid, target),
+                   workouts_for(session, viewer_uid, target), viewer_tz=viewer_tz)
         if today_row is not None else None
     )
 
+    from app.routers.measurements import _chart          # deferred: measurements imports this module at load time
+    journal_charts = []
+    for label, field in (("Mood", "mood"), ("Energy", "energy"), ("Sleep quality", "sleep_quality")):
+        points = [(e.entry_date, float(getattr(e, field))) for e in own_entries if getattr(e, field) is not None]
+        chart = _chart(points) if len(points) >= 2 else None                  # one day is not a trend
+        if chart is not None:
+            journal_charts.append({"label": label, "chart": chart})
+
     return {
+        "journal_charts": journal_charts,
         "journal_entries": views,
         "today_entry": today_entry,
+        "journal_form_date": target,
+        "journal_form_is_today": target == date.today(),
         "journal_side_effects": list(JournalSideEffect),
         "today_doses": doses_for(session, viewer_uid, date.today()),
         "workout_day_options": _workout_day_options(session, viewer_uid),
@@ -216,6 +244,13 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
             continue
         values[field] = value
 
+    entry_day = date.today()
+    if _raw("entry_date"):
+        try:
+            entry_day = parse_entry_date(_raw("entry_date"))
+        except ValueError as exc:
+            errors["entry_date"] = str(exc)
+
     posted_side_effects = [str(v) for v in form.getlist("side_effects")]
     valid_values = {se.value for se in JournalSideEffect}
     for v in posted_side_effects:
@@ -227,9 +262,9 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
         # HTTPException -- follows this app's established errors-dict-and-`err()`-macro convention
         # (see app/routers/measurements.py's create_measurement / _render).
         from app.routers import measurements  # deferred: measurements imports this module at load time
-        return measurements._render(request, session, uid, tab="journal", errors=errors, status_code=422)
+        return measurements._render(request, session, uid, tab="journal", errors=errors, status_code=422, extra={"journal_edit": _raw("entry_date")})
 
-    entry = get_or_create_entry(session, uid, date.today())
+    entry = get_or_create_entry(session, uid, entry_day)
     entry.mood = values["mood"]
     entry.energy = values["energy"]
     entry.sleep_quality = values["sleep_quality"]
