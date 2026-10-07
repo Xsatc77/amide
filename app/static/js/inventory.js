@@ -9,7 +9,7 @@
   const preview = dialog.querySelector("[data-coa-preview]");
   const fields = [
     "name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium", "volume_ml",
-    "units_per_package", "storage", "cost", "vendor", "notes",
+    "units_per_package", "storage", "cost", "vendor", "notes", "supply_type", "bac_priority", "bac_volume",
   ];
   const rules = JSON.parse(document.getElementById("inv-rules").textContent);
   const mediumSelect = form.elements.medium;
@@ -47,6 +47,11 @@
     dialog.querySelectorAll('[data-field-group="medium-only"]').forEach((el) => {
       el.hidden = category !== "Medicine";  // BAC Water has no medium-specific fields
     });
+    dialog.querySelectorAll('[data-field-group="bac-only"]').forEach((el) => {
+      el.hidden = category !== "BAC Water";  // priority and bottle size only mean something for BAC water
+    });
+    const storageSelect = form.elements.storage;
+    if (category === "BAC Water" && storageSelect && !storageSelect.value) storageSelect.value = "room_temp";  // never refrigerated
     if (category === "Medicine") syncMediumFields();
   }
   categoryRadios.forEach((r) => r.addEventListener("change", syncCategoryFields));

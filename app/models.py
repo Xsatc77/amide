@@ -89,6 +89,17 @@ class StorageLocation(LabeledEnum):
     ROOM_TEMP = ("room_temp", "Room temperature")
 
 
+class SupplyType(LabeledEnum):
+    """What a Supply item is, so reconstitution can find the right one to use up."""
+    RECON_SYRINGE = ("reconstitution_syringe", "Reconstitution Syringe")
+    DOSING_SYRINGE = ("dosing_syringe", "Dosing Syringe")
+    ALCOHOL_PAD = ("alcohol_prep_pad", "Alcohol Prep Pad")
+    PEN_VIAL = ("peptide_pen_vial", "Peptide Pen Vial")
+    PEN_NEEDLE = ("peptide_pen_needle", "Peptide Pen Needle")
+    STERILE_VIAL = ("sterile_vial_10ml", "10mL Sterile Vial")
+    PEPTIDE_FILTER = ("peptide_filter", "Peptide Filter")
+
+
 class Colorway(LabeledEnum):
     LIGHT = ("light", "Light")
     DARK = ("dark", "Dark")
@@ -398,6 +409,9 @@ class InventoryItem(Base):
     category: Mapped[Category] = mapped_column(_enum_column(Category), default=Category.MEDICINE)
     reconstituted_count: Mapped[int] = mapped_column(Integer, default=0)
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Supply items only: which supply this is (alcohol pad, recon syringe, ...). BAC Water only: 1 = used first, 4 = last, none = after all ranked.
+    supply_type: Mapped[SupplyType | None] = mapped_column(_enum_column(SupplyType))
+    bac_priority: Mapped[int | None] = mapped_column(Integer)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -584,11 +598,12 @@ class ActiveVial(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
-    concentration_mg_ml: Mapped[float] = mapped_column(Float)
+    # A BAC Water vial (opened bottle) has no concentration or doses: those four are empty for it, and water_ml is the bottle's volume.
+    concentration_mg_ml: Mapped[float | None] = mapped_column(Float)
     water_ml: Mapped[float] = mapped_column(Float)
-    dose_value: Mapped[float] = mapped_column(Float)
-    dose_unit: Mapped[DoseUnit] = mapped_column(_enum_column(DoseUnit))
-    doses_total: Mapped[int] = mapped_column(Integer)
+    dose_value: Mapped[float | None] = mapped_column(Float)
+    dose_unit: Mapped[DoseUnit | None] = mapped_column(_enum_column(DoseUnit))
+    doses_total: Mapped[int | None] = mapped_column(Integer)
     dispensing_method: Mapped[DispensingMethod] = mapped_column(_enum_column(DispensingMethod), default=DispensingMethod.SYRINGE)
     volume_remaining_ml: Mapped[float] = mapped_column(Float)
     date_mixed: Mapped[date] = mapped_column(Date)

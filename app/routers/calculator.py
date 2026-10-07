@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import current_user_id
 from app.calculator.reconstitution import SYRINGE_CAPACITIES_UNITS, compute, water_for_target_units
 from app.db import get_session
+from app.inventory.consumption import apply_plan, plan_reconstitution
 from app.models import ActiveVial, Category, DispensingMethod, DoseUnit, InventoryItem, Medium, Protocol, ProtocolItem
 from app.templating import templates
 
@@ -141,6 +142,10 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
         return error_redirect("Could not compute a concentration from these values.")
 
     load_into_pen = bool(str(form.get("load_into_pen", "")).strip())
+    plan = plan_reconstitution(session, uid, water_ml=water_ml, pen=load_into_pen)      # BAC water and supplies: all there, or nothing happens
+    if plan.errors:
+        return error_redirect(". ".join(plan.errors))
+    apply_plan(session, uid, plan, water_ml=water_ml, discard_days=request.state.user.default_discard_days or 28)
     session.add(ActiveVial(
         owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=result.concentration_mg_ml,
         water_ml=water_ml, dose_value=dose_value, dose_unit=DoseUnit(dose_unit),

@@ -26,6 +26,7 @@
 
 <section id="active-vials" aria-labelledby="active-vials-heading">
   <h2 id="active-vials-heading" class="section-title">Active Vials</h2>
+  {% if pen_error %}<div class="alert" role="alert">Can't load this vial into a pen: {{ pen_error }}.</div>{% endif %}
   {% if active_vials %}
   <div class="card-grid vial-card-grid">
     {% for v in active_vials %}
@@ -35,18 +36,25 @@
     <article class="vial-card {{ 'vial-card-expired' if expired and v.id in expired_prompts }} {{ 'vial-card-yellow' if expired and v.id not in expired_prompts and v.last_discard_prompt_at }}"
              data-vial-id="{{ v.id }}" {% if is_mine and v.id in expired_prompts %}data-expired-prompt="{{ v.id }}"{% endif %}
              {% if is_mine %}data-item-id-for-reconstitute="{{ v.inventory_item_id }}" data-item-name="{{ item.name if item else 'Item' }}"{% endif %}>
-      <div class="vial-card-icon">
-        <img src="{{ static_url('img/icons/vial-blank-label.png') }}" alt="">
-        <div class="vial-card-label">
+      {% set is_bac = item and item.category.value == 'BAC Water' %}
+      <div class="vial-card-body">
+        <img class="vial-card-pic" src="{{ static_url('img/icons/vial-blank-label.png') }}" alt="">
+        <div class="vial-card-text">
           <strong>{{ item.name if item else 'Item' }}</strong>
+          {% if is_bac %}
+          <span>{{ '%g' % (v.volume_remaining_ml | round(1)) }} mL left of {{ '%g' % v.water_ml }} mL</span>
+          <span>Use by {{ v.discard_by | shortdate }}</span>
+          <span class="vial-note">Room temperature, do not refrigerate</span>
+          {% else %}
           <span>{{ item.vial_size_mg | mg if item else '' }} · {{ v.concentration_mg_ml | dose_num }} mg/mL</span>
           <span>Discard by {{ v.discard_by | shortdate }}</span>
           <span>{{ v.doses_total }} doses</span>
+          {% endif %}
           {% if not is_mine %}<span class="muted">Shared by {{ vial_owner_names.get(v.owner_id) }}</span>{% endif %}
         </div>
       </div>
       {% if is_mine %}
-      {% if v.dispensing_method.value == 'syringe' %}
+      {% if v.dispensing_method.value == 'syringe' and not is_bac %}
       <form method="post" action="/active-vials/{{ v.id }}/convert-to-pen" class="inline">
         <button type="submit" class="btn btn-ghost">Convert to peptide pen</button>
       </form>
@@ -225,6 +233,21 @@
           {{ err('volume_ml') }}
         </label>
 
+        <label {{ cls('bac_priority') }} data-field-group="bac-only" hidden>
+          <span>BAC priority</span>
+          <select name="bac_priority">
+            <option value="">— Unranked —</option>
+            {% for n, label in [(1, '1st choice'), (2, '2nd choice'), (3, '3rd choice'), (4, '4th choice')] %}<option value="{{ n }}" {{ 'selected' if f.bac_priority == n|string }}>{{ label }}</option>{% endfor %}
+          </select>
+          <small class="muted">The lowest number is opened first, whatever the age of the others.</small>
+          {{ err('bac_priority') }}
+        </label>
+        <label {{ cls('bac_volume') }} data-field-group="bac-only" hidden>
+          <span>Bottle volume (mL)</span>
+          <input name="bac_volume" type="number" min="0" step="any" inputmode="decimal" value="{{ f.bac_volume }}" placeholder="e.g. 30">
+          {{ err('bac_volume') }}
+        </label>
+
         <label {{ cls('units_per_package') }} data-field="units_per_package" data-field-group="medium-only" hidden>
           <span data-label-for="units_per_package">Units per package</span>
           <input name="units_per_package" type="number" min="1" step="1" inputmode="numeric" value="{{ f.units_per_package }}">
@@ -276,6 +299,15 @@
             <option value="">— Select —</option>
             {% for s in storage_locations %}<option value="{{ s.value }}" {{ 'selected' if f.storage == s.value }}>{{ s.label }}</option>{% endfor %}
           </select>
+        </label>
+        <label {{ cls('supply_type') }}>
+          <span>Supply type</span>
+          <select name="supply_type">
+            <option value="">— None —</option>
+            {% for t in supply_types %}<option value="{{ t.value }}" {{ 'selected' if f.supply_type == t.value }}>{{ t.label }}</option>{% endfor %}
+          </select>
+          <small class="muted">Reconstituting uses up supplies by type.</small>
+          {{ err('supply_type') }}
         </label>
       </div>
     </fieldset>

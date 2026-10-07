@@ -97,6 +97,14 @@
       {% endif %}
 
       {% if item.category.value == 'Supply' %}
+      <label {{ icls('supply_type') }}>
+        <span>Supply type</span>
+        <select name="supply_type">
+          <option value="">— None —</option>
+          {% for t in supply_types %}<option value="{{ t.value }}" {{ 'selected' if ef.supply_type == t.value }}>{{ t.label }}</option>{% endfor %}
+        </select>
+        {{ ierr('supply_type') }}
+      </label>
       <label {{ icls('count') }}>
         <span>Count</span>
         <input name="count" type="number" min="0" step="1" inputmode="numeric" value="{{ ef.count or 1 }}">
@@ -114,6 +122,21 @@
       </label>
       {% endif %}
 
+      {% if item.category.value == 'BAC Water' %}
+      <label {{ icls('bac_priority') }}>
+        <span>BAC priority</span>
+        <select name="bac_priority">
+          <option value="">— Unranked —</option>
+          {% for n, label in [(1, '1st choice'), (2, '2nd choice'), (3, '3rd choice'), (4, '4th choice')] %}<option value="{{ n }}" {{ 'selected' if ef.bac_priority == n|string }}>{{ label }}</option>{% endfor %}
+        </select>
+        {{ ierr('bac_priority') }}
+      </label>
+      <label {{ icls('bac_volume') }}>
+        <span>Bottle volume (mL)</span>
+        <input name="bac_volume" type="number" min="0" step="any" inputmode="decimal" value="{{ ef.bac_volume }}">
+        {{ ierr('bac_volume') }}
+      </label>
+      {% endif %}
       <label {{ icls('storage') }}>
         <span>Storage</span>
         <select name="storage">

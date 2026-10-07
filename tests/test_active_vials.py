@@ -11,6 +11,13 @@ from app.main import app
 from app.models import ActiveVial, InventoryItem, TimeOfDay, User
 
 
+@pytest.fixture(autouse=True)
+def _reconstitution_stock(client, me):
+    """Reconstituting now uses BAC water and supplies, so these tests start with everything in stock (see test_reconstitution_supplies)."""
+    from supply_helpers import stock_everything
+    stock_everything(me)
+
+
 def text(r) -> str:
     return html.unescape(r.text)
 

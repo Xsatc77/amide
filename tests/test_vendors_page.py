@@ -480,9 +480,8 @@ def test_cross_task_new_vendor_then_edit_price_list_then_staleness_prompt_appear
     assert f'data-has-price-list="1"' in t or 'data-has-price-list' in t
     # The specific <option> for this vendor must carry the has-price-list flag now.
     import re
-    m = re.search(rf'<option value="{vendor_id}"[^>]*>', t)
-    assert m is not None
-    assert 'data-has-price-list="1"' in m.group(0)
+    options = re.findall(rf'<option value="{vendor_id}"[^>]*>', t)         # other selects may also have an option with this number
+    assert any('data-has-price-list="1"' in o for o in options)
 
 
 # ---------------------------------------------------------------- add / delete vendor

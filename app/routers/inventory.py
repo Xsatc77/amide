@@ -12,10 +12,11 @@ from app import uploads
 from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
+from app.inventory.consumption import apply_plan, plan_pen_conversion
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
 from app.models import (
-    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseUnit, InventoryItem, Medium,
+    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseUnit, InventoryItem, Medium, SupplyType,
     Order, OrderItem, PaymentMethodType, PurchasingUnit, Sale, Share, ShareCategory, StorageLocation,
     User, Vendor, VendorContact, VendorPaymentMethod,
 )
@@ -29,7 +30,8 @@ ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "p
               "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
-FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_HEADER_FIELDS + ORDER_LINE_FIELDS + ("received_quantity",)))
+RECON_FIELDS = ("supply_type", "bac_priority", "bac_volume")      # what a Supply item is; how BAC water is ranked and how big its bottle is
+FORM_FIELDS = tuple(dict.fromkeys(ITEM_FIELDS + ORDER_HEADER_FIELDS + ORDER_LINE_FIELDS + ("received_quantity",) + RECON_FIELDS))
 
 _LINE_KEY = re.compile(r"^lines-(\d+)-(\w+)$")
 _CONTACT_KEY = re.compile(r"^contacts-(\d+)-(\w+)$")
@@ -128,7 +130,18 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
     if not values["name"]:
         errors["name"] = "Item name is required."
     values["storage"] = _parse_choice(StorageLocation, raw["storage"], None, "storage", errors)
+    if category == Category.BAC_WATER and values["storage"] is None:
+        values["storage"] = StorageLocation.ROOM_TEMP         # BAC water is never refrigerated, even once opened
     values["notes"] = raw["notes"] or None
+    values["supply_type"] = _parse_choice(SupplyType, raw.get("supply_type", ""), None, "supply_type", errors) if category == Category.SUPPLY else None
+    values["bac_priority"] = None
+    if category == Category.BAC_WATER and raw.get("bac_priority", ""):
+        try:
+            values["bac_priority"] = int(raw["bac_priority"])
+            if not 1 <= values["bac_priority"] <= 4:
+                errors["bac_priority"] = "Pick a priority from 1 to 4."
+        except ValueError:
+            errors["bac_priority"] = "Pick a priority from 1 to 4."
 
     # Blank means "use the app/user default" (None); an explicit "0" is a real threshold and must
     # round-trip as 0, never be coerced to None.
@@ -194,7 +207,7 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         values["vial_size_mg"] = None
         values["vial_size_unit"] = DoseUnit.MG
         values["purchasing_unit"] = PurchasingUnit.INDIVIDUAL
-        values["volume_ml"] = None
+        values["volume_ml"] = _parse_positive_float(raw.get("bac_volume", ""), "bac_volume", "Bottle volume", errors)   # the bottle's size in mL
         values["units_per_package"] = None
 
     return values, errors
@@ -499,6 +512,9 @@ def _form_values(item: InventoryItem) -> dict:
         "purchasing_unit": item.purchasing_unit.value,
         "medium": item.medium.value if item.medium else "",
         "volume_ml": num(item.volume_ml),
+        "supply_type": item.supply_type.value if item.supply_type else "",
+        "bac_priority": "" if item.bac_priority is None else str(item.bac_priority),
+        "bac_volume": num(item.volume_ml) if item.category == Category.BAC_WATER else "",
         "units_per_package": "" if item.units_per_package is None else str(item.units_per_package),
         "storage": item.storage.value if item.storage else "",
         "low_stock_threshold": "" if item.low_stock_threshold is None else str(item.low_stock_threshold),
@@ -615,6 +631,7 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
     error."""
     return {
         "storage_locations": list(StorageLocation),
+        "supply_types": list(SupplyType),
         "mediums": list(Medium),
         "dose_units": list(DoseUnit),
         "purchasing_units": list(PurchasingUnit),
@@ -674,6 +691,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "supply_items": supply_items,
             "in_transit_groups": in_transit_groups,
             "viewer_id": uid,
+            "pen_error": request.query_params.get("pen_error", "")[:300],
             "owner_names": owner_names,
             "open_vials": open_vials,
             "active_vials": vials,
@@ -687,6 +705,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "dose_units": list(DoseUnit),
             "purchasing_units": list(PurchasingUnit),
             "storage_locations": list(StorageLocation),
+            "supply_types": list(SupplyType),
             "medium_rules": {
                 m.value: {
                     "required": sorted(required_fields_for(m)),
@@ -1263,8 +1282,13 @@ def discard_active_vial(vial_id: int, session: Session = Depends(get_session), u
 @router.post("/active-vials/{vial_id}/convert-to-pen")
 def convert_vial_to_pen(vial_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     vial = _own_active_vial(session, vial_id, uid)
-    if vial is None:
+    if vial is None or vial.inventory_item.category == Category.BAC_WATER:
         raise HTTPException(404)
+    plan = plan_pen_conversion(session, uid)
+    if plan.errors:                       # every pen item must be in stock, or nothing is used and the vial stays as it is
+        from urllib.parse import quote
+        return RedirectResponse(f"/inventory?pen_error={quote('. '.join(plan.errors))}#active-vials", status_code=303)
+    apply_plan(session, uid, plan)
     vial.dispensing_method = DispensingMethod.PEN
     session.commit()
     return RedirectResponse("/inventory#active-vials", status_code=303)
