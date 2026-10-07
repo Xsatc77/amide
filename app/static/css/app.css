@@ -234,6 +234,7 @@ h2 { font-size: 1.2rem; margin: 0; }
 .page-head p { margin: 2px 0 0; }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 24px; }
 .footer a { color: inherit; }
+.footer-notice { font-weight: 600; letter-spacing: 0.03em; margin-bottom: 4px; }
 
 /* ---------- vendor card: price history chart ---------- */
 .price-product-pick { max-width: 360px; }

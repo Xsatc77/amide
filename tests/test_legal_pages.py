@@ -72,3 +72,13 @@ def test_no_stray_links_from_the_word_documents(client, path):
 
 def test_privacy_policy_has_no_text_the_owner_did_not_write(client):
     assert "Because Amide is self-hosted" not in client.get("/legal/privacy").text
+
+
+@pytest.mark.parametrize("path", ["/dashboard", "/inventory", *LEGAL_PATHS])
+def test_the_footer_says_research_and_informational_purposes_only(client, path):
+    assert "For Research &amp; Informational Purposes Only" in client.get(path).text
+
+
+def test_the_footer_notice_is_on_signed_out_pages_too(fresh):
+    _accept(fresh)
+    assert "For Research &amp; Informational Purposes Only" in fresh.get("/login").text

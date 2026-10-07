@@ -297,7 +297,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
   1. ✅ **Fixed 2026-10-07 in the loader (`load_sheets` now joins a sheet to the one imported card it is about when the names differ by a parenthetical, alias or spacing, never touching entries you added; re-run `python -m app.library_load_sheets` to merge the existing duplicates).** Was: **31 peptides have a real sheet-style entry that already exists under a slightly different name** (e.g. card "Amylin" vs sheet "Amylin (IAPP)"; card "Atosiban" vs sheet "Atosiban (Tractocile)"), so the import's exact-name match created a second row instead of updating the original — these are the "two entries, same thing" duplicates. A fix belongs in `load_sheets`'s matching logic (e.g. also check aliases), not a data-entry job.
   2. **35 peptides have no matching source file at all yet** (e.g. AMG-133/MariTide, Nafarelin, Epitalon, GLP-1, GIP, and 30 others) — genuinely still card-only, matching "anything with a High/Moderate/Low tag potentially."
 - [E] ~26 premade protocols, sourced from the owner's own saved copies of what influencers in the space are running plus community-consensus protocols — *overlaps with Protocols' "Pre-Planned Stacks" above, same source material*
-- [E] Standardized footer copy change (Educational/Informational Purposes Only disclaimer wording)
+- ✅ (2026-10-07: the footer now reads "For Research & Informational Purposes Only" on every page) Standardized footer copy change (Educational/Informational Purposes Only disclaimer wording)
 - *(Dosage-tier color bar and caution-style borders moved to Phase 10 — Beautification)*
 
 **Overall**
