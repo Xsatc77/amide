@@ -203,3 +203,16 @@ def test_the_last_use_of_a_token_is_recorded(db, me):
         c.get("/api/ingest/sources", headers=bearer(secret))
     db.expire_all()
     assert db.query(IngestToken).one().last_used_at is not None
+
+
+def test_lone_photos_cluster_by_the_date_of_their_messages_not_by_when_they_arrive(db, me):
+    """A catch-up run delivers weeks of photos within minutes: only photos sent close together in the chat are one list."""
+    secret = make_token(db, me)
+    source = make_source(db)
+    with anon_client() as c:
+        post_message(c, secret, source, files=[("1.png", png_bytes(1))], message_id="1", date="2026-08-08T20:04:00+00:00")
+        post_message(c, secret, source, files=[("2.png", png_bytes(2))], message_id="2", date="2026-08-08T20:06:00+00:00")        # two minutes after: same list
+        post_message(c, secret, source, files=[("3.png", png_bytes(3))], message_id="3", date="2026-10-05T04:57:00+00:00")        # two months later: another list
+        post_message(c, secret, source, files=[("4.png", png_bytes(4))], message_id="4", date="2026-10-05T04:58:00+00:00")
+    keys = {i.message_id: i.group_key for i in db.query(IngestItem)}
+    assert keys["1"] == keys["2"] and keys["3"] == keys["4"] and keys["1"] != keys["3"]

@@ -14,17 +14,18 @@ from app.ingest.detect import detect_kind
 from app.models import IngestItem, IngestSource, naive_utcnow
 
 
-def _group_key(session: Session, source: IngestSource, kind: str, message_id: str, album_id: str | None, digest: str, now: datetime,
+def _group_key(session: Session, source: IngestSource, kind: str, message_id: str, album_id: str | None, digest: str, sent_at: datetime,
                topic_id: str | None = None) -> str:
     if kind != "image":
         return f"{source.id}:m:{message_id}:{digest[:8]}"
     if album_id:
         return f"{source.id}:a:{album_id}"
-    since = now - timedelta(minutes=config.INGEST_CLUSTER_MINUTES)       # lone photos close together are one list
+    window = timedelta(minutes=config.INGEST_CLUSTER_MINUTES)            # lone photos sent close together in the chat are one list (by the
+                                                                          # message dates, not arrival: a catch-up run delivers weeks within minutes)
     recent = session.scalar(select(IngestItem).where(
         IngestItem.source_id == source.id, IngestItem.kind == "image", IngestItem.album_id.is_(None),
         IngestItem.topic_id == topic_id if topic_id is not None else IngestItem.topic_id.is_(None),      # photos of different topics are never one list
-        IngestItem.created_at >= since).order_by(IngestItem.created_at.desc()))
+        IngestItem.received_at >= sent_at - window, IngestItem.received_at <= sent_at + window).order_by(IngestItem.received_at.desc()))
     return recent.group_key if recent is not None else f"{source.id}:t:{uuid.uuid4().hex[:12]}"
 
 
@@ -62,7 +63,7 @@ def ingest_message(session: Session, source: IngestSource, *, message_id: str, a
         (config.INGEST_DIR / stored).write_bytes(data)
         item = IngestItem(source_id=source.id, message_id=message_id, album_id=album_id, received_at=received_at,
                           filename=(filename or "")[:200] or None, kind=kind, file_hash=digest, stored_file=stored, caption=caption,
-                          group_key=_group_key(session, source, kind, message_id, album_id, digest, now, topic_id), status="received", created_at=now,
+                          group_key=_group_key(session, source, kind, message_id, album_id, digest, received_at, topic_id), status="received", created_at=now,
                           topic_id=topic_id, topic_title=topic_title)
         if _save(session, item):
             results.append({"status": "received", "reason": None, "item_id": item.id})
