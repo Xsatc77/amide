@@ -27,7 +27,7 @@ router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium",
-              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes")
+              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 RECON_FIELDS = ("supply_type", "bac_priority", "bac_volume")      # what a Supply item is; how BAC water is ranked and how big its bottle is
@@ -133,6 +133,7 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
     if category == Category.BAC_WATER and values["storage"] is None:
         values["storage"] = StorageLocation.ROOM_TEMP         # BAC water is never refrigerated, even once opened
     values["notes"] = raw["notes"] or None
+    values["local_seller"] = raw.get("local_seller") == "1"
     values["supply_type"] = _parse_choice(SupplyType, raw.get("supply_type", ""), None, "supply_type", errors) if category == Category.SUPPLY else None
     values["bac_priority"] = None
     if category == Category.BAC_WATER and raw.get("bac_priority", ""):
@@ -521,6 +522,7 @@ def _form_values(item: InventoryItem) -> dict:
         "cost": "" if item.cost is None else f"{item.cost:.2f}",
         "vendor": item.vendor or "",
         "notes": item.notes or "",
+        "local_seller": "1" if item.local_seller else "",
     }
 
 
@@ -662,6 +664,11 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
     medicine_items = [i for i in items if i.category == Category.MEDICINE]
+    sort = "name" if request.query_params.get("sort") == "name" else "use_first"
+    if sort == "use_first":                         # nearest expiration first, then the oldest arrival; undated after dated, empty shelves last
+        far = date.max
+        medicine_items.sort(key=lambda i: (i.available_count <= 0, i.next_expiration is None, i.next_expiration or far,
+                                           i.first_arrival or far, i.name.casefold()))
     bac_water_items = [i for i in items if i.category == Category.BAC_WATER]
     supply_items = [i for i in items if i.category == Category.SUPPLY]
     in_transit_lines = [
@@ -687,6 +694,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
         {
             "items": items,
             "medicine_items": medicine_items,
+            "sort": sort,
             "bac_water_items": bac_water_items,
             "supply_items": supply_items,
             "in_transit_groups": in_transit_groups,

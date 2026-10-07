@@ -1,5 +1,8 @@
 // Inventory page: the "+" add button, edit buttons, and the item dialog.
 (() => {
+  // A select marked data-autosubmit (the medicines order) reloads the page as soon as it changes.
+  document.querySelectorAll("select[data-autosubmit]").forEach((select) => select.addEventListener("change", () => select.form.submit()));
+
   const dialog = document.getElementById("item-dialog");
   if (!dialog) return;  // Item detail page has no Add/Edit-item dialog (list.html only)
   const form = dialog.querySelector("form");
@@ -9,7 +12,7 @@
   const preview = dialog.querySelector("[data-coa-preview]");
   const fields = [
     "name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium", "volume_ml",
-    "units_per_package", "storage", "cost", "vendor", "notes", "supply_type", "bac_priority", "bac_volume",
+    "units_per_package", "storage", "cost", "vendor", "notes", "supply_type", "bac_priority", "bac_volume", "local_seller",
   ];
   const rules = JSON.parse(document.getElementById("inv-rules").textContent);
   const mediumSelect = form.elements.medium;
@@ -76,6 +79,7 @@
     dialog.dataset.mode = item ? "edit" : "add";
     for (const f of fields) {
       if (f === "category") continue;  // radios, set below
+      if (f === "local_seller") { form.elements.local_seller.checked = Boolean(item && item.local_seller); continue; }
       form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : f === "vial_size_unit" ? "mg" : f === "purchasing_unit" ? "individual" : "";
     }
     const category = item ? item.category : "Medicine";

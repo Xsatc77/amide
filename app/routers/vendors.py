@@ -20,6 +20,7 @@ from app.library.price_lists.ocr import OcrUnavailable
 from app.ingest.readers import OcrMissing, ReadError, read_images, read_xlsx
 from app.library.price_lists.reader import read_pdf
 from app.library.price_lists.vendor_view import build_price_history, current_price_lists
+from app.vendors.shipping import average_delivery
 from app.templating import templates
 from app.vendors.links import contact_link
 from app.vendors.resolve import resolve_contact_method_type, resolve_payment_method_type
@@ -249,6 +250,7 @@ def _detail_context(session: Session, vendor: Vendor, uid: int, price_import: st
         "edit_data": _form_values(vendor),
         "price_history": build_price_history(session, vendor.id),
         "current_lists": current_price_lists(session, vendor.id),
+        "average_delivery": average_delivery({li.order_id: li.order for li in order_lines}.values()),
         "price_import": _price_import_view(session, vendor, price_import),
     }
 

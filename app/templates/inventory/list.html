@@ -75,6 +75,16 @@
 {% macro item_table(section_id, heading, items, show_medium) %}
 <section id="{{ section_id }}" aria-labelledby="{{ section_id }}-heading">
   <h2 id="{{ section_id }}-heading" class="section-title">{{ heading }}</h2>
+  {% if show_medium %}
+  <form method="get" action="/inventory" class="inv-sort">
+    <label for="inv-sort-select" class="small muted">Order</label>
+    <select name="sort" id="inv-sort-select" data-autosubmit>
+      <option value="use_first"{% if sort == 'use_first' %} selected{% endif %}>Use first (expires soonest, then oldest)</option>
+      <option value="name"{% if sort == 'name' %} selected{% endif %}>Name</option>
+    </select>
+    <noscript><button type="submit" class="btn btn-ghost">Apply</button></noscript>
+  </form>
+  {% endif %}
   {% if items %}
   <div class="table-wrap">
     <table class="inv-table">
@@ -84,6 +94,7 @@
           <th class="num">Count</th>
           {% if show_medium %}<th class="num">Amount</th><th>Medium</th>{% else %}<th class="num">Cost</th><th>Vendor</th>{% endif %}
           <th>Storage</th>
+          {% if show_medium %}<th>Expires</th><th>Arrived</th>{% endif %}
           <th><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -103,6 +114,10 @@
           <td data-label="Vendor">{{ item.vendor or '—' }}</td>
           {% endif %}
           <td data-label="Storage">{{ item.storage.label if item.storage else '—' }}</td>
+          {% if show_medium %}
+          <td data-label="Expires">{{ item.next_expiration | shortdate if item.next_expiration else '—' }}</td>
+          <td data-label="Arrived">{{ item.first_arrival | shortdate if item.first_arrival else '—' }}</td>
+          {% endif %}
           <td class="actions">
             {% if item.owner_id == viewer_id %}
             {% if item.category.value == 'Medicine' and item.medium and item.medium.value == 'Lyophilized' and item.vial_size_mg and item.vial_size_unit.value == 'mg' %}
@@ -399,6 +414,7 @@
 
     <fieldset class="form-section">
       <div class="grid">
+        <label class="field span-2 check-field"><input type="checkbox" name="local_seller" value="1" {% if f.local_seller %}checked{% endif %}><span>Local seller: picked up in person (no shipping wait, so no late-shipment alert)</span></label>
         <label class="field span-2">
           <span>Notes</span>
           <textarea name="notes" rows="2" placeholder="Storage, anything else">{{ f.notes }}</textarea>

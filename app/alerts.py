@@ -3,6 +3,8 @@ functions -- callers pass already-scoped-to-one-viewer rows; nothing here querie
 
 from datetime import date, timedelta
 
+from app.vendors.shipping import is_local
+
 EXPIRING_SOON_DAYS = 7
 
 
@@ -57,7 +59,7 @@ def shipment_alerts(orders, *, today: date, threshold_days: int) -> list[dict]:
     was checked in never alerts, no matter how long it took."""
     out = []
     for order in orders:
-        if order.arrival_date is not None:
+        if order.arrival_date is not None or is_local(order):         # an order picked up in person has no shipping to wait for
             continue
         anchor = order.shipped_date or order.order_date
         if (today - anchor).days > threshold_days:

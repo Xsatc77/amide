@@ -406,6 +406,7 @@ class InventoryItem(Base):
     vendor: Mapped[str | None] = mapped_column(String(200))
     vendor_id: Mapped[int | None] = mapped_column(ForeignKey("vendors.id", ondelete="SET NULL"))
     notes: Mapped[str | None] = mapped_column(Text)
+    local_seller: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # picked up in person: no shipping wait
     category: Mapped[Category] = mapped_column(_enum_column(Category), default=Category.MEDICINE)
     reconstituted_count: Mapped[int] = mapped_column(Integer, default=0)
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -440,6 +441,19 @@ class InventoryItem(Base):
         arrived = sum(
             (li.received_quantity or 0) for li in self.order_items if li.order.arrival_date is not None)
         return arrived - self.reconstituted_count - self.sold_count
+
+    def _checked_in_lines(self):
+        return [li for li in self.order_items if li.order.arrival_date is not None and (li.received_quantity or 0) > 0]
+
+    @property
+    def next_expiration(self) -> date | None:
+        """The earliest expiration date among the lines that were checked in (None when none has one): what to use first."""
+        return min((li.expiration_date for li in self._checked_in_lines() if li.expiration_date), default=None)
+
+    @property
+    def first_arrival(self) -> date | None:
+        """When the oldest checked-in stock arrived (FIFO)."""
+        return min((li.order.arrival_date for li in self._checked_in_lines()), default=None)
 
 
 class Order(Base):

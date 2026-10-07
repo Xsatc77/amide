@@ -146,6 +146,7 @@
         {{ ierr('storage') }}
       </label>
 
+      <label class="field span-2 check-field"><input type="checkbox" name="local_seller" value="1" {% if ef.local_seller %}checked{% endif %}><span>Local seller: picked up in person (no shipping wait, so no late-shipment alert)</span></label>
       <label class="field span-2">
         <span>Notes</span>
         <textarea name="notes" rows="2">{{ ef.notes }}</textarea>

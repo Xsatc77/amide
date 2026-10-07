@@ -36,6 +36,7 @@
     <dt>Website</dt><dd>{% if vendor.website %}<a href="{{ vendor.website }}" target="_blank" rel="noopener">{{ vendor.website }}</a>{% else %}&mdash;{% endif %}</dd>
     <dt>Supplier</dt><dd>{{ vendor.supplier or '—' }}</dd>
     <dt>Contact name</dt><dd>{{ vendor.contact_name or '—' }}</dd>
+    {% if average_delivery %}<dt>Average time to arrive</dt><dd>{{ '%g' % average_delivery[0] }} day{{ '' if average_delivery[0] == 1 else 's' }} <span class="muted small">({{ average_delivery[1] }} order{{ '' if average_delivery[1] == 1 else 's' }}, order to arrival)</span></dd>{% endif %}
     <dt>Recommendation</dt>
     <dd>
       {% if vendor.recommended is true %}<span class="tag">Recommended</span>
