@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
-from app import uploads
+from app import config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
@@ -17,6 +17,7 @@ from app.models import (
 )
 from app.library.price_lists.importer import import_for_vendor, summarize_list
 from app.library.price_lists.ocr import OcrUnavailable
+from app.ingest.readers import OcrMissing, ReadError, read_images, read_xlsx
 from app.library.price_lists.reader import read_pdf
 from app.library.price_lists.vendor_view import build_price_history
 from app.templating import templates
@@ -210,10 +211,10 @@ def _form_values(vendor: Vendor) -> dict:
 
 
 _IMPORT_NOTES = {
-    "notpdf": "The file is attached, but only PDF price lists can be read for prices. Photos, scans and Word files stay as a reference copy.",
-    "unreadable": "The PDF is attached, but it could not be read (it may be scanned, protected or damaged), so no prices were imported.",
-    "needsocr": "The PDF is attached, but it is a scan and this server cannot read pictures of text (OCR is not installed), so no prices were imported.",
-    "norows": "The PDF is attached, but no prices were found in it.",
+    "notpdf": "The file is attached, but only PDFs, photos and spreadsheets (xlsx) can be read for prices. Word files stay as a reference copy.",
+    "unreadable": "The file is attached, but it could not be read (it may be protected, damaged or not a price list), so no prices were imported.",
+    "needsocr": "The file is attached, but it is a picture of text and this server cannot read those (OCR is not installed), so no prices were imported.",
+    "norows": "The file is attached, but no prices were found in it.",
 }
 
 
@@ -529,19 +530,46 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     return RedirectResponse(target, status_code=303)
 
 
+_PHOTO_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+
+
+def _read_photo_file(path):
+    """A photo of a price list, turned upright and read by text recognition (same reader the price list inbox uses)."""
+    from PIL import Image, ImageOps
+
+    from app import body_photos  # noqa: F401  (registers the HEIC opener)
+    with Image.open(path) as opened:
+        if opened.width * opened.height > config.PHOTO_MAX_PIXELS:
+            raise ReadError("the photo is too large")
+        image = ImageOps.exif_transpose(opened).convert("RGB")
+    return read_images([image])
+
+
+def _read_sheet_file(path):
+    return read_xlsx(path.read_bytes())
+
+
 async def _import_saved_price_list(session: Session, vendor: Vendor, warehouse: str, list_date: date) -> str:
-    """Read the PDF just attached to the vendor and store its prices. Returns the new list's id (as text) or a
-    code for why nothing was stored; the file stays attached either way."""
-    if not vendor.price_list_filename.lower().endswith(".pdf"):
+    """Read the file just attached to the vendor (a PDF, a photo by text recognition, or an xlsx spreadsheet) and store its
+    prices. Returns the new list's id (as text) or a code for why nothing was stored; the file stays attached either way."""
+    path = uploads.price_list_path(vendor.price_list_filename)
+    suffix = path.suffix.lower()
+    if suffix not in {".pdf", ".xlsx"} and suffix not in _PHOTO_SUFFIXES:
         return "notpdf"
     try:
-        data = await run_in_threadpool(read_pdf, uploads.price_list_path(vendor.price_list_filename))
-        if warehouse == "auto":  # what the PDF says about its warehouse; a list that names none is China
+        if suffix == ".pdf":
+            data = await run_in_threadpool(read_pdf, path)
+        elif suffix == ".xlsx":
+            data = await run_in_threadpool(_read_sheet_file, path)
+        else:
+            data = await run_in_threadpool(_read_photo_file, path)
+        if warehouse == "auto":  # what the file says about its warehouse; a list that names none is China
             warehouse = data.warehouse_hint or "china"
         report = import_for_vendor(session, vendor, data, warehouse=warehouse, list_date=list_date)
-    except OcrUnavailable:
+    except (OcrUnavailable, OcrMissing):
+        session.rollback()
         return "needsocr"
-    except Exception:  # a damaged or protected PDF is reported on the page, never a server error
+    except Exception:  # a damaged or protected file is reported on the page, never a server error
         session.rollback()
         return "unreadable"
     return str(report.list_id) if report.list_id else "norows"

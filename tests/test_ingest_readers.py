@@ -118,3 +118,19 @@ def test_mostly_unpriced_rows_are_not_a_price_list_unless_the_name_says_so():
     assert readers.looks_like_price_list(data_with(1), None, "Acme_pricelist.pdf") == (True, None)
     assert readers.looks_like_price_list(data_with(0), "price list", None)[0] is False
     assert readers.priced_fraction(data_with(3, 1)) == 0.75 and readers.priced_fraction(data_with(0)) == 0.0
+
+
+def test_a_photo_keeps_whichever_reading_found_more_prices():
+    priced = [readers.ParsedRow(code="ZX", name="Zorvex", spec=Spec(10, "mg", 10), pack_price=50.0) for _ in range(3)]
+    unpriced = [readers.ParsedRow(code=None, name=None, spec=Spec(10, "mg", 10), pack_price=None) for _ in range(5)]
+    assert readers.prefer_priced(unpriced, priced) == priced          # a table guess with no prices loses to readable lines
+    assert readers.prefer_priced(priced, unpriced) == priced
+    assert readers.prefer_priced([], priced) == priced and readers.prefer_priced(priced, []) == priced and readers.prefer_priced([], []) == []
+
+
+def test_a_photo_of_plain_price_lines_is_read_from_its_lines():
+    def lines_only(image):
+        return [w(text, 450, 130 + 46 * n, width=700) for n, text in enumerate(
+            ["Zorvex ZX5 5mg*10vials $50", "Zorvex ZX10 10mg*10vials $60", "Quillamine QU5 5mg*10vials $55"])]
+    data = readers.read_images([blank()], recognize=lines_only)
+    assert [(r.code, r.pack_price) for r in data.rows] == [("ZX5", 50.0), ("ZX10", 60.0), ("QU5", 55.0)]

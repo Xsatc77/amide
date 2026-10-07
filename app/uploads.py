@@ -44,12 +44,13 @@ PRICE_LIST_ALLOWED_TYPES = {
     **ALLOWED_TYPES,
     ".doc": "application/msword",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
 
 def _price_list_sniff_ok(ext: str, head: bytes) -> bool:
     """Like `_sniff_ok`, extended with the two Word-document formats."""
-    if ext == ".docx":
+    if ext in (".docx", ".xlsx"):
         return head.startswith(b"PK\x03\x04")
     if ext == ".doc":
         return head.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
@@ -91,7 +92,7 @@ async def save_price_list(upload: UploadFile) -> str:
     """Validate and store an uploaded vendor price list. Returns the stored filename."""
     ext = Path(upload.filename or "").suffix.lower()
     if ext not in PRICE_LIST_ALLOWED_TYPES:
-        raise UploadError("Price list must be a photo (JPG, PNG, WEBP, HEIC), a PDF, or a Word document.")
+        raise UploadError("Price list must be a photo (JPG, PNG, WEBP, HEIC), a PDF, a spreadsheet (xlsx), or a Word document.")
 
     data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
     if len(data) > config.MAX_UPLOAD_BYTES:

@@ -191,3 +191,78 @@ def test_a_scan_on_a_server_without_ocr_says_so_and_stays_attached(client, db, v
     r = post(client, vendor)
     assert lists(vendor.id) == []
     assert "ocr is not installed" in html.unescape(client.get(r.headers["location"]).text).lower()
+
+
+# ---------------------------------------------------------------- photos and spreadsheets
+
+from ingest_helpers import png_bytes, xlsx_bytes
+
+
+def photo_reader(*rows, hint=None):
+    return lambda images, recognize=None: PriceListData(rows=list(rows), warehouse_hint=hint)
+
+
+def sheet_reader(*rows, hint=None):
+    return lambda data: PriceListData(rows=list(rows), warehouse_hint=hint)
+
+
+@pytest.mark.parametrize("name,content,type_", [("prices.png", png_bytes(1), "image/png")])
+def test_a_photo_saved_on_the_vendor_page_is_read_by_text_recognition_and_imported(client, db, vendor, monkeypatch, name, content, type_):
+    monkeypatch.setattr("app.routers.vendors.read_images", photo_reader(row("ZX10", "Zorvex"), row("QQ5", "Unknownase")))
+    r = post(client, vendor, file=(name, content, type_), price_list_warehouse="us", price_list_date="2026-10-06")
+    assert r.status_code == 303
+    (plist,) = lists(vendor.id)
+    assert (plist.warehouse, plist.list_date) == (Warehouse.US, date(2026, 10, 6))
+    with SessionLocal() as s:
+        assert s.query(PriceListItem).filter_by(price_list_id=plist.id).count() == 2
+        assert s.get(Vendor, vendor.id).price_list_filename.endswith(".png")           # the photo stays attached as the reference copy
+
+
+def test_a_spreadsheet_saved_on_the_vendor_page_is_read_and_imported_and_the_warehouse_can_come_from_the_sheet(client, db, vendor, monkeypatch):
+    monkeypatch.setattr("app.routers.vendors.read_xlsx", sheet_reader(row("ZX10", "Zorvex"), hint="us"))
+    r = post(client, vendor, file=("prices.xlsx", xlsx_bytes([["a", "b"]]), "application/octet-stream"))
+    assert r.status_code == 303
+    (plist,) = lists(vendor.id)
+    assert plist.warehouse == Warehouse.US and r.headers["location"] == f"/vendors/{vendor.id}?import={plist.id}"
+
+
+def test_a_real_spreadsheet_is_read_end_to_end(client, db, vendor):
+    sheet = [["Code", "Product", "Spec", "Price"], ["ZX10", "Zorvex", "10mg*10vials", 50], ["ZX5", "Zorvex", "5mg*10vials", 30], ["QQ5", "Unknownase", "5mg*10vials", 40]]
+    r = post(client, vendor, file=("prices.xlsx", xlsx_bytes(sheet), "application/octet-stream"), price_list_warehouse="us")
+    (plist,) = lists(vendor.id)
+    with SessionLocal() as s:
+        assert s.query(PriceListItem).filter_by(price_list_id=plist.id).count() == 3
+
+
+def test_a_photo_when_text_recognition_is_missing_is_attached_and_the_page_says_why(client, db, vendor, monkeypatch):
+    from app.ingest.readers import OcrMissing
+
+    def missing(images, recognize=None):
+        raise OcrMissing("photos need text recognition, which is not installed")
+    monkeypatch.setattr("app.routers.vendors.read_images", missing)
+    r = post(client, vendor, file=("prices.png", png_bytes(2), "image/png"))
+    assert lists(vendor.id) == []
+    assert "ocr is not installed" in html.unescape(client.get(r.headers["location"]).text).lower()
+
+
+def test_a_damaged_photo_or_spreadsheet_is_attached_and_reported_not_a_server_error(client, db, vendor):
+    for name, content in (("prices.png", b"\x89PNG\r\n\x1a\n" + b"junk" * 8), ("prices.xlsx", b"PK\x03\x04" + b"junk" * 8)):
+        r = post(client, vendor, file=(name, content, "application/octet-stream"))
+        assert r.status_code == 303 and lists(vendor.id) == []
+        assert "could not be read" in html.unescape(client.get(r.headers["location"]).text)
+
+
+def test_a_photo_with_no_prices_says_so(client, db, vendor, monkeypatch):
+    monkeypatch.setattr("app.routers.vendors.read_images", photo_reader())
+    r = post(client, vendor, file=("prices.png", png_bytes(3), "image/png"))
+    assert "no prices were found" in html.unescape(client.get(r.headers["location"]).text).lower()
+
+
+def test_the_upload_hint_mentions_photos_and_spreadsheets(client, db, vendor):
+    page = html.unescape(client.get(f"/vendors/{vendor.id}").text)
+    assert "xlsx" in page.lower() and "photo" in page.lower()
+
+
+def test_word_files_are_still_attached_but_not_read(client, db, vendor):
+    r = post(client, vendor, file=("prices.docx", b"PK\x03\x04" + b"\0" * 32, "application/octet-stream"))
+    assert lists(vendor.id) == [] and "only pdf" in html.unescape(client.get(r.headers["location"]).text).lower()

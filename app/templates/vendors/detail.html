@@ -159,7 +159,7 @@
         <label {{ vcls('price_list_file') }}>
           <span>Replace with a file</span>
           <input name="price_list_file" type="file">
-          <small class="muted">PDF, image, or Word doc. A PDF is also read for prices.</small>
+          <small class="muted">PDF, photo (JPG, PNG, WEBP, HEIC), spreadsheet (xlsx) or Word doc. PDFs, photos and spreadsheets are read for prices; a photo is read with text recognition (OCR).</small>
           {{ verr('price_list_file') }}
         </label>
         <label {{ vcls('price_list_warehouse') }}>

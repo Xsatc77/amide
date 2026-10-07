@@ -20,16 +20,27 @@ class ReadError(ValueError):
     """The file cannot be read at all; the message is short and safe to show."""
 
 
+class OcrMissing(ReadError):
+    """Pictures of text were given but the text-recognition engine is not installed."""
+
+
 def _data(rows: list[ParsedRow], lines: list[str]) -> PriceListData:
     note, hint = scan_notes(lines)
     return PriceListData(rows=rows, shipping_note=note, warehouse_hint=hint, unread_spec_lines=unread_spec_lines(lines, rows))
+
+
+def prefer_priced(table_rows: list[ParsedRow], line_rows: list[ParsedRow]) -> list[ParsedRow]:
+    """Of a table reading and a line-by-line reading of the same page, the one that found more prices (the table wins a tie)."""
+    def priced(rows):
+        return sum(1 for r in rows if r.pack_price is not None)
+    return line_rows if priced(line_rows) > priced(table_rows) else table_rows
 
 
 def read_pdf_file(path: Path, recognize=None) -> PriceListData:
     try:
         return read_pdf(path, recognize=recognize)
     except ocr.OcrUnavailable:
-        raise ReadError("scanned pages need text recognition, which is not installed") from None
+        raise OcrMissing("scanned pages need text recognition, which is not installed") from None
     except Exception as exc:
         raise ReadError(f"the PDF could not be read ({type(exc).__name__})") from None
 
@@ -47,10 +58,10 @@ def read_images(images, recognize=None) -> PriceListData:
         try:
             words = (recognize or ocr.recognize)(image)
         except ocr.OcrUnavailable:
-            raise ReadError("photos need text recognition, which is not installed") from None
+            raise OcrMissing("photos need text recognition, which is not installed") from None
         page_lines, page_rows = ocr.rows_from_words(words, number)
         lines.extend(page_lines)
-        rows.extend(page_rows or rows_from_lines(page_lines, number))
+        rows.extend(prefer_priced(page_rows, rows_from_lines(page_lines, number)))
     return _data(rows, lines)
 
 
