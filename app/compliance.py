@@ -2,7 +2,7 @@
 
 Rules (all measured over completed days; today is still open, so it only counts once something for it is done):
 - Protocol: doses logged (on time or late) out of the doses that were due. A dose due today and not yet logged is pending, not missed.
-- H2O: a day is compliant when the water logged is within 10% of the goal (90% to 110%).
+- H2O: a day is compliant when the water logged reaches 90% of the goal or more.
 - Diet: a day is compliant when food was logged, calories are at or under the day's limit, and protein reaches 90% of its target.
 - Workout: scheduled workout days that were logged, out of the scheduled days since the plan began.
 From the first day something was recorded for a category, a day with nothing logged counts against it; before that the bar shows no data."""
@@ -17,7 +17,7 @@ from app.models import DoseLog, DoseStatus, FoodLog, Protocol, ProtocolItem, Use
 
 WINDOWS = (7, 14, 30, 90, 180, 360, 0)               # 0 is lifetime
 DEFAULT_WINDOW = 30
-WATER_TOLERANCE = 0.10
+WATER_SHARE = 0.90
 PROTEIN_SHARE = 0.90
 
 
@@ -37,7 +37,7 @@ def window_label(window: int) -> str:
 
 
 def water_day_ok(oz: float, goal: float) -> bool:
-    return bool(goal) and goal * (1 - WATER_TOLERANCE) - 1e-9 <= oz <= goal * (1 + WATER_TOLERANCE) + 1e-9
+    return bool(goal) and oz >= goal * WATER_SHARE - 1e-9
 
 
 def diet_day_ok(calories: float, protein_g: float, *, calorie_limit: float, protein_target: float) -> bool:
@@ -107,7 +107,7 @@ def _water_bar(session: Session, user: User, today: date, window: int) -> dict:
     totals = dict(session.execute(select(WaterLog.logged_at, func.sum(WaterLog.ounces)).where(
         WaterLog.owner_id == user.id, WaterLog.logged_at >= since, WaterLog.logged_at <= last).group_by(WaterLog.logged_at)).all())
     days = list(_days(since, last))
-    return _bar("h2o", "H2O", sum(1 for d in days if water_day_ok(totals.get(d, 0) or 0, goal)), len(days), f"Days within 10% of your {goal} oz goal")
+    return _bar("h2o", "H2O", sum(1 for d in days if water_day_ok(totals.get(d, 0) or 0, goal)), len(days), f"Days at 90% or more of your {goal} oz goal")
 
 
 # ---------------------------------------------------------------- diet

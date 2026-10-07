@@ -47,8 +47,8 @@ def test_the_window_is_one_of_the_offered_choices_or_30(raw, expected):
     assert comp.parse_window(raw) == expected
 
 
-@pytest.mark.parametrize("oz,ok", [(100, True), (90, True), (110, True), (89.9, False), (110.1, False), (0, False), (150, False)])
-def test_a_water_day_is_compliant_within_ten_percent_of_the_goal(oz, ok):
+@pytest.mark.parametrize("oz,ok", [(100, True), (90, True), (110, True), (89.9, False), (0, False), (150, True), (1000, True)])
+def test_a_water_day_is_compliant_at_ninety_percent_of_the_goal_or_more(oz, ok):
     assert comp.water_day_ok(oz, 100) is ok
     assert comp.water_day_ok(10, 0) is False
 
@@ -119,12 +119,12 @@ def log_water(uid, days_ago, oz):
         s.commit()
 
 
-def test_water_counts_days_within_ten_percent_from_the_first_log_and_ignores_today(client, db, me):
+def test_water_counts_days_at_ninety_percent_or_more_from_the_first_log_and_ignores_today(client, db, me):
     set_goal(me)
     for days_ago, oz in ((6, 100), (4, 120), (3, 85), (2, 95), (1, 100)):             # day 5 has nothing logged
         log_water(me, days_ago, oz)
     bar = bars_by_key(me)["h2o"]
-    assert (bar["good"], bar["total"], bar["pct"]) == (3, 6, 50)
+    assert (bar["good"], bar["total"], bar["pct"]) == (4, 6, 67)                       # 100, 120 (over the goal still counts), 95 and 100 pass; 85 and the empty day do not
     log_water(me, 0, 10)                                                                     # today is unfinished: it changes nothing
     assert bars_by_key(me)["h2o"]["total"] == 6
 
