@@ -6,11 +6,11 @@ from datetime import date as date_type
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import config
+from app import config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
@@ -26,6 +26,7 @@ from app.models import (
 from app.templating import templates
 from app.uploads import UploadError, save_workout_pdf
 from app.workouts import exercise_db
+from app.workouts.export import workout_log_xlsx
 from app.workouts.exercise_match import match_exercise
 from app.workouts import logging as workout_logging
 from app.workouts.pdf_parser import extract_text, parse_workout_pdf
@@ -226,6 +227,12 @@ def workouts_list(request: Request, session: Session = Depends(get_session),
     return templates.TemplateResponse(request, "workouts/list.html", {"plans": plans})
 
 
+@router.get("/workouts/export.xlsx")
+def workouts_export(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return Response(workout_log_xlsx(session, uid), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="amide-workout-log.xlsx"'})
+
+
 @router.get("/workouts/new")
 def workouts_new(request: Request):
     return templates.TemplateResponse(request, "workouts/edit.html", {"plan": None, "days": []})
@@ -333,6 +340,26 @@ async def workouts_match_exercise(exercise_id: int, request: Request, session: S
     plan_id = session.get(WorkoutPlanDay, ex.day_id).plan_id
     session.commit()
     return RedirectResponse(f"/workouts/{plan_id}/edit", status_code=303)
+
+
+@router.post("/workouts/{plan_id}/end")
+def workouts_end(plan_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Stop following a plan; it stays in the list (and can be made active again)."""
+    plan = _get_own_plan(session, plan_id, uid)
+    plan.ended_on = date.today()
+    session.commit()
+    return RedirectResponse("/workouts", status_code=303)
+
+
+@router.post("/workouts/{plan_id}/delete")
+def workouts_delete(plan_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Remove a plan, its days and exercises, and its imported PDF. Workouts already logged stay (their logs keep their own snapshots)."""
+    plan = _get_own_plan(session, plan_id, uid)
+    pdf = plan.source_pdf_filename
+    session.delete(plan)
+    session.commit()
+    uploads.delete_workout_pdf(pdf)
+    return RedirectResponse("/workouts", status_code=303)
 
 
 @router.post("/workouts/{plan_id}/activate")

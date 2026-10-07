@@ -5,12 +5,13 @@
 {% block content %}
 <div class="page-head">
   <h1>Workouts</h1>
-  <div style="display: flex; gap: 0.5rem; align-items: center;">
+  <div class="workout-actions">
     <a class="btn btn-primary" href="/workouts/new">New plan</a>
-    <a class="btn btn-primary" href="https://www.muscleandstrength.com/workout-routines" target="_blank" style="margin-right: auto;">Find a Workout</a>
-    <form method="post" action="/workouts/upload" enctype="multipart/form-data" style="display: flex; align-items: center;">
-      <label style="margin: 0;">Import a PDF <input type="file" name="pdf" accept="application/pdf" required></label>
-      <button type="submit" class="btn" style="margin-left: 0.5rem;">Upload</button>
+    <a class="btn btn-primary" href="https://www.muscleandstrength.com/workout-routines" target="_blank" rel="noopener">Find a Workout</a>
+    <a class="btn btn-ghost" href="/workouts/export.xlsx">Export log (xlsx)</a>
+    <form method="post" action="/workouts/upload" enctype="multipart/form-data" class="workout-import">
+      <label>Import a PDF <input type="file" name="pdf" accept="application/pdf" required></label>
+      <button type="submit" class="btn">Upload</button>
     </form>
   </div>
 </div>
@@ -25,9 +26,14 @@
       {% if p.ended_on %}<span class="tag tag-plain">Ended</span>{% else %}<span class="status status-active">Active</span>{% endif %}
     </div>
     <p class="small muted">{{ p.days | length }} day(s) · {{ p.source.value }}</p>
-    {% if p.ended_on %}
-    <form method="post" action="/workouts/{{ p.id }}/activate"><button type="submit" class="btn btn-ghost">Make Active</button></form>
-    {% endif %}
+    <div class="workout-actions">
+      {% if p.ended_on %}
+      <form method="post" action="/workouts/{{ p.id }}/activate"><button type="submit" class="btn btn-ghost">Make Active</button></form>
+      {% else %}
+      <form method="post" action="/workouts/{{ p.id }}/end" data-confirm="End this plan? It stays in the list and can be made active again."><button type="submit" class="btn btn-ghost">End plan</button></form>
+      {% endif %}
+      <form method="post" action="/workouts/{{ p.id }}/delete" data-confirm="Delete this plan and its days? Workouts you already logged are kept. This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger">Delete</button></form>
+    </div>
   </div>
   {% else %}
   <p class="muted">No workout plans yet.</p>

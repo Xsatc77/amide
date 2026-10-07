@@ -81,3 +81,9 @@ def test_among_the_same_rank_the_lowest_extra_cost_wins():
     b = offer("Near", "china", price=20.0, rank=1, vendor_id=1)
     buy = plan_bac(9.0, [a, b], [(1, "china")], SHIP)
     assert buy["vendor"] == "Near" and buy["extra"] == pytest.approx(20.0)         # no shipping beats $18 + $30
+
+
+def test_a_minimum_number_of_bottles_overrides_the_volume_when_the_course_outlasts_one_bottle():
+    buy = plan_bac(9.0, [offer(size=30.0, pack=1, price=18.0)], [], SHIP, min_units=3)
+    assert (buy["units"], buy["packs"], buy["cost"]) == (3, 3, 54.0)
+    assert plan_bac(9.0, [offer(size=30.0, pack=1, price=18.0)], [], SHIP, min_units=1)["units"] == 1

@@ -100,3 +100,17 @@ def test_a_period_without_workouts_still_draws_the_baseline_and_says_so(client, 
 def test_unknown_ranges_fall_back_to_thirty_days(client, profile):
     profile()
     assert energy(client, range="9999").count('class="wk-bar"') == 30
+
+
+def test_the_chart_follows_weight_changes_over_time(client, db, me, profile):
+    """Each day uses the weigh-in in effect that day: heavier earlier, lighter later, so the daily TDEE falls."""
+    profile(weight=None)
+    db.add_all([BodyMeasurement(owner_id=me, measured_at=date.today() - timedelta(days=25), weight_lbs=220.0),
+                BodyMeasurement(owner_id=me, measured_at=date.today() - timedelta(days=3), weight_lbs=176.0)])
+    db.commit()
+    tips = re.findall(r'(\d\d/\d\d/\d{4}): TDEE ([\d,]+) kcal', energy(client, range="30"))
+    by_day = {d: int(v.replace(",", "")) for d, v in tips}
+    early = (date.today() - timedelta(days=20)).strftime("%m/%d/%Y")
+    late = date.today().strftime("%m/%d/%Y")
+    assert by_day[early] > by_day[late] + 200                       # 220 lb burns clearly more than 176 lb
+    assert by_day[late] == 2760                                      # the reference figure for the man at 176 lb

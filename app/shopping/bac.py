@@ -47,15 +47,15 @@ def _pack_label(pack_size: int) -> str:
     return "single" if pack_size == 1 else f"pack of {pack_size}"
 
 
-def plan_bac(ml: float, offers: list[BacOffer], plan_sources: list[tuple], shipping: dict) -> dict | None:
+def plan_bac(ml: float, offers: list[BacOffer], plan_sources: list[tuple], shipping: dict, min_units: int = 1) -> dict | None:
     """The BAC water to buy for `ml` mL: the best-ranked brand offered, then the lowest extra cost (water from a vendor and
     warehouse already in the plan adds no shipping; any other source is its own order with its shipping). None when no ranked brand is offered."""
-    in_plan = set(plan_sources)
+    in_plan = set(plan_sources)          # min_units: an opened bottle is good for 28 days, so a long course needs at least one per 28 days
     best = None
     for o in offers:
         if o.rank >= UNRANKED or o.size_ml <= 0 or o.pack_size <= 0 or o.pack_price <= 0:
             continue
-        units = max(1, math.ceil(ml * BUFFER / o.size_ml - 1e-9))
+        units = max(1, min_units, math.ceil(ml * BUFFER / o.size_ml - 1e-9))
         packs = math.ceil(units / o.pack_size)
         cost = round(packs * o.pack_price, 2)
         ship = 0.0 if (o.vendor_id, o.warehouse) in in_plan else float(shipping["us" if o.warehouse == "us" else "china"])

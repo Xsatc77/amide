@@ -92,15 +92,33 @@ def _energy_context(session: Session, uid: int, goal: str, carb: str, range_key:
     start = today - timedelta(days=window - 1)
     per_day = progress.daily_net_kcal(progress.in_range(load_logged(session, uid), start, today))
     days = [start + timedelta(days=i) for i in range(window)]
-    bmr, activity, food = report.split
+    # Each day uses the weigh-in in effect that day (the latest on or before it; before the first weigh-in, the first one), so the
+    # baseline follows weight changes instead of using today's weight for every day.
+    weigh_ins = session.execute(
+        select(BodyMeasurement.measured_at, BodyMeasurement.weight_lbs)
+        .where(BodyMeasurement.owner_id == uid, BodyMeasurement.weight_lbs.is_not(None))
+        .order_by(BodyMeasurement.measured_at, BodyMeasurement.id)).all()
+    reports: dict[tuple[float, int], object] = {}
+
+    def report_on(day: date):
+        weight_on = next((w for d, w in reversed(weigh_ins) if d <= day), weigh_ins[0][1] if weigh_ins else weight)
+        key = (weight_on, _age(user.birth_date, day))
+        if key not in reports:
+            reports[key] = tdee.report(male=male, age=key[1], height_in=user.height_in, weight_lb=weight_on,
+                                       activity_factor=float(user.activity_level.value), life_stage=user.life_stage)
+        return reports[key]
+
+    daily = {d: report_on(d) for d in days}
+    targets = {d: target_calories(r.tdee, user.macro_goal or MacroGoal.MAINTAIN, user.sex)[0] for d, r in daily.items()}
     target, _ = target_calories(report.tdee, user.macro_goal or MacroGoal.MAINTAIN, user.sex)
     chart = charts.stacked_bars(
-        days, {"BMR": [bmr] * window, "Activity": [activity] * window, "Food digestion": [food] * window,
-               "Workout": [per_day.get(d, 0) for d in days]}, line=[target] * window, width=720, height=260)
+        days, {"BMR": [daily[d].split[0] for d in days], "Activity": [daily[d].split[1] for d in days], "Food digestion": [daily[d].split[2] for d in days],
+               "Workout": [per_day.get(d, 0) for d in days]}, line=[targets[d] for d in days], width=720, height=260)
     for bar in chart["bars"]:
         burned = per_day.get(bar["label"], 0)
-        bar["tip"] = (f"{bar['label']:%a %m/%d/%Y}: TDEE {report.tdee:,} kcal; workout about {round(burned)} kcal net "
-                      f"({burned / report.tdee * 100:.0f}% of TDEE, estimated)")
+        day_tdee = daily[bar["label"]].tdee
+        bar["tip"] = (f"{bar['label']:%a %m/%d/%Y}: TDEE {day_tdee:,} kcal; workout about {round(burned)} kcal net "
+                      f"({burned / day_tdee * 100:.0f}% of TDEE, estimated)")
     return {
         "status": "ok", "r": report, "goal": goal, "carb": carb, "cell": tdee.macro_cell(goal, carb, report.tdee),
         "macro_grid": tdee.MACRO_GRID, "macro_colors": MACRO_COLORS, "level_bars": level_bars,

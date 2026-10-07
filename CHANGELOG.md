@@ -9,6 +9,13 @@ Newest first. Dates are when the work was done.
 - Orders tab with parcel-style tracking; reconstitution supplies and BAC priorities; IU vials and a teaching mode in the calculator.
 - Dashboard compliance bars with a time-window dropdown; a larger body diagram.
 - Food tracking, workout calories and TDEE, body photos, encrypted backup and restore.
+- Vial labels print on check-in, with a "put these dates on your label" dialog after reconstituting.
+- Inventory: use-first order, Local seller flag, runs-out predictions and alerts, a Spending page, average time to arrive on each vendor.
+- Protocols: nine times of day, a titration ramp helper, a printable view, Vitamins and Prescriptions cards, the titration step on the Dashboard.
+- Calendar: log from the calendar, a private iCal subscription, ntfy reminders (opt-in), an installable app.
+- Library: private notes and saved articles, reorderable goal stacks, calculator links on dosing tiers, sheets join differently named cards.
+- Labs: a line per marker, results like <5 and >100; Journal: any past day, trend charts; Workouts: end or delete a plan, export the log, weight-aware TDEE.
+- The shopping plan counts BAC bottles by the 28-day rule.
 - Minimum password length raised to 8 (set `AMIDE_PASSWORD_MIN_LENGTH` to change it).
 - GitHub Actions: tests on every push, Docker image published on version tags.
 

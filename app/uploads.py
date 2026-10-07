@@ -141,6 +141,12 @@ def lab_report_path(filename: str) -> Path:
     return config.LAB_REPORT_DIR / filename
 
 
+def delete_workout_pdf(filename: str | None) -> None:
+    """Remove an imported workout PDF from disk (ignored when there is none or the name is not one of ours)."""
+    if filename and "/" not in filename and "\\" not in filename and ".." not in filename:
+        (config.WORKOUT_PDF_DIR / filename).unlink(missing_ok=True)
+
+
 def delete_lab_report(filename: str | None) -> None:
     if filename:
         lab_report_path(filename).unlink(missing_ok=True)

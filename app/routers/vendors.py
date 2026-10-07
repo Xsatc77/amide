@@ -456,9 +456,10 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         vendor.price_list_url = None
         price_list_changed = True
     elif raw["price_list_url"]:
+        # The edit form is pre-filled with the current link, so posting the same one back is not a new price list.
+        price_list_changed = raw["price_list_url"] != vendor.price_list_url or vendor.price_list_filename is not None
         vendor.price_list_url = raw["price_list_url"]
         vendor.price_list_filename = None
-        price_list_changed = True
     elif remove_price_list:
         vendor.price_list_filename = None
         vendor.price_list_url = None

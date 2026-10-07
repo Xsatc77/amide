@@ -165,7 +165,7 @@ def test_bac_water_is_listed_as_a_separate_purchase_with_bottles(client, db, me)
         s.commit()
     pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)])
     bac = shop(client, pid).json()["bac"]
-    assert bac["ml"] > 0 and bac["bottles"] == math.ceil(bac["ml"] / 30)
+    assert bac["ml"] > 0 and bac["bottles"] == max(math.ceil(bac["ml"] / 30), math.ceil(40 / 28))
 
 
 def test_an_iu_product_is_priced_in_iu_converting_a_mass_dose(client, db, me):
@@ -303,8 +303,8 @@ def test_a_ranked_brand_of_bac_water_on_a_price_list_is_planned_as_its_own_order
     data = shop(client, pid).json()
     buy = data["bac"]["buy"]
     assert buy["vendor"] == "Sterile Supply Co" and buy["product"] == "Acme Hospira Bacteriostatic Water" and buy["mode"] == "separate"
-    assert (buy["size_label"], buy["packs"], buy["cost"], buy["shipping"], buy["extra"]) == ("30 mL", 1, 18.0, 30.0, 48.0)       # the case is dearer; the sodium chloride is not water
-    assert data["grand_total"] == pytest.approx(data["plan"]["total"] + 48.0)
+    assert (buy["size_label"], buy["packs"], buy["cost"], buy["shipping"], buy["extra"]) == ("30 mL", 2, 36.0, 30.0, 66.0)       # a 40-day course: two bottles (28 days each once opened); the case is dearer; sodium chloride is not water
+    assert data["grand_total"] == pytest.approx(data["plan"]["total"] + 66.0)
 
 
 def test_without_a_ranked_brand_no_bac_water_is_offered_from_the_lists(client, db, me):
@@ -317,4 +317,16 @@ def test_without_a_ranked_brand_no_bac_water_is_offered_from_the_lists(client, d
 def test_the_plain_text_includes_the_bac_water_and_the_grand_total_with_it(client, db, me):
     pid = bac_world(db, me)
     text = client.get(f"/protocols/{pid}/shop.txt").text
-    assert "BAC water" in text and "Sterile Supply Co" in text and "Acme Hospira Bacteriostatic Water" in text and "Grand total: $508.00" in text
+    assert "BAC water" in text and "Sterile Supply Co" in text and "Acme Hospira Bacteriostatic Water" in text and "Grand total: $526.00" in text
+
+
+def test_bac_bottles_follow_the_28_day_rule_for_a_long_course(client, db, me):
+    zorvex, quillamine = lists(db)
+    with SessionLocal() as s:
+        for pid_ in (zorvex, quillamine):
+            c = s.get(Peptide, pid_)
+            c.normally_supplied_amount, c.normally_supplied_unit = 10, DoseUnit.MG
+        s.commit()
+    pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)], days=90)           # an opened bottle is good for 28 days
+    bac = shop(client, pid).json()["bac"]
+    assert bac["bottles"] == 4 and bac["ml"] > 0                                                                                          # 90 days / 28 = 4 bottles, though the volume would fit in one

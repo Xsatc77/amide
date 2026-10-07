@@ -17,6 +17,7 @@ from app.shopping.planner import Need, Offer, Plan, plan_protocol
 DEFAULT_SHIPPING = {"china": 60.0, "us": 30.0}
 MAX_FEE = 10_000.0
 BAC_BOTTLE_ML = 30
+BAC_DAYS_OPEN = 28            # an opened BAC water bottle is good for 28 days at room temperature
 _HARD = re.compile(r"testosterone|\btrt\b|\bhgh\b|somatropin|growth hormone", re.IGNORECASE)
 _SIZE_UNITS = ("mg", "mcg", "IU")
 
@@ -133,7 +134,7 @@ def _plan_json(plan: Plan, chosen_total: float | None = None) -> dict:
     return out
 
 
-def _bac_buy(session: Session, uid: int, bac_ml: float, plan: Plan | None, shipping: dict) -> dict | None:
+def _bac_buy(session: Session, uid: int, bac_ml: float, plan: Plan | None, shipping: dict, min_units: int = 1) -> dict | None:
     """The BAC water to buy: only a brand the user ranks in their BAC Water inventory (never the peptide vendors' own water)."""
     ranked = [(i.bac_priority, i.name) for i in session.scalars(select(InventoryItem).where(
         InventoryItem.owner_id == uid, InventoryItem.category == Category.BAC_WATER))]
@@ -147,7 +148,7 @@ def _bac_buy(session: Session, uid: int, bac_ml: float, plan: Plan | None, shipp
             plist = lists[row.price_list_id]
             offers.append(BacOffer(vendor_id=plist.vendor_id, vendor_name=plist.vendor_name, warehouse=plist.warehouse.value, product=row.product_name,
                                    size_ml=row.vial_amount, pack_size=row.pack_size, pack_price=row.pack_price, rank=rank_for(row.product_name, ranked)))
-    return plan_bac(bac_ml, offers, [(s.vendor_id, s.warehouse) for s in plan.sources] if plan else [], shipping)
+    return plan_bac(bac_ml, offers, [(s.vendor_id, s.warehouse) for s in plan.sources] if plan else [], shipping, min_units)
 
 
 def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict) -> dict:
@@ -158,14 +159,15 @@ def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict) -> d
     peptides_by_id = {p.id: p for p in session.scalars(select(Peptide).where(Peptide.id.in_({it.peptide_id for it in protocol.items})))}
     totals = compute_course_totals(protocol, inventory_by_id, peptides_by_id) or []
     needs, notes, bac_ml, factors = _needs(protocol, totals, inventory_by_id, peptides_by_id)
+    bac_min_units = max(1, math.ceil(((protocol.end_date - protocol.start_date).days + 1) / BAC_DAYS_OPEN - 1e-9))
     base = {"status": "ok", "protocol": {"id": protocol.id, "name": protocol.name}, "shipping": shipping,
-            "bac": {"ml": round(bac_ml, 1), "bottles": math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9)} if bac_ml > 0 else None}
+            "bac": {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units)} if bac_ml > 0 else None}
     if not needs and not notes:
         return base | {"status": "nothing_to_buy", "plan": None, "alternatives": [], "unshoppable": []}
     result = plan_protocol(needs, _offers(session, needs, factors), shipping)
     unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable]
     if base["bac"]:
-        base["bac"]["buy"] = _bac_buy(session, uid, bac_ml, result.plan, shipping)
+        base["bac"]["buy"] = _bac_buy(session, uid, bac_ml, result.plan, shipping, bac_min_units)
     extra = base["bac"]["buy"]["extra"] if base["bac"] and base["bac"]["buy"] else 0.0
     return base | {"grand_total": round((result.plan.total if result.plan else 0.0) + extra, 2) if (result.plan or extra) else None,
                    "plan": _plan_json(result.plan) if result.plan else None,

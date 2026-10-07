@@ -54,7 +54,7 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 - **Library:** the peptide library with doses, sizes, price ranges and your own notes.
 - **You and your data:** accounts with optional two-factor, opt-in sharing, encrypted backup, export and restore. Self-hosted: nothing leaves your machine unless you turn an integration on.
 
-What came when: [CHANGELOG.md](CHANGELOG.md). What is next: [docs/ROADMAP.md](docs/ROADMAP.md). Running it for real (HTTPS, backups, updates): [docs/DEPLOYING.md](docs/DEPLOYING.md).
+How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md). What came when: [CHANGELOG.md](CHANGELOG.md). What is next: [docs/ROADMAP.md](docs/ROADMAP.md). Running it for real (HTTPS, backups, updates): [docs/DEPLOYING.md](docs/DEPLOYING.md).
 
 ## Running Amide
 

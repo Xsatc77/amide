@@ -698,13 +698,20 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .lib-section .section-title { display: flex; align-items: center; gap: 8px; }
 .lib-section.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .lib-section-caution {
+  position: relative;
   border: 1px solid var(--border);
-  border-left: 8px solid;
-  border-image: repeating-linear-gradient(45deg, #ffff00 0, #ffff00 10px, #000000 10px, #000000 20px) 1;
-  border-image-slice: 0 0 0 1;
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: hidden;                 /* clips the stripe to the card's rounded corners (border-image cannot be rounded) */
+  padding-left: 28px;
 }
+.lib-section-caution::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 10px;
+  background: repeating-linear-gradient(45deg, #ffff00 0, #ffff00 10px, #000000 10px, #000000 20px);
+}
+.workout-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.workout-import { display: flex; align-items: center; gap: 0.4rem; }
+.workout-import label { margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+.workout-import input[type="file"] { max-width: 12rem; }
 .lib-section-caution .section-title { color: var(--ribbon-strong); }
 .tier-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .tier-badge::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex-shrink: 0; }

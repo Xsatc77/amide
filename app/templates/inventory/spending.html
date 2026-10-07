@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% set active_nav = "inventory" %}
+{% block title %}Spending{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Spending</h1>
+    <p class="muted">Costs include each order's share of shipping and tax. Cost per dose uses the dose in your active protocol.</p>
+  </div>
+  <a class="btn btn-ghost" href="/inventory">Back to inventory</a>
+</div>
+
+{% if not summary.rows %}
+<div class="empty"><p><strong>Nothing to total yet.</strong></p><p class="muted">Enter a cost on your orders and it shows up here.</p></div>
+{% else %}
+<section aria-labelledby="spend-items-heading">
+  <h2 id="spend-items-heading" class="section-title">By peptide</h2>
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Peptide</th><th class="num">Vials bought</th><th class="num">Spent</th><th class="num">Per vial</th><th class="num">Per mg / IU</th><th class="num">Per dose</th></tr></thead>
+      <tbody>
+        {% for r in summary.rows %}
+        <tr>
+          <td data-label="Peptide"><a href="/inventory/{{ r.item_id }}">{{ r.name }}</a></td>
+          <td data-label="Vials bought" class="num">{{ r.vials }}</td>
+          <td data-label="Spent" class="num">${{ '%.2f' % r.spent }}</td>
+          <td data-label="Per vial" class="num">${{ '%.2f' % r.per_vial }}</td>
+          <td data-label="Per mg / IU" class="num">{% if r.per_unit is not none %}${{ '%.2f' % r.per_unit }} <span class="muted small">per {{ r.unit }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Per dose" class="num">{% if r.per_dose is not none %}${{ '%.2f' % r.per_dose }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><th>Total</th><td></td><th class="num">${{ '%.2f' % summary.grand_total }}</th><td></td><td></td><td></td></tr></tfoot>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="spend-months-heading">
+  <h2 id="spend-months-heading" class="section-title">By month</h2>
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Month</th><th class="num">Spent</th></tr></thead>
+      <tbody>{% for m in summary.months %}<tr><td data-label="Month">{{ m.month }}</td><td data-label="Spent" class="num">${{ '%.2f' % m.total }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
