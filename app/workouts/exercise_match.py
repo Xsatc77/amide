@@ -29,6 +29,10 @@ _NOISE = {"the", "a", "an", "with", "on", "of", "and"}
 # A fuzzy match may add only these words to what was typed ("Lat Pulldown" -> "Cable Lat Pulldown"); any other extra
 # word ("Box", "Smith", "Sumo") makes it a different exercise, so it stays a suggestion.
 _IGNORABLE_EXTRA = {"cable", "machine", "dumbbell", "barbell", "kettlebell", "bodyweight", "band", "ez"}
+# Words that say little about which movement it is; ignored when looking for the nearest exercise to estimate from.
+_FILLER = {"exercise", "ball", "stability", "swiss", "bosu", "weighted", "assisted", "single", "one", "alternating",
+           "lying", "seated", "standing", "incline", "decline", "flat", "wide", "close", "narrow", "grip", "reverse"} | _EQUIPMENT
+_APPROX_MIN = 0.5
 _CONFIDENT = 0.70
 _MARGIN = 0.05
 _SUGGEST = 0.50
@@ -48,6 +52,8 @@ class ExerciseMatch:
 
 
 def _singular(word: str) -> str:
+    if len(word) > 4 and word.endswith(("ches", "shes", "xes")):      # crunches, lunges stay; crunch, rush, box
+        return word[:-2]
     return word[:-1] if len(word) > 2 and word.endswith("s") and not word.endswith("ss") else word
 
 
@@ -55,6 +61,7 @@ def _singular(word: str) -> str:
 def tokens(text: str) -> tuple[str, ...]:
     """Lowercase words with abbreviations expanded and plurals folded, in order."""
     text = unicodedata.normalize("NFKC", text or "").casefold().replace("&", " and ")
+    text = re.sub(r"\b(pull|push)[\s-]+down", r"\1down", text)       # "lat pull down" is "lat pulldown"
     out = []
     for word in re.findall(r"[a-z0-9]+", text):
         expanded = _SYNONYMS.get(word) or _SYNONYMS.get(_singular(word)) or word
@@ -107,6 +114,29 @@ def _score(query: tuple[str, ...], cand: tuple[str, ...]) -> float:
     if eq_a and eq_b and not (eq_a & eq_b):
         score -= 0.30          # a barbell curl is not a cable curl
     return min(max(score, 0.0), 0.99)
+
+
+def approximate_exercise(name: str | None) -> Exercise | None:
+    """The nearest exercise to estimate calories from when `match_exercise` is not sure: the one that shares the most
+    of the typed name's meaningful words (the movement, not the equipment or posture), preferring the plainest name.
+    For a calorie estimate only; it is never stored as a confirmed match."""
+    match = match_exercise(name)
+    if match.exercise:
+        return match.exercise
+    query = {w for w in tokens(name or "") if w not in _FILLER}
+    if not query:
+        query = set(tokens(name or ""))
+    if not query:
+        return None
+    ranked = []
+    for e, _, words in _candidates():
+        core = {w for w in words if w not in _FILLER} or set(words)
+        shared = len(query & core) / len(query)
+        if shared >= _APPROX_MIN:
+            ranked.append((-shared, len(core - query), len(e.name), e.name, e))
+    if not ranked:
+        return match.suggestions[0] if match.suggestions else None
+    return min(ranked)[-1]
 
 
 def match_exercise(name: str | None) -> ExerciseMatch:

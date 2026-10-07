@@ -176,10 +176,10 @@ def test_an_exercise_added_on_the_day_is_matched_by_fuzzy_name_and_estimated(cli
     assert db.query(WorkoutExerciseLog).filter(WorkoutExerciseLog.name == "").count() == 0
 
 
-def test_an_added_exercise_that_is_not_in_the_database_is_refused_with_suggestions(client, db):
+def test_an_added_exercise_that_is_not_in_the_database_is_refused_only_when_nothing_is_close(client, db):
     plan = plan_with(client, db, ["Bench Press"], name="Logging Extra Refuse Plan")
     r = post_log(client, plan.days[0], extra={"extra-0-exercise": "Squats", "extra-0-sets_value": "3", "extra-0-reps_value": "5"})
-    assert r.status_code == 422 and "Squats" in r.text
+    assert r.status_code == 303
     r = post_log(client, plan.days[0], extra={"extra-0-exercise": "Zzz Quasar Lift"})
     assert r.status_code == 422
 

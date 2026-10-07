@@ -45,7 +45,7 @@ def test_resaving_a_log_whose_plan_exercises_were_removed_keeps_those_rows_as_th
     db.expire_all()
     rows = {r.name: r for r in db.scalars(select(WorkoutExerciseLog).where(WorkoutExerciseLog.name.in_(["Push-up", "Squats"])))}
     assert rows["Push-up"].completed is False and rows["Push-up"].net_kcal is None
-    assert rows["Squats"].completed is True and rows["Squats"].db_exercise is None and rows["Squats"].sets == 3
+    assert rows["Squats"].completed is True and rows["Squats"].db_exercise == "Bodyweight Squat" and rows["Squats"].sets == 3
 
 
 def test_a_cleared_match_stays_cleared_in_the_log(client, db, weigh_in):

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import BodyMeasurement, WeightUnit, WorkoutExercise, WorkoutExerciseLog, WorkoutLog, WorkoutPlanDay
 from app.workouts import calories, exercise_db
 from app.workouts.exercise_db import Exercise
-from app.workouts.exercise_match import match_exercise
+from app.workouts.exercise_match import ExerciseMatch, approximate_exercise, match_exercise
 
 MAX_SETS = 50
 MAX_REPS = 200
@@ -136,7 +136,7 @@ def resolve_db(ex: WorkoutExercise) -> Exercise | None:
     "no estimate for this one") is final; otherwise the stored match, then a fresh confident match by name."""
     if ex.db_exercise_confirmed:
         return exercise_db.get(ex.db_exercise)
-    return exercise_db.get(ex.db_exercise) or match_exercise(ex.name).exercise
+    return exercise_db.get(ex.db_exercise) or approximate_exercise(ex.name)
 
 
 def _extra_rows(raw, orphans: dict[int, WorkoutExerciseLog] | None = None) -> list[ParsedRow]:
@@ -159,6 +159,8 @@ def _extra_rows(raw, orphans: dict[int, WorkoutExerciseLog] | None = None) -> li
                              completed=bool(saved.completed)))
             continue
         match = match_exercise(typed)
+        if not match.confident and (near := approximate_exercise(typed)) is not None:
+            match = ExerciseMatch(near, "approximate", 0.5)
         if not match.confident:
             close = ", ".join(e.name for e in match.suggestions)
             hint = f" Closest: {close}." if close else " Pick an exercise from the list."
