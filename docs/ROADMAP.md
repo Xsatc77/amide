@@ -230,6 +230,7 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 - BAC Water: vial size (mL), COA upload, and the ability to convert an opened BAC Water bottle into an Active Vial *(builds on Active Vials, Phase 2 ✅)*
 - All Active Vials assumed refrigerator-stored once made active, 28-day clock starts on reconstitution; a "Put These Dates on Your Labels" popup (recon date + 28-day expiry) at reconstitution time *(extends the existing reconstitution flow, Phase 2 ✅)*
 - On order check-in, offer to print vial labels (name, concentration, batch, blank recon/exp date boxes, "Research Use Only")
+  - **Owner follow-up, 2026-10-07:** make it **automatic** — labels print as items are checked into the store, with no prompt. Needs a spec (printer and label size, what happens with no printer, one label per vial vs per item).
 
 **Vendors**
 - Average shipping time on the vendor card — *its own blocking dependency (Phase 5's Vendor management page) has since shipped in v0.6; this is now buildable*
