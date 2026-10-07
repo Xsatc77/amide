@@ -111,11 +111,10 @@ def test_schedule_with_nothing_checked_clears_weekdays(client, db):
 def test_schedule_form_renders_weekday_checkboxes_prechecked(client, db):
     client.post("/workouts", data=_plan_form())
     plan = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == "My Manual Plan"))
-    day_id = plan.days[0].id
     plan.days[0].weekdays = "TR"
     db.commit()
-    r = client.get(f"/workouts/{plan.id}/edit")
-    boxes = re.findall(rf'<input type="checkbox" name="weekdays\[{day_id}\]\[\]" value="(\w)"( checked)?', r.text)
+    r = client.get(f"/workouts/{plan.id}/edit")                       # the boxes are inside the day, numbered by its place in the form
+    boxes = re.findall(r'<input type="checkbox" name="weekdays\[0\]\[\]" value="(\w)"( checked)?', r.text)
     assert [(v, bool(c)) for v, c in boxes] == [
         ("M", False), ("T", True), ("W", False), ("R", True), ("F", False), ("S", False), ("U", False)]
     assert 'placeholder="e.g. MWF"' not in r.text

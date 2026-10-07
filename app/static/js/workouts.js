@@ -18,7 +18,7 @@
   }
 
   function setIndex(scope, index) {
-    scope.querySelectorAll("[name^='exercise_']").forEach((el) => {
+    scope.querySelectorAll("[name^='exercise_'], [name^='weekdays[']").forEach((el) => {
       el.name = el.name.replace(/\[(?:\d+|__I__)\]\[\]$/, `[${index}][]`);
     });
   }
@@ -55,7 +55,7 @@
     const index = days().length;
     const fragment = dayTemplate.content.cloneNode(true);
     fragment.querySelectorAll("[name]").forEach((el) => {
-      el.name = el.name.replace("__I__", String(index));
+      el.name = el.name.replace(/__I__/g, String(index));
     });
     const fieldset = fragment.querySelector("[data-day]");
     fieldset.querySelector("[data-day-number]").textContent = String(index + 1);

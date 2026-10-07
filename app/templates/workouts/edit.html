@@ -37,6 +37,13 @@
   <legend>Day <span data-day-number>{{ number }}</span></legend>
   <input type="hidden" name="day_id[]" value="{{ day.id if day else '' }}">
   <label>Label <input type="text" name="day_label[]" value="{{ day.label if day else '' }}" placeholder="e.g. Upper Body"></label>
+  <input type="hidden" name="weekdays_present[{{ idx }}]" value="1">
+  <div class="day-pick-row" role="group" aria-label="Days this workout is on">
+    <span class="small muted">Days:</span>
+    {% for letter, wname in weekday_choices %}
+    <label class="day-pick"><input type="checkbox" name="weekdays[{{ idx }}][]" value="{{ letter }}"{% if day and day.weekdays and letter in day.weekdays %} checked{% endif %}><span>{{ wname }}</span></label>
+    {% endfor %}
+  </div>
   {#- Log any saved day on any date, scheduled or not (e.g. right after a PDF import). -#}
   {% if day %}<a class="btn btn-ghost" href="/workouts/day/{{ day.id }}/log">Log</a>{% endif %}
   <button type="button" class="btn btn-ghost" data-action="remove-day">Remove day</button>
@@ -82,20 +89,6 @@
 <template id="workout-day-template">{{ day_fieldset("__I__", "") }}</template>
 <template id="workout-exercise-row-template">{{ exercise_row("__I__") }}</template>
 
-{% if plan %}
-<form method="post" action="/workouts/{{ plan.id }}/schedule">
-  <h2 class="section-title">Schedule</h2>
-  {% for day in plan.days %}
-  <fieldset class="lib-section">
-    <legend>{{ day.label }}</legend>
-    {% for letter, name in weekday_choices %}
-    <label><input type="checkbox" name="weekdays[{{ day.id }}][]" value="{{ letter }}"{% if day.weekdays and letter in day.weekdays %} checked{% endif %}> {{ name }}</label>
-    {% endfor %}
-  </fieldset>
-  {% endfor %}
-  <button type="submit" class="btn">Save schedule</button>
-</form>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}

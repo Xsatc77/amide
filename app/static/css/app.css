@@ -1356,3 +1356,4 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
   --muted: #5f6b80;
   --accent-text: #000000;
 }
+.day-pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }

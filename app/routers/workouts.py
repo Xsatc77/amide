@@ -146,6 +146,8 @@ def save_workout_plan(session: Session, plan: WorkoutPlan, name: str, days_data:
         day = existing_days.pop(d.get("id"), None) or WorkoutPlanDay()
         day.position = i
         day.label = d["label"] or f"Day {i + 1}"
+        if "weekdays" in d:                        # the editor sends the schedule with the day; the PDF import and other callers do not
+            day.weekdays = d["weekdays"]
         _reconcile_exercises(day, d["exercises"])
         new_days.append(day)
     for day in existing_days.values():  # not posted back: the user removed it
@@ -206,7 +208,11 @@ def _days_from_form(form: dict) -> tuple[str, list[dict]]:
              "rest_text": _at(ex_rest, j) or None}
             for j in range(len(ex_names)) if ex_names[j].strip()
         ]
-        days.append({"id": _form_id(day_ids, i), "label": label.strip(), "exercises": exercises})
+        day = {"id": _form_id(day_ids, i), "label": label.strip(), "exercises": exercises}
+        if form.get(f"weekdays_present[{i}]"):         # this day's boxes were on the form: no ticks means no scheduled days
+            checked = set(form.get(f"weekdays[{i}][]", []))
+            day["weekdays"] = "".join(letter for letter in WEEKDAY_LETTERS if letter in checked) or None
+        days.append(day)
     return name, days
 
 
@@ -236,7 +242,7 @@ def workouts_export(session: Session = Depends(get_session), uid: int = Depends(
 
 @router.get("/workouts/new")
 def workouts_new(request: Request):
-    return templates.TemplateResponse(request, "workouts/edit.html", {"plan": None, "days": []})
+    return templates.TemplateResponse(request, "workouts/edit.html", {"plan": None, "days": [], "weekday_choices": list(zip(WEEKDAY_LETTERS, _WEEKDAY_NAMES))})
 
 
 @router.post("/workouts")
