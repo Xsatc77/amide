@@ -117,6 +117,8 @@ Card text and images are saved in `data/library/` (private, never committed). To
 | `AMIDE_PASSWORD_MIN_LENGTH` | `8` | Minimum password length |
 | `AMIDE_NTFY_SERVER` | `https://ntfy.sh` | Where dose reminders are posted, for users who turn them on (use your own ntfy server if you run one) |
 | `AMIDE_REMINDERS` | `1` | Set to `0` to switch the reminder loop off entirely |
+| `AMIDE_BACKUP_PASSPHRASE` | (none) | Set it (8+ characters) and Amide writes an encrypted whole-installation backup to `data/backups` every `AMIDE_BACKUP_DAYS` days (default 7), keeping the newest `AMIDE_BACKUP_KEEP` (default 4) |
+| `AMIDE_USDA_API_KEY` | (none) | A free [FoodData Central](https://fdc.nal.usda.gov/api-key-signup.html) key turns on **Search the USDA database** in the Add food dialog; without it nothing is ever sent |
 
 ### Accounts
 

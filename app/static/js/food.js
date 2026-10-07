@@ -66,6 +66,37 @@
   }
   search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(runSearch, 200); });
 
+  // Search USDA: only when the person presses the button. A result is added to My foods, then picked from the list above.
+  const usda = form.querySelector("[data-usda-search]");
+  if (usda) {
+    const usdaResults = usda.querySelector("[data-usda-results]");
+    const note = usda.querySelector("[data-usda-note]");
+    usda.querySelector("[data-usda-run]").addEventListener("click", async () => {
+      note.textContent = "";
+      usdaResults.replaceChildren();
+      const response = await fetch("/food/usda?q=" + encodeURIComponent(search.value), { credentials: "same-origin" });
+      if (!response.ok) { note.textContent = "The USDA database could not be reached."; return; }
+      const found = await response.json();
+      if (!found.length) note.textContent = "Nothing found.";
+      usdaResults.replaceChildren(...found.map((food) => {
+        const li = document.createElement("li");
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "food-result";
+        add.textContent = food.name + " (" + food.serving + ") " + Math.round(food.calories) + " kcal, P " + food.protein_g + " C " + food.carb_g + " F " + food.fat_g + " — add to My foods";
+        add.addEventListener("click", async () => {
+          const body = new URLSearchParams({ name: food.name, serving: food.serving, serving_g: food.serving_g, calories: food.calories,
+            protein_g: food.protein_g, carb_g: food.carb_g, fat_g: food.fat_g, fiber_g: food.fiber_g, date: document.querySelector("input[name=date]")?.value || "" });
+          const saved = await fetch("/food/foods", { method: "POST", body, credentials: "same-origin", redirect: "manual" });
+          add.textContent = (saved.ok || saved.type === "opaqueredirect") ? "Added to My foods: search above to pick it" : "Could not add";
+          add.disabled = true;
+        });
+        li.appendChild(add);
+        return li;
+      }));
+    });
+  }
+
   document.querySelectorAll("[data-food-add]").forEach((button) => button.addEventListener("click", () => {
     mealInput.value = button.dataset.meal;
     dialog.showModal();

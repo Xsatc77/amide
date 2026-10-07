@@ -291,7 +291,22 @@
   <h2 id="journal-heading" class="section-title">Journal</h2>
   <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
   <button type="button" class="btn" data-action="open-workout-log">Log Workout</button>
+  <a class="btn btn-ghost" href="/workouts/free/log">Log a workout that is not in a plan</a>
   <a class="btn" href="/measurements?tab=measurements&add_photo=1#body-photos">Add body photo</a>
+  {% if journal_custom_effects %}
+  <details class="journal-effects-list">
+    <summary class="small">My side-effect list ({{ journal_custom_effects | length }})</summary>
+    <ul class="plain-list">
+      {% for c in journal_custom_effects %}
+      <li>{{ c.name }}
+        <form method="post" action="/journal/custom-effects/{{ c.id }}/delete" class="inline" data-confirm="Remove {{ c.name }} from your list? Days that recorded it keep it.">
+          <button type="submit" class="btn btn-ghost btn-danger" aria-label="Remove {{ c.name }} from my list">Remove</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
   <form method="get" action="/measurements" class="inline journal-day-picker">
     <input type="hidden" name="tab" value="journal">
     <label class="small muted" for="journal-edit-date">Add or edit an entry for another day</label>
@@ -336,6 +351,20 @@
         </label>
         {% endfor %}
       </div>
+      {% if journal_custom_effects %}
+      <div class="chips" aria-label="Your own side effects">
+        {% for c in journal_custom_effects %}
+        <label class="chip-checkbox">
+          <input type="checkbox" name="custom_effects" value="{{ c.name }}"{{ ' checked' if today_entry and c.name in today_entry.custom_effects }}> {{ c.name }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <label class="field {{ 'has-error' if errors.new_custom_effect or errors.custom_effects }}">
+        <span>Add your own</span>
+        <input name="new_custom_effect" maxlength="40" placeholder="A side effect not listed: it is kept in your list" autocomplete="off">
+        {{ err('new_custom_effect') }}{{ err('custom_effects') }}
+      </label>
       <label class="field">
         <span>Other</span>
         <input name="side_effects_other" maxlength="500" placeholder="Anything not listed above" value="{{ today_entry.side_effects_other or '' if today_entry else '' }}">
@@ -441,8 +470,8 @@
           <td data-label="Energy">{{ e.energy if e.energy is not none else '—' }}</td>
           <td data-label="Sleep">{{ e.sleep_quality if e.sleep_quality is not none else '—' }}</td>
           <td data-label="Side effects">
-            {%- if e.side_effects or e.side_effects_other -%}
-              {{ (e.side_effects + ([e.side_effects_other] if e.side_effects_other else [])) | join(', ') }}
+            {%- if e.side_effects or e.custom_effects or e.side_effects_other -%}
+              {{ (e.side_effects + e.custom_effects + ([e.side_effects_other] if e.side_effects_other else [])) | join(', ') }}
             {%- else -%}
               —
             {%- endif -%}

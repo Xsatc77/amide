@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.food import foods as foods_mod
 from app.food import logs as logs_mod
 from app.food import summary as food_summary
+from app.food import usda
 from app.models import FOOD_MEALS, DietPreset, Food, MacroGoal, User
 
 router = APIRouter()
@@ -139,6 +141,20 @@ def search_foods(q: str = Query("", max_length=80), session: Session = Depends(g
     return JSONResponse([{"id": f.id, "name": f.name, "serving": f.serving, "starter": f.owner_id is None,
                           **{k: getattr(f, k) for k in foods_mod.LIMITS}} for f in foods_mod.search(session, uid, q)],
                         headers={"Cache-Control": "no-store"})
+
+
+@router.get("/food/usda")
+def search_usda(q: str = Query("", max_length=80), uid: int = Depends(current_user_id)):
+    """Live search in the USDA FoodData Central. Only exists when the person running Amide set a key; nothing leaves the server before this is called."""
+    if not config.USDA_API_KEY:
+        raise HTTPException(404, "USDA search is not set up")
+    if not q.strip():
+        return JSONResponse([], headers={"Cache-Control": "no-store"})
+    try:
+        found = usda.search(q, config.USDA_API_KEY, fetch=usda.fetch_json)
+    except Exception:
+        raise HTTPException(502, "The USDA food database could not be reached") from None
+    return JSONResponse(found, headers={"Cache-Control": "no-store"})
 
 
 def _own_or_404(session: Session, food_id: int, uid: int) -> Food:

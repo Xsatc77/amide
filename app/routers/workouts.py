@@ -1,6 +1,7 @@
 """Workout Plans: manual/PDF creation, the shared review/edit screen, day-of-week scheduling,
 and the one-Active-plan-at-a-time rule."""
 
+import types
 from datetime import date
 from datetime import date as date_type
 from datetime import timedelta
@@ -403,6 +404,67 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
         "exercise_names": [e.name for e in exercise_db.all_exercises()],
         "net_kcal": net, "gross_kcal": gross, "has_estimate": any(el.net_kcal for el in saved),
     })
+
+
+def _free_form_page(request: Request, session: Session, uid: int, log: WorkoutLog | None, log_date: date_type):
+    saved = log.exercise_logs if log else []
+    body_weight = next((el.body_weight_lb for el in saved if el.body_weight_lb), None) or workout_logging.latest_body_weight(session, uid)
+    net = sum(el.net_kcal for el in saved if el.net_kcal)
+    gross = sum(el.gross_kcal for el in saved if el.gross_kcal)
+    return templates.TemplateResponse(request, "workouts/log.html", {
+        "day": None, "free": True, "free_label": log.day_label if log else "", "log_date": log_date, "units": list(WeightUnit), "rows": [],
+        "form_action": f"/workouts/free/{log.id}/log" if log else "/workouts/free/log", "extras": list(saved), "body_weight": body_weight,
+        "categories": exercise_db.categories(), "category_codes": {c.code for c in exercise_db.categories()},
+        "exercise_names": [e.name for e in exercise_db.all_exercises()],
+        "net_kcal": net, "gross_kcal": gross, "has_estimate": any(el.net_kcal for el in saved),
+    })
+
+
+def _own_free_log(session: Session, log_id: int, uid: int) -> WorkoutLog:
+    log = session.get(WorkoutLog, log_id)
+    if log is None or log.owner_id != uid or log.plan_day_id is not None:
+        raise HTTPException(404, "Workout not found")
+    return log
+
+
+async def _free_form_save(request: Request, session: Session, uid: int, existing: WorkoutLog | None):
+    raw = await request.form()
+    label = str(raw.get("label") or "").strip()
+    if not label or len(label) > 200:
+        raise HTTPException(422, "Give the workout a name of up to 200 characters.")
+    orphans = {el.id: el for el in existing.exercise_logs} if existing else {}
+    parsed = workout_logging.parse_log_form(raw, types.SimpleNamespace(exercises=[]), orphans)
+    if not parsed.rows:
+        raise HTTPException(422, "Add at least one exercise.")
+    body_weight = parsed.body_weight_lb or workout_logging.latest_body_weight(session, uid)
+    exercise_logs = [workout_logging.build_exercise_log(row, body_weight) for row in parsed.rows]
+    if existing is not None:
+        session.delete(existing)
+        session.flush()
+    session.add(WorkoutLog(owner_id=uid, plan_day_id=None, day_label=label, plan_name=None, log_date=parsed.log_date, exercise_logs=exercise_logs))
+    session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
+@router.get("/workouts/free/log")
+def workouts_free_form(request: Request, log_date: date_type | None = None, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return _free_form_page(request, session, uid, None, log_date or date_type.today())
+
+
+@router.post("/workouts/free/log")
+async def workouts_free_create(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return await _free_form_save(request, session, uid, None)
+
+
+@router.get("/workouts/free/{log_id}/log")
+def workouts_free_edit(log_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    log = _own_free_log(session, log_id, uid)
+    return _free_form_page(request, session, uid, log, log.log_date)
+
+
+@router.post("/workouts/free/{log_id}/log")
+async def workouts_free_replace(log_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    return await _free_form_save(request, session, uid, _own_free_log(session, log_id, uid))
 
 
 @router.post("/workouts/day/{plan_day_id}/log")

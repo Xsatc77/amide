@@ -103,6 +103,8 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
     Section("journal", "Journal", PERSON, (
         Tbl("journal_entries", "owner_id = :uid"),
         Tbl("journal_entry_side_effects", f"entry_id IN ({_ENTRIES})"),
+        Tbl("journal_custom_effects", "owner_id = :uid"),
+        Tbl("journal_entry_custom_effects", f"entry_id IN ({_ENTRIES})"),
         Tbl("journal_quick_notes", f"entry_id IN ({_ENTRIES})")), help="Daily entries, side effects and quick notes."),
     Section("labs", "Labs", PERSON, (
         Tbl("lab_panels", "owner_id = :uid", file=("report_filename", "lab_reports")),

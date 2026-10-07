@@ -292,6 +292,7 @@
       <div class="settings-form">
         <h3 class="small muted">Backup &amp; restore</h3>
         <p class="small muted">Back up, export, share and restore your data, in encrypted files.</p>
+        <p class="small muted" id="auto-backup-status">{{ 'Automatic backups are on: an encrypted whole-installation backup is written to data/backups every ' ~ auto_backup_days ~ ' days and the newest ' ~ auto_backup_keep ~ ' are kept. Copy that folder somewhere safe.' if auto_backup_on else 'Automatic backups are off. Whoever runs Amide can turn them on with AMIDE_BACKUP_PASSPHRASE (see docs/DEPLOYING.md).' }}</p>
         <a class="btn" href="/backup">Go to Backup &amp; restore</a>
       </div>
     </section>

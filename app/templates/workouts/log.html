@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set active_nav = "workouts" %}
-{% block title %}Log: {{ day.label }}{% endblock %}
+{% block title %}Log: {{ day.label if day else (free_label or 'Free workout') }}{% endblock %}
 
 {#- "27.5 kg · 3 × 8" / "30 min": what a past log of the same exercise recorded. -#}
 {% macro last_text(l) -%}
@@ -35,10 +35,13 @@
 {% endmacro %}
 
 {% block content %}
-<div class="page-head"><div><h1>{{ day.label }}</h1><p class="muted">{{ log_date | shortdate }}</p></div></div>
+<div class="page-head"><div><h1>{{ day.label if day else (free_label or 'Free workout') }}</h1><p class="muted">{{ log_date | shortdate }}{% if free %} · not part of a plan{% endif %}</p></div></div>
 
-<form method="post" action="/workouts/day/{{ day.id }}/log" id="workout-log-form">
+<form method="post" action="{{ form_action if free else '/workouts/day/' ~ day.id ~ '/log' }}" id="workout-log-form">
   <input type="hidden" name="log_date" value="{{ log_date }}">
+  {% if free %}
+  <label class="field"><span>Workout name</span><input name="label" maxlength="200" required value="{{ free_label }}" placeholder="e.g. Park run, Hotel gym"></label>
+  {% endif %}
 
   <label class="field body-weight">
     <span>Body weight (lb)</span>
@@ -49,6 +52,7 @@
   <p class="burn-total">This workout burned about <strong>{{ net_kcal | round | int }} kcal</strong> net ({{ gross_kcal | round | int }} gross), estimated from your sets, reps and body weight.</p>
   {% endif %}
 
+  {% if rows %}
   <div class="log-scroll"><table class="lib-table log-table">
     <thead><tr><th>Done</th><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Estimate</th></tr></thead>
     <tbody>
@@ -112,8 +116,9 @@
       {% endfor %}
     </tbody>
   </table></div>
+  {% endif %}
 
-  <h2 class="section-title">Added today</h2>
+  <h2 class="section-title">{{ 'Exercises' if free else 'Added today' }}</h2>
   <p class="muted small">Add anything you did that is not on the plan. Pick it from the list (or type a common name) and enter its sets and reps, or minutes for cardio, to get its calorie estimate.</p>
   <div class="log-scroll"><table class="lib-table log-table">
     <thead><tr><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Cardio: min / mph / % grade / watts</th><th>Estimate</th><th></th></tr></thead>

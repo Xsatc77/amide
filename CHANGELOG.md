@@ -16,6 +16,7 @@ Newest first. Dates are when the work was done.
 - Library: private notes and saved articles, reorderable goal stacks, calculator links on dosing tiers, sheets join differently named cards.
 - Labs: a line per marker, results like <5 and >100; Journal: any past day, trend charts; Workouts: end or delete a plan, export the log, weight-aware TDEE.
 - The shopping plan counts BAC bottles by the 28-day rule.
+- Your own side effects in the journal, free-form workouts, live USDA food search (opt-in), and scheduled encrypted backups (opt-in).
 - Minimum password length raised to 8 (set `AMIDE_PASSWORD_MIN_LENGTH` to change it).
 - GitHub Actions: tests on every push, Docker image published on version tags.
 

@@ -65,6 +65,8 @@ Everything lives in the `data/` folder (the database and every uploaded file). T
 1. **Inside Amide:** Settings, Backup and restore makes an encrypted `.amidebackup` file. The administrator can back up the whole installation. Keep the passphrase somewhere safe; there is no recovery.
 2. **Outside Amide:** copy the `data/` folder on a schedule (your backup software, a cron job, a NAS snapshot). Stop the container first if you want a perfectly clean copy, or use SQLite's own backup command while it runs.
 
+3. **Automatic:** set `AMIDE_BACKUP_PASSPHRASE` (8 or more characters; it lives in the environment, not the database, so a copy of the database cannot open the files) and Amide writes an encrypted whole-installation backup to `data/backups` every `AMIDE_BACKUP_DAYS` days (default 7), keeping the newest `AMIDE_BACKUP_KEEP` (default 4). Settings shows whether it is on. Keep the passphrase somewhere safe: there is no recovery. Copy `data/backups` to another disk or a cloud drive for protection against a lost disk.
+
 Try a restore once on a spare install before you need it.
 
 ## 4. Update

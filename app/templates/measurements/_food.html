@@ -147,6 +147,14 @@
       <div data-food-pane="existing">
         <label class="field"><span>Search foods</span><input type="search" data-food-search placeholder="egg, rice, chicken..." autocomplete="off"></label>
         <ul class="food-results" data-food-results></ul>
+        {% if usda_enabled %}
+        <div class="usda-search" data-usda-search>
+          <button type="button" class="btn btn-ghost" data-usda-run>Search the USDA database</button>
+          <small class="muted">Sends what you typed to the USDA FoodData Central. Nothing else leaves your computer.</small>
+          <ul class="food-results" data-usda-results></ul>
+          <small class="error" data-usda-note role="status"></small>
+        </div>
+        {% endif %}
         <p class="muted small" data-food-picked></p>
       </div>
       <div data-food-pane="create" hidden>

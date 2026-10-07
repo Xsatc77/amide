@@ -60,6 +60,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "shipping": saved_shipping(me),
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
         "ntfy_server": config.NTFY_SERVER,
+        "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
         "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
     }
     if me.is_admin:

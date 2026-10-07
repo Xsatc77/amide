@@ -1,7 +1,7 @@
 import zoneinfo
 from datetime import date, datetime, timezone as dt_timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
-    DoseLog, JournalEntry, JournalEntrySideEffect, JournalQuickNote, JournalSideEffect, Share, ShareCategory, User,
+    DoseLog, JournalCustomEffect, JournalEntry, JournalEntryCustomEffect, JournalEntrySideEffect, JournalQuickNote, JournalSideEffect, Share, ShareCategory,
+    User,
 )
 
 router = APIRouter()
@@ -20,7 +21,7 @@ RATING_FIELDS = ("mood", "energy", "sleep_quality")
 def _journal_query(uid: int):
     """This user's journal entries (others' are never visible)."""
     return select(JournalEntry).where(JournalEntry.owner_id == uid).options(
-        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.quick_notes))
+        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes))
 
 
 def _shared_journal_query(uid: int):
@@ -28,7 +29,7 @@ def _shared_journal_query(uid: int):
     shared_owner_ids = select(Share.owner_id).where(
         Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
     return select(JournalEntry).where(JournalEntry.owner_id.in_(shared_owner_ids)).options(
-        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.quick_notes))
+        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes))
 
 
 def get_or_create_entry(session: Session, owner_id: int, entry_date: date) -> JournalEntry:
@@ -97,7 +98,7 @@ def _workout_only_views(session: Session, uid: int, entry_dates: set[date]) -> l
     for d in session.scalars(select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date.in_(list(by_day)))):
         doses.setdefault(d.scheduled_date, []).append(_dose_dict(d))
     return [{
-        "date": day, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [],
+        "date": day, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [], "custom_effects": [],
         "side_effects_other": None, "notes": None, "owner_name": None, "quick_notes": [],
         "doses": doses.get(day, []), "workouts": [_workout_dict(r) for r in day_logs],
     } for day, day_logs in by_day.items()]
@@ -131,6 +132,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
         "energy": entry.energy,
         "sleep_quality": entry.sleep_quality,
         "side_effects": [se.side_effect.value for se in entry.side_effects],
+        "custom_effects": sorted(c.name for c in entry.custom_effects),
         "side_effects_other": entry.side_effects_other,
         "notes": entry.notes,
         "owner_name": owner_name,
@@ -144,6 +146,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
 
 
 EARLIEST_ENTRY = date(2000, 1, 1)
+MAX_CUSTOM_EFFECTS, MAX_CUSTOM_LENGTH = 30, 40
 
 
 def parse_entry_date(raw: str | None) -> date:
@@ -213,6 +216,7 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
         "journal_form_date": target,
         "journal_form_is_today": target == date.today(),
         "journal_side_effects": list(JournalSideEffect),
+        "journal_custom_effects": session.scalars(select(JournalCustomEffect).where(JournalCustomEffect.owner_id == viewer_uid).order_by(JournalCustomEffect.name)).all(),
         "today_doses": doses_for(session, viewer_uid, date.today()),
         "workout_day_options": _workout_day_options(session, viewer_uid),
         "today_iso": date.today().isoformat(),
@@ -257,6 +261,23 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
         if v not in valid_values:
             errors["side_effects"] = "Invalid side effect."
 
+    # The person's own side effects: tick some from their list and/or add one new name (kept in the list for next time).
+    own = {c.name.casefold(): c for c in session.scalars(select(JournalCustomEffect).where(JournalCustomEffect.owner_id == uid))}
+    ticked: list[str] = []
+    for name in (str(v).strip() for v in form.getlist("custom_effects")):
+        if not name:
+            continue
+        if name.casefold() not in own:
+            errors["custom_effects"] = "That side effect is not on your list."
+        elif own[name.casefold()].name not in ticked:
+            ticked.append(own[name.casefold()].name)
+    new_name = " ".join(_raw("new_custom_effect").split())
+    if new_name:
+        if len(new_name) > MAX_CUSTOM_LENGTH:
+            errors["new_custom_effect"] = f"Use {MAX_CUSTOM_LENGTH} characters or fewer."
+        elif new_name.casefold() not in own and len(own) >= MAX_CUSTOM_EFFECTS:
+            errors["new_custom_effect"] = f"Your list can hold {MAX_CUSTOM_EFFECTS} side effects. Remove one first."
+
     if errors:
         # Re-render the Journal tab (same template/context as the normal GET), not a bare
         # HTTPException -- follows this app's established errors-dict-and-`err()`-macro convention
@@ -276,7 +297,27 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
     entry.side_effects.clear()
     session.flush()
     entry.side_effects = [JournalEntrySideEffect(side_effect=JournalSideEffect(v)) for v in posted_side_effects]
+    if new_name:
+        if new_name.casefold() not in own:
+            session.add(JournalCustomEffect(owner_id=uid, name=new_name))
+            ticked.append(new_name)
+        elif own[new_name.casefold()].name not in ticked:
+            ticked.append(own[new_name.casefold()].name)
+    entry.custom_effects.clear()
+    session.flush()
+    entry.custom_effects = [JournalEntryCustomEffect(name=n) for n in ticked]
 
+    session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
+@router.post("/journal/custom-effects/{effect_id}/delete")
+def delete_custom_effect(effect_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Take a side effect off the person's own list. Days that already recorded it keep it."""
+    effect = session.get(JournalCustomEffect, effect_id)
+    if effect is None or effect.owner_id != uid:
+        raise HTTPException(404, "Not found")
+    session.delete(effect)
     session.commit()
     return RedirectResponse("/measurements?tab=journal", status_code=303)
 

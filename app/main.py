@@ -10,6 +10,7 @@ from app.auth import gate
 from app.db import SessionLocal
 from app.food.foods import load_starter
 from app import reminders
+from app.backup import scheduled as scheduled_backup
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
@@ -24,10 +25,11 @@ async def lifespan(_: FastAPI):
     upgrade_db()
     with SessionLocal() as session:
         load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
-    task, reminder_task = worker.start(), reminders.start()
+    task, reminder_task, backup_task = worker.start(), reminders.start(), scheduled_backup.start()
     yield
     await worker.stop(task)
     await reminders.stop(reminder_task)
+    await scheduled_backup.stop(backup_task)
 
 
 app = FastAPI(title="Amide", lifespan=lifespan)

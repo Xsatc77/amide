@@ -1197,8 +1197,30 @@ class JournalEntry(Base):
 
     side_effects: Mapped[list["JournalEntrySideEffect"]] = relationship(
         back_populates="entry", cascade="all, delete-orphan")
+    custom_effects: Mapped[list["JournalEntryCustomEffect"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan")
     quick_notes: Mapped[list["JournalQuickNote"]] = relationship(
         back_populates="entry", cascade="all, delete-orphan", order_by="JournalQuickNote.noted_at")
+
+
+class JournalCustomEffect(Base):
+    """A side effect a person added to their own list, offered as a tick box on every journal entry."""
+    __tablename__ = "journal_custom_effects"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_journal_custom_effect"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(40))
+
+
+class JournalEntryCustomEffect(Base):
+    """A custom side effect ticked on one entry. The name is kept as written, so removing it from the list never changes past days."""
+    __tablename__ = "journal_entry_custom_effects"
+    __table_args__ = (UniqueConstraint("entry_id", "name", name="uq_journal_entry_custom_effect"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("journal_entries.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(40))
+
+    entry: Mapped["JournalEntry"] = relationship(back_populates="custom_effects")
 
 
 class JournalEntrySideEffect(Base):

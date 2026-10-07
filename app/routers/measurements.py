@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import photo_access
+from app import config, photo_access
 from app.auth import sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -492,7 +492,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
             day = extra["food_date"]
         context.update(food=food_summary.day_summary(session, me_user, day), food_day=day,
                        food_prev=(day - timedelta(days=1)).isoformat(), food_next=(day + timedelta(days=1)).isoformat(),
-                       diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user,
+                       diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user, usda_enabled=bool(config.USDA_API_KEY),
                        my_foods=session.scalars(select(Food).where(Food.owner_id == uid).order_by(Food.name)).all())
     if extra:
         context.update(extra)
