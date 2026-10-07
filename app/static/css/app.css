@@ -1314,3 +1314,34 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .ramp-field { display: flex; flex-direction: column; gap: 2px; }
 .ramp-field input { width: 6.5rem; }
 .cal-log-link { display: inline-block; margin-top: 6px; }
+
+
+/* Contrast fixes: text, secondary text, button text and error text meet WCAG AA (4.5:1) in every colour theme. */
+:root[data-theme="bricks"] {
+  --danger: #b78c8c;
+}
+:root[data-theme="fireworks"] {
+  --surface: #525252;
+  --muted: #c9c9c9;
+  --danger: #ffbaa1;
+  --accent-text: #000000;
+}
+:root[data-theme="greensleeves"] {
+  --surface: #edfef6;
+  --muted: #586672;
+}
+:root[data-theme="retro"] {
+  --surface: #fffbf4;
+  --muted: #7b6964;
+  --danger: #bc4737;
+  --accent-text: #000000;
+}
+:root[data-theme="solarin"] {
+  --surface: #59605c;
+  --muted: #d9dedc;
+  --danger: #fdd3d0;
+}
+:root[data-theme="tequila_sunrise"] {
+  --muted: #5f6b80;
+  --accent-text: #000000;
+}

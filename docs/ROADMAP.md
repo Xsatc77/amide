@@ -57,7 +57,7 @@ Every open item in this file now carries a group letter in brackets, [A] to [J].
 
 | Group | What it covers | Open items | Needs you |
 | --- | --- | --- | --- |
-| **A. Launch readiness** | The things a stranger hits first | ✅ Password minimum 8; ✅ HTTPS / reverse-proxy guide; ✅ CI workflow; ✅ changelog; ✅ README status rewrite; ✅ user guide (`docs/USER_GUIDE.md`); ✅ accessibility basics (skip link, landmarks, focus rings, reduced motion). **Still open:** try the Docker build (OCR libraries; needs Docker); cut the v1.0 tag; scheduled automatic backup (needs a passphrase decision); a fuller accessibility pass (every form control, colour contrast); Terms and Disclaimer read-through | Final wording of any legal text; the tag |
+| **A. Launch readiness** | The things a stranger hits first | ✅ Password minimum 8; ✅ HTTPS / reverse-proxy guide; ✅ CI workflow; ✅ changelog; ✅ README status rewrite; ✅ user guide (`docs/USER_GUIDE.md`); ✅ accessibility (skip link, landmarks, focus rings, reduced motion, every form control named on 24 pages, WCAG AA text contrast in all ten colour themes, checked by tests); ✅ Privacy Policy brought up to date with the optional outside connections (reminders, calendar address, watcher). **Still open:** try the Docker build (OCR libraries; needs Docker); cut the v1.0 tag; scheduled automatic backup (needs a passphrase decision); your read of the Terms, Disclaimer and the Privacy Policy edit | Final wording of any legal text; the tag |
 | **B. Inventory and labels** ✅ | Stock handling | All built 2026-10-07: Local Seller flag (no late-shipment alert, left out of averages); "Use first" order; average time to arrive on the vendor card; automatic vial labels on check-in plus the "put these dates on your label" dialog | Check the label size suits your printer |
 | **C. Protocol builder** ✅ | How a protocol is described | All built 2026-10-07: expanded Time of Day; titration ramp helper; printable protocol view; Vitamins/Supplements and Prescriptions cards; "runs out on" predictions; current titration step on the Dashboard. "X times per day / per week" is covered by Specific days and one item per time of day. Post-launch: conflict-checking between medicines and peptides | Check the nine time-of-day names read right |
 | **D. Calendar and reminders** ✅ | Getting doses done | Built 2026-10-07: month cards (already shipped), log a dose from the calendar, the iCal subscription, ntfy reminders, installable app. **Post-launch:** browser push and email reminders | Whether ntfy is the channel you want |
@@ -205,7 +205,7 @@ Firm up the base before anything depends on it.
   - *First import, 2026-10-05:* 11 price lists, 1,313 product lines (1,096 matched to a library card; 1,292 kits, 6 boxes, 15 with no pack size stated), 9 vendors created and 1 existing vendor reused. 7 of the 11 lists named no warehouse and were recorded as an assumed China. One scanned PDF, 6 image lists and 1 spreadsheet were skipped. 117 distinct products matched no library card (liquids, blends and a few peptides): these are the candidates the new-peptide alert will surface.
 - Charts correlating any metric against doses/protocols — open [I]
 - ✅ Multi-user / household support — shipped (accounts v0.4, sharing v0.9)
-- ✅ Themes (colorways, v0.8). Open [A]: accessibility pass, full documentation
+- ✅ Themes (colorways, v0.8), ✅ accessibility pass and ✅ full documentation (2026-10-07: `docs/USER_GUIDE.md`, `docs/DEPLOYING.md`)
 
 ---
 

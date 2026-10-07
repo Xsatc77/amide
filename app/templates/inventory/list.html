@@ -243,8 +243,8 @@
         <div {{ cls('vial_size_mg') }} data-field="vial_size_mg" data-field-group="medium-only">
           <span data-label-for="vial_size_mg">Amount</span>
           <div class="inline-inputs">
-            <input name="vial_size_mg" type="number" min="0" step="any" inputmode="decimal" value="{{ f.vial_size_mg }}" placeholder="e.g. 10">
-            <select name="vial_size_unit">
+            <input name="vial_size_mg" type="number" min="0" step="any" inputmode="decimal" value="{{ f.vial_size_mg }}" placeholder="e.g. 10" aria-label="Amount per vial">
+            <select name="vial_size_unit" aria-label="Unit">
               {% for u in dose_units %}<option value="{{ u.value }}" {{ 'selected' if f.vial_size_unit == u.value }}>{{ u.label }}</option>{% endfor %}
             </select>
           </div>
@@ -635,8 +635,8 @@
       <div class="field" data-new-field="vial_size_mg">
         <span>Amount</span>
         <div class="inline-inputs">
-          <input name="lines-__I__-vial_size_mg" type="number" min="0" step="any">
-          <select name="lines-__I__-vial_size_unit">
+          <input name="lines-__I__-vial_size_mg" type="number" min="0" step="any" aria-label="Amount per vial">
+          <select name="lines-__I__-vial_size_unit" aria-label="Unit">
             {% for u in dose_units %}<option value="{{ u.value }}">{{ u.label }}</option>{% endfor %}
           </select>
         </div>

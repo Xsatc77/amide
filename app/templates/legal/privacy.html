@@ -7,10 +7,10 @@
 {% block content %}
 <article class="legal">
   <h1>Privacy Policy</h1>
-  <p class="effective-date">Effective October 3, 2026</p>
+  <p class="effective-date">Effective October 3, 2026. Optional Connections added October 7, 2026.</p>
 
   <h2>What We Collect</h2>
-  <p>We collect nothing from you, and that's the purpose of self-hosting Amide. Amide does not collect any data from you, nor does the system "phone home" with any data.</p>
+  <p>We collect nothing from you, and that's the purpose of self-hosting Amide. Amide does not collect any data from you, nor does the system "phone home" with any data. The only things that ever leave your installation are the optional connections you switch on yourself, listed under Optional Connections below.</p>
 
   <h2>Health-Related Data</h2>
   <p>Your protocol data (peptides, protocols, dosages, etc) may qualify as health information under regulations like GDPR. We do not see any of that information. Your keys, your data. Only you can share your data with whoever you personally choose.</p>
@@ -26,8 +26,16 @@
   </ul>
 
   <h2>Browser Storage</h2>
-  <p>Amide stores nothing in browser storage aside from the cookie discussed above.</p>
+  <p>Amide stores nothing in browser storage aside from the cookie discussed above. If you install Amide to your home screen, your browser keeps a small helper script (a service worker) so the app can open; it stores none of your data.</p>
   <p>Clearing your browser data removes all of it. Nothing here is used for advertising or shared with anyone.</p>
+
+  <h2>Optional Connections</h2>
+  <p>Each of these is off until you turn it on, and Amide works fully without them:</p>
+  <ul>
+    <li><strong>Dose reminders (ntfy).</strong> If you turn reminders on in Settings, Amide sends a short message (the peptide's name, the dose and the protocol's name) to the ntfy server it is set to use, which is ntfy.sh unless the person running your Amide chose their own. Anyone who knows your reminder topic can read those messages, so keep it private. Turn reminders off in Settings and nothing is sent.</li>
+    <li><strong>Calendar subscription.</strong> If you create a private calendar address in Settings, anyone who has that address can read your dose schedule. Make a new address or turn it off in Settings and the old one stops working.</li>
+    <li><strong>Price-list watcher.</strong> A separate program you may run on your own computer can read price lists from chat groups you choose, using your own account on that service, and send them to your own Amide.</li>
+  </ul>
 
   <h2>Third-Party Services</h2>
   <p>We do not enforce any Third-Party services in Amide. There are links attached that take you to outside sites, but those are useable at your own discretion, and do not reduce the usability of Amide. They are simply helpful items.</p>

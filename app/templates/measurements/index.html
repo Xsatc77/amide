@@ -556,18 +556,18 @@
 <template id="lab-row-template">
   <tr data-lab-row>
     <td>
-      <select name="marker[]" data-lab-marker-select>
+      <select name="marker[]" data-lab-marker-select aria-label="Marker">
         <option value=""></option>
         {% for m in lab_markers %}
         <option value="{{ m.name }}">{{ m.value }}</option>
         {% endfor %}
       </select>
-      <input name="marker_other[]" data-lab-marker-other hidden maxlength="80" placeholder="Other marker name">
+      <input name="marker_other[]" data-lab-marker-other hidden maxlength="80" placeholder="Other marker name" aria-label="Other marker name">
     </td>
-    <td><input name="value[]" type="text" inputmode="decimal" pattern="[<>]?\s*-?[0-9]*\.?[0-9]*" placeholder="e.g. 4.2 or &lt;5" autocomplete="off"></td>
-    <td><input name="unit[]" maxlength="20"></td>
-    <td><input name="range_low[]" type="number" step="any"></td>
-    <td><input name="range_high[]" type="number" step="any"></td>
+    <td><input name="value[]" aria-label="Result" type="text" inputmode="decimal" pattern="[<>]?\s*-?[0-9]*\.?[0-9]*" placeholder="e.g. 4.2 or &lt;5" autocomplete="off"></td>
+    <td><input name="unit[]" maxlength="20" aria-label="Unit"></td>
+    <td><input name="range_low[]" type="number" step="any" aria-label="Reference range low"></td>
+    <td><input name="range_high[]" type="number" step="any" aria-label="Reference range high"></td>
     <td><button type="button" class="btn btn-ghost btn-icon" data-action="remove-lab-row" aria-label="Remove line">×</button></td>
   </tr>
 </template>
