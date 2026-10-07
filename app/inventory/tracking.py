@@ -1,4 +1,4 @@
-"""Order tracking, Amazon style, built from the dates the owner already enters: ordered, shipped, delivered, checked in.
+"""Order tracking, shipping-tracker style, built from the dates the owner already enters: ordered, shipped, delivered, checked in.
 
 No carrier data is fetched. A tracking number only becomes a link: the owner's own tracking site (with `{number}` filled in
 when the address has it), or the carrier's page when the number's format is recognized, or a universal tracker as a fallback."""

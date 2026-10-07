@@ -1186,7 +1186,7 @@ fieldset[data-day] { min-width: 0; }
 .inbox-fold > summary h2::before { content: "\25B8  "; }
 .inbox-fold[open] > summary h2::before { content: "\25BE  "; }
 
-/* Orders tab: Amazon-style timeline */
+/* Orders tab: shipping-tracker-style timeline */
 .order-card { margin: 0 0 1rem; padding: 1rem 1.25rem; }
 .order-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
 .order-status { white-space: nowrap; }

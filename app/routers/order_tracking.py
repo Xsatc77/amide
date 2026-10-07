@@ -1,4 +1,4 @@
-"""The Orders tab on Inventory: every order with an Amazon-style timeline, tracking links and quick actions."""
+"""The Orders tab on Inventory: every order with an shipping-tracker-style timeline, tracking links and quick actions."""
 
 from datetime import date
 
