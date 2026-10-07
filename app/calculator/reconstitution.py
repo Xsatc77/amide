@@ -18,8 +18,12 @@ _DOSE_UNITS_TO_MG = {"mg": 1.0, "mcg": 0.001}
 
 @dataclass
 class Result:
-    concentration_mg_ml: float | None = None
+    concentration_mg_ml: float | None = None      # for a mass vial: the concentration in mg/mL. For an IU or mcg vial: None (see `concentration`)
     concentration_mcg_ml: float | None = None
+    concentration: float | None = None            # per mL, in the vial's own unit
+    concentration_unit: str = "mg"
+    dose_in_vial_unit: float | None = None
+    conversion_note: str | None = None
     draw_ml: float | None = None
     units: float | None = None
     doses_per_vial: int | None = None
@@ -38,9 +42,12 @@ def _positive(value) -> float | None:
     return value if value > 0 and math.isfinite(value) else None
 
 
-def compute(vial_mg, water_ml, dose_value, dose_unit: str, syringe_ml: float) -> Result:
-    """The forward calculation. Anything missing or invalid is named in `problems` instead of raising."""
+def compute(vial_mg, water_ml, dose_value, dose_unit: str, syringe_ml: float, vial_unit: str = "mg", iu_per_mg=None) -> Result:
+    """The forward calculation, done in the vial's own unit (`vial_mg` is the vial amount in `vial_unit`: mg, mcg or IU). A dose in another
+    unit is converted first; IU against mass needs `iu_per_mg`. Anything missing or invalid is named in `problems` instead of raising."""
+    from app.calculator import units as unit_math
     problems: list[str] = []
+    vial_unit = unit_math._canon(vial_unit) or "mg"
 
     vial = _positive(vial_mg)
     if vial is None:
@@ -49,26 +56,37 @@ def compute(vial_mg, water_ml, dose_value, dose_unit: str, syringe_ml: float) ->
     if water is None:
         problems.append("water")
 
-    dose_factor = _DOSE_UNITS_TO_MG.get(dose_unit)
     dose_raw = _positive(dose_value)
-    dose_mg = dose_raw * dose_factor if (dose_raw is not None and dose_factor is not None) else None
-    if dose_mg is None:
+    dose_in_vial = None
+    note = None
+    if dose_raw is None or unit_math._canon(dose_unit) is None:
         problems.append("dose")
+    else:
+        dose_in_vial = unit_math.convert(dose_raw, dose_unit, vial_unit, iu_per_mg)
+        if dose_in_vial is None:
+            problems.append("iu_per_mg")           # IU against mass, and no factor to bridge them
+        elif "IU" in (unit_math._canon(dose_unit), vial_unit) and unit_math._canon(dose_unit) != vial_unit:
+            note = f"{dose_raw:g} {dose_unit} = {dose_in_vial:g} {vial_unit} (at {float(iu_per_mg):g} IU per mg)"
 
     if problems:
-        return Result(problems=problems)
+        return Result(problems=problems, concentration_unit=vial_unit)
 
     concentration = vial / water
-    draw_ml = dose_mg / concentration
+    draw_ml = dose_in_vial / concentration
     units = draw_ml * 100
     capacity = SYRINGE_CAPACITIES_UNITS.get(syringe_ml)
+    is_mg = vial_unit == "mg"
 
     return Result(
-        concentration_mg_ml=concentration,
-        concentration_mcg_ml=concentration * 1000,
+        concentration_mg_ml=concentration if is_mg else None,
+        concentration_mcg_ml=concentration * 1000 if is_mg else None,
+        concentration=concentration,
+        concentration_unit=vial_unit,
+        dose_in_vial_unit=dose_in_vial,
+        conversion_note=note,
         draw_ml=draw_ml,
         units=units,
-        doses_per_vial=int(vial // dose_mg),
+        doses_per_vial=int(vial // dose_in_vial),
         over_capacity=capacity is not None and units > capacity + 1e-9,
     )
 
