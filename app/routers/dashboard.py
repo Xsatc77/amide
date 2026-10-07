@@ -160,11 +160,10 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
         window = compliance.parse_window(request.query_params.get("compliance"))
-        viewer_qs = f"&viewer_id={effective_uid}" if effective_uid != uid else ""
         compliance_view = {
             "bars": compliance.bars(session, session.get(User, effective_uid), today, window),
             "windows": [{"value": "lifetime" if w == 0 else w, "label": compliance.window_label(w), "selected": w == window} for w in compliance.WINDOWS],
-            "viewer_qs": viewer_qs,
+            "viewer_id": effective_uid if effective_uid != uid else None,
         }
 
         # A 7-day Mon-Sun strip, not a "due today" list -- see week_status's own docstring for why

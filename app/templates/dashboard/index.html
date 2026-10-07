@@ -152,9 +152,14 @@
     {{ panel_icon('check') }}
     <h2 id="adherence-heading" class="section-title">Compliance</h2>
   </div>
-  <nav class="compliance-windows" aria-label="Time window">
-    {% for w in compliance.windows %}<a href="/dashboard?compliance={{ w.value }}{{ compliance.viewer_qs }}" class="chip"{% if w.selected %} aria-current="true"{% endif %}>{{ w.label }}</a>{% endfor %}
-  </nav>
+  <form method="get" action="/dashboard" class="compliance-windows">
+    <label class="sr-only" for="compliance-window">Time window</label>
+    <select name="compliance" id="compliance-window" data-autosubmit>
+      {% for w in compliance.windows %}<option value="{{ w.value }}"{% if w.selected %} selected{% endif %}>{{ w.label }}</option>{% endfor %}
+    </select>
+    {% if compliance.viewer_id %}<input type="hidden" name="viewer_id" value="{{ compliance.viewer_id }}">{% endif %}
+    <noscript><button type="submit" class="btn btn-ghost">Show</button></noscript>
+  </form>
   <div class="compliance-chart" role="group" aria-label="Compliance with your plans, 0 to 100 percent">
     <div class="compliance-axis" aria-hidden="true"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
     <div class="compliance-plot">

@@ -2,6 +2,11 @@
 // plus its three quick-pick buttons, which fill the ounces field and submit rather than needing
 // their own same-named form fields (avoids ambiguity over which "ounces" value wins).
 (() => {
+  // A select marked data-autosubmit (the Compliance time window) reloads the page as soon as it changes.
+  document.querySelectorAll("select[data-autosubmit]").forEach((select) => {
+    select.addEventListener("change", () => select.form.submit());
+  });
+
   const dialog = document.getElementById("water-dialog");
   if (!dialog) return;
   const ouncesInput = document.getElementById("water-ounces-input");

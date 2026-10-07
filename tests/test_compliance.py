@@ -232,12 +232,16 @@ def test_the_dashboard_shows_four_labelled_bars_scaled_to_percent(client, db, me
 
 
 def test_the_window_choice_comes_from_the_query_and_the_selected_one_is_marked(client, db, me):
+    def window_select(page):
+        return page.split('class="compliance-windows"')[1].split("</form>")[0]
+
     for choice, label in ((7, "7 days"), (14, "14 days"), (30, "30 days"), (90, "90 days"), (180, "180 days"), (360, "360 days"), ("lifetime", "Lifetime")):
-        page = html.unescape(client.get(f"/dashboard?compliance={choice}").text)
-        assert label in page and f'href="/dashboard?compliance={choice}"' in page
-    page = client.get("/dashboard?compliance=7").text
-    assert 'aria-current="true"' in page.split('class="compliance-windows"')[1].split("</nav>")[0]
-    assert "30 days" in html.unescape(client.get("/dashboard?compliance=999").text)           # an unknown choice falls back to 30
+        box = window_select(html.unescape(client.get(f"/dashboard?compliance={choice}").text))
+        assert '<select name="compliance"' in box
+        assert f'<option value="{choice}" selected>{label}</option>' in box and box.count("selected") == 1
+    box = window_select(client.get("/dashboard").text)
+    assert box.count("<option") == 7 and '<option value="30" selected>' in box
+    assert '<option value="30" selected>' in window_select(client.get("/dashboard?compliance=999").text)           # an unknown choice falls back to 30
 
 
 def test_the_old_adherence_percentage_still_reads_the_same_for_a_protocol(client, db, me):

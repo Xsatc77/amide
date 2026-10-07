@@ -1223,8 +1223,8 @@ fieldset[data-day] { min-width: 0; }
 #calc-levels .chip[aria-pressed="true"] { border-color: var(--accent); font-weight: 600; }
 
 /* Dashboard: compliance bars */
-.compliance-windows { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
-.compliance-windows .chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text, #fff); font-weight: 600; }
+.compliance-windows { margin: 0 0 10px; }
+.compliance-windows select { width: 100%; }
 .compliance-chart { display: grid; grid-template-columns: 2.6rem 1fr; gap: 6px; align-items: stretch; }
 .compliance-axis { display: flex; flex-direction: column; justify-content: space-between; height: 160px; font-size: 0.7rem; color: var(--muted); text-align: right; line-height: 1; }
 .compliance-plot { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: start; }
@@ -1241,7 +1241,7 @@ fieldset[data-day] { min-width: 0; }
 .compliance-label { font-weight: 600; font-size: 0.85rem; }
 .compliance-count { font-size: 0.72rem; }
 .compliance-value { min-height: 2.5em; text-align: center; line-height: 1.2; }
-.compliance-value .muted { font-size: 0.75rem; font-weight: 400; }
+.compliance-value .muted { font-size: 0.75rem; font-weight: 400; white-space: nowrap; }
 
 /* Protocols: the Shop this protocol dialog */
 .shop-dialog { width: min(760px, 96vw); }
