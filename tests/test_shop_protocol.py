@@ -191,3 +191,41 @@ def test_settings_has_a_shopping_section_with_the_defaults_and_saves_them(client
     page = client.get("/settings").text
     assert 'value="55"' in page and 'value="25"' in page
     assert client.post("/settings/shopping", data={"china_shipping": "-5", "us_shipping": "25"}).status_code == 422
+
+
+# ---------------------------------------------------------------- as-needed items
+
+def as_needed_protocol(me, peptide_id, dose, unit=DoseUnit.MG):
+    return protocol(me, [(peptide_id, dose, unit, Frequency.AS_NEEDED)])
+
+
+def sized_list(db, *sizes):
+    vendor = make_vendor(db, "Acme Labs")
+    c = make_card(db, "Zorvex")
+    make_list(db, vendor, TODAY, *(item("Zorvex", size, price, card=c) for size, price in sizes))
+    return c.id
+
+
+@pytest.mark.parametrize("dose,unit,expected_size", [(250, DoseUnit.MCG, "5 mg"), (5, DoseUnit.MG, "5 mg"), (8, DoseUnit.MG, "10 mg")])
+def test_an_as_needed_item_buys_one_5_or_10_mg_vial_chosen_by_the_dose(client, db, me, dose, unit, expected_size):
+    peptide = sized_list(db, (5, 100), (10, 150), (2, 20), (30, 400))
+    line = shop(client, as_needed_protocol(me, peptide, dose, unit)).json()["plan"]["sources"][0]["lines"][0]
+    assert line["size_label"] == expected_size and line["vials_needed"] == 1 and line["packs"] == 1
+
+
+def test_a_dose_above_10_mg_needs_a_vial_that_holds_it(client, db, me):
+    peptide = sized_list(db, (5, 100), (10, 150), (15, 180), (30, 400))
+    line = shop(client, as_needed_protocol(me, peptide, 12)).json()["plan"]["sources"][0]["lines"][0]
+    assert line["size_label"] == "15 mg"
+
+
+def test_an_as_needed_item_with_no_dose_set_allows_5_to_10_mg(client, db, me):
+    peptide = sized_list(db, (5, 100), (10, 150))
+    line = shop(client, as_needed_protocol(me, peptide, None)).json()["plan"]["sources"][0]["lines"][0]
+    assert line["size_label"] == "5 mg"
+
+
+def test_as_needed_items_never_ask_for_a_vial_size(client, db, me):
+    peptide = sized_list(db, (5, 100))
+    data = shop(client, as_needed_protocol(me, peptide, 250, DoseUnit.MCG)).json()
+    assert data["unshoppable"] == [] and data["plan"] is not None

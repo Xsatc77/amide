@@ -72,7 +72,7 @@
         alt.append(el("summary", "", "Other plans to compare"));
         for (const p of data.alternatives) {
           const diff = p.vs_chosen === 0 ? "same total" : p.vs_chosen < 0 ? `${money(-p.vs_chosen)} cheaper` : `${money(p.vs_chosen)} more`;
-          alt.append(planBlock(p, `${p.sources.length === 1 ? "One vendor" : "Two vendors"}: ${money(p.total)} (${diff})`, "shop-alt-title"));
+          alt.append(planBlock(p, `${p.sources.length === 1 ? "One order" : "Two orders"}: ${money(p.total)} (${diff})`, "shop-alt-title"));
         }
         body.append(alt);
       }

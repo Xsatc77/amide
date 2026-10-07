@@ -119,12 +119,22 @@ def test_shipping_is_per_vendor_order_and_depends_on_the_warehouse():
     assert plan.sources[0].shipping == 20.0 and plan.shipping_total == 20.0 and plan.items_total == pytest.approx(100.0)
 
 
-def test_a_vendors_two_warehouses_are_separate_sources_but_never_pair_with_themselves():
+def test_a_vendors_two_warehouses_can_pair_each_with_its_own_shipping():
     needs = [need("a", 10), need("b", 10)]
     offers = [offer("Alpha", "a", 10, 10, 100, "china", vendor_id=1), offer("Alpha", "b", 10, 10, 100, "us", vendor_id=1)]
     result = plan_protocol(needs, offers, SHIP)
-    assert len(result.plan.sources) == 1 or len({s.vendor_id for s in result.plan.sources}) == 2
-    assert len(result.plan.missing) == 1                                                                                # one vendor, one warehouse per plan
+    plan = result.plan
+    assert plan.missing == [] and len(plan.sources) == 2 and {s.vendor_name for s in plan.sources} == {"Alpha"}
+    assert sorted(s.warehouse for s in plan.sources) == ["china", "us"] and plan.shipping_total == pytest.approx(90.0)      # $60 + $30, charged separately
+    assert plan.total == pytest.approx(290.0)
+
+
+def test_a_vendors_second_warehouse_is_used_only_when_it_pays_off():
+    needs = [need("a", 10), need("b", 10)]
+    offers = [offer("Alpha", "a", 10, 10, 100, "china", vendor_id=1), offer("Alpha", "b", 10, 10, 100, "china", vendor_id=1),
+              offer("Alpha", "b", 10, 10, 90, "us", vendor_id=1)]                           # the US price saves $10 but costs $30 more shipping
+    plan = plan_protocol(needs, offers, SHIP).plan
+    assert [s.warehouse for s in plan.sources] == ["china"] and plan.total == pytest.approx(260.0)
 
 
 def test_nothing_to_buy_gives_an_empty_plan():
@@ -138,3 +148,32 @@ def test_alternatives_are_at_most_two_and_never_the_chosen_plan():
     result = plan_protocol(needs, offers, SHIP)
     assert len(result.alternatives) <= 2
     assert all([s.vendor_name for s in p.sources] != [s.vendor_name for s in result.plan.sources] for p in result.alternatives)
+
+
+# ---------------------------------------------------------------- as-needed items: one vial of 5 to 10 mg
+
+def as_needed(key="a", vials=1, low=5.0, high=10.0):
+    return Need(key=key, name=key, amount=0.0, unit="mg", vials=vials, min_size=low, max_size=high)
+
+
+def test_an_as_needed_item_buys_one_vial_in_the_allowed_size_range_at_the_lowest_price():
+    n = as_needed()
+    offers = [offer("X", "a", 2, 1, 5, pack_type="box"), offer("X", "a", 5, 10, 100), offer("X", "a", 10, 10, 150), offer("X", "a", 20, 10, 90)]
+    line = best_line(n, offers)
+    assert (line.offer.size, line.vials, line.packs, line.cost, line.leftover_vials) == (5, 1, 1, 100.0, 9)       # 2 mg is too small, 20 mg too big
+
+
+def test_an_as_needed_kit_item_wants_ten_vials():
+    line = best_line(as_needed(vials=10), [offer("X", "a", 5, 10, 100, pack_type="kit"), offer("X", "a", 5, 5, 70, pack_type="box")])
+    assert (line.vials, line.packs, line.cost) == (10, 1, 100.0)                                                 # one kit beats two boxes of 5
+
+
+def test_no_size_in_range_means_no_line():
+    assert best_line(as_needed(), [offer("X", "a", 2, 1, 5), offer("X", "a", 30, 1, 5)]) is None
+
+
+def test_as_needed_items_take_part_in_vendor_choice_like_any_other():
+    needs = [as_needed("a"), need("b", 10)]
+    offers = [offer("Alpha", "a", 5, 10, 100), offer("Alpha", "b", 10, 10, 200), offer("Beta", "b", 10, 10, 120)]
+    result = plan_protocol(needs, offers, SHIP)
+    assert [s.vendor_name for s in result.plan.sources] == ["Alpha"] and result.plan.total == pytest.approx(360.0)

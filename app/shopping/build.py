@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.calculator import units as unit_math
 from app.library.price_lists.analysis import current_lists
-from app.models import InventoryItem, Peptide, PriceListItem, User
+from app.models import Frequency, InventoryItem, Peptide, PriceListItem, PurchasingUnit, User
 from app.protocols.course_totals import compute_course_totals
 from app.shopping.planner import Need, Offer, Plan, plan_protocol
 
@@ -43,8 +43,19 @@ def _base(amount: float, unit: str) -> tuple[float, str]:
     return (amount / 1000, "mg") if unit == "mcg" else (amount, unit)
 
 
-def _needs(protocol, totals, inventory_by_id, peptides_by_id) -> tuple[list[Need], list[dict], float]:
-    """(needs by peptide, notes for items that cannot be shopped, BAC water mL for the whole course)."""
+def _as_needed_range(item) -> tuple[float | None, float | None]:
+    """The vial size an as-needed item buys, by its dose: a 5 mg vial for a dose up to 5 mg, a 10 mg vial up to 10 mg, and a vial that
+    holds the dose beyond that (no dose set: anything from 5 to 10 mg). IU products have no such rule."""
+    if item.dose_unit.value == "IU":
+        return (item.dose or 0.0), None
+    dose_mg = (item.dose / 1000 if item.dose_unit.value == "mcg" else item.dose) if item.dose else None
+    low = 5.0 if dose_mg is None or dose_mg <= 5 else 10.0 if dose_mg <= 10 else dose_mg
+    return low, (low * 2 if low > 10 else 10.0)
+
+
+def _needs(protocol, totals, inventory_by_id, peptides_by_id) -> tuple[list[Need], list[dict], float, dict]:
+    """(needs by peptide, notes for items that cannot be shopped, BAC water mL for the whole course, IU-per-mg factors)."""
+    as_needed: dict[int, Need] = {}
     amounts: dict[int, float] = {}
     units: dict[int, str] = {}
     factors: dict[int, float | None] = {}
@@ -54,18 +65,16 @@ def _needs(protocol, totals, inventory_by_id, peptides_by_id) -> tuple[list[Need
         bac_ml += total.bac_water_ml or 0.0
         peptide = peptides_by_id.get(item.peptide_id) or item.peptide
         inv = inventory_by_id.get(item.inventory_item_id) if item.inventory_item_id else None
+        if item.frequency is Frequency.AS_NEEDED:                   # one vial (a kit of 10 if it is bought that way), sized by the dose
+            low, high = _as_needed_range(item)
+            kit = inv is not None and inv.purchasing_unit == PurchasingUnit.KIT_OF_10
+            if item.peptide_id not in as_needed:
+                as_needed[item.peptide_id] = Need(key=str(item.peptide_id), name=peptide.name, amount=0.0, unit="IU" if item.dose_unit.value == "IU" else "mg",
+                                                  hard=is_hard_to_find(peptide.name), vials=10 if kit else 1, min_size=low, max_size=high)
+                factors[item.peptide_id] = (inv.iu_per_mg if inv is not None and inv.iu_per_mg else None) or unit_math.default_iu_per_mg(peptide.name)
+            continue
         if total.total_amount is not None:
             amount, unit = _base(total.total_amount, item.dose_unit.value)
-        elif total.vials_estimate:                                  # as needed: the vials the popup says, at the size it is based on
-            size, size_unit = None, None
-            if inv is not None and inv.vial_size_mg:
-                size, size_unit = inv.vial_size_mg, inv.vial_size_unit.value
-            elif peptide.normally_supplied_amount and peptide.normally_supplied_unit:
-                size, size_unit = peptide.normally_supplied_amount, peptide.normally_supplied_unit.value
-            if size is None:
-                notes.append({"name": peptide.name, "reason": "As needed, and no vial size is known: choose one yourself"})
-                continue
-            amount, unit = _base(size * total.vials_estimate, size_unit)
         else:
             notes.append({"name": peptide.name, "reason": total.note or "No quantity to buy"})
             continue
@@ -78,6 +87,11 @@ def _needs(protocol, totals, inventory_by_id, peptides_by_id) -> tuple[list[Need
         factors[key] = (inv.iu_per_mg if inv is not None and inv.iu_per_mg else None) or unit_math.default_iu_per_mg(peptide.name)
     needs = [Need(key=str(k), name=(peptides_by_id.get(k).name if peptides_by_id.get(k) else str(k)), amount=a, unit=units[k], hard=is_hard_to_find(peptides_by_id[k].name))
              for k, a in amounts.items() if k in peptides_by_id]
+    for peptide_id, need in as_needed.items():
+        if peptide_id in amounts:                                   # the course already buys this peptide: the as-needed use comes out of it
+            notes.append({"name": need.name, "reason": "Also used as needed: covered by the course quantity above"})
+        else:
+            needs.append(need)
     return needs, notes, bac_ml, factors
 
 
