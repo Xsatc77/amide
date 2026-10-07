@@ -277,3 +277,44 @@ def test_a_zero_price_line_is_never_offered(client, db, me):
     pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY)])
     sources = shop(client, pid).json()["plan"]["sources"]
     assert [s["vendor"] for s in sources] == ["Zephyr Labs"]
+
+
+# ---------------------------------------------------------------- BAC water from the price lists
+
+def bac_world(db, me, *, ranked=True):
+    zorvex, quillamine = lists(db)
+    with SessionLocal() as s:
+        for pid_ in (zorvex, quillamine):
+            c = s.get(Peptide, pid_)
+            c.normally_supplied_amount, c.normally_supplied_unit = 10, DoseUnit.MG
+        s.commit()
+    sterile = make_vendor(db, "Sterile Supply Co")
+    make_list(db, sterile, TODAY, item("Acme Hospira Bacteriostatic Water", 30, 18, unit="ml", pack=1, code=None),
+              item("Acme Hospira Bacteriostatic Water", 30, 435, unit="ml", pack=25, code=None),
+              item("Acme Hospira Bacteriostatic Sodium Chloride", 30, 11, unit="ml", pack=1, code=None), warehouse=Warehouse.US)
+    if ranked:
+        from supply_helpers import make_bac
+        make_bac(me, "Acme Hospira BAC Water", priority=1, bottles=0)
+    return protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)])
+
+
+def test_a_ranked_brand_of_bac_water_on_a_price_list_is_planned_as_its_own_order(client, db, me):
+    pid = bac_world(db, me)
+    data = shop(client, pid).json()
+    buy = data["bac"]["buy"]
+    assert buy["vendor"] == "Sterile Supply Co" and buy["product"] == "Acme Hospira Bacteriostatic Water" and buy["mode"] == "separate"
+    assert (buy["size_label"], buy["packs"], buy["cost"], buy["shipping"], buy["extra"]) == ("30 mL", 1, 18.0, 30.0, 48.0)       # the case is dearer; the sodium chloride is not water
+    assert data["grand_total"] == pytest.approx(data["plan"]["total"] + 48.0)
+
+
+def test_without_a_ranked_brand_no_bac_water_is_offered_from_the_lists(client, db, me):
+    pid = bac_world(db, me, ranked=False)
+    data = shop(client, pid).json()
+    assert data["bac"]["buy"] is None and data["bac"]["bottles"] >= 1
+    assert data["grand_total"] == pytest.approx(data["plan"]["total"])
+
+
+def test_the_plain_text_includes_the_bac_water_and_the_grand_total_with_it(client, db, me):
+    pid = bac_world(db, me)
+    text = client.get(f"/protocols/{pid}/shop.txt").text
+    assert "BAC water" in text and "Sterile Supply Co" in text and "Acme Hospira Bacteriostatic Water" in text and "Grand total: $508.00" in text

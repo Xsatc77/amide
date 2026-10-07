@@ -89,9 +89,18 @@
       box.append(ul);
       body.append(box);
     }
-    if (data.bac) {
-      body.append(el("p", "shop-bac small", `BAC water is not on any price list. This course uses about ${data.bac.ml} mL: ${data.bac.bottles} bottle${data.bac.bottles === 1 ? "" : "s"} of 30 mL. Buy it separately.`));
+    if (data.bac && data.bac.buy) {
+      const b = data.bac.buy;
+      const box = el("section", "shop-plan");
+      box.append(el("h3", "shop-plan-title", `BAC water (about ${data.bac.ml} mL for the course)`));
+      box.append(el("p", "", `${b.vendor} ${warehouse(b.warehouse)}: ${b.product} ${b.size_label}, ${b.packs} × ${b.pack_label} (${b.units} bottle${b.units === 1 ? "" : "s"}).`));
+      box.append(el("p", "shop-ship small", b.shipping ? `Cost ${money(b.cost)} + shipping ${money(b.shipping)} (its own order) = ${money(b.extra)}`
+                                                      : `Cost ${money(b.cost)}, added to the order from this vendor`));
+      body.append(box);
+    } else if (data.bac) {
+      body.append(el("p", "shop-bac small", `No BAC water brand you rank is on the current price lists. This course uses about ${data.bac.ml} mL: ${data.bac.bottles} bottle${data.bac.bottles === 1 ? "" : "s"} of 30 mL. Buy it separately.`));
     }
+    if (data.plan && data.grand_total !== null && data.bac && data.bac.buy) body.append(el("p", "shop-total", `Grand total with BAC water ${money(data.grand_total)}`));
     body.append(el("p", "muted small", "Prices come from each vendor's newest price list, with a 5% buffer on the total dose. Confirm with the vendor before ordering."));
   }
 

@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.calculator import units as unit_math
 from app.library.price_lists.analysis import current_lists
-from app.models import Frequency, InventoryItem, Peptide, PriceListItem, PurchasingUnit, User
+from app.models import Category, Frequency, InventoryItem, Peptide, PriceListItem, PurchasingUnit, User
+from app.shopping.bac import BacOffer, is_bac_water, plan_bac, rank_for
 from app.protocols.course_totals import compute_course_totals
 from app.shopping.planner import Need, Offer, Plan, plan_protocol
 
@@ -132,6 +133,23 @@ def _plan_json(plan: Plan, chosen_total: float | None = None) -> dict:
     return out
 
 
+def _bac_buy(session: Session, uid: int, bac_ml: float, plan: Plan | None, shipping: dict) -> dict | None:
+    """The BAC water to buy: only a brand the user ranks in their BAC Water inventory (never the peptide vendors' own water)."""
+    ranked = [(i.bac_priority, i.name) for i in session.scalars(select(InventoryItem).where(
+        InventoryItem.owner_id == uid, InventoryItem.category == Category.BAC_WATER))]
+    lists = {p.id: p for p in current_lists(session)}
+    if not ranked or not lists:
+        return None
+    offers = []
+    for row in session.scalars(select(PriceListItem).where(PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit == "ml",
+                                                           PriceListItem.pack_price > 0, PriceListItem.pack_size > 0)):
+        if is_bac_water(row.product_name or ""):
+            plist = lists[row.price_list_id]
+            offers.append(BacOffer(vendor_id=plist.vendor_id, vendor_name=plist.vendor_name, warehouse=plist.warehouse.value, product=row.product_name,
+                                   size_ml=row.vial_amount, pack_size=row.pack_size, pack_price=row.pack_price, rank=rank_for(row.product_name, ranked)))
+    return plan_bac(bac_ml, offers, [(s.vendor_id, s.warehouse) for s in plan.sources] if plan else [], shipping)
+
+
 def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict) -> dict:
     """The JSON the Shopping plan dialog shows."""
     if protocol.end_date is None:
@@ -146,6 +164,10 @@ def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict) -> d
         return base | {"status": "nothing_to_buy", "plan": None, "alternatives": [], "unshoppable": []}
     result = plan_protocol(needs, _offers(session, needs, factors), shipping)
     unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable]
-    return base | {"plan": _plan_json(result.plan) if result.plan else None,
+    if base["bac"]:
+        base["bac"]["buy"] = _bac_buy(session, uid, bac_ml, result.plan, shipping)
+    extra = base["bac"]["buy"]["extra"] if base["bac"] and base["bac"]["buy"] else 0.0
+    return base | {"grand_total": round((result.plan.total if result.plan else 0.0) + extra, 2) if (result.plan or extra) else None,
+                   "plan": _plan_json(result.plan) if result.plan else None,
                    "alternatives": [_plan_json(p, result.plan.total) for p in result.alternatives] if result.plan else [],
                    "unshoppable": unshoppable}

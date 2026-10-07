@@ -49,13 +49,21 @@ def shop_text(data: dict, today: date) -> str:
         out += [plan["reason"] + ".", ""]
         for i, source in enumerate(plan["sources"], 1):
             out += _order(source, i, len(plan["sources"])) + [""]
-        out += [f"Grand total: {_money(plan['total'])}"]
+        out += [f"Grand total: {_money(data['grand_total'] if data.get('grand_total') is not None else plan['total'])}"]
         if plan["missing"]:
             out += ["", f"Not covered by these vendors: {', '.join(plan['missing'])}"]
     if data["unshoppable"]:
         out += ["", "Not available on the current price lists:"] + [f"  {u['name']}: {u['reason']}" for u in data["unshoppable"]]
     if data.get("bac"):
         bac = data["bac"]
-        out += ["", f"BAC water is not on any price list. This course uses about {bac['ml']} mL: {_plural(bac['bottles'], 'bottle')} of 30 mL. Buy it separately."]
+        buy = bac.get("buy")
+        if buy:
+            where = "US warehouse" if buy["warehouse"] == "us" else "China warehouse"
+            how = "its own order" if buy["mode"] == "separate" else "added to the order from this vendor"
+            out += ["", f"BAC water (about {bac['ml']} mL for the course)", f"  Vendor: {buy['vendor']} ({where}), {how}",
+                    f"  {buy['product']} {buy['size_label']}", f"    Buy: {buy['packs']} x {buy['pack_label']} ({_plural(buy['units'], 'bottle')})",
+                    f"    Cost: {_money(buy['cost'])}" + (f". Shipping: {_money(buy['shipping'])}" if buy["shipping"] else "") + f". Total: {_money(buy['extra'])}"]
+        else:
+            out += ["", f"No BAC water brand you rank is on the current price lists. This course uses about {bac['ml']} mL: {_plural(bac['bottles'], 'bottle')} of 30 mL. Buy it separately."]
     out += ["", "Prices come from each vendor's newest price list, with a 5% buffer on the total dose. Confirm with the vendor before ordering."]
     return "\n".join(out) + "\n"
