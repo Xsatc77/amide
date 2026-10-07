@@ -1271,3 +1271,21 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
 .check-field { display: flex; flex-direction: row; align-items: center; gap: 8px; } .check-field input[type="checkbox"] { width: auto; }
+
+/* Vial labels (Inventory): the sheet or roll the user chose, one .vial-label each. */
+.label-sheet { margin: 12px 0; }
+.vial-label { box-sizing: border-box; border: 1px dashed var(--border); padding: 4px 6px; font-size: 8.5pt; line-height: 1.2; overflow: hidden; background: #fff; color: #000; margin-bottom: 6px; }
+.vial-label .vl-name { font-weight: 700; font-size: 10pt; }
+.vial-label .vl-dates { display: flex; justify-content: space-between; gap: 6px; }
+.vial-label .vl-ruo { font-size: 7pt; letter-spacing: 0.04em; text-transform: uppercase; }
+.label-5160 { display: grid; grid-template-columns: repeat(3, 2.625in); column-gap: 0.125in; }
+.label-5160 .vial-label { height: 1in; margin: 0; }
+.label-2x1 .vial-label, .label-4x2 .vial-label { page-break-after: always; margin: 0; }
+.label-2x1 .vial-label { width: 2in; height: 1in; }
+.label-4x2 .vial-label { width: 4in; height: 2in; font-size: 12pt; }
+.label-4x2 .vial-label .vl-name { font-size: 16pt; }
+@media print {
+  .topbar, footer, .no-print, .skip-link { display: none !important; }
+  body, .page { background: #fff !important; margin: 0; padding: 0; max-width: none; }
+  .vial-label { border: none; }
+}

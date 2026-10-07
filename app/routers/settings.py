@@ -15,6 +15,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
+from app.inventory.labels import LABEL_SIZES
 from app.shopping.build import parse_fee, saved_shipping
 from app.models import (
     ActivityLevel, BiologicalSex, BodyPhoto, Colorway, Food, FoodLog, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
@@ -55,6 +56,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
         "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset), "life_stages": LIFE_STAGES,
         "shipping": saved_shipping(me),
+        "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
     }
     if me.is_admin:
         users = user_rows(session)
@@ -179,6 +181,18 @@ async def change_discard_window(request: Request, session: Session = Depends(get
                       status_code=422)
 
     _me(session, uid).default_discard_days = days
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/labels")
+async def change_label_settings(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    size = str(form.get("label_size") or "")
+    if size not in LABEL_SIZES:
+        return _render(request, session, errors={"label_size": "Pick one of the sizes in the list."}, status_code=422)
+    me = _me(session, uid)
+    me.auto_print_labels, me.label_size = bool(form.get("auto_print_labels")), size
     session.commit()
     return RedirectResponse("/settings", status_code=303)
 

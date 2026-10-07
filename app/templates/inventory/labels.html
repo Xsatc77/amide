@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<style>{{ page_rule | safe }}</style>
+<div class="label-tools no-print">
+  <h1 class="page-title">{{ title }}</h1>
+  <p class="muted">{{ labels | length }} label{{ '' if labels | length == 1 else 's' }}. The print window opens by itself; if it does not, use the button.</p>
+  <button type="button" class="btn btn-primary" data-print>Print</button>
+  <a class="btn btn-ghost" href="{{ next_page }}">Back</a>
+  <a class="btn btn-ghost" href="/settings">Label settings</a>
+</div>
+<div class="label-sheet label-{{ size }}"{% if auto %} data-auto-print data-next="{{ next_page }}"{% endif %}>
+  {% for l in labels %}
+  <div class="vial-label">
+    <div class="vl-name">{{ l.name }}</div>
+    <div class="vl-line">{{ l.size }}{% if l.lot %} · Lot {{ l.lot }}{% endif %}{% if l.received %} · Received {{ l.received | shortdate }}{% endif %}</div>
+    <div class="vl-line">Conc: {% if l.concentration %}{{ l.concentration }}{% else %}<span class="vl-blank">__________</span>{% endif %}</div>
+    <div class="vl-dates">
+      <span>Recon {% if l.recon_date %}<b>{{ l.recon_date | shortdate }}</b>{% else %}<span class="vl-blank">____/____/____</span>{% endif %}</span>
+      <span>Exp {% if l.discard_by %}<b>{{ l.discard_by | shortdate }}</b>{% else %}<span class="vl-blank">____/____/____</span>{% endif %}</span>
+    </div>
+    <div class="vl-ruo">Research Use Only</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ static_url('js/labels.js') }}" defer></script>{% endblock %}

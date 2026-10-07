@@ -3,6 +3,15 @@
   // A select marked data-autosubmit (the medicines order) reloads the page as soon as it changes.
   document.querySelectorAll("select[data-autosubmit]").forEach((select) => select.addEventListener("change", () => select.form.submit()));
 
+  const labelDates = document.getElementById("label-dates-dialog");     // shown by the server right after a reconstitution
+  if (labelDates) {
+    labelDates.showModal();
+    labelDates.querySelector('[data-action="close-label-dates"]').addEventListener("click", () => {
+      labelDates.close();
+      history.replaceState(null, "", "/inventory#active-vials");
+    });
+  }
+
   const dialog = document.getElementById("item-dialog");
   if (!dialog) return;  // Item detail page has no Add/Edit-item dialog (list.html only)
   const form = dialog.querySelector("form");

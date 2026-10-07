@@ -101,7 +101,7 @@ def test_reconstitute_commit_creates_vial_and_increments_reconstituted_count(cli
         "inventory_item_id": str(lyo_item), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": "2026-12-31",
     }, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/inventory#active-vials"
+    assert r.status_code == 303 and r.headers["location"].startswith("/inventory?labels=") and r.headers["location"].endswith("#active-vials")
 
     with SessionLocal() as s:
         item = s.get(InventoryItem, lyo_item)
@@ -215,7 +215,7 @@ def _reconstitute(client, item_id, discard_by="2026-12-31"):
         "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": discard_by,
     }, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/inventory#active-vials"
+    assert r.status_code == 303 and r.headers["location"].startswith("/inventory?labels=") and r.headers["location"].endswith("#active-vials")
     with SessionLocal() as s:
         return s.scalar(select(ActiveVial.id).where(ActiveVial.inventory_item_id == item_id))
 
@@ -357,7 +357,7 @@ def test_reconstitute_commit_increments_reconstituted_count_not_raw_count(client
         "inventory_item_id": str(item_id), "water_ml": "2", "dose_value": "250", "dose_unit": "mcg",
         "discard_by": "2026-12-31",
     }, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/inventory#active-vials"
+    assert r.status_code == 303 and r.headers["location"].startswith("/inventory?labels=") and r.headers["location"].endswith("#active-vials")
 
     with SessionLocal() as s:
         item = s.get(InventoryItem, item_id)

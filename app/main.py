@@ -12,7 +12,7 @@ from app.food.foods import load_starter
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
-    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labs, legal, library,
+    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, legal, library,
     measurements, order_tracking, price_alerts, protocol_shop, protocols, settings, vendors, workout_insights, workouts,
 )
 
@@ -33,6 +33,7 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 gate.install(app)
 app.include_router(auth.router)
 app.include_router(dashboard.router)
+app.include_router(labels.router)              # before inventory too: "/inventory/orders/<id>/labels"
 app.include_router(order_tracking.router)      # before inventory: "/inventory/orders" must not be read as an item id
 app.include_router(inventory.router)
 app.include_router(vendors.router)

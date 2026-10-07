@@ -72,6 +72,21 @@
   {% endif %}
 </section>
 
+{% if label_vial %}
+<dialog id="label-dates-dialog" class="dialog" data-open-on-load aria-labelledby="label-dates-title">
+  <header class="dialog-head"><h2 id="label-dates-title">Put these dates on your label</h2></header>
+  <div class="dialog-body">
+    <p><strong>{{ label_vial.inventory_item.name }}</strong></p>
+    <p>Reconstituted: <strong>{{ label_vial.date_mixed | shortdate }}</strong></p>
+    <p>Discard by: <strong>{{ label_vial.discard_by | shortdate }}</strong></p>
+  </div>
+  <footer class="dialog-foot">
+    <a class="btn btn-primary" href="/active-vials/{{ label_vial.id }}/label?auto=1&next=/inventory">Print a label</a>
+    <button type="button" class="btn" data-action="close-label-dates">Done</button>
+  </footer>
+</dialog>
+{% endif %}
+
 {% macro item_table(section_id, heading, items, show_medium) %}
 <section id="{{ section_id }}" aria-labelledby="{{ section_id }}-heading">
   <h2 id="{{ section_id }}-heading" class="section-title">{{ heading }}</h2>

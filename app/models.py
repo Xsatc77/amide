@@ -960,6 +960,8 @@ class User(Base):
     # What the Shop-this-protocol plan assumes shipping costs per vendor order, in cents (empty = the app's default: $60 China, $30 US).
     shop_china_shipping_cents: Mapped[int | None] = mapped_column(Integer)
     shop_us_shipping_cents: Mapped[int | None] = mapped_column(Integer)
+    auto_print_labels: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")      # open the vial labels when an order is checked in
+    label_size: Mapped[str] = mapped_column(String(10), default="5160", server_default="5160")
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
     photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")

@@ -143,6 +143,18 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
 
+      <form method="post" action="/settings/labels" class="settings-form" novalidate>
+        <h3 class="small muted">Vial labels</h3>
+        <p class="small muted">When you check in an order, a page of vial labels (name, size, lot, blank boxes for the reconstitution and expiry dates, "Research Use Only") opens and your browser's print window appears by itself.</p>
+        <label class="field check-field"><input type="checkbox" name="auto_print_labels" value="1" {{ 'checked' if me.auto_print_labels }}><span>Print labels automatically on check-in</span></label>
+        <label class="field {{ 'has-error' if errors.label_size }}">
+          <span>Label size</span>
+          <select name="label_size">{% for key, text in label_sizes.items() %}<option value="{{ key }}"{% if key == me.label_size %} selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+          {{ err('label_size') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+
       <form method="post" action="/settings/shopping" class="settings-form" novalidate>
         <h3 class="small muted">Shopping</h3>
         <p class="small muted">What the &ldquo;Shop this protocol&rdquo; plan assumes each vendor order costs to ship. You can also change these

@@ -216,16 +216,17 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
     if plan.errors:
         return error_redirect(". ".join(plan.errors))
     apply_plan(session, uid, plan, water_ml=water_ml, discard_days=request.state.user.default_discard_days or 28)
-    session.add(ActiveVial(
+    new_vial = ActiveVial(
         owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=result.concentration, vial_unit=vial_unit,
         iu_per_mg=iu_per_mg if ("IU" in (vial_unit, dose_unit)) else None,
         water_ml=water_ml, dose_value=dose_value, dose_unit=DoseUnit(dose_unit),
         doses_total=result.doses_per_vial, date_mixed=date.today(), discard_by=discard_by,
         volume_remaining_ml=water_ml,
         dispensing_method=DispensingMethod.PEN if load_into_pen else DispensingMethod.SYRINGE,
-    ))
+    )
+    session.add(new_vial)
     item.reconstituted_count += 1
     if iu_per_mg and "IU" in (vial_unit, dose_unit):
         item.iu_per_mg = iu_per_mg                                         # the item remembers its factor for next time and for dose totals
     session.commit()
-    return RedirectResponse("/inventory#active-vials", status_code=303)
+    return RedirectResponse(f"/inventory?labels={new_vial.id}#active-vials", status_code=303)

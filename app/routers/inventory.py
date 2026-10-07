@@ -1,6 +1,7 @@
 import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -13,6 +14,7 @@ from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_pen_conversion
+from app.inventory.labels import labels_for_order
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
 from app.models import (
@@ -688,10 +690,15 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
         if v.owner_id == uid and v.discard_by < date.today()
         and (v.last_discard_prompt_at is None or now - v.last_discard_prompt_at > timedelta(hours=24))
     }
+    label_vial = None
+    if request.query_params.get("labels", "").isdigit():            # just reconstituted: dates to write on the label
+        candidate = session.get(ActiveVial, int(request.query_params["labels"]))
+        label_vial = candidate if candidate is not None and candidate.owner_id == uid else None
     return templates.TemplateResponse(
         request,
         "inventory/list.html",
         {
+            "label_vial": label_vial,
             "items": items,
             "medicine_items": medicine_items,
             "sort": sort,
@@ -1094,7 +1101,10 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
         li.received_quantity = qty
         li.received_note = note
     session.commit()
-    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
+    back = f"/inventory/{item_id}"
+    if session.get(User, uid).auto_print_labels and labels_for_order(order, uid):
+        return RedirectResponse(f"/inventory/orders/{order.id}/labels?auto=1&next={quote(back)}", status_code=303)
+    return RedirectResponse(back, status_code=303)
 
 
 @router.post("/inventory/{item_id}/orders")

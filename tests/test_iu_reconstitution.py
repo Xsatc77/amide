@@ -40,7 +40,7 @@ def vial_for(item_id):
 
 def test_an_iu_vial_with_a_mass_dose_is_reconstituted_through_the_conversion(client, hgh):
     r = recon(client, hgh, iu_per_mg="3")
-    assert r.status_code == 303 and r.headers["location"] == "/inventory#active-vials"
+    assert r.status_code == 303 and r.headers["location"].startswith("/inventory?labels=") and r.headers["location"].endswith("#active-vials")
     v = vial_for(hgh)
     assert (v.vial_unit, v.concentration_mg_ml, v.iu_per_mg, v.doses_total) == ("IU", pytest.approx(5.0), 3.0, 6)       # 10 IU / 2 mL; 500 mcg = 1.5 IU
     with SessionLocal() as s:

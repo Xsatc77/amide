@@ -57,8 +57,8 @@ Every open item in this file now carries a group letter in brackets, [A] to [J].
 
 | Group | What it covers | Open items | Needs you |
 | --- | --- | --- | --- |
-| **A. Launch readiness** | The things a stranger hits first | Raise the minimum password length (default is 4); reverse-proxy + HTTPS guidance; CI (tests on every push, Docker image on tags); try the Docker build (OCR libraries); version tag v1.0 and a changelog; scheduled automatic backup; accessibility pass; full documentation (user guide, Telegram watcher guide, README status section rewrite); Terms and Disclaimer read-through | Final wording of any legal text |
-| **B. Inventory and labels** | Stock handling | Local Seller checkbox; sort by expiration then arrival (FIFO); average shipping time on the vendor card (feeds the shipment alert); print labels automatically on check-in plus the "put these dates on your labels" popup | Label size and printer (needs a spec) |
+| **A. Launch readiness** | The things a stranger hits first | ✅ Password minimum 8; ✅ HTTPS / reverse-proxy guide; ✅ CI workflow; ✅ changelog; ✅ README status rewrite; ✅ accessibility basics (skip link, landmarks, focus rings, reduced motion). **Still open:** try the Docker build (OCR libraries; needs Docker); cut the v1.0 tag; scheduled automatic backup; a user guide; a fuller accessibility pass (every form control, colour contrast); Terms and Disclaimer read-through | Final wording of any legal text; the tag |
+| **B. Inventory and labels** ✅ | Stock handling | All built 2026-10-07: Local Seller flag (no late-shipment alert, left out of averages); "Use first" order; average time to arrive on the vendor card; automatic vial labels on check-in plus the "put these dates on your label" dialog | Check the label size suits your printer |
 | **C. Protocol builder** | How a protocol is described | Expanded Time of Day; "X times per day / per week"; titration templates; printable protocol view; Vitamins/Supplements and Prescriptions cards; "runs out on" predictions; current titration step on the Dashboard | Which time-of-day slots, in your words |
 | **D. Calendar and reminders** | Getting doses done | Month view cards; click a due item to Pick Site / Log Dose; tick doses off from the calendar; subscribe to the calendar (iCal feed); reminders (ntfy / email / browser push); installable phone app (PWA) | A notification channel choice |
 | **E. Library and learning** | The reference side | Duplicate cards fix (alias matching); 35 cards still in the old style; per-peptide "open the calculator at Beginner / Moderate / Advanced"; Peptide Learning (notes and saved articles); reorder a goal stack; premade protocols and pre-planned stacks; the five unmatched price-list names, bare cards to fill in, KGLOW; footer copy | The premade protocols, the 35 sheets, the footer wording |
@@ -233,10 +233,10 @@ A dedicated visual-polish pass, pulled together from items across the owner's 20
 
 | Area | Plan |
 | --- | --- |
-| **CI** [A] (open) | GitHub Actions: run tests on every push; build and publish Docker image to GitHub Container Registry on tags |
-| **Releases** [A] (open) | Semantic versions (`v0.2.0`…), changelog, migrations always forward-compatible |
+| **CI** | ✅ GitHub Actions workflow built 2026-10-07 (`.github/workflows/ci.yml`: tests on every push and pull request, Docker image built every push and published to GitHub Container Registry on `v*` tags). *First run on GitHub not yet seen.* |
+| **Releases** [A] (changelog ✅ `CHANGELOG.md`; the v1.0 tag is still to cut) | Semantic versions (`v0.2.0`…), changelog, migrations always forward-compatible |
 | **Backups** | ✅ Encrypted backup, export, share and restore shipped 2026-10-06. Open [A]: scheduled automatic backup, restore tested in CI |
-| **Security** | Accounts + 2FA + lockout + cross-site form protection (done, v0.4), upload validation (done). Open [A]: raise the minimum password length (default is 4); guidance for reverse proxy + HTTPS |
+| **Security** | Accounts + 2FA + lockout + cross-site form protection (done, v0.4), upload validation (done). ✅ Minimum password length raised to 8 and reverse-proxy / HTTPS guidance written (`docs/DEPLOYING.md`, 2026-10-07) |
 | **Data ownership** | Full export at any time in open formats (JSON/CSV); no telemetry, no external calls unless you enable an integration |
 
 ---
@@ -250,15 +250,15 @@ Raw wishlist items, organized by app area to match the source list. Not yet spec
 - *(Grafana-style visual rework and layout pass moved to Phase 10 — Beautification)*
 
 **Inventory**
-- [B] New-item "Local Seller" checkbox — excludes shipping-time math for that item
-- [B] Sort Peptides/Medicines by Expiration, then FIFO by Arrived Date (oldest stock first)
+- ✅ (built 2026-10-07) New-item "Local Seller" checkbox — excludes shipping-time math for that item
+- ✅ (built 2026-10-07: default "Use first" order, with Expires and Arrived columns and a Name option) Sort Peptides/Medicines by Expiration, then FIFO by Arrived Date (oldest stock first)
 - ✅ BAC Water: vial size (mL), COA (through the order line), and an opened BAC bottle becomes a 28-day room-temperature open vial, ranked by priority (built 2026-10-06, reconstitution supplies)
-- ✅ 28-day clock starts on reconstitution (shipped, Active Vials). [B] Still open: a "Put These Dates on Your Labels" popup (recon date + 28-day expiry) at reconstitution time *(extends the existing reconstitution flow, Phase 2 ✅)*
-- [B] On order check-in, offer to print vial labels (name, concentration, batch, blank recon/exp date boxes, "Research Use Only")
-  - **Owner follow-up, 2026-10-07:** make it **automatic** — labels print as items are checked into the store, with no prompt. Needs a spec (printer and label size, what happens with no printer, one label per vial vs per item).
+- ✅ 28-day clock starts on reconstitution (shipped, Active Vials). ✅ the "Put These Dates on Your Labels" popup (built 2026-10-07, with a one-vial label to print) (recon date + 28-day expiry) at reconstitution time *(extends the existing reconstitution flow, Phase 2 ✅)*
+- ✅ (built 2026-10-07) On order check-in, offer to print vial labels (name, concentration, batch, blank recon/exp date boxes, "Research Use Only")
+  - ✅ **Automatic printing built 2026-10-07:** checking in an order opens one label per received peptide vial and the browser's print window; Settings, Vial labels turns it off and picks the size (Avery 5160 sheet, 2 x 1 in or 4 x 2 in roll; the first is an assumption: change it if you use another). A web page cannot print silently, so the print window is the one extra click.
 
 **Vendors**
-- [B] Average shipping time on the vendor card — *its own blocking dependency (Phase 5's Vendor management page) has since shipped in v0.6; this is now buildable*
+- ✅ (built 2026-10-07) Average shipping time on the vendor card — *its own blocking dependency (Phase 5's Vendor management page) has since shipped in v0.6; this is now buildable*
 - ✅ Add/remove a vendor card from the list (shipped, Vendors page)
 
 **Protocols**
