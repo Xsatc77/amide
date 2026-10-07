@@ -93,11 +93,25 @@
   <p>
     {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
     {% elif vendor.price_list_filename %}<a href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>
-    {% else %}<span class="muted">No price list on file.</span>{% endif %}
+    {% elif not current_lists %}<span class="muted">No price list on file.</span>{% endif %}
     {% if vendor.price_list_updated_at %}
     <span class="muted small">(Updated {{ vendor.price_list_updated_at | shortdate }}, {{ (today - vendor.price_list_updated_at).days }} day{{ '' if (today - vendor.price_list_updated_at).days == 1 else 's' }} ago)</span>
     {% endif %}
   </p>
+  {% for pl in current_lists %}
+  <details class="current-list">
+    <summary>{{ pl.warehouse }} warehouse &middot; list dated {{ pl.list_date | shortdate }} &middot; {{ pl.products }} product{{ '' if pl.products == 1 else 's' }}</summary>
+    <table class="shop-table">
+      <thead><tr><th>Code</th><th>Product</th><th>Size</th><th>Pack</th><th>Pack price</th><th>Per vial</th></tr></thead>
+      <tbody>
+      {% for r in pl.rows %}
+        <tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td>{{ r.size }}</td><td>{{ r.pack }}</td>
+            <td>{% if r.pack_price is not none %}${{ '%.2f' % r.pack_price }}{% endif %}</td><td>{% if r.per_vial is not none %}${{ '%.2f' % r.per_vial }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endfor %}
 
   <button type="button" class="btn btn-ghost" data-action="edit-vendor">Edit</button>
 </section>

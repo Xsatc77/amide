@@ -1260,3 +1260,4 @@ fieldset[data-day] { min-width: 0; }
 .shop-total { font-size: 1.15rem; font-weight: 800; margin: 8px 0; }
 .shop-unavailable { margin: 12px 0; padding: 8px 10px; border-left: 4px solid #d4a017; background: color-mix(in srgb, #d4a017 12%, var(--surface)); border-radius: 4px; }
 .shop-alts summary { cursor: pointer; font-weight: 600; margin: 10px 0 4px; }
+.current-list { margin: 8px 0; } .current-list summary { cursor: pointer; font-weight: 600; } .current-list .shop-table { margin-top: 8px; }

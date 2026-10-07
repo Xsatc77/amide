@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 
-from app.library.price_lists.analysis import PricePoint, best_prices, vendor_price_history
+from app.library.price_lists.analysis import PricePoint, best_prices, current_lists, vendor_price_history
 from app.library.price_lists.chart import multi_series_chart
 
 # Mid-saturation colors that read on both the light and the dark theme.
@@ -82,3 +82,19 @@ def build_price_compare(session: Session, peptide_id: int, shown_range) -> dict 
     default = next((i for i, o in enumerate(options)
                     if shown_range is not None and (o.amount, o.unit) == (shown_range.amount, shown_range.unit)), 0)
     return {"sizes": sizes, "default": default}
+
+
+def current_price_lists(session: Session, vendor_id: int) -> list[dict]:
+    """The vendor's newest imported list for each warehouse (China first), with its rows, for the vendor page's Price list section."""
+    out = []
+    for plist in sorted((p for p in current_lists(session) if p.vendor_id == vendor_id), key=lambda p: (p.warehouse.value != "china", p.warehouse.value)):
+        rows = []
+        for i in plist.items:
+            if i.pack_type in ("kit", "box"):
+                pack = f"{i.pack_type} of {i.pack_size}"
+            else:
+                pack = "single" if i.pack_size == 1 else (f"pack of {i.pack_size}" if i.pack_size else "")
+            rows.append({"code": i.code or "", "name": i.product_name or "", "size": f"{i.vial_amount:g} {i.vial_unit}", "pack": pack,
+                         "pack_price": i.pack_price, "per_vial": round(i.pack_price / i.pack_size, 2) if i.pack_price is not None and i.pack_size else None})
+        out.append({"warehouse": "US" if plist.warehouse.value == "us" else "China", "list_date": plist.list_date, "products": len(rows), "rows": rows})
+    return out
