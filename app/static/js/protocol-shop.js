@@ -9,6 +9,10 @@
   const saveBtn = document.getElementById("shop-save-defaults");
   const saveNote = document.getElementById("shop-save-note");
   const title = document.getElementById("shop-title");
+  const download = document.getElementById("shop-download");
+  const emailBtn = document.getElementById("shop-email");
+  const shareNote = document.getElementById("shop-share-note");
+  const MAILTO_LIMIT = 1800;
   let protocolId = null;
   let timer = null;
 
@@ -91,16 +95,29 @@
     body.append(el("p", "muted small", "Prices come from each vendor's newest price list, with a 5% buffer on the total dose. Confirm with the vendor before ordering."));
   }
 
-  async function load(useFields) {
+  // The fees as typed in the dialog (the share text must match the plan on screen).
+  function feeParams() {
     const params = new URLSearchParams();
-    if (useFields && china.value !== "") params.set("china", china.value);
-    if (useFields && us.value !== "") params.set("us", us.value);
+    if (china.value !== "") params.set("china", china.value);
+    if (us.value !== "") params.set("us", us.value);
+    return params;
+  }
+
+  function setDownloadLink() {
+    const params = feeParams();
+    params.set("download", "1");
+    download.href = `/protocols/${protocolId}/shop.txt?${params}`;
+  }
+
+  async function load(useFields) {
+    const params = useFields ? feeParams() : new URLSearchParams();
     body.replaceChildren(el("p", "muted", "Looking for the cheapest way to buy this course…"));
     try {
       const response = await fetch(`/protocols/${protocolId}/shop?${params}`);
       if (!response.ok) throw new Error(String(response.status));
       const data = await response.json();
       if (!useFields && data.shipping) { china.value = data.shipping.china; us.value = data.shipping.us; }
+      setDownloadLink();
       render(data);
     } catch (err) {
       body.replaceChildren(el("p", "calc-issue", response_message(err)));
@@ -115,6 +132,7 @@
     protocolId = btn.dataset.protocolId;
     title.textContent = `Shop this protocol: ${btn.getAttribute("aria-label").replace(/^Shop this protocol: /, "")}`;
     saveNote.textContent = "";
+    shareNote.textContent = "";
     dialog.showModal();
     load(false);
   });
@@ -126,6 +144,25 @@
     clearTimeout(timer);
     timer = setTimeout(() => load(true), 250);
   }));
+
+  emailBtn.addEventListener("click", async () => {
+    shareNote.textContent = "";
+    try {
+      const response = await fetch(`/protocols/${protocolId}/shop.txt?${feeParams()}`);
+      if (!response.ok) throw new Error(String(response.status));
+      const text = await response.text();
+      const subject = text.split("\n")[0];
+      let body = text;
+      if (encodeURIComponent(body).length > MAILTO_LIMIT) {            // some email programs cut long links: send the file instead
+        body = "The shopping plan is too long for an email draft, so it was saved as a text file. Attach it to this message.";
+        download.click();
+        shareNote.textContent = "Too long for a draft: the text file was downloaded. Attach it to the email.";
+      }
+      window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    } catch (err) {
+      shareNote.textContent = "The plan could not be loaded to share. Check the shipping fees and try again.";
+    }
+  });
 
   saveBtn.addEventListener("click", async () => {
     const response = await fetch("/protocols/shop/defaults", {

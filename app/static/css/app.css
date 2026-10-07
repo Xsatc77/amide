@@ -1247,6 +1247,7 @@ fieldset[data-day] { min-width: 0; }
 .shop-dialog { width: min(760px, 96vw); }
 .shop-fees { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 0 20px 12px; }
 .shop-fees .field { min-width: 130px; }
+.shop-share { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 20px 16px; border-top: 1px solid var(--border); }
 #shop-body { padding: 0 20px 20px; max-height: 65vh; overflow-y: auto; }
 .shop-reason { font-weight: 600; margin: 4px 0 10px; }
 .shop-plan-title { font-size: 1.05rem; margin: 6px 0; }

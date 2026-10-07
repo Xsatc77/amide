@@ -229,3 +229,37 @@ def test_as_needed_items_never_ask_for_a_vial_size(client, db, me):
     peptide = sized_list(db, (5, 100))
     data = shop(client, as_needed_protocol(me, peptide, 250, DoseUnit.MCG)).json()
     assert data["unshoppable"] == [] and data["plan"] is not None
+
+
+# ---------------------------------------------------------------- the text version (file / email)
+
+def test_the_plan_is_available_as_plain_text(client, db, me):
+    pid = two_peptide_protocol(db, me)
+    r = client.get(f"/protocols/{pid}/shop.txt")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/plain")
+    assert "Shopping plan: Course" in r.text and "Acme Labs" in r.text and "Grand total: $460.00" in r.text
+    assert "attachment" not in r.headers.get("content-disposition", "")
+
+
+def test_the_text_can_be_downloaded_as_a_file(client, db, me):
+    pid = two_peptide_protocol(db, me)
+    r = client.get(f"/protocols/{pid}/shop.txt", params={"download": "1"})
+    assert 'attachment; filename="shopping-plan-course.txt"' == r.headers["content-disposition"]
+
+
+def test_the_text_uses_the_edited_shipping_fees(client, db, me):
+    pid = two_peptide_protocol(db, me)
+    text = client.get(f"/protocols/{pid}/shop.txt", params={"china": "10", "us": "5"}).text
+    assert "China $10.00, US $5.00" in text and "Grand total: $410.00" in text
+
+
+def test_the_text_refuses_a_bad_fee_and_someone_elses_protocol(client, db, me):
+    pid = two_peptide_protocol(db, me)
+    assert client.get(f"/protocols/{pid}/shop.txt", params={"china": "x"}).status_code == 422
+    assert client.get("/protocols/99999999/shop.txt").status_code == 404
+
+
+def test_the_shop_dialog_has_the_share_buttons(client, db, me):
+    two_peptide_protocol(db, me)
+    page = client.get("/protocols").text
+    assert 'id="shop-download"' in page and 'id="shop-email"' in page
