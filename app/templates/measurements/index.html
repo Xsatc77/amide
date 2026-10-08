@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set active_nav = "measurements" %}
+{% set active_nav = "nutrition" if active_tab == "food" else "measurements" %}
 {% block title %}Weight & Measurements{% endblock %}
 
 {% from "measurements/_silhouette_macros.html" import line_chart, y_grid, silhouette_point %}

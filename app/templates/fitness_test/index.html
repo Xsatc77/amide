@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% set active_nav = "fitness_test" %}
+{% set active_nav = "workouts" %}
 {% block title %}Fitness Test{% endblock %}
 
 {% block content %}
+{% with active_tab='fitness' %}{% include "workouts/_tabs.html" %}{% endwith %}
 <div class="page-head">
   <div><h1>Fitness Test</h1></div>
   <button type="button" class="btn btn-primary" data-action="open-fitness-test-dialog">+ Log a new test</button>

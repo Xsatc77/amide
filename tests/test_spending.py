@@ -116,3 +116,19 @@ def test_the_spending_page_shows_the_numbers_and_only_my_own(client, db, me):
 
 def test_the_inventory_page_links_to_spending(client, db):
     assert 'href="/inventory/spending"' in client.get("/inventory").text
+
+
+def test_the_spending_page_loads_when_an_active_protocol_uses_the_item(client, db, me):
+    """Regression: the page crashed (500) as soon as an item was linked to a protocol."""
+    item = buy(me, "Spend Linked", vials=10, size=10.0, cost=100.0)
+    with SessionLocal() as s:
+        pep = Peptide(name="Spend Linked Peptide", source=PeptideSource.CUSTOM)
+        s.add(pep)
+        s.flush()
+        p = Protocol(name="Spend Linked Protocol", start_date=TODAY - timedelta(days=2), owner_id=me)
+        s.add(p)
+        s.flush()
+        s.add(ProtocolItem(protocol_id=p.id, peptide_id=pep.id, dose=250, dose_unit=DoseUnit.MCG, frequency=Frequency.DAILY, route=Route.SUBQ, inventory_item_id=item))
+        s.commit()
+    r = client.get("/inventory/spending")
+    assert r.status_code == 200 and "$0.25" in html.unescape(r.text)

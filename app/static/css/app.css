@@ -1367,6 +1367,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 
 /* Premade protocols list */
 /* Red and black caution tape around a peptide that is commonly flagged with one of the person's medicines */
+.nav-soon { color: var(--muted); opacity: 0.6; cursor: default; padding: 0 2px; white-space: nowrap; }
+.nav-soon small { font-size: 0.7em; }
 .caution-tape {
   border: 6px solid transparent !important; border-radius: var(--radius);
   background: linear-gradient(var(--surface), var(--surface)) padding-box,
