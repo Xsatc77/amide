@@ -7,6 +7,10 @@
   <div>
     <p class="muted small"><a href="/inventory">&larr; Inventory</a></p>
     <h1>{{ item.name }}</h1>
+    {% if request.query_params.get('delete_blocked') %}
+    <p class="note" role="alert"><strong>{{ item.name }} was not deleted.</strong> It is on an order that has not arrived yet, and deleting
+      an item removes its order lines too. Check that order in first.</p>
+    {% endif %}
     <p class="muted"><span class="tag">{{ item.category.value }}</span></p>
   </div>
 </div>

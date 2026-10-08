@@ -1316,6 +1316,8 @@ def test_editing_an_unarrived_order_does_not_require_or_touch_arrival_date(clien
 
 
 def test_deleting_sole_line_deletes_orphaned_order_header(client, db):
+    from app.models import Order
+
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
         "quantity": "10", "order_date": "2026-08-01",
@@ -1323,6 +1325,8 @@ def test_deleting_sole_line_deletes_orphaned_order_header(client, db):
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
         order_id = s.get(InventoryItem, item_id).order_items[0].order_id
+        s.get(Order, order_id).arrival_date = date(2026, 8, 10)          # arrived: an order still on its way blocks the delete
+        s.commit()
 
     client.post(f"/inventory/{item_id}/delete", follow_redirects=False)
     with SessionLocal() as s:
@@ -1785,7 +1789,7 @@ def test_deleting_one_item_of_a_shared_order_keeps_the_other_line_and_order(clie
     bac = InventoryItem(owner_id=me, name="Shared BAC", category=Category.BAC_WATER)
     db.add_all([med, bac])
     db.flush()
-    order = Order(order_date=date(2026, 9, 1))
+    order = Order(order_date=date(2026, 9, 1), arrival_date=date(2026, 9, 5))
     db.add(order)
     db.flush()
     li_med = OrderItem(inventory_item_id=med.id, quantity=1, cost_cents=100)
@@ -2187,3 +2191,32 @@ def test_supply_item_always_defaults_purchasing_unit_to_individual(client, db):
                follow_redirects=False)
     [item] = _items(db)
     assert item.purchasing_unit.value == "individual"
+
+
+def test_an_item_with_an_order_still_in_transit_cannot_be_deleted(client, db, me):
+    """Deleting an item deletes its order lines, so it is refused while one is on its way; once checked in it goes."""
+    from app.models import OrderItem
+
+    item = InventoryItem(owner_id=me, name="Transit Guard DSIP", category=Category.MEDICINE, medium=Medium.LYOPHILIZED, vial_size_mg=5)
+    db.add(item)
+    db.flush()
+    arrived = Order(order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 10))
+    coming = Order(order_date=date(2026, 10, 1))
+    db.add_all([arrived, coming])
+    db.flush()
+    item.order_items.append(OrderItem(order_id=arrived.id, quantity=2, received_quantity=2))
+    item.order_items.append(OrderItem(order_id=coming.id, quantity=3))
+    db.commit()
+    item_id, coming_id = item.id, coming.id
+
+    r = client.post(f"/inventory/{item_id}/delete", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == f"/inventory/{item_id}?delete_blocked=1"
+    db.expire_all()
+    assert db.get(InventoryItem, item_id) is not None and db.get(Order, coming_id) is not None
+    assert "was not deleted" in client.get(f"/inventory/{item_id}?delete_blocked=1").text
+
+    db.get(Order, coming_id).arrival_date = date(2026, 10, 5)
+    db.commit()
+    assert client.post(f"/inventory/{item_id}/delete", follow_redirects=False).headers["location"] == "/inventory"
+    db.expire_all()
+    assert db.get(InventoryItem, item_id) is None

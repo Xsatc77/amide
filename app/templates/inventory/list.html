@@ -143,7 +143,7 @@
                     {% if item.id in open_vials %}data-active-vial='{{ {"concentration": open_vials[item.id].concentration_mg_ml, "doses": open_vials[item.id].doses_total, "discard_by": open_vials[item.id].discard_by.isoformat()} | tojson }}'{% endif %}
                     {% if item.available_count == 0 %}disabled{% endif %}>Reconstitute</button>
             {% endif %}
-            <form method="post" action="/inventory/{{ item.id }}/delete" class="inline" data-confirm="Delete “{{ item.name }}”? This can't be undone.">
+            <form method="post" action="/inventory/{{ item.id }}/delete" class="inline" data-confirm="Delete “{{ item.name }}”{% if item.order_items | length > 1 %} and its {{ item.order_items | length }} order lines{% endif %}? This can't be undone.">
               <button type="submit" class="btn btn-ghost btn-danger">Delete</button>
             </form>
             {% else %}

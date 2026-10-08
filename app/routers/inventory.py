@@ -1005,6 +1005,10 @@ def delete_item(item_id: int, session: Session = Depends(get_session), uid: int 
     item = _own_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
+    # Deleting an item deletes every order line it has, so never while one of them is still on its way: that
+    # shipment would silently lose the line. Check it in, or fix the order, first.
+    if any(li.order.arrival_date is None for li in item.order_items):
+        return RedirectResponse(f"/inventory/{item.id}?delete_blocked=1", status_code=303)
     order_ids = {li.order_id for li in item.order_items}
     for li in item.order_items:
         uploads.delete_coa(li.coa_filename)
