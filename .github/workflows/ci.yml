@@ -21,7 +21,7 @@ jobs:
       # OpenCV (used by the OCR for scanned price lists) needs these on a bare runner.
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
       - run: pip install -r requirements-dev.txt
-      - run: pytest -q -p no:warnings
+      - run: python -m pytest -q -p no:warnings
 
   docker:
     # Builds the image on every push (so a broken Dockerfile is caught) and publishes it only for a version tag.
