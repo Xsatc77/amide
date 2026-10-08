@@ -88,7 +88,7 @@ def test_dashboard_shows_body_panel_with_weight_chart(client, db):
     try:
         t = client.get("/dashboard").text
         assert 'id="body-panel-heading"' in t
-        assert "Weight (Lbs)" in t
+        assert "Weight (lbs)" in t
         assert "No weight logged yet." not in t
     finally:
         with SessionLocal() as s:

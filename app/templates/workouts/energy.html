@@ -109,7 +109,7 @@
       <tr><td>TDEE (adjusted)</td><td>{{ n(r.tdee) }} kcal/day</td></tr>
       <tr><td>BMI</td><td>{{ r.bmi }} &middot; {{ r.bmi_category }}</td></tr>
       <tr><td>Lean body mass</td><td>{{ r.lbm_kg }} kg ({{ r.lbm_lb }} lb)</td></tr>
-      <tr><td>Fat body mass</td><td>{% if composition and composition.fat_mass_lb is not none %}{{ composition.fat_mass_lb }} lb ({{ composition.body_fat_pct }}%){% else %}<span class="muted">needs neck and waist measurements</span>{% endif %}</td></tr>
+      <tr><td>Fat body mass</td><td>{% if composition and composition.fat_mass_lb is not none %}{{ u.weight(composition.fat_mass_lb) }} {{ 'kg' if u.metric else 'lb' }} ({{ composition.body_fat_pct }}%){% else %}<span class="muted">needs neck and waist measurements</span>{% endif %}</td></tr>
       <tr><td>Waist : height</td><td>{% if composition %}{{ composition.waist_height }} <span class="muted small">(ideal under 0.50)</span>{% else %}<span class="muted">needs a waist measurement</span>{% endif %}</td></tr>
       <tr><td>Max fat metabolism</td><td><span class="muted">not available</span></td></tr>
       <tr><td>Minimum daily calories</td><td>{{ n(r.min_calories) }} kcal/day <span class="muted small">safety floor</span></td></tr>

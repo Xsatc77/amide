@@ -7,7 +7,7 @@ A tour of what Amide does and where to find it. Everything stays on the computer
 ## First steps
 
 1. Open Amide (by default `http://localhost:1707`), accept the legal notice and choose **New User**. The first account is the administrator.
-2. **Settings** (your initial, top right): turn on two-factor sign-in, set your time zone, and fill in the **body profile** (sex, birth date, height, activity level). The Food and Energy pages use it.
+2. **Settings** (your initial, top right): turn on two-factor sign-in, set your time zone, and fill in the **body profile** (sex, birth date, height, activity level). The Food and Energy pages use it. **Display** switches everything between US (lb, in, oz, mph) and metric (kg, cm, mL, km/h). **Medicines** lists what you take so peptides commonly flagged with them get red-and-black caution tape.
 3. Add what you own in **Inventory**, then build a protocol in **Protocols**.
 
 ## Inventory and orders

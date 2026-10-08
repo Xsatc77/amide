@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import units
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.library.price_lists.chart import multi_series_chart
@@ -152,7 +153,10 @@ def _line(points: list[tuple[date, float]], label: str, color: str, tips: list[s
     return chart
 
 
-def _progress_context(session: Session, uid: int, exercise: str, range_key: str) -> dict:
+def _progress_context(session: Session, uid: int, exercise: str, range_key: str, u=None) -> dict:
+    u = u or units.Units()
+    k = 1 / units.LB_PER_KG if u.metric else 1          # stored loads are pounds; show kilograms when metric
+    unit = u.load_label
     today = date.today()
     range_key = range_key if range_key in PROGRESS_RANGES else "90"
     everything = load_logged(session, uid)
@@ -163,20 +167,21 @@ def _progress_context(session: Session, uid: int, exercise: str, range_key: str)
     rows = progress.in_range(everything, progress.range_start(range_key, today), today)
 
     history = progress.exercise_history(rows, chosen)
-    load_points = [(p.log_date, p.top_load_lb) for p in history if p.top_load_lb]
-    load_tips = [f"{p.log_date:%m/%d/%Y}: top load {p.top_load_lb:,.0f} lb; about {p.net_kcal:,.0f} kcal net (estimated)"
+    load_points = [(p.log_date, p.top_load_lb * k) for p in history if p.top_load_lb]
+    load_tips = [f"{p.log_date:%m/%d/%Y}: top load {p.top_load_lb * k:,.0f} {unit}; about {p.net_kcal:,.0f} kcal net (estimated)"
                  for p in history if p.top_load_lb]
-    volume_points = [(p.log_date, p.volume_lb) for p in history if p.volume_lb]
-    volume_tips = [f"{p.log_date:%m/%d/%Y}: {p.volume_lb:,.0f} lb total volume; about {p.net_kcal:,.0f} kcal net (estimated)"
+    volume_points = [(p.log_date, p.volume_lb * k) for p in history if p.volume_lb]
+    volume_tips = [f"{p.log_date:%m/%d/%Y}: {p.volume_lb * k:,.0f} {unit} total volume; about {p.net_kcal:,.0f} kcal net (estimated)"
                    for p in history if p.volume_lb]
 
     weeks, by_area = progress.weekly_volume_by_area(rows)
+    by_area = {area: [v * k for v in values] for area, values in by_area.items()}
     area_colors = color_map(by_area)
     weekly = charts.stacked_bars(weeks, by_area, width=720, height=260) if weeks else None
     if weekly:
         for bar in weekly["bars"]:
             index = weeks.index(bar["label"])
-            parts = ", ".join(f"{area} {values[index]:,.0f} lb" for area, values in by_area.items() if values[index])
+            parts = ", ".join(f"{area} {values[index]:,.0f} {unit}" for area, values in by_area.items() if values[index])
             bar["tip"] = f"Week of {bar['label']:%m/%d/%Y}: {parts or 'no volume'}"
 
     equipment = progress.burn_by_equipment(rows)
@@ -184,8 +189,8 @@ def _progress_context(session: Session, uid: int, exercise: str, range_key: str)
     top = progress.top_exercises_by_kcal(rows)
     return {
         "empty": False, "names": names, "chosen": chosen, "range": range_key, "ranges": PROGRESS_RANGES,
-        "load_chart": _line(load_points, "Top load (lb)", PALETTE[0], load_tips),
-        "volume_chart": _line(volume_points, "Volume (lb)", PALETTE[2], volume_tips),
+        "load_chart": _line(load_points, f"Top load ({unit})", PALETTE[0], load_tips),
+        "volume_chart": _line(volume_points, f"Volume ({unit})", PALETTE[2], volume_tips),
         "records": progress.personal_records(everything), "weekly": weekly, "area_colors": area_colors,
         "ring": charts.ring(equipment), "equipment_colors": equipment_colors,
         "top": [(name, kcal, round(kcal / top[0][1] * 100)) for name, kcal in top],
@@ -196,4 +201,4 @@ def _progress_context(session: Session, uid: int, exercise: str, range_key: str)
 def progress_tab(request: Request, exercise: str = "", range_key: str = Query("90", alias="range"),
                  session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     return templates.TemplateResponse(request, "workouts/progress.html",
-                                      _progress_context(session, uid, exercise, range_key))
+                                      _progress_context(session, uid, exercise, range_key, units.for_user(request.state.user)))

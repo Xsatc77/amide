@@ -20,7 +20,7 @@
 {% endif %}
 {% endmacro %}
 
-{% macro silhouette_text(pt) %}{% if pt.value is none %}No data{% elif pt.side %}{{ pt.side }} only: {{ pt.value }} in{% else %}{{ pt.value }} in{% endif %}{% if pt.delta is not none %} ({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }}){% endif %}{% endmacro %}
+{% macro silhouette_text(pt) %}{% if pt.value is none %}No data{% elif pt.side %}{{ pt.side }} only: {{ pt.value }} {{ pt.unit }}{% else %}{{ pt.value }} {{ pt.unit }}{% endif %}{% if pt.delta is not none %} ({{ '+' if pt.delta > 0 else '' }}{{ pt.delta }}){% endif %}{% endmacro %}
 
 {% macro silhouette_circle(cx, cy, pt) %}
 <circle cx="{{ cx }}" cy="{{ cy }}" r="5" class="silhouette-point" role="button" tabindex="0"
@@ -29,7 +29,7 @@
   data-prior="{{ pt.prior if pt.prior is not none else '' }}"
   data-delta="{{ pt.delta if pt.delta is not none else '' }}"
   data-as-of="{{ pt.as_of | shortdate }}"
-  data-side="{{ pt.side or '' }}"
+  data-side="{{ pt.side or '' }}" data-unit="{{ pt.unit }}"
   aria-label="{{ pt.label }}: {{ silhouette_text(pt) }}"></circle>
 {% endmacro %}
 

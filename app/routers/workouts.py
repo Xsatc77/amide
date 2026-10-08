@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import config, uploads
+from app import config, units, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
@@ -439,7 +439,7 @@ async def _free_form_save(request: Request, session: Session, uid: int, existing
     if not label or len(label) > 200:
         raise HTTPException(422, "Give the workout a name of up to 200 characters.")
     orphans = {el.id: el for el in existing.exercise_logs} if existing else {}
-    parsed = workout_logging.parse_log_form(raw, types.SimpleNamespace(exercises=[]), orphans)
+    parsed = workout_logging.parse_log_form(raw, types.SimpleNamespace(exercises=[]), orphans, units.for_user(request.state.user))
     if not parsed.rows:
         raise HTTPException(422, "Add at least one exercise.")
     body_weight = parsed.body_weight_lb or workout_logging.latest_body_weight(session, uid)
@@ -485,7 +485,7 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
     existing = session.scalar(
         select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
     orphans = {el.id: el for el in existing.exercise_logs if el.exercise_id is None} if existing else {}
-    parsed = workout_logging.parse_log_form(raw, day, orphans)  # validates everything before touching the old log
+    parsed = workout_logging.parse_log_form(raw, day, orphans, units.for_user(request.state.user))  # validates everything before touching the old log
     body_weight = parsed.body_weight_lb or workout_logging.latest_body_weight(session, uid)
     exercise_logs = [workout_logging.build_exercise_log(row, body_weight) for row in parsed.rows]
 

@@ -7,7 +7,13 @@ from jinja2 import pass_context
 from app.goals import GOALS_BY_SLUG
 from app.library.tag_goals import goal_colors_for_tag
 
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+def _units_context(request):
+    """`u` in every template: the signed-in person's display units (US unless they chose metric in Settings)."""
+    from app import units
+    return {"u": units.for_user(getattr(request.state, "user", None))}
+
+
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates", context_processors=[_units_context])
 STATIC_DIR = Path(__file__).parent / "static"
 
 

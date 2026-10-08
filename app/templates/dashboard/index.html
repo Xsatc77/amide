@@ -205,8 +205,8 @@
       {{ panel_icon('droplet') }}
       <h2 id="dash-water-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=food">Water Goal</a></h2>
     </div>
-    <p class="panel-stat">{{ water.goal_oz }} <span class="panel-stat-sub small">oz/day</span></p>
-    <p class="muted panel-stat-sub">{{ '%g'|format(water.consumed_oz) }} oz logged today ({{ water.pct }}%)</p>
+    <p class="panel-stat">{{ u.volume(water.goal_oz) }} <span class="panel-stat-sub small">{{ u.volume_label }}/day</span></p>
+    <p class="muted panel-stat-sub">{{ '%g'|format(u.volume(water.consumed_oz)) }} {{ u.volume_label }} logged today ({{ water.pct }}%)</p>
     <p class="muted panel-stat-sub">about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr</p>
     {% if show_quick_capture %}
     <button type="button" class="btn btn-primary panel-stat-sub" data-action="open-water-dialog">+ Log water</button>
@@ -223,13 +223,13 @@
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
     <div class="water-quick-picks">
-      <button type="button" class="btn" data-quick-oz="8">8 oz</button>
-      <button type="button" class="btn" data-quick-oz="16">16 oz</button>
-      <button type="button" class="btn" data-quick-oz="24">24 oz</button>
+      {% for amount in ((250, 500, 750) if u.metric else (8, 16, 24)) %}
+      <button type="button" class="btn" data-quick-oz="{{ amount }}">{{ amount }} {{ u.volume_label }}</button>
+      {% endfor %}
     </div>
     <label class="field">
-      <span>Custom amount (oz)</span>
-      <input type="number" name="ounces" id="water-ounces-input" min="1" step="1" placeholder="e.g. 12">
+      <span>Custom amount ({{ u.volume_label }})</span>
+      <input type="number" name="ounces" id="water-ounces-input" min="1" step="1" placeholder="e.g. {{ 350 if u.metric else 12 }}">
     </label>
     <footer class="dialog-foot">
       <button type="button" class="btn" data-action="close">Cancel</button>
@@ -280,9 +280,9 @@
 {% if body_panel %}
 <section class="dash-chart-slot dash-area-weight" aria-labelledby="weight-chart-heading">
   {% if body_panel.chart %}
-  {{ line_chart(body_panel.chart, 'Weight (Lbs)') }}
+  {{ line_chart(body_panel.chart, 'Weight (' ~ u.weight_label ~ ')') }}
   {% else %}
-  <div class="card"><h3 id="weight-chart-heading">Weight (Lbs)</h3><p class="muted">No weight logged yet.</p></div>
+  <div class="card"><h3 id="weight-chart-heading">Weight ({{ u.weight_label }})</h3><p class="muted">No weight logged yet.</p></div>
   {% endif %}
 </section>
 {% endif %}

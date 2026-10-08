@@ -166,7 +166,7 @@
 
     <div class="measurement-entry-top-grid">
       <label class="field {{ 'has-error' if errors.weight_lbs }}">
-        <span>Weight (lbs) <span class="muted" title="Best to weigh within 1 hour of waking, at least once a week, no clothing.">ⓘ</span></span>
+        <span>Weight ({{ u.weight_label }}) <span class="muted" title="Best to weigh within 1 hour of waking, at least once a week, no clothing.">ⓘ</span></span>
         <input name="weight_lbs" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.weight_lbs or '' }}">
         {{ err('weight_lbs') }}
       </label>
@@ -223,16 +223,16 @@
       <thead>
         <tr>
           <th>Date</th>
-          <th>Weight (lbs)</th>
-          <th>Waist (in)</th>
+          <th>Weight ({{ u.weight_label }})</th>
+          <th>Waist ({{ u.length_label }})</th>
         </tr>
       </thead>
       <tbody>
         {% for m in entries %}
         <tr>
           <td data-label="Date">{{ m.measured_at | shortdate }}</td>
-          <td data-label="Weight (lbs)">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
-          <td data-label="Waist (in)">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
+          <td data-label="Weight ({{ u.weight_label }})">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
+          <td data-label="Waist ({{ u.length_label }})">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -249,8 +249,8 @@
       <thead>
         <tr>
           <th>Date</th>
-          <th>Weight (lbs)</th>
-          <th>Waist (in)</th>
+          <th>Weight ({{ u.weight_label }})</th>
+          <th>Waist ({{ u.length_label }})</th>
           <th>Shared by</th>
         </tr>
       </thead>
@@ -258,8 +258,8 @@
         {% for v in shared_views %}
         <tr>
           <td data-label="Date">{{ v.m.measured_at | shortdate }}</td>
-          <td data-label="Weight (lbs)">{{ v.m.weight_lbs if v.m.weight_lbs is not none else '—' }}</td>
-          <td data-label="Waist (in)">{{ v.m.waist_in if v.m.waist_in is not none else '—' }}</td>
+          <td data-label="Weight ({{ u.weight_label }})">{{ v.m.weight_lbs if v.m.weight_lbs is not none else '—' }}</td>
+          <td data-label="Waist ({{ u.length_label }})">{{ v.m.waist_in if v.m.waist_in is not none else '—' }}</td>
           <td data-label="Shared by">{{ v.owner_name }}</td>
         </tr>
         {% endfor %}
@@ -278,7 +278,7 @@
 <section aria-labelledby="water-heading">
   <h2 id="water-heading" class="section-title">Water goal</h2>
   <p>
-    <strong>{{ water.goal_oz }} oz/day</strong>
+    <strong>{{ u.volume(water.goal_oz) }} {{ u.volume_label }}/day</strong>
     <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups per hour, or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles per hour, to pace it over 16 waking hours)</span>
     {% if water.weight_as_of %}
     <span class="muted">(based on your weight as of {{ water.weight_as_of | shortdate }})</span>

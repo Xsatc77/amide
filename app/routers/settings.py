@@ -11,7 +11,7 @@ import secrets
 import zoneinfo
 from datetime import date, timezone
 
-from app import body_photos, config, reminders, uploads
+from app import body_photos, config, reminders, units, uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -58,7 +58,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "other_users": other_users, "my_shares": my_shares,
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
         "macro_goals": list(MacroGoal), "diet_presets": list(DietPreset), "life_stages": LIFE_STAGES,
-        "shipping": saved_shipping(me),
+        "shipping": saved_shipping(me), "unit_choices": units.CHOICES,
         "medicines": session.scalars(select(UserMedicine).where(UserMedicine.owner_id == me.id)
                                      .order_by(UserMedicine.name.collate("NOCASE"))).all(),
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
@@ -383,8 +383,11 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
         except ValueError:
             errors["birth_date"] = "Enter a valid date."
 
-    height_in = _parse_float("height_in")
+    units_ = units.for_user(request.state.user)
+    height_in = units_.length_in(_parse_float("height_in"))
     water_goal_oz = _parse_int("water_goal_oz")
+    if water_goal_oz is not None:
+        water_goal_oz = round(units_.volume_in(water_goal_oz))
     custom_protein_pct = _parse_int("custom_protein_pct")
     custom_carb_pct = _parse_int("custom_carb_pct")
     custom_fat_pct = _parse_int("custom_fat_pct")
@@ -438,6 +441,17 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
     me.water_goal_oz = water_goal_oz
     session.commit()
     return RedirectResponse("/settings#user", status_code=303)
+
+
+@router.post("/settings/units")
+async def change_units(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    value = str(form.get("units", "")).strip()
+    if value not in (units.US, units.METRIC):
+        return _render(request, session, errors={"units": "Pick one of the choices in the list."}, status_code=422)
+    _me(session, uid).units = value
+    session.commit()
+    return RedirectResponse("/settings#display", status_code=303)
 
 
 @router.post("/settings/display")

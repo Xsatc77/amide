@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import units
 from app.models import BodyMeasurement, WeightUnit, WorkoutExercise, WorkoutExerciseLog, WorkoutLog, WorkoutPlanDay
 from app.workouts import calories, exercise_db
 from app.workouts.exercise_db import Exercise
@@ -103,7 +104,7 @@ def _whole(raw, key: str, label: str, maximum: int = MAX_SETS) -> int | None:
     return int(text)
 
 
-def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise | None, completed: bool) -> ParsedRow:
+def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise | None, completed: bool, u=None) -> ParsedRow:
     get = lambda field: _text(raw, f"{field}{suffix}")           # noqa: E731 -- suffix is "[ID]" or "" with a prefix
     key = lambda field: f"{field}{suffix}"                       # noqa: E731
     unit_text = get("weight_unit")
@@ -125,7 +126,8 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
         sets=_whole(raw, key("sets_value"), f"Sets for {name}", MAX_SETS),
         reps=_whole(raw, key("reps_value"), f"Reps for {name}", MAX_REPS),
         minutes=_number(raw, key("minutes_value"), f"Minutes for {name}", positive=True, maximum=MAX_MINUTES),
-        speed=_number(raw, key("speed_value"), f"Speed for {name}", positive=True, maximum=MAX_SPEED_MPH),
+        speed=(u or units.Units()).speed_in(_number(raw, key("speed_value"), f"Speed for {name}", positive=True,
+                                                    maximum=MAX_SPEED_MPH * (units.KMH_PER_MPH if u and u.metric else 1))),
         grade=_number(raw, key("grade_value"), f"Incline grade for {name}", maximum=MAX_GRADE_PCT),
         watts=_number(raw, key("watts_value"), f"Watts for {name}", positive=True, maximum=MAX_WATTS), effort=effort,
         category=category, implements=_whole(raw, key("implements_value"), f"Implements for {name}", MAX_IMPLEMENTS) or 1)
@@ -139,7 +141,7 @@ def resolve_db(ex: WorkoutExercise) -> Exercise | None:
     return exercise_db.get(ex.db_exercise) or approximate_exercise(ex.name)
 
 
-def _extra_rows(raw, orphans: dict[int, WorkoutExerciseLog] | None = None) -> list[ParsedRow]:
+def _extra_rows(raw, orphans: dict[int, WorkoutExerciseLog] | None = None, u=None) -> list[ParsedRow]:
     """Exercises added on the day: 'extra-N-field' keys. A blank exercise name drops the row; a name must resolve.
     A row that carries `extra-N-keep` (the id of a saved row whose plan exercise was removed) and keeps its name is
     that saved row again: it keeps its done state and its database match, even a missing one, instead of being
@@ -166,22 +168,24 @@ def _extra_rows(raw, orphans: dict[int, WorkoutExerciseLog] | None = None) -> li
             hint = f" Closest: {close}." if close else " Pick an exercise from the list."
             raise HTTPException(422, f'"{typed}" is not in the exercise database.{hint}')
         prefixed = {k.replace(f"extra-{i}-", "", 1): v for k, v in raw.items() if k.startswith(f"extra-{i}-")}
-        rows.append(_row(prefixed, "", exercise_id=None, name=match.exercise.name, db=match.exercise, completed=True))
+        rows.append(_row(prefixed, "", exercise_id=None, name=match.exercise.name, db=match.exercise, completed=True, u=u))
     return rows
 
 
-def parse_log_form(raw, day: WorkoutPlanDay, orphans: dict[int, WorkoutExerciseLog] | None = None) -> ParsedLog:
+def parse_log_form(raw, day: WorkoutPlanDay, orphans: dict[int, WorkoutExerciseLog] | None = None, u=None) -> ParsedLog:
     """Everything on the form, validated, before the existing log is touched (a bad value never costs what was logged)."""
     try:
         log_date = date_type.fromisoformat(raw["log_date"])
     except (KeyError, ValueError):
         raise HTTPException(422, "A valid workout date (YYYY-MM-DD) is required.")
-    body_weight = _number(raw, "body_weight_lb", "Body weight", positive=True, maximum=MAX_BODY_WEIGHT_LB)
+    u = u or units.Units()
+    body_weight = u.weight_in(_number(raw, "body_weight_lb", "Body weight", positive=True,
+                                      maximum=MAX_BODY_WEIGHT_LB / (units.LB_PER_KG if u.metric else 1)))
     rows = []
     for ex in day.exercises:
         rows.append(_row(raw, f"[{ex.id}]", exercise_id=ex.id, name=ex.name, db=resolve_db(ex),
-                         completed=raw.get(f"completed[{ex.id}]") == "on"))
-    rows.extend(_extra_rows(raw, orphans))
+                         completed=raw.get(f"completed[{ex.id}]") == "on", u=u))
+    rows.extend(_extra_rows(raw, orphans, u))
     return ParsedLog(log_date, body_weight, rows)
 
 

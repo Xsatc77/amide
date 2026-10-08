@@ -17,6 +17,8 @@ Newest first. Dates are when the work was done.
 - Labs: a line per marker, results like <5 and >100; Journal: any past day, trend charts; Workouts: end or delete a plan, export the log, weight-aware TDEE.
 - The shopping plan counts BAC bottles by the 28-day rule.
 - Your own side effects in the journal, free-form workouts, live USDA food search (opt-in), and scheduled encrypted backups (opt-in).
+- Metric units: choose US or metric in Settings (weight, tape measurements, height, water, speed and loads); your data is stored once and converted when shown or typed.
+- Medicines list in Settings, with red-and-black caution tape on peptides commonly flagged with them; reference lines on every chart; examples from the peptide community in the protocol builder.
 - Minimum password length raised to 8 (set `AMIDE_PASSWORD_MIN_LENGTH` to change it).
 - GitHub Actions: tests on every push, Docker image published on version tags.
 

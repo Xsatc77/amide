@@ -997,6 +997,7 @@ class User(Base):
     shop_us_shipping_cents: Mapped[int | None] = mapped_column(Integer)
     auto_print_labels: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")      # open the vial labels when an order is checked in
     label_size: Mapped[str] = mapped_column(String(10), default="5160", server_default="5160")
+    units: Mapped[str] = mapped_column(String(6), default="us", server_default="us")      # display units: "us" or "metric" (data is always stored in US units)
     calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)      # secret address of the private iCal feed; none = feed off
     ntfy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # push the dose reminders to ntfy
     ntfy_topic: Mapped[str | None] = mapped_column(String(100))

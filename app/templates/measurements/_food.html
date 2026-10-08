@@ -49,7 +49,7 @@
       <li>{{ 'Remaining' if e.calories <= t.calories else 'Over by' }}: <strong>{{ '{:,}'.format((t.calories - e.calories) | abs | round | int) }}</strong> kcal</li>
       <li>TDEE: {{ '{:,}'.format(food.tdee) }} kcal &middot; logged workout burn: {{ '{:,}'.format(food.workout_burn) }} kcal</li>
       <li>Potential {{ 'surplus' if d.surplus else 'deficit' }}: <strong>{{ '{:,}'.format(d.kcal | abs) }}</strong> kcal
-        <span class="muted small">(TDEE + workout burn - eaten; about {{ d.lb_per_week }} lb per week if every day were like this: an estimate)</span></li>
+        <span class="muted small">(TDEE + workout burn - eaten; about {{ u.weight(d.lb_per_week) }} {{ 'kg' if u.metric else 'lb' }} per week if every day were like this: an estimate)</span></li>
     </ul>
   </div>
 

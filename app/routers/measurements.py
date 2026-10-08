@@ -9,6 +9,7 @@ from app import config, photo_access
 from app.auth import sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
+from app import units
 from app.measurements.calculations import bmi, body_fat_pct, water_goal_oz, water_pace
 from app.models import BodyMeasurement, DietPreset, Food, LoginSession, MacroGoal, Share, ShareCategory, User
 from app.routers import journal, labs
@@ -67,6 +68,28 @@ FLOAT_FIELDS = (
     "quad_l_in", "quad_r_in", "calf_l_in", "calf_r_in",
 )
 INT_FIELDS = ("systolic", "diastolic", "heart_rate_bpm")
+
+
+def display_entries(entries, u):
+    """The entries as the person wants to read them: weight and tape measurements converted to their units (US rows pass
+    through untouched). Copies, so nothing stored is changed; used for tables, charts and the silhouette, never for the
+    BMI, body-fat and water maths, which stay in US units."""
+    if not u.metric:
+        return list(entries)
+    from types import SimpleNamespace
+    out = []
+    for e in entries:
+        view = SimpleNamespace(**{c.name: getattr(e, c.name) for c in e.__table__.columns})
+        for field in FLOAT_FIELDS:
+            value = getattr(view, field)
+            if value is not None:
+                setattr(view, field, u.weight(value) if field == "weight_lbs" else u.length(value))
+        out.append(view)
+    return out
+
+
+def unit_label(label: str, u) -> str:
+    return label.replace("(lbs)", f"({u.weight_label})").replace("(in)", f"({u.length_label})")
 
 
 def _measurement_query(uid: int):
@@ -136,7 +159,7 @@ def _trend(key: str, delta: float | None) -> str | None:
     return None
 
 
-def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
+def _silhouette_points(entries: list[BodyMeasurement], unit: str = "in") -> dict | None:
     """One entry per silhouette location for the most recent BodyMeasurement row: its current
     value (averaged across both sides for a bilateral location when both sides are present), the
     prior value it changed from, and the delta between them. A bilateral location missing one side
@@ -186,6 +209,7 @@ def _silhouette_points(entries: list[BodyMeasurement]) -> dict | None:
 
     for key, pt in points.items():
         pt["trend"] = _trend(key, pt["delta"])
+        pt["unit"] = unit
 
     return points
 
@@ -380,7 +404,7 @@ def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, f
            "min_v": round(min_v, 1), "max_v": round(max_v, 1), "min_d": min_d, "max_d": max_d}
 
 
-def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, range_key: str) -> dict:
+def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, range_key: str, u=None) -> dict:
     """Chart data for every tracked series. ALL series -- weight, blood pressure, every
     measurement field, and the derived BMI/body-fat % -- draw only from the viewer's own windowed
     entries (`own_windowed`), never a sharing partner's: mixing two people's raw numbers into one
@@ -388,8 +412,10 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
     sharing partner's data stays visible only in the separate "Shared with you" table, never in
     these charts. (BMI/body-fat % additionally need the viewer's own height/sex, which is a
     second, independent reason they could never have used a partner's rows.)"""
-    series = [{"key": field, "label": label,
-              "chart": _chart([(r.measured_at, getattr(r, field)) for r in own_windowed
+    u = u or units.Units()
+    shown = display_entries(own_windowed, u)                   # what the lines show; BMI and body fat below use the stored US rows
+    series = [{"key": field, "label": unit_label(label, u),
+              "chart": _chart([(r.measured_at, getattr(r, field)) for r in shown
                                if getattr(r, field) is not None])}
              for field, label in CHART_FIELDS]
 
@@ -400,7 +426,7 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
     bilateral_avg = [
         {"key": f"{key}_avg", "label": f"{label} (avg)",
          "chart": _chart([(r.measured_at, (getattr(r, left_field) + getattr(r, right_field)) / 2)
-                          for r in own_windowed
+                          for r in shown
                           if getattr(r, left_field) is not None and getattr(r, right_field) is not None])}
         for key, left_field, right_field, label in BILATERAL_LOCATIONS
     ]
@@ -476,17 +502,19 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         goal_oz = water_goal_oz(latest_weight, me_user.water_goal_oz if me_user else None)
         water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": latest_weight_as_of}
 
+    u = units.for_user(me_user)
+    shared_views = [{"m": display_entries([v["m"]], u)[0], "owner_name": v["owner_name"]} for v in shared_views]
     context = {
-        "entries": own_windowed,
+        "entries": display_entries(own_windowed, u),
         "shared_views": shared_views,
         "form": form or {},
         "errors": errors or {},
         "today": date.today().isoformat(),
         "active_tab": tab,
-        "silhouette": _silhouette_points(own_entries),
+        "silhouette": _silhouette_points(display_entries(own_entries, u), u.length_label),
         "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
         "water": water,
-        "charts": _charts_context(own_windowed, me_user, range_key),
+        "charts": _charts_context(own_windowed, me_user, range_key, u),
         "as_of": as_of.isoformat(),
     }
     if tab == "journal":
@@ -578,7 +606,11 @@ async def create_measurement(request: Request, session: Session = Depends(get_se
     else:
         measured_at = date.today()
 
+    u = units.for_user(request.state.user)
     values = {field: _parse_float(field) for field in FLOAT_FIELDS}
+    for field in FLOAT_FIELDS:                                          # typed in the person's units, stored in US units
+        if values[field] is not None:
+            values[field] = u.weight_in(values[field]) if field == "weight_lbs" else u.length_in(values[field])
     values.update({field: _parse_int(field) for field in INT_FIELDS})
 
     if errors:

@@ -84,10 +84,11 @@
     const prior = point.dataset.prior;
     const delta = point.dataset.delta;
     const asOf = point.dataset.asOf;
+    const unit = point.dataset.unit || "in";
     if (!value) return `<strong>${label}</strong><span class="muted">No data</span>`;
     const deltaText = delta ? ` (${Number(delta) > 0 ? "+" : ""}${delta})` : "";
-    const parts = [`<strong>${label}</strong>`, `${value} in${deltaText}`];
-    if (prior) parts.push(`<span class="muted">Previous: ${prior} in</span>`);
+    const parts = [`<strong>${label}</strong>`, `${value} ${unit}${deltaText}`];
+    if (prior) parts.push(`<span class="muted">Previous: ${prior} ${unit}</span>`);
     if (asOf) parts.push(`<span class="muted">As of ${asOf}</span>`);
     return parts.join("<br>");
   }

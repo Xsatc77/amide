@@ -28,7 +28,7 @@ FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "
 
 PROFILE_COLUMNS = ("sex", "birth_date", "height_in", "activity_level", "macro_goal", "diet_preset", "life_stage",
                    "custom_protein_pct", "custom_carb_pct", "custom_fat_pct", "water_goal_oz", "timezone", "colorway",
-                   "default_discard_days", "low_stock_default", "shipment_delay_days")
+                   "default_discard_days", "low_stock_default", "shipment_delay_days", "units")
 
 _ITEMS = "SELECT id FROM inventory_items WHERE owner_id = :uid"
 _PROTOCOLS = "SELECT id FROM protocols WHERE owner_id = :uid"

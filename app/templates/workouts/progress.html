@@ -47,7 +47,7 @@
   <h2 class="section-title">{{ chosen }}</h2>
   {% if load_chart %}
   <h3 class="small muted">Top load</h3>
-  {{ line_chart(load_chart, 'Top load of ' ~ chosen, '%.0f lb') }}
+  {{ line_chart(load_chart, 'Top load of ' ~ chosen, '%.0f ' ~ u.load_label) }}
   {% endif %}
   {% if volume_chart %}
   <h3 class="small muted">Total volume per session</h3>
@@ -72,7 +72,7 @@
     </g>
     {% endfor %}
   </svg>
-  <p class="muted small">Volume is load &times; reps &times; sets in pounds, by the body area the database gives each exercise.</p>
+  <p class="muted small">Volume is load &times; reps &times; sets in {{ 'kilograms' if u.metric else 'pounds' }}, by the body area the database gives each exercise.</p>
   {% else %}<p class="muted">No loaded sets in this range.</p>{% endif %}
 </section>
 
@@ -107,9 +107,9 @@
         {% for r in records %}
         <tr>
           <td data-label="Exercise">{{ r.name }}</td>
-          <td data-label="Heaviest load">{% if r.heaviest %}{{ '%g' | format(r.heaviest[0]) }} lb <span class="muted small">{{ r.heaviest[1] | shortdate }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Heaviest load">{% if r.heaviest %}{{ '%g' | format(r.heaviest[0] * (0.45359237 if u.metric else 1)) }} {{ u.load_label }} <span class="muted small">{{ r.heaviest[1] | shortdate }}</span>{% else %}—{% endif %}</td>
           <td data-label="Most reps in a set">{% if r.most_reps %}{{ r.most_reps[0] }} <span class="muted small">{{ r.most_reps[1] | shortdate }}</span>{% else %}—{% endif %}</td>
-          <td data-label="Biggest session volume">{% if r.biggest_volume %}{{ n(r.biggest_volume[0] | round | int) }} lb <span class="muted small">{{ r.biggest_volume[1] | shortdate }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Biggest session volume">{% if r.biggest_volume %}{{ n((r.biggest_volume[0] * (0.45359237 if u.metric else 1)) | round | int) }} {{ u.load_label }} <span class="muted small">{{ r.biggest_volume[1] | shortdate }}</span>{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

@@ -227,9 +227,9 @@
             {{ err('birth_date') }}
           </label>
           <label class="field {{ 'has-error' if errors.height_in }}">
-            <span>Height (in)</span>
+            <span>Height ({{ u.length_label }})</span>
             <input name="height_in" type="number" step="0.1" min="0"
-                  value="{{ me.height_in if me.height_in is not none else '' }}">
+                  value="{{ u.length(me.height_in) if me.height_in is not none else '' }}">
             {{ err('height_in') }}
           </label>
           <label class="field {{ 'has-error' if errors.activity_level }}">
@@ -281,9 +281,9 @@
             {{ err('custom_fat_pct') }}
           </label>
           <label class="field {{ 'has-error' if errors.water_goal_oz }}">
-            <span>Water goal override (oz)</span>
+            <span>Water goal override ({{ u.volume_label }})</span>
             <input name="water_goal_oz" type="number" min="0" step="1"
-                  value="{{ me.water_goal_oz if me.water_goal_oz is not none else '' }}">
+                  value="{{ u.volume(me.water_goal_oz) if me.water_goal_oz is not none else '' }}">
             {{ err('water_goal_oz') }}
           </label>
         </div>
@@ -361,6 +361,17 @@
 
     <section id="display" class="builder-step">
       <h2 class="section-title">Display</h2>
+      <form method="post" action="/settings/units" class="settings-form" novalidate>
+        <p class="small muted">Units for weight, measurements, water and speed. Your data is stored once and shown in whichever you pick.</p>
+        <label class="field {{ 'has-error' if errors.units }}">
+          <span>Units</span>
+          <select name="units">
+            {% for value, label in unit_choices %}<option value="{{ value }}" {{ 'selected' if me.units == value }}>{{ label }}</option>{% endfor %}
+          </select>
+          {{ err('units') }}
+        </label>
+        <button type="submit" class="btn btn-primary">Save units</button>
+      </form>
       <form method="post" action="/settings/display" class="settings-form" novalidate>
         <p class="small muted">Pick a colorway. "Auto" follows your system's light/dark setting.</p>
         <label class="field {{ 'has-error' if errors.colorway }}">

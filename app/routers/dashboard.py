@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app import compliance
+from app import compliance, units
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
 from app.inventory.runout import ALERT_DAYS as RUNOUT_ALERT_DAYS, runs_out
@@ -189,7 +189,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # direction up top would be circular) rather than duplicating that logic a second time.
         from app.routers.measurements import (
             DEFAULT_RANGE, RANGE_DAYS, _chart, _field_current_and_delta, _silhouette_points,
-            _silhouette_shape,
+            _silhouette_shape, display_entries,
         )
         from app.measurements.calculations import water_goal_oz, water_pace
         entries = session.scalars(
@@ -212,9 +212,11 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # Measurements page has.
         cutoff = today - timedelta(days=RANGE_DAYS[DEFAULT_RANGE])
         windowed = [e for e in entries if e.measured_at >= cutoff]
+        u = units.for_user(request.state.user)
+        shown_windowed = display_entries(windowed, u)
         body_panel = {
-            "chart": _chart([(e.measured_at, e.weight_lbs) for e in windowed if e.weight_lbs is not None]),
-            "silhouette": _silhouette_points(entries) if entries else None,
+            "chart": _chart([(e.measured_at, e.weight_lbs) for e in shown_windowed if e.weight_lbs is not None]),
+            "silhouette": _silhouette_points(display_entries(entries, u), u.length_label) if entries else None,
             "silhouette_shape": _silhouette_shape(viewer.sex.value if viewer and viewer.sex else None),
         }
 
@@ -315,7 +317,7 @@ async def log_water(request: Request, session: Session = Depends(get_session), t
     quick-note's own "bounce back as if nothing was submitted" behavior for bad input."""
     form = await request.form()
     try:
-        ounces = float(form.get("ounces", ""))
+        ounces = units.for_user(request.state.user).volume_in(float(form.get("ounces", "")))      # typed in the person's units
     except (TypeError, ValueError):
         ounces = None
     if ounces is not None and ounces > 0:
