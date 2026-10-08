@@ -30,7 +30,7 @@
       <a href="/vendors" class="{{ 'active' if active == 'vendors' }}"{% if active == 'vendors' %} aria-current="page"{% endif %}>Vendors</a>
       <a href="/library" class="{{ 'active' if active == 'library' }}"{% if active == 'library' %} aria-current="page"{% endif %}>Library</a>
       <a href="/calculator" class="{{ 'active' if active == 'calculator' }}"{% if active == 'calculator' %} aria-current="page"{% endif %}>Calculator</a>
-      <span class="soon" title="Coming soon" aria-disabled="true">Links (soon)</span>
+      <span class="soon" title="Coming soon" aria-disabled="true">Links</span>
     </nav>
     {% set me = request.state.user %}
     {% if me %}

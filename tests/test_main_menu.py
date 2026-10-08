@@ -10,7 +10,7 @@ def labels(page):
 
 def test_menu_order_and_links_placeholder(client, db):
     assert labels(client.get("/dashboard").text) == [
-        "Dashboard", "Today", "Protocols", "Calendar", "Body", "Workouts", "Nutrition", "Inventory", "Vendors", "Library", "Calculator", "Links (soon)"]
+        "Dashboard", "Today", "Protocols", "Calendar", "Body", "Workouts", "Nutrition", "Inventory", "Vendors", "Library", "Calculator", "Links"]
 
 
 def test_fitness_test_is_a_workouts_tab_and_not_a_menu_item(client, db):

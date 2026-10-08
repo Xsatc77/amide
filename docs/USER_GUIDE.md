@@ -2,6 +2,8 @@
 
 A tour of what Amide does and where to find it. Everything stays on the computer that runs Amide.
 
+A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.md](GUIDE.md).
+
 > Amide is a record-keeping tool. Nothing in it is medical advice. Read the legal notice on the sign-in page.
 
 ## First steps
