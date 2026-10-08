@@ -55,7 +55,7 @@
         <dl class="kv kv-tight quick-facts">
           {% if p.half_life_text %}<dt>Half-life</dt><dd>{{ p.half_life_text }}</dd>{% endif %}
           {% if p.route_summary %}<dt>Route</dt><dd>{{ p.route_summary }}</dd>{% endif %}
-          {% if p.cycle %}<dt>Cycle</dt><dd>{{ p.cycle.on_weeks }}w on / {{ p.cycle.off_weeks }}w off</dd>{% endif %}
+          {% if p.cycle %}<dt>Cycle</dt><dd>{{ p.cycle.on_weeks }}w on{% if p.cycle.off_weeks is not none %} / {{ p.cycle.off_weeks }}w off{% endif %}</dd>{% endif %}
           {% if price_range %}<div class="price-aside">{{ price_chip(price_range, price_compare) }}</div>{% endif %}
         </dl>
       </section>
@@ -129,7 +129,7 @@
       {% for key, title in narrative_order if simple.get(key) %}
       <section class="lib-section{{ ' lib-section-caution' if key in caution_keys else '' }}">
         <h2 class="section-title">{{ title }}</h2>
-        {% if key in bullet_keys %}
+        {% if key in bullet_keys or (key == 'side_effects' and '\n' in simple[key]) %}
           {{ bullets(simple[key].split("\n")) }}
         {% else %}
           <p>{{ simple[key] }}</p>

@@ -18,3 +18,8 @@ def terms(request: Request):
 @router.get("/legal/privacy")
 def privacy(request: Request):
     return templates.TemplateResponse(request, "legal/privacy.html")
+
+
+@router.get("/about")
+def about(request: Request):
+    return templates.TemplateResponse(request, "about.html")

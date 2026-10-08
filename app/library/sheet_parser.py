@@ -453,8 +453,7 @@ def _parse_monitoring_tests(lines: list[str], all_headers: list[tuple[int, str]]
     # located by position, never validated by exact text.
     tests: list[dict] = []
     for line in section_lines[1:]:
-        cells = [c.strip() for c in line.split("\t") if c.strip() != "" or True]
-        cells = [c.strip() for c in line.split("\t")]
+        cells = [c.strip() for c in (line.split("\t") if "\t" in line else line.split(" | "))]      # scraped files use tabs; the library-sheet template uses " | "
         # Filter out fully-empty trailing artifacts but keep positional cells.
         cells = [c for c in cells if c != ""]
         if len(cells) < 2:
@@ -607,3 +606,22 @@ def parse_sheet(text: str) -> dict:
         "cost_estimate_text": cost_estimate_text,
         "sheet_sections": sheet_sections,
     }
+
+
+_SIMPLE_PARAGRAPHS = ("what_is", "how_it_works", "legal")
+_SIMPLE_LISTS = ("benefits", "side_effects", "contraindications", "drug_interactions", "who_should_consider", "product_quality")
+
+
+def simple_sections(sheet_sections: dict) -> dict:
+    """The readable sections the library page shows, built from a sheet's own sections: paragraph sections become one paragraph, list sections
+    one item per line. For sheets written in plain language (the library-sheet template) these need no separate rewriting."""
+    out = {}
+    for key in _SIMPLE_PARAGRAPHS:
+        text = " ".join(l.strip() for l in (sheet_sections.get(key) or "").split("\n") if l.strip())
+        if text:
+            out[key] = text
+    for key in _SIMPLE_LISTS:
+        text = "\n".join(l.strip() for l in (sheet_sections.get(key) or "").split("\n") if l.strip())
+        if text:
+            out[key] = text
+    return out

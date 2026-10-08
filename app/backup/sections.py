@@ -112,8 +112,9 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("lab_results", "panel_id IN (SELECT id FROM lab_panels WHERE owner_id = :uid)")),
         help="Lab panels, results and attached lab reports."),
     Section("learning", "Learning notes", PERSON, (
-        Tbl("peptide_notes", "owner_id = :uid", share_drop=True),),
-        help="Your private notes and saved articles on library peptides. Never offered in a Share file."),
+        Tbl("peptide_notes", "owner_id = :uid", share_drop=True),
+        Tbl("saved_links", "owner_id = :uid", share_drop=True)),
+        help="Your private notes and saved articles on library peptides, and your saved links. Never offered in a Share file."),
     Section("accounts", "Accounts", INSTALLATION, (
         Tbl("users"), Tbl("shares")),
         help="Every account, with password hashes and 2FA secrets, and sharing grants. Whole-installation backups only."),

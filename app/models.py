@@ -1213,6 +1213,23 @@ class JournalCustomEffect(Base):
     name: Mapped[str] = mapped_column(String(40))
 
 
+class SavedLink(Base):
+    """A site a person saved on the Links page. `description` is what they wrote; `auto_description` is read from the site when they wrote none."""
+    __tablename__ = "saved_links"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    url: Mapped[str] = mapped_column(String(500))
+    link_type: Mapped[str] = mapped_column(String(20))
+    description: Mapped[str | None] = mapped_column(String(300))
+    auto_description: Mapped[str | None] = mapped_column(String(300))
+    auto_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # a read was tried (even if it found nothing)
+
+    @property
+    def shown_description(self) -> str | None:
+        return self.description or self.auto_description
+
+
 class UserMedicine(Base):
     """A medicine a person takes, listed in Settings so peptide cautions can be shown."""
     __tablename__ = "user_medicines"

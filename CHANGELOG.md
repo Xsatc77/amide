@@ -19,6 +19,7 @@ Newest first. Dates are when the work was done.
 - Your own side effects in the journal, free-form workouts, live USDA food search (opt-in), and scheduled encrypted backups (opt-in).
 - Metric units: choose US or metric in Settings (weight, tape measurements, height, water, speed and loads); your data is stored once and converted when shown or typed.
 - Medicines list in Settings, with red-and-black caution tape on peptides commonly flagged with them; reference lines on every chart; examples from the peptide community in the protocol builder.
+- A Links page: save sites by type (Vendor, Supplies, Community, Research, Blog/Vlog, Calculator, Workouts, Nutrition, Other), sorted by name, with Edit and Delete; a link saved without a description gets a short one read from its site (`AMIDE_LINK_DESCRIPTIONS=0` turns that off).
 - Minimum password length raised to 8 (set `AMIDE_PASSWORD_MIN_LENGTH` to change it).
 - GitHub Actions: tests on every push, Docker image published on version tags.
 

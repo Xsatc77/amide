@@ -9,7 +9,7 @@ from pathlib import Path
 
 from app.db import SessionLocal
 from app.library.loader import load_sheets
-from app.library.sheet_parser import UnrecognizedSheetError, parse_sheet
+from app.library.sheet_parser import UnrecognizedSheetError, parse_sheet, simple_sections
 from app.migrate import upgrade_db
 
 
@@ -35,6 +35,7 @@ def main() -> None:
             continue
         # Add empty usage_tips by default (curated tips are added manually later)
         sheet["usage_tips"] = []
+        sheet["sheet_sections_simple"] = simple_sections(sheet.get("sheet_sections") or {})      # the readable sections shown on the library page
         sheets.append(sheet)
 
     # Load all sheets at once

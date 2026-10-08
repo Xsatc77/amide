@@ -30,7 +30,7 @@
       <a href="/vendors" class="{{ 'active' if active == 'vendors' }}"{% if active == 'vendors' %} aria-current="page"{% endif %}>Vendors</a>
       <a href="/library" class="{{ 'active' if active == 'library' }}"{% if active == 'library' %} aria-current="page"{% endif %}>Library</a>
       <a href="/calculator" class="{{ 'active' if active == 'calculator' }}"{% if active == 'calculator' %} aria-current="page"{% endif %}>Calculator</a>
-      <span class="soon" title="Coming soon" aria-disabled="true">Links</span>
+      <a href="/links" class="{{ 'active' if active == 'links' }}"{% if active == 'links' %} aria-current="page"{% endif %}>Links</a>
     </nav>
     {% set me = request.state.user %}
     {% if me %}
@@ -41,6 +41,7 @@
       </summary>
       <div class="user-menu-panel">
         <a href="/settings">Settings</a>
+        <a href="/about">About</a>
         <form method="post" action="/logout"><button type="submit">Log out</button></form>
       </div>
     </details>

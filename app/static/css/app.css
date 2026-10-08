@@ -1378,3 +1378,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .medicine-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; }
 .premade-list { list-style: none; margin: 0 0 var(--space-3, 12px); padding: 0; display: grid; gap: 8px; }
 .premade-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+
+/* Links page */
+.link-group { margin-bottom: 20px; }
+.link-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.link-card { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.link-main { min-width: 0; }
+.link-name { font-weight: 600; }
+.link-host { margin-left: 8px; }
+.link-desc { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+.link-actions { display: flex; gap: 4px; flex: none; }

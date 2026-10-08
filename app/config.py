@@ -25,6 +25,7 @@ REMINDERS_ENABLED = os.environ.get("AMIDE_REMINDERS", "1") != "0"           # th
 BACKUP_PASSPHRASE = os.environ.get("AMIDE_BACKUP_PASSPHRASE", "")             # set it and Amide writes an encrypted whole-installation backup to data/backups on a schedule
 BACKUP_EVERY_DAYS = int(os.environ.get("AMIDE_BACKUP_DAYS", "7"))
 BACKUP_KEEP = int(os.environ.get("AMIDE_BACKUP_KEEP", "4"))                    # how many automatic backups to keep
+LINK_DESCRIPTIONS = os.environ.get("AMIDE_LINK_DESCRIPTIONS", "1") != "0"        # read a short description from a saved link's site when none was written
 USDA_API_KEY = os.environ.get("AMIDE_USDA_API_KEY", "")                       # a free FoodData Central key turns on "Search USDA" in the Add food dialog
 NTFY_SERVER = os.environ.get("AMIDE_NTFY_SERVER", "https://ntfy.sh")          # where reminders are posted: ntfy.sh or your own ntfy server
 INGEST_SETTLE_SECONDS = 60

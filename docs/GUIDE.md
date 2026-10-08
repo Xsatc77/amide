@@ -48,7 +48,7 @@ The first account you create is the **administrator**: it can add other people, 
 
 ### The top menu
 
-Dashboard · Today · Protocols · Calendar · Body · Workouts · Nutrition · Inventory · Vendors · Library · Calculator. A greyed **Links** is reserved for a future update (marked Coming soon). Your name, top right, opens Settings, Backup and sign out.
+Dashboard · Today · Protocols · Calendar · Body · Workouts · Nutrition · Inventory · Vendors · Library · Calculator. **Links** keeps your saved sites (see [section 12b](#12b-links)). Your name, top right, opens Settings, Backup and sign out.
 
 ### Install it like an app
 
@@ -308,6 +308,14 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 
 ---
 
+## 12b. Links
+
+The **Links** page keeps the sites you use, grouped under their type (Vendor, Supplies, Community, Research, Blog/Vlog, Calculator, Workouts, Nutrition, Other) and sorted A to Z by site name. Only types you have links for get a section.
+
+- **+ Add** opens a form: **Site name**, **URL**, **Type** and an optional **Description**.
+- Leave the description blank and Amide reads a short one from the site itself (its own description, else its first paragraph, else its title) and shows it under the link. This is one plain request to that site with nothing about you in it, never to an address on your own network. Your administrator can turn it off.
+- Every link has **Edit** and **Delete**. Changing the URL reads the new site's description again.
+
 ## 13. Backup, restore and your privacy
 
 ### Backup and restore
@@ -323,6 +331,7 @@ Everything is stored in one folder (`AMIDE_DATA_DIR`), so backing up that one fo
 - **ntfy** push reminders (off by default).
 - **USDA** live food search (off unless a key is set).
 - **Scheduled backups** (to a folder you choose).
+- **Link descriptions** (one plain request to a site you saved a link to, when you left its description blank; can be turned off).
 - **Price-list watcher** (a separate program you run).
 - The **calendar feed**, a private address you choose to share.
 

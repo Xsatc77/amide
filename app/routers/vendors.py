@@ -57,6 +57,16 @@ def _vendor_recent_order_dates(session: Session, uid: int) -> dict[int, date]:
     return dict(rows)
 
 
+def _grouped_vendors(vendors: list[Vendor], favorite_ids: set[int], recent_dates: dict[int, date], sort: str) -> list[tuple[str, list[Vendor]]]:
+    """The vendor list in three groups: this person's Favorites, then Recommended (marked recommended, not favorited), then All others.
+    Each group is in the chosen order (A to Z by name, or newest order first). A group with no vendors is left out."""
+    ordered = _sorted_vendors(vendors, set(), recent_dates, sort)
+    favorites = [v for v in ordered if v.id in favorite_ids]
+    recommended = [v for v in ordered if v.id not in favorite_ids and v.recommended is True]
+    others = [v for v in ordered if v.id not in favorite_ids and v.recommended is not True]
+    return [(label, rows) for label, rows in (("Favorites", favorites), ("Recommended", recommended), ("All others", others)) if rows]
+
+
 def _sorted_vendors(vendors: list[Vendor], favorite_ids: set[int], recent_dates: dict[int, date],
                     sort: str) -> list[Vendor]:
     """Favorites always pin to the top (of either sort mode); within each group, alphabetical by
@@ -79,9 +89,10 @@ def list_vendors(request: Request, sort: str = "alpha", session: Session = Depen
     vendors = session.scalars(select(Vendor)).all()
     favorite_ids = _favorited_vendor_ids(session, uid)
     recent_dates = _vendor_recent_order_dates(session, uid)
-    vendors = _sorted_vendors(vendors, favorite_ids, recent_dates, sort)
+    groups = _grouped_vendors(vendors, favorite_ids, recent_dates, sort)
     return templates.TemplateResponse(request, "vendors/list.html", {
         "vendors": vendors,
+        "groups": groups,
         "favorite_ids": favorite_ids,
         "recent_dates": recent_dates,
         "sort": sort,

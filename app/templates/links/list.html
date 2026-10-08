@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% set active_nav = "links" %}
+{% block title %}Links{% endblock %}
+
+{% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Links</h1>
+    <p class="muted">{{ count }} saved site{{ '' if count == 1 else 's' }}. Anything you add without a description gets a short one read from the site.</p>
+  </div>
+  <button type="button" class="btn btn-primary" data-action="add-link">+ Add</button>
+</div>
+
+{% if not groups %}
+<div class="empty">
+  <p><strong>No links yet.</strong></p>
+  <p class="muted">Press Add to save a site: a vendor, a supplier, a community, an article or a calculator you use.</p>
+</div>
+{% endif %}
+
+{% for kind, rows in groups %}
+<section class="link-group" aria-labelledby="links-{{ loop.index }}">
+  <h2 id="links-{{ loop.index }}" class="section-title">{{ kind }} <span class="muted small">({{ rows | length }})</span></h2>
+  <ul class="link-list">
+    {% for l in rows %}
+    <li class="link-card">
+      <div class="link-main">
+        <a class="link-name" href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.name }}</a>
+        <span class="muted small link-host">{{ host_of(l.url) }}</span>
+        {% if l.shown_description %}<p class="link-desc">{{ l.shown_description }}</p>{% endif %}
+      </div>
+      <div class="link-actions">
+        <button type="button" class="btn btn-ghost" data-action="edit-link" data-id="{{ l.id }}" data-name="{{ l.name }}" data-url="{{ l.url }}"
+                data-type="{{ l.link_type }}" data-description="{{ l.description or '' }}" aria-label="Edit {{ l.name }}">Edit</button>
+        <form method="post" action="/links/{{ l.id }}/delete" class="inline" data-confirm="Delete {{ l.name }} from your links?">
+          <button type="submit" class="btn btn-ghost btn-danger" aria-label="Delete {{ l.name }}">Delete</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+
+<dialog id="link-dialog" class="dialog"{% if errors %} data-open-on-load{% endif %}>
+  <form method="post" action="{{ '/links/' ~ edit_id if edit_id else '/links' }}" class="settings-form" id="link-form" novalidate>
+    <header class="dialog-head">
+      <h2 id="link-dialog-title">{{ 'Edit link' if edit_id else 'Add a link' }}</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
+    </header>
+    <label class="field {{ 'has-error' if errors.name }}">
+      <span>Site name</span>
+      <input type="text" name="name" maxlength="120" required value="{{ form.name or '' }}" autocomplete="off">
+      {{ err('name') }}
+    </label>
+    <label class="field {{ 'has-error' if errors.url }}">
+      <span>URL</span>
+      <input type="text" name="url" inputmode="url" maxlength="500" required placeholder="https://" value="{{ form.url or '' }}" autocomplete="off">
+      {{ err('url') }}
+    </label>
+    <label class="field {{ 'has-error' if errors.link_type }}">
+      <span>Type</span>
+      <select name="link_type" required>
+        {% for t in types %}<option value="{{ t }}"{% if form.link_type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+      {{ err('link_type') }}
+    </label>
+    <label class="field {{ 'has-error' if errors.description }}">
+      <span>Description (optional)</span>
+      <textarea name="description" rows="3" maxlength="{{ max_description }}" placeholder="Leave blank and Amide reads one from the site">{{ form.description or '' }}</textarea>
+      {{ err('description') }}
+    </label>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/links.js') }}" defer></script>
+{% endblock %}

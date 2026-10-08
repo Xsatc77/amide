@@ -50,6 +50,10 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 
 The **Library** holds reference cards for peptides. Open one to see dosing tiers, price ranges and cycles. **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
 
+## Links
+
+**Links** keeps the sites you use, grouped by type and sorted by name. **+ Add** takes a site name, URL, type and an optional description; leave the description blank and Amide reads a short one from the site (once, with a plain request; your administrator can turn this off). Every link has **Edit** and **Delete**.
+
 ## Your data
 
 - **Dashboard** pulls the day together: schedule, alerts, compliance bars over a window you choose, water, cost and shipments.

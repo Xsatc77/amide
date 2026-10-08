@@ -25,3 +25,10 @@ def test_nutrition_highlights_on_the_food_tab_and_body_elsewhere(client, db):
     assert re.search(r'class="active"[^>]*>Nutrition<', food) and not re.search(r'class="active"[^>]*>Body<', food)
     body = client.get("/measurements").text.split('aria-label="Main"')[1].split("</nav>")[0]
     assert re.search(r'class="active"[^>]*>Body<', body)
+
+
+def test_about_page_is_in_the_profile_menu(client, db):
+    panel = client.get("/dashboard").text.split('class="user-menu-panel"')[1].split("</div>")[0]
+    assert panel.index('href="/settings"') < panel.index('href="/about"') < panel.index("Log out")
+    page = client.get("/about")
+    assert page.status_code == 200 and "Six Flags" in page.text and "About Amide" in page.text

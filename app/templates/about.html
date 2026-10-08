@@ -1,0 +1,23 @@
+{% extends "base.html" if request.state.user else "auth/layout.html" %}
+
+{% block title %}About Amide{% endblock %}
+
+{% block page_class %}legal-page{% endblock %}
+
+{% block content %}
+<article class="legal">
+  <h1>About Amide</h1>
+
+  <p>I was a big one. A Mississippi redneck who blew up after military service to over 400 lbs. I tried every diet out there, and even spent nights looking for a legally (or illegally) sold tapeworm pill. Taking my kids to Six Flags and being denied the roller coasters was the straw that broke the camel's back.</p>
+
+  <p>In 2024 I had a vertical sleeve gastrectomy. My doctor had me set three goals: a beginning one, an intermediate one, and a shoot-for-the-stars one. 300, 250, and 211. 300 would be over 100 lbs down. 250 was my last weigh-in playing semi-pro football in California. 211 is what I weighed when I got married. I blew past 300, no sweat. I hit 254&hellip; and a brick wall. My weight loss plateaued for over two years. Not really going up or down, just stuck. I've hovered between 254 and 270 that whole time.</p>
+
+  <p>With everyone talking about GLP-1s and peptides, I started my research. I committed to buying some items and wanted to track it. Every tracker seems to want $9.99 a month, recurring. Nah, fam. You want us all to be healthy and fit, but only if we pay you. So I jumped on Claude. I'm not a coder or a programmer. This is the result of many months of research and a couple of weeks of prompts. I still don't understand how it all works&hellip; PFM, I guess.</p>
+
+  <p>Take it. Self-host it. Fill in as much or as little as you want. Keep your medical stuff as public or as private as you want. The choice is yours. I built the tool for me, but if you can get use from it, AWESOME!</p>
+
+  <p>I can't supply vendors for these things, legally, but they are available out there. If I can find them, you can too!</p>
+
+  <p>I don't want to charge you or make you sign up for a subscription or any of that nonsense. If you use this and like it, or see something you want added, let me know.</p>
+</article>
+{% endblock %}

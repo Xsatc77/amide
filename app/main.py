@@ -14,7 +14,7 @@ from app.backup import scheduled as scheduled_backup
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
-    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, legal, library, library_extras,
+    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, legal, library, library_extras, links,
     measurements, order_tracking, price_alerts, protocol_shop, protocols, settings, spending, vendors, workout_insights, workouts,
 )
 
@@ -38,6 +38,7 @@ gate.install(app)
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(labels.router)              # before inventory too: "/inventory/orders/<id>/labels"
+app.include_router(links.router)
 app.include_router(spending.router)            # before inventory: "/inventory/spending" must not be read as an item id
 app.include_router(order_tracking.router)      # before inventory: "/inventory/orders" must not be read as an item id
 app.include_router(inventory.router)

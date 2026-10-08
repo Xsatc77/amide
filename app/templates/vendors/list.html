@@ -22,6 +22,9 @@
   <p class="muted">Vendors are created automatically the first time you buy from one.</p>
 </div>
 {% else %}
+{% for group_label, group_vendors in groups %}
+<section class="vendor-group" aria-labelledby="vg-{{ loop.index }}">
+  <h2 id="vg-{{ loop.index }}" class="section-title">{{ group_label }} <span class="muted small">({{ group_vendors | length }})</span></h2>
 <div class="table-wrap">
   <table class="inv-table">
     <thead>
@@ -33,7 +36,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for v in vendors %}
+      {% for v in group_vendors %}
       <tr>
         <td data-label="Vendor" class="item-name">
           <a href="/vendors/{{ v.id }}">{{ v.name }}</a>
@@ -68,6 +71,8 @@
     </tbody>
   </table>
 </div>
+</section>
+{% endfor %}
 {% endif %}
 
 <dialog id="add-vendor-dialog" class="dialog">

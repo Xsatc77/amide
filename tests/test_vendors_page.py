@@ -524,3 +524,37 @@ def test_non_admin_cannot_delete_a_vendor_and_gets_no_delete_button(client, db):
         assert s.get(Vendor, vendor_id) is not None
     assert "Delete this vendor?" not in other.get("/vendors").text
     assert "Delete this vendor?" in client.get("/vendors").text
+
+
+def test_vendors_are_grouped_favorites_then_recommended_then_all_others_each_a_to_z(client, db):
+    ids = {n: _make_vendor(n) for n in ("Zed Group Co", "Amber Group Co", "Mid Group Co", "Nope Group Co", "Beta Group Co", "Rec Zulu Group", "Rec Alpha Group")}
+    with SessionLocal() as s:
+        for name in ("Rec Zulu Group", "Rec Alpha Group", "Zed Group Co"):
+            s.get(Vendor, ids[name]).recommended = True
+        s.get(Vendor, ids["Nope Group Co"]).recommended = False
+        s.commit()
+    client.post(f"/vendors/{ids['Beta Group Co']}/favorite")
+    client.post(f"/vendors/{ids['Zed Group Co']}/favorite")              # a favorite that is also recommended sits under Favorites only
+    try:
+        page = _text(client.get("/vendors"))
+        favorites, recommended, others = page.index("Favorites <span"), page.index("Recommended <span"), page.index("All others <span")
+        assert favorites < recommended < others
+        order = [page.index(n) for n in ("Beta Group Co", "Zed Group Co", "Rec Alpha Group", "Rec Zulu Group", "Amber Group Co", "Mid Group Co", "Nope Group Co")]
+        assert order == sorted(order)
+        assert page.count("Zed Group Co") == 1
+    finally:
+        with SessionLocal() as s:
+            s.query(VendorFavorite).filter(VendorFavorite.vendor_id.in_(ids.values())).delete(synchronize_session=False)
+            s.query(Vendor).filter(Vendor.id.in_(ids.values())).delete(synchronize_session=False)
+            s.commit()
+
+
+def test_an_empty_group_has_no_heading(client, db):
+    only = _make_vendor("Lonely Plain Group Co")
+    try:
+        page = _text(client.get("/vendors"))
+        assert "All others <span" in page and "Favorites <span" not in page and "Recommended <span" not in page
+    finally:
+        with SessionLocal() as s:
+            s.query(Vendor).filter(Vendor.id == only).delete()
+            s.commit()
