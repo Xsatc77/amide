@@ -52,6 +52,8 @@ def shop_text(data: dict, today: date) -> str:
         out += [f"Grand total: {_money(data['grand_total'] if data.get('grand_total') is not None else plan['total'])}"]
         if plan["missing"]:
             out += ["", f"Not covered by these vendors: {', '.join(plan['missing'])}"]
+    if data.get("needs_volume"):
+        out += ["", "Needs the vial size before it can be priced:"] + [f"  {a['name']}: {a['strength']}, sold as {a['pack_size']} {a['pack_type']}" for a in data["needs_volume"]]
     if data["unshoppable"]:
         out += ["", "Not available on the current price lists:"] + [f"  {u['name']}: {u['reason']}" for u in data["unshoppable"]]
     if data.get("bac"):

@@ -31,7 +31,18 @@ def _shop_data(protocol_id: int, request: Request, session: Session, uid: int) -
             if fee is None:
                 raise HTTPException(422, f"{key} shipping must be a number from 0 to 10000")
             shipping[key] = fee
-    return shop_for_protocol(session, protocol, uid, shipping) | {"protocol": {"id": protocol.id, "name": protocol.name}}
+    sizes = {}
+    for key, raw in request.query_params.items():                    # vial_ml_<peptide id> and box_vials_<peptide id>, for oils sold by strength
+        if key.startswith("vial_ml_"):
+            pid = key[len("vial_ml_"):]
+            try:
+                ml, per_box = float(raw), int(request.query_params.get(f"box_vials_{pid}", "1"))
+                if not (pid.isdigit() and 0 < ml <= 1000 and 1 <= per_box <= 100):
+                    raise ValueError
+            except ValueError:
+                raise HTTPException(422, "Vial size must be 0 to 1000 mL and 1 to 100 vials per box")
+            sizes[int(pid)] = (ml, per_box)
+    return shop_for_protocol(session, protocol, uid, shipping, sizes) | {"protocol": {"id": protocol.id, "name": protocol.name}}
 
 
 @router.get("/protocols/{protocol_id}/shop")

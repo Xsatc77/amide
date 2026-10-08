@@ -330,3 +330,43 @@ def test_bac_bottles_follow_the_28_day_rule_for_a_long_course(client, db, me):
     pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)], days=90)           # an opened bottle is good for 28 days
     bac = shop(client, pid).json()["bac"]
     assert bac["bottles"] == 4 and bac["ml"] > 0                                                                                          # 90 days / 28 = 4 bottles, though the volume would fit in one
+
+
+def oil_protocol(db, me):
+    """An invented oil sold by strength only (250 mg/mL, a box), 200 mg a week for 40 days, plus a normal peptide that needs BAC water."""
+    vendor = make_vendor(db, "Oilco")
+    oilex, zorvex = make_card(db, "Oilex"), make_card(db, "Zorvex")
+    make_list(db, vendor, TODAY, item("Oilex", 250, 30, unit="mg/ml", pack=1, card=oilex), item("Zorvex", 10, 200, card=zorvex))
+    pid = protocol(me, [(oilex.id, 200, DoseUnit.MG, Frequency.WEEKLY), (zorvex.id, 250, DoseUnit.MCG, Frequency.DAILY)])
+    return pid, oilex.id
+
+
+def test_a_product_sold_by_strength_asks_for_the_vial_size_instead_of_saying_unavailable(client, db, me):
+    pid, oil = oil_protocol(db, me)
+    data = shop(client, pid).json()
+    assert [a["name"] for a in data["needs_volume"]] == ["Oilex"] and data["needs_volume"][0]["strength"] == "250 mg/mL"
+    assert all("Oilex" not in u["name"] for u in data["unshoppable"]) and "Oilex" not in (data["plan"] or {}).get("missing", [])
+    assert all(line["peptide"] != "Oilex" for s in data["plan"]["sources"] for line in s["lines"])
+
+
+def test_with_the_vial_size_the_oil_is_priced_by_boxes(client, db, me):
+    pid, oil = oil_protocol(db, me)
+    data = shop(client, pid, **{f"vial_ml_{oil}": "10", f"box_vials_{oil}": "2"}).json()
+    assert data["needs_volume"] == [] and data["sizes"][str(oil)] == {"ml": 10.0, "per_box": 2}
+    line = next(l for s in data["plan"]["sources"] for l in s["lines"] if l["peptide"] == "Oilex")
+    assert line["size_label"] == "250 mg/mL × 10 mL" and line["packs"] == 1 and line["vials_needed"] == 1 and line["leftover_vials"] == 1
+    assert line["cost"] == pytest.approx(30.0)
+
+
+def test_an_oil_adds_no_bac_water(client, db, me):
+    vendor = make_vendor(db, "Oilco2")
+    oilex = make_card(db, "Oilex Two")
+    make_list(db, vendor, TODAY, item("Oilex Two", 250, 30, unit="mg/ml", pack=1, card=oilex))
+    pid = protocol(me, [(oilex.id, 200, DoseUnit.MG, Frequency.WEEKLY)])
+    assert shop(client, pid).json()["bac"] is None
+
+
+def test_a_bad_vial_size_is_refused(client, db, me):
+    pid, oil = oil_protocol(db, me)
+    assert shop(client, pid, **{f"vial_ml_{oil}": "0"}).status_code == 422
+    assert shop(client, pid, **{f"vial_ml_{oil}": "10", f"box_vials_{oil}": "500"}).status_code == 422
