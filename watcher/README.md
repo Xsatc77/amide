@@ -3,6 +3,13 @@
 A small program that runs on your own computer, watches the Telegram groups you map in Amide, and hands every new price-list
 message (PDF, photos, spreadsheet or typed prices) to Amide's Price list inbox. Amide works out the vendor, warehouse and date.
 
+> **The watcher is not part of the Docker image or the Portainer stack.** It is a separate Python program that runs on a computer you
+> sign in to, not on the server. If you installed Amide with Docker, Portainer or Dockhand you do not have it yet. To get it:
+> download the code (on GitHub press **Code, Download ZIP**, or `git clone https://github.com/Xsatc77/amide`), install Python 3.12 or
+> newer, and in that folder run `pip install -r requirements-watcher.txt`. Then follow the steps below, with `amide_url` set to your
+> server's address, for example `http://<your server>:1707` or your HTTPS address. If you run a reverse proxy in front of Amide, make sure
+> it allows uploads of about 30 MB, or price-list deliveries can fail with a "413 too large" error.
+
 It only **reads**. It never posts, reacts, joins, leaves or marks anything read, and it reads only groups you have mapped to a
 vendor and switched on in Amide. For every other group it sends Amide the title, so you can map it.
 

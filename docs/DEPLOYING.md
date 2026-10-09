@@ -92,4 +92,6 @@ See the environment-variable table in the README. The ones that matter for a pub
 
 ## 7. Price-list ingest and the Telegram watcher (optional, advanced)
 
+**The watcher is not inside the Docker image or the stack.** If you installed with Docker, Portainer or Dockhand, download the code separately and run the watcher from there, as described in [watcher/README.md](../watcher/README.md). If a reverse proxy sits in front of Amide, allow uploads of about 30 MB so price lists get through.
+
 Amide can read price lists posted in chat groups through a separate program, `watcher/`, that runs on your own computer with your own Telegram account. It is optional and nothing in Amide depends on it. See [watcher/README.md](../watcher/README.md).
