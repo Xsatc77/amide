@@ -48,9 +48,19 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      # Build once into the local daemon and run the OCR on a generated test picture inside the slim image, so a missing system library fails here.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: amide-ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - run: docker run --rm -i amide-ci python - < .github/ocr_smoke.py
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
