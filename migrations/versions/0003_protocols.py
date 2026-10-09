@@ -108,23 +108,24 @@ def downgrade() -> None:
 
 
 # ---------------------------------------------------------------- seed data
-# Names only, in the order of the owner's 100 peptide cards (card_number = position + 1).
+# Names only, in the order of the owner's 100 peptide cards (card_number = position + 1), written as the new-style library names so a
+# fresh install lines up with the reference sheets and gets no old-name duplicates.
 CARD_PEPTIDES = [
-    "AOD-9604", "BPC-157", "CJC-1295", "CJC-1295 + Ipamorelin", "CJC-1295 DAC", "DSIP", "Epitalon",
-    "FOXO4-DRI", "GHK-Cu", "GHRP-2", "GHRP-6", "Gonadorelin (GnRH)", "Hexarelin", "Humanin", "IGF-1",
-    "IGF-1 DES (1-3)", "IGF-1 LR3", "Ipamorelin", "Kisspeptin-10", "Kisspeptin-54", "Larazotide acetate",
-    "MOTS-c", "Melanotan I (Afamelanotide)", "Melanotan II", "Nesfatin-1", "PACAP", "PEG-MGF",
-    "PT-141 (Bremelanotide)", "Selank", "Semax", "Sermorelin", "Tesamorelin", "Tesofensine", "TB-500",
-    "Thymosin alpha-1", "Tirzepatide", "Semaglutide", "Liraglutide", "Dulaglutide", "Exenatide",
-    "Lixisenatide", "Efpeglenatide", "Retatrutide", "Survodutide", "Cagrilintide", "Amylin", "Pramlintide",
-    "Oxyntomodulin", "Mazdutide", "AMG-133 (MariTide)", "GLP-1", "GIP", "Glucagon", "PYY (Peptide YY)",
-    "OXM + GLP-1 (co-agonists)", "Secretin", "Cholecystokinin (CCK)", "VIP", "Somatostatin", "Octreotide",
-    "Lanreotide", "Pasireotide", "Calcitonin", "Teriparatide (PTH 1-34)", "Abaloparatide", "PTH (1-84)",
-    "Elcatonin", "Leuprorelin", "Goserelin", "Triptorelin", "Degarelix", "Buserelin", "Nafarelin",
-    "Histrelin", "Desmopressin", "Vasopressin", "Oxytocin", "Angiotensin II", "Ecallantide", "Icatibant",
-    "Ziconotide", "Linaclotide", "Plecanatide", "Teduglutide", "GLP-2 analogues", "Relamorelin",
-    "Elamipretide (SS-31)", "PNC-27", "Cibinetide", "Avexitide", "Luspatercept", "Sotatercept",
-    "Anamorelin", "Pegvisomant", "Mecasermin", "Mecasermin rinfabate", "Carbetocin", "Atosiban",
+    "AOD-9604", "BPC-157", "CJC-1295 (No DAC)", "CJC-1295 + Ipamorelin", "CJC-1295 (DAC)", "DSIP", "Epithalon",
+    "FOXO4-DRI", "GHK-Cu", "GHRP-2", "GHRP-6", "Gonadorelin", "Hexarelin", "Humanin", "IGF-1",
+    "IGF-1 DES", "IGF-1 LR3", "Ipamorelin", "Kisspeptin-10", "Kisspeptin-54", "Larazotide (AT-1001)",
+    "MOTS-c", "Melanotan I", "Melanotan II", "Nesfatin-1", "PACAP", "PEG-MGF",
+    "PT-141", "Selank", "Semax", "Sermorelin", "Tesamorelin", "Tesofensine", "TB-500",
+    "Thymosin Alpha 1", "Tirzepatide", "Semaglutide", "Liraglutide", "Dulaglutide (Trulicity)", "Exenatide (Byetta / Bydureon)",
+    "Lixisenatide", "Efpeglenatide", "Retatrutide", "Survodutide", "Cagrilintide", "Amylin (IAPP)", "Pramlintide (Symlin)",
+    "Oxyntomodulin", "Mazdutide", "AMG-133 (MariTide)", "GLP-1", "GIP", "Glucagon (GlucaGen)", "PYY (Peptide YY)",
+    "OXM + GLP-1 (co-agonists)", "Secretin", "Cholecystokinin (CCK-8)", "VIP (Vasoactive Intestinal Peptide)", "Somatostatin (SST-14 and SST-28)", "Octreotide (Sandostatin)",
+    "Lanreotide (Somatuline Depot)", "Pasireotide (Signifor)", "Calcitonin (Miacalcin)", "Teriparatide (PTH 1-34)", "Abaloparatide", "PTH (1-84)",
+    "Elcatonin", "Leuprolide (Lupron)", "Goserelin", "Triptorelin", "Degarelix", "Buserelin", "Nafarelin",
+    "Histrelin", "Desmopressin (DDAVP)", "Vasopressin (Vasostrict)", "Oxytocin", "Angiotensin II", "Ecallantide", "Icatibant (Firazyr)",
+    "Ziconotide (Prialt)", "Linaclotide (Linzess)", "Plecanatide (Trulance)", "Teduglutide (Gattex/Revestive)", "GLP-2 analogues", "Relamorelin",
+    "SS-31 (Elamipretide)", "PNC-27", "ARA-290", "Avexitide", "Luspatercept", "Sotatercept",
+    "Anamorelin", "Pegvisomant", "Mecasermin", "Mecasermin rinfabate", "Carbetocin (Duratocin/Pabal)", "Atosiban (Tractocile)",
     "Setmelanotide", "Bepirovirsen",
 ]
 
@@ -136,11 +137,11 @@ GOAL_STACKS = {
     "fat-loss": ["Retatrutide", "Tirzepatide", "Tesamorelin", "AOD-9604", "MOTS-c"],
     "muscle-recovery": ["BPC-157", "TB-500", "CJC-1295 + Ipamorelin", "IGF-1 LR3", "PEG-MGF"],
     "gh-performance": ["CJC-1295 + Ipamorelin", "Tesamorelin", "Sermorelin", "Ipamorelin", "GHRP-2"],
-    "longevity": ["Epitalon", "MOTS-c", "Elamipretide (SS-31)", "Humanin", "NAD+"],
-    "skin-beauty": ["GHK-Cu", "BPC-157", "KPV", "Melanotan I (Afamelanotide)"],
-    "wellness": ["Thymosin alpha-1", "BPC-157", "Selank", "Semax", "Glutathione"],
+    "longevity": ["Epithalon", "MOTS-c", "SS-31 (Elamipretide)", "Humanin", "NAD+"],
+    "skin-beauty": ["GHK-Cu", "BPC-157", "KPV", "Melanotan I"],
+    "wellness": ["Thymosin Alpha 1", "BPC-157", "Selank", "Semax", "Glutathione"],
     "glp1-weight": ["Semaglutide", "Tirzepatide", "Retatrutide", "Cagrilintide", "Liraglutide"],
-    "sleep-recovery": ["DSIP", "CJC-1295 + Ipamorelin", "Epitalon", "Pinealon"],
+    "sleep-recovery": ["DSIP", "CJC-1295 + Ipamorelin", "Epithalon", "Pinealon"],
 }
 
 

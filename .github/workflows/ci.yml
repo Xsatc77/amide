@@ -54,8 +54,8 @@ jobs:
           context: .
           load: true
           tags: amide-ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=amide
+          cache-to: type=gha,mode=max,scope=amide
       - run: docker run --rm -i amide-ci python - < .github/ocr_smoke.py
       - uses: docker/build-push-action@v6
         with:
@@ -63,4 +63,32 @@ jobs:
           push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          cache-from: type=gha,scope=amide
+      # The watcher image: build it on every push, prove it starts and reads its environment (status never contacts Telegram), publish on a tag.
+      - id: meta_watcher
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-watcher
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.watcher
+          load: true
+          tags: amide-watcher-ci
+          cache-from: type=gha,scope=watcher
+          cache-to: type=gha,mode=max,scope=watcher
+      - run: >
+          docker run --rm -e AMIDE_URL=http://127.0.0.1:9 -e AMIDE_TOKEN=ci -e TELEGRAM_API_ID=1 -e TELEGRAM_API_HASH=ci
+          amide-watcher-ci python -m watcher status | tee status.txt && grep -q "session: missing" status.txt
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.watcher
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta_watcher.outputs.tags }}
+          labels: ${{ steps.meta_watcher.outputs.labels }}
+          cache-from: type=gha,scope=watcher

@@ -90,8 +90,10 @@ See the environment-variable table in the README. The ones that matter for a pub
 - **Calendar subscription:** Settings, Subscribe to your calendar makes a private address. Your calendar app needs to reach it, so from outside your home network it must be your HTTPS address.
 - **Reminders:** Settings, Dose reminders turns on ntfy push messages. Amide posts to `AMIDE_NTFY_SERVER` (default `https://ntfy.sh`), so the server needs internet access for this one feature. Leave it off and Amide makes no outside calls.
 
+Updating an existing install: pull the new image (Portainer or Dockhand: "Pull and redeploy" with "Re-pull image" on). On start Amide runs its database updates and fills any empty library entries from the base library that ships with it, merging the old-style duplicate names; entries that already hold card data, and everything you entered, are left alone. Your data volume is not touched.
+
 ## 7. Price-list ingest and the Telegram watcher (optional, advanced)
 
-**The watcher is not inside the Docker image or the stack.** If you installed with Docker, Portainer or Dockhand, download the code separately and run the watcher from there, as described in [watcher/README.md](../watcher/README.md). If a reverse proxy sits in front of Amide, allow uploads of about 30 MB so price lists get through.
+The watcher has its own container image: use [docker-compose.portainer-with-watcher.yml](../docker-compose.portainer-with-watcher.yml), or add its service to your existing stack without re-pulling Amide. Steps, including the one-time Telegram login, are in [watcher/README.md](../watcher/README.md).
 
 Amide can read price lists posted in chat groups through a separate program, `watcher/`, that runs on your own computer with your own Telegram account. It is optional and nothing in Amide depends on it. See [watcher/README.md](../watcher/README.md).

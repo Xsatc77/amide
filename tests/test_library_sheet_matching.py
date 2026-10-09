@@ -26,13 +26,13 @@ def names(db):
 
 
 def test_a_sheet_whose_name_adds_a_parenthetical_joins_the_card_and_renames_it(db, cleanup):
-    card = Peptide(name="Sheetmatch Amylin", source=PeptideSource.CARD, card_class="old")
+    card = Peptide(name="Sheetmatch Zorbulin", source=PeptideSource.CARD, card_class="old")
     db.add(card)
     db.commit()
     card_id = card.id
-    report = load_sheets(db, [sheet("Sheetmatch Amylin (IAPP)")])
-    assert names(db) == ["Sheetmatch Amylin (IAPP)"] and report.created == []
-    joined = db.scalar(select(Peptide).where(Peptide.name == "Sheetmatch Amylin (IAPP)"))
+    report = load_sheets(db, [sheet("Sheetmatch Zorbulin (ZRB)")])
+    assert names(db) == ["Sheetmatch Zorbulin (ZRB)"] and report.created == []
+    joined = db.scalar(select(Peptide).where(Peptide.name == "Sheetmatch Zorbulin (ZRB)"))
     assert joined.id == card_id and joined.source is PeptideSource.SHEET and joined.card_class is None
 
 

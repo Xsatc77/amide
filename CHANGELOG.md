@@ -2,6 +2,11 @@
 
 Newest first. Dates are when the work was done.
 
+## v1.0.1 (2026-10)
+
+- The base library ships with Amide: a new install has 105 peptide cards with their aliases, tags, dosing tiers, cycles, stack notes, monitoring and readable sections, under the new-style names. An existing install gets the same on update: empty entries fill in, the old-style duplicate names merge into the new ones (anything that pointed at them follows), and anything with card data or entered by a person is left alone.
+- An optional Telegram watcher container for Docker, Portainer and Dockhand stacks.
+
 ## v1.0 (2026-10)
 
 - Shop this protocol: the cheapest one- or two-order plan from the price lists, editable shipping, BAC water from the brands you rank, text file and email sharing.

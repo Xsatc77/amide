@@ -9,6 +9,7 @@ from app import config
 from app.auth import gate
 from app.db import SessionLocal
 from app.food.foods import load_starter
+from app.library.base_library import load_base_library
 from app import reminders
 from app.backup import scheduled as scheduled_backup
 from app.ingest import worker
@@ -25,6 +26,8 @@ async def lifespan(_: FastAPI):
     upgrade_db()
     with SessionLocal() as session:
         load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
+        if config.BASE_LIBRARY:
+            load_base_library(session)      # the shipped peptide cards: fill what is missing or empty, never what has data
     task, reminder_task, backup_task = worker.start(), reminders.start(), scheduled_backup.start()
     yield
     await worker.stop(task)

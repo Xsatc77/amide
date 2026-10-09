@@ -1,4 +1,4 @@
-"""The command line: login, run, once, status, install-startup, remove-startup."""
+"""The command line: login, run, serve (run, but wait for the login), once, status, install-startup, remove-startup."""
 
 import argparse
 import asyncio
@@ -34,19 +34,45 @@ async def _amide_state(config: Config) -> str:
             return "not reachable"
 
 
-async def _poll(config: Config, *, forever: bool) -> int:
-    from watcher.telethon_client import TelethonClient
-    log = get_logger(config.log_path)
-    tg = TelethonClient(config)
-    while True:                                            # at sign-in the network may not be up yet
+async def _signed_in_client(config: Config, log, *, make_client, sleep=asyncio.sleep, interval: int = 30):
+    """A connected, signed-in Telegram client. Used by `serve` in a container: until someone runs `login` in a console it waits, checking
+    every `interval` seconds on a fresh connection (a login made in another process is only visible to a new connection) instead of
+    exiting, so the container does not restart in a loop."""
+    warned = False
+    while True:
+        tg = make_client(config)
         try:
             await tg.connect()
-            break
-        except Exception as exc:
+            if await tg.is_authorized():
+                return tg
+            if not warned:
+                log.warning("Not signed in to Telegram yet. Open a console in this container and run: python -m watcher login")
+                warned = True
+        except Exception as exc:                           # never print message text or secrets: only the error's class
             log.error("Could not reach Telegram (%s)", type(exc).__name__)
-            if not forever:
-                return 1
-            await asyncio.sleep(30)
+        try:
+            await tg.close()
+        except Exception:
+            pass
+        await sleep(interval)
+
+
+async def _poll(config: Config, *, forever: bool, wait_for_login: bool = False) -> int:
+    from watcher.telethon_client import TelethonClient
+    log = get_logger(config.log_path)
+    if wait_for_login:
+        tg = await _signed_in_client(config, log, make_client=TelethonClient)
+    else:
+        tg = TelethonClient(config)
+        while True:                                        # at sign-in the network may not be up yet
+            try:
+                await tg.connect()
+                break
+            except Exception as exc:
+                log.error("Could not reach Telegram (%s)", type(exc).__name__)
+                if not forever:
+                    return 1
+                await asyncio.sleep(30)
     try:
         if not await tg.is_authorized():
             log.error("Not signed in to Telegram. Run: python -m watcher login")
@@ -68,7 +94,7 @@ async def _poll(config: Config, *, forever: bool) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="watcher", description="Hands price lists from Telegram groups to Amide.")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("login", "run", "status", "install-startup", "remove-startup"):
+    for name in ("login", "run", "serve", "status", "install-startup", "remove-startup"):
         sub.add_parser(name)
     once = sub.add_parser("once")
     once.add_argument("--days", type=int, default=None)
@@ -105,6 +131,6 @@ def main(argv: list[str] | None = None) -> int:
             config = dataclasses.replace(config, backfill_days=max(1, min(args.days, 60)))
         return asyncio.run(_poll(config, forever=False))
     try:
-        return asyncio.run(_poll(config, forever=True))
+        return asyncio.run(_poll(config, forever=True, wait_for_login=args.command == "serve"))
     except KeyboardInterrupt:
         return 0

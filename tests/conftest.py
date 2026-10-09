@@ -10,6 +10,7 @@ os.environ["AMIDE_DATA_DIR"] = _TMP
 os.environ["AMIDE_INGEST_WORKER"] = "0"
 os.environ["AMIDE_REMINDERS"] = "0"
 os.environ["AMIDE_LINK_DESCRIPTIONS"] = "0"      # tests never read real sites; they call the reader with a fake page
+os.environ["AMIDE_BASE_LIBRARY"] = "0"        # the test database keeps its bare seed; tests call the loader directly
 os.environ["AMIDE_PASSWORD_MIN_LENGTH"] = "4"      # the suite signs in with short throwaway passwords; the shipped default is tested in test_auth_rules
 
 from fastapi.testclient import TestClient  # noqa: E402

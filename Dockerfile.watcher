@@ -1,0 +1,18 @@
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    AMIDE_WATCHER_HOME=/watcher-data
+
+WORKDIR /app
+COPY requirements-watcher.txt .
+RUN pip install --no-cache-dir -r requirements-watcher.txt
+
+# Only the watcher package: it imports nothing from the Amide app.
+COPY watcher ./watcher
+
+RUN useradd --create-home --uid 1000 watcher && mkdir -p /watcher-data && chown watcher:watcher /watcher-data
+USER watcher
+VOLUME ["/watcher-data"]
+
+CMD ["python", "-m", "watcher", "serve"]

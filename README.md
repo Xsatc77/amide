@@ -51,7 +51,7 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 - **Reconstitution:** calculator with IU support and a teaching mode; Active Vials with discard dates; peptide pens.
 - **Vendors and price lists:** contacts, payment methods, price history charts, price lists read from PDF, photo (OCR) and spreadsheet, and an optional Telegram watcher that files lists you follow for review ([watcher/README.md](watcher/README.md)).
 - **Body and health:** weight and measurements, body photos (blurred until you reveal them), journal, labs, food and macros, workouts with calorie estimates and a fitness test.
-- **Library:** the peptide library with doses, sizes, price ranges and your own notes.
+- **Library:** 105 base peptide cards come with the app (aliases, tags, dosing tiers, cycles, stack notes, monitoring and plain-language sections), plus your own notes and entries.
 - **You and your data:** accounts with optional two-factor, opt-in sharing, encrypted backup, export and restore. Self-hosted: nothing leaves your machine unless you turn an integration on.
 
 How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md). What came when: [CHANGELOG.md](CHANGELOG.md). What is next: [docs/ROADMAP.md](docs/ROADMAP.md). Running it for real (HTTPS, backups, updates): [docs/DEPLOYING.md](docs/DEPLOYING.md).
@@ -74,7 +74,7 @@ To use a different port, copy `.env.example` to `.env` and change `AMIDE_PORT`, 
 
 No download or build needed: [docker-compose.portainer.yml](docker-compose.portainer.yml) runs the published image (`ghcr.io/xsatc77/amide`). In Portainer choose **Stacks, Add stack, Web editor**, paste the file and press **Deploy the stack**, then open `http://<your server>:1707`. With plain Docker, save it as `docker-compose.yml` and run `docker compose up -d`. Your data lives in a named volume, `amide-data`. To update, press **Pull and redeploy** on the stack with **Re-pull image** on.
 
-**Optional Telegram watcher:** it is not included in the image or the stack. See [watcher/README.md](watcher/README.md) for how to get and run it.
+**Optional Telegram watcher:** its own container, with a stack file that adds it next to Amide: [docker-compose.portainer-with-watcher.yml](docker-compose.portainer-with-watcher.yml). Steps in [watcher/README.md](watcher/README.md).
 
 ### Without Docker (for development)
 

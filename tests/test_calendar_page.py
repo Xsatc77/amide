@@ -127,10 +127,10 @@ def test_day_view_cards_and_details(client):
 
 
 def test_day_view_as_needed_and_empty(client):
-    make(client, "PRN", items={"items-0-peptide_id": str(peptide_id("PT-141 (Bremelanotide)")),
+    make(client, "PRN", items={"items-0-peptide_id": str(peptide_id("PT-141")),
                                "items-0-frequency": "as_needed"})
     t = page(client, view="day", date="2026-09-22")
-    assert "As needed" in t and "PT-141 (Bremelanotide)" in t
+    assert "As needed" in t and "PT-141" in t
     assert "Nothing due" in page(client, view="day", date="2026-08-01")
 
 
