@@ -1,0 +1,25 @@
+# Amide as a Portainer stack (or any `docker compose` host): runs the ready-made image, no build and no files to download.
+#
+# Portainer: Stacks > Add stack > Web editor > paste this file > Deploy the stack. Then open http://<your server>:1707
+# Plain Docker: save this as docker-compose.yml, then run `docker compose up -d`.
+#
+# Your data (the database and uploaded files) lives in the named volume "amide-data". Back it up, and use Settings > Backup in Amide too.
+# To update: Portainer > the stack > "Pull and redeploy" (turn on "Re-pull image"). Amide updates its own database on start.
+services:
+  amide:
+    image: ghcr.io/xsatc77/amide:latest        # or pin a version, for example ghcr.io/xsatc77/amide:1.0
+    container_name: amide
+    ports:
+      # Port on your server : port inside the container (leave the 8000). Change the 1707 if something else uses it.
+      - "1707:8000"
+    volumes:
+      - amide-data:/data
+    # Optional settings: remove the leading "#" on the "environment:" line and the ones you want, and fill them in.
+    # environment:
+    #   AMIDE_BACKUP_PASSPHRASE: "choose-a-long-passphrase"   # writes an encrypted backup into the data volume every 7 days
+    #   AMIDE_USDA_API_KEY: ""                                # free FoodData Central key for live food search (or paste it in Settings)
+    #   AMIDE_NTFY_SERVER: "https://ntfy.sh"                  # where dose reminders go, for people who turn them on
+    restart: unless-stopped
+
+volumes:
+  amide-data:

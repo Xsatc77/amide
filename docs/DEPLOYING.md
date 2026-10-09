@@ -2,6 +2,8 @@
 
 Amide is made to run on a computer you control: a home server, a mini PC, a small VPS. This page covers what to do beyond `docker compose up -d`.
 
+Using Portainer? Paste [docker-compose.portainer.yml](../docker-compose.portainer.yml) into **Stacks, Add stack, Web editor**. It runs the published image with your data in a named volume, so there is nothing to build. Update with **Pull and redeploy** (Re-pull image on).
+
 ## 1. Decide who can reach it
 
 | You want | Do this |

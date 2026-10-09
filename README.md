@@ -70,6 +70,10 @@ Then open http://localhost:1707 (or `http://<server-ip>:1707` from another devic
 
 To use a different port, copy `.env.example` to `.env` and change `AMIDE_PORT`, then run `docker compose up -d` again.
 
+### With Portainer, or the ready-made image
+
+No download or build needed: [docker-compose.portainer.yml](docker-compose.portainer.yml) runs the published image (`ghcr.io/xsatc77/amide`). In Portainer choose **Stacks, Add stack, Web editor**, paste the file and press **Deploy the stack**, then open `http://<your server>:1707`. With plain Docker, save it as `docker-compose.yml` and run `docker compose up -d`. Your data lives in a named volume, `amide-data`. To update, press **Pull and redeploy** on the stack with **Re-pull image** on.
+
 ### Without Docker (for development)
 
 Requires Python 3.12+. Run each line one at a time.
