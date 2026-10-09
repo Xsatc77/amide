@@ -1396,3 +1396,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
   .fulfil-bar { grid-column: 1 / -1; }
   .fulfil-num { text-align: left; }
 }
+
+.alerts-btn { position: relative; }
+.alert-badge { position: absolute; top: -4px; right: -4px; min-width: 16px; padding: 0 4px; border-radius: 8px; background: #dc2626; color: #fff; font-size: 0.7rem; line-height: 16px; text-align: center; }
+.alert-list { list-style: none; margin: 8px 0; padding: 0; }
+.alert-item { margin: 6px 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); }
+.alert-caution { border-left: 4px solid #dc2626; }
+.alert-note { border-left: 4px solid var(--muted); }

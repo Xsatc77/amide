@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Alerts: {{ p.name }}{% endblock %}
+{% block content %}
+<article class="legal">
+  <h1>Alerts: {{ p.name }}</h1>
+  {% if findings %}
+  <ul class="alert-list">
+    {% for f in findings %}
+    <li class="alert-item alert-{{ f.severity }}"><strong>{{ 'Caution' if f.severity == 'caution' else 'Note' }}</strong> {{ f.message }}
+      {% if f.peptide_id %}<a href="/library/{{ f.peptide_id }}">Library card</a>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}<p>No alerts. That does not mean there is no interaction; the checks are short on purpose.</p>{% endif %}
+  <p class="small muted">{{ disclaimer }}</p>
+  <p><a class="btn" href="/protocols">Back to protocols</a></p>
+</article>
+{% endblock %}

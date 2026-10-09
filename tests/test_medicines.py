@@ -68,3 +68,14 @@ def test_a_flagged_peptide_gets_tape_in_the_library_and_a_note_on_its_page(clien
 
 def test_another_persons_medicine_cannot_be_removed(client, db, me):
     assert client.post("/settings/medicines/999999/delete").status_code == 404
+
+
+def test_a_medicine_can_carry_a_dose_text_shown_in_the_list(client, db, me):
+    from app.models import UserMedicine
+    r = client.post("/settings/medicines", data={"name": "Dose Text Med", "dose_text": " 10 mg daily "}, follow_redirects=False)
+    assert r.status_code == 303
+    row = db.query(UserMedicine).filter_by(owner_id=me, name="Dose Text Med").one()
+    assert row.dose_text == "10 mg daily" and "10 mg daily" in client.get("/settings").text
+    assert client.post("/settings/medicines", data={"name": "Too Long Dose", "dose_text": "x" * 81}).status_code == 422
+    db.delete(row)
+    db.commit()

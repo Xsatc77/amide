@@ -11,6 +11,7 @@ Newest first. Dates are when the work was done.
 - Food tracking, workout calories and TDEE, body photos, encrypted backup and restore.
 - Vial labels print on check-in, with a "put these dates on your label" dialog after reconstituting.
 - Inventory: use-first order, Local seller flag, runs-out predictions and alerts, a Spending page, average time to arrive on each vendor.
+- Protocol alerts: a bell beside Print on each protocol and a Check for alerts button in the builder (dose against the library range, titration jumps, peptide against peptide, medicine cautions that grow with the dose, sedating peptides in daytime slots); medicines can carry a dose.
 - Protocols: nine times of day, a titration ramp helper, a printable view, Vitamins and Prescriptions cards, the titration step on the Dashboard.
 - Calendar: log from the calendar, a private iCal subscription, ntfy reminders (opt-in), an installable app.
 - Library: private notes and saved articles, reorderable goal stacks, calculator links on dosing tiers, sheets join differently named cards.

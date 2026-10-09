@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
@@ -19,7 +19,9 @@ from app.protocols.course_totals import compute_course_totals
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
+from app.library.conflicts import DISCLAIMER
 from app.library.interactions import cautions_for
+from app.protocols import alerts as alerts_mod
 from app.protocols import premade
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
@@ -155,7 +157,8 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
     return templates.TemplateResponse(request, "protocols/list.html",
                                       {"active_views": active, "saved_views": saved, "shared_views": shared_views,
                                        "goals": GOALS, "statuses": list(Status), "course_totals": course_totals,
-                                       "premade_groups": premade.groups()})
+                                       "premade_groups": premade.groups(),
+                                       "alert_counts": {p.id: len(alerts_mod.for_protocol(session, p, uid)) for p in protocols}})
 
 
 @router.get("/protocols/titration-steps")
@@ -185,6 +188,34 @@ def print_protocol(protocol_id: int, request: Request, session: Session = Depend
         items.append({"name": it.peptide.name, "desc": describe_item(it), "notes": it.notes, "steps": steps,
                       "off": [f"Off in weeks {c.start_week}-{c.end_week}" if c.end_week != c.start_week else f"Off in week {c.start_week}" for c in it.cycle_offs]})
     return templates.TemplateResponse(request, "protocols/print.html", {"p": p, "items": items, "status": protocol_status(p, today), "goals": [g for g in GOALS if g.slug in p.goal_slugs]})
+
+
+def _alert_protocol(session: Session, protocol_id: int, uid: int) -> Protocol:
+    p = session.scalar(_protocol_query(uid).where(Protocol.id == protocol_id)) or session.scalar(_shared_protocol_query(uid).where(Protocol.id == protocol_id))
+    if p is None:
+        raise HTTPException(404, "Protocol not found")
+    return p
+
+
+@router.get("/protocols/{protocol_id}/alerts.json")
+def protocol_alerts_json(protocol_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    found = alerts_mod.for_protocol(session, _alert_protocol(session, protocol_id, uid), uid)
+    return JSONResponse({"findings": [f.as_dict() for f in found], "disclaimer": DISCLAIMER}, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/protocols/{protocol_id}/alerts")
+def protocol_alerts_page(protocol_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    p = _alert_protocol(session, protocol_id, uid)
+    found = alerts_mod.for_protocol(session, p, uid)
+    return templates.TemplateResponse(request, "protocols/alerts.html", {"p": p, "findings": [f.as_dict() for f in found], "disclaimer": DISCLAIMER})
+
+
+@router.post("/protocols/alerts-preview")
+async def protocol_alerts_preview(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Alerts for the builder form as it stands. An unfinished form (it would not save) gets an empty report."""
+    parsed, errors = _parse(session, await _read_form(request), uid)
+    found = [] if errors else [f.as_dict() for f in alerts_mod.for_parsed(session, parsed, uid)]
+    return JSONResponse({"findings": found, "disclaimer": DISCLAIMER, "incomplete": bool(errors)}, headers={"Cache-Control": "no-store"})
 
 
 # ---------------------------------------------------------------- builder

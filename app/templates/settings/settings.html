@@ -355,7 +355,7 @@
       {% if medicines %}
       <ul class="medicine-list">
         {% for m in medicines %}
-        <li><span><strong>{{ m.name }}</strong>{% if m.notes %} <span class="muted small">{{ m.notes }}</span>{% endif %}</span>
+        <li><span><strong>{{ m.name }}</strong>{% if m.dose_text %} <span class="small">{{ m.dose_text }}</span>{% endif %}{% if m.notes %} <span class="muted small">{{ m.notes }}</span>{% endif %}</span>
           <form method="post" action="/settings/medicines/{{ m.id }}/delete" class="inline">
             <button type="submit" class="btn btn-ghost" aria-label="Remove {{ m.name }}">Remove</button></form></li>
         {% endfor %}
@@ -365,6 +365,8 @@
         <label class="field {{ 'has-error' if errors.medicine_name }}"><span>Medicine</span>
           <input type="text" name="name" maxlength="80" placeholder="e.g. metformin" autocomplete="off">
           {{ err('medicine_name') }}</label>
+        <label class="field"><span>Dose (optional, for example 10 mg daily)</span>
+          <input type="text" name="dose_text" maxlength="80" autocomplete="off"></label>
         <label class="field"><span>Note (optional)</span>
           <input type="text" name="notes" maxlength="200" placeholder="e.g. 500 mg twice a day" autocomplete="off"></label>
         <button type="submit" class="btn btn-primary">Add medicine</button>

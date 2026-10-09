@@ -25,7 +25,8 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 - **Protocols**: pick one or more goals, then choose peptides, dose, schedule, time of day, route and an optional inventory item. Frequencies: daily, every other day, every N days, specific days, weekly, as needed.
 - **Titration** ramps a dose up in weekly steps. "Fill the steps from a ramp" builds the steps from a start dose, an increase, weeks per step and a target. **Cycle off** weeks pause an item. Use the same peptide twice for two doses a day.
 - **Times of day**: Fasting, Waking, AM, Pre-workout, Post-workout, PM, Before bed, Bedtime, Any.
-- The icons on a protocol card print it, total what the course needs, and **shop** it (see below).
+- The icons on a protocol card print it, show its **alerts** (the bell), total what the course needs, and **shop** it (see below).
+- **Alerts** look at the doses and schedule you entered and list anything worth asking a prescriber or pharmacist about: a dose above the library's range or a titration that more than doubles, two peptides of one class together, medicine cautions that matter more at higher doses (list the medicines, and optionally their doses, in Settings, Medicines), and a sedating peptide in a daytime slot. The builder has a **Check for alerts** button. Alerts are informational only, never block saving, and no alert does not mean no interaction.
 - **Today** lists what is due, in day order. Press **Log** (pick the injection site) or **Skip**. Missed doses can be caught up from the protocol page.
 - **Calendar** shows month, week and day. Click a dose for details; one due today and not yet logged has **Pick site and log dose**.
 - **Subscribe to your calendar** (Settings): a private address for Apple, Google or Outlook calendars, with an alert at each dose's time of day.

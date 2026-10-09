@@ -145,6 +145,13 @@
     </div>
   </section>
 
+<section class="builder-step" id="alerts-panel">
+  <h2 class="section-title">Alerts</h2>
+  <p class="small muted">Check the doses and schedule above for anything worth asking a prescriber about. This never blocks saving.</p>
+  <button type="button" class="btn" id="alerts-check">Check for alerts</button>
+  <div id="alerts-out" aria-live="polite"></div>
+</section>
+
   <div class="builder-foot">
     <a class="btn" href="/protocols">Cancel</a>
     <button type="submit" class="btn btn-primary">Save protocol</button>
@@ -156,4 +163,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/protocol-builder.js') }}" defer></script>
+<script src="{{ static_url('js/protocol-alerts.js') }}" defer></script>
 {% endblock %}

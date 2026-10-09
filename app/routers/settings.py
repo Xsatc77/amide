@@ -273,10 +273,11 @@ async def add_medicine(request: Request, session: Session = Depends(get_session)
     form = await request.form()
     name = " ".join(str(form.get("name") or "").split())
     notes = " ".join(str(form.get("notes") or "").split()) or None
+    dose_text = " ".join(str(form.get("dose_text") or "").split()) or None
     errors = {}
     if not name:
         errors["medicine_name"] = "Enter the medicine's name."
-    elif len(name) > 80 or (notes and len(notes) > 200):
+    elif len(name) > 80 or (notes and len(notes) > 200) or (dose_text and len(dose_text) > 80):
         errors["medicine_name"] = "That is too long: 80 characters for the name, 200 for the note."
     else:
         have = session.scalars(select(UserMedicine).where(UserMedicine.owner_id == uid)).all()
@@ -286,7 +287,7 @@ async def add_medicine(request: Request, session: Session = Depends(get_session)
             errors["medicine_name"] = f"Your list can hold {MAX_MEDICINES} medicines. Remove one first."
     if errors:
         return _render(request, session, errors=errors, status_code=422)
-    session.add(UserMedicine(owner_id=uid, name=name, notes=notes))
+    session.add(UserMedicine(owner_id=uid, name=name, notes=notes, dose_text=dose_text))
     session.commit()
     return RedirectResponse("/settings#medicines", status_code=303)
 

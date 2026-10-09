@@ -1239,6 +1239,7 @@ class UserMedicine(Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(80))
     notes: Mapped[str | None] = mapped_column(String(200))
+    dose_text: Mapped[str | None] = mapped_column(String(80))      # optional, quoted back in alerts, never parsed
 
 
 class JournalEntryCustomEffect(Base):
