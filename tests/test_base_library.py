@@ -70,7 +70,7 @@ def test_any_card_data_means_the_entry_is_not_empty(field, value):
     assert not is_empty_entry(Peptide(name="x", **{field: value}))
 
 
-def test_the_real_shipped_file_gives_a_bare_seed_105_full_cards_on_a_throwaway_database(tmp_path):
+def test_the_real_shipped_file_gives_a_bare_seed_105_plus_2_full_cards_on_a_throwaway_database(tmp_path):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
@@ -83,8 +83,19 @@ def test_the_real_shipped_file_gives_a_bare_seed_105_full_cards_on_a_throwaway_d
         for i, name in enumerate(seed_names()):                                  # the bare seed a fresh install starts with
             s.add(Peptide(name=name, source=PeptideSource.CARD if i < 100 else PeptideSource.STARTER, card_number=i + 1 if i < 100 else None))
         s.commit()
-        assert len(load_base_library(s)) == 105
+        assert len(load_base_library(s)) == 107                                   # the 105 seed entries filled, the two extras created
         rows = s.scalars(select(Peptide)).all()
-        assert len(rows) == 105 and all(not is_empty_entry(p) and len(p.dosing_tiers) == 3 for p in rows)
+        assert len(rows) == 107 and all(not is_empty_entry(p) and len(p.dosing_tiers) == 3 for p in rows)
         assert next(p for p in rows if p.name == "Ipamorelin").aliases and next(p for p in rows if p.name == "Kisspeptin-10").summary
         assert load_base_library(s) == []                                         # idempotent
+
+
+def test_a_completely_blank_entry_the_person_added_is_filled_but_one_with_aliases_or_notes_is_not(db):
+    db.add_all([Peptide(name="Basetest Blank", source=PeptideSource.CUSTOM),
+                Peptide(name="Basetest Aliased", source=PeptideSource.CUSTOM, aliases="my nickname"),
+                Peptide(name="Basetest Noted", source=PeptideSource.CUSTOM, notes="mine")])
+    db.commit()
+    blank_id = get(db, "Basetest Blank").id
+    assert load_base_library(db, [rec("Basetest Blank"), rec("Basetest Aliased"), rec("Basetest Noted")]) == ["Basetest Blank"]
+    assert get(db, "Basetest Blank").id == blank_id and get(db, "Basetest Blank").summary
+    assert get(db, "Basetest Aliased").summary is None and get(db, "Basetest Noted").summary is None

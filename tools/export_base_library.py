@@ -45,12 +45,15 @@ def scrub(value):
 
 
 
+EXTRA_NAMES = ["HGH Fragment 176-191", "HGH Fragment 176-192"]      # shipped cards beyond the 105 seed names
+
+
 def base_names() -> list[str]:
     path = next(ROOT.glob("migrations/versions/0003_*.py"))
     spec = importlib.util.spec_from_file_location("_seed_0003_export", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.CARD_PEPTIDES + module.STARTER_PEPTIDES
+    return module.CARD_PEPTIDES + module.STARTER_PEPTIDES + EXTRA_NAMES
 
 
 def _json(value):

@@ -10,6 +10,9 @@ DATA = ROOT / "app" / "library" / "base_library.json"
 SEED = next(ROOT.glob("migrations/versions/0003_*.py"))
 
 
+EXTRA = ["HGH Fragment 176-191", "HGH Fragment 176-192"]      # shipped beyond the 105 seed names
+
+
 def seed_names():
     spec = importlib.util.spec_from_file_location("_seed_0003_data", SEED)
     module = importlib.util.module_from_spec(spec)
@@ -21,9 +24,9 @@ def records():
     return json.loads(DATA.read_text(encoding="utf-8"))
 
 
-def test_it_has_exactly_the_base_names_each_with_a_full_card():
+def test_it_has_exactly_the_base_names_plus_the_two_extras_each_with_a_full_card():
     recs = records()
-    assert sorted(r["name"] for r in recs) == sorted(seed_names())
+    assert sorted(r["name"] for r in recs) == sorted(seed_names() + EXTRA)
     for r in recs:
         assert r["summary"] and r["tags"] and r["sheet_sections_simple"], r["name"]
 

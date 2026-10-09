@@ -49,7 +49,7 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 
 ## Library
 
-The **Library** holds reference cards for peptides, and a new install already has 105 of the commonly used ones (price estimates are not included). Open one to see dosing tiers, cycles, stacking notes and what to monitor. **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
+The **Library** holds reference cards for peptides, and a new install already has 107 of the commonly used ones (price estimates are not included). Open one to see dosing tiers, cycles, stacking notes and what to monitor. **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
 
 ## Links
 

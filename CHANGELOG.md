@@ -2,6 +2,10 @@
 
 Newest first. Dates are when the work was done.
 
+## v1.0.2 (2026-10)
+
+- The base library also ships the HGH Fragment 176-191 and 176-192 cards, with the animal studies they rest on (verified in PubMed) and community dosing labelled as community practice. A completely blank entry you added yourself with the same name is filled in; one with any card data, alias or note is never touched.
+
 ## v1.0.1 (2026-10)
 
 - The base library ships with Amide: a new install has 105 peptide cards with their aliases, tags, dosing tiers, cycles, stack notes, monitoring and readable sections, under the new-style names. An existing install gets the same on update: empty entries fill in, the old-style duplicate names merge into the new ones (anything that pointed at them follows), and anything with card data or entered by a person is left alone.
