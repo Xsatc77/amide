@@ -43,7 +43,7 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 
 ## Body and health
 
-- **Body**: weight and tape measurements (with a body diagram), water goal, **Food** (diet type, calories and macros, a food log; if your administrator set a USDA key there is also a live USDA food search), **Journal** (mood, energy, sleep, side effects including ones you add to your own list; add or edit any past day; trend charts), **Labs** (a line for every marker; results can be 0, negative, <5 or >100; any past date) and **Body photos** (blurred until you reveal them).
+- **Body**: weight and tape measurements (with a body diagram), water goal, **Food** (diet type, calories and macros, a food log; paste a free USDA key in Settings, USDA food search, to add a live USDA food search), **Journal** (mood, energy, sleep, side effects including ones you add to your own list; add or edit any past day; trend charts), **Labs** (a line for every marker; results can be 0, negative, <5 or >100; any past date) and **Body photos** (blurred until you reveal them).
 - **Workouts** and **Fitness Test**: plans from a PDF or built by hand, one active at a time (End plan or Delete when you are done), calorie estimates, an Energy page (TDEE that follows your weight) and a Progress page. **Log a free workout** records one that is not in a plan. **Export log** saves a spreadsheet.
 
 ## Library

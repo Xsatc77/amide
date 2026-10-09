@@ -75,9 +75,11 @@
       <div class="fulfil-bar" role="progressbar" aria-valuenow="{{ f.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ label }}">
         <div class="fulfil-fill" style="width: {{ [f.pct, 100] | min }}%"></div></div>
       <div class="fulfil-num">{{ (f.eaten | round | int) if key == 'calories' else (f.eaten | round(1)) }} / {{ f.target }} {{ unit }} ({{ f.pct }}%)</div>
+      <div class="fulfil-action">{% if key in ('protein', 'carb', 'fiber') %}<button type="button" class="btn small" data-food-recommend="{{ key }}" data-day="{{ food_day.isoformat() }}">Recommend</button>{% endif %}</div>
     </div>
     {% endfor %}
   </div>
+  <div class="food-recommend" data-food-recommend-box hidden aria-live="polite"></div>
   {% endif %}
 
   <h3 class="section-title">Log</h3>

@@ -4,6 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app import config
@@ -12,6 +13,7 @@ from app.db import get_session
 from app.food import foods as foods_mod
 from app.food import logs as logs_mod
 from app.food import summary as food_summary
+from app.food import recommend as recommend_mod
 from app.food import usda
 from app.models import FOOD_MEALS, DietPreset, Food, MacroGoal, User
 
@@ -143,15 +145,35 @@ def search_foods(q: str = Query("", max_length=80), session: Session = Depends(g
                         headers={"Cache-Control": "no-store"})
 
 
+@router.get("/food/recommend")
+def recommend_foods(nutrient: str = Query(...), date_: str | None = Query(None, alias="date"), session: Session = Depends(get_session),
+                    uid: int = Depends(current_user_id)):
+    """Foods (the starter list and the person's own) that fill what is left of today's protein, carbs or fiber with the fewest carbs."""
+    if nutrient not in recommend_mod.NUTRIENTS:
+        raise HTTPException(422, "Choose protein, carbs or fiber")
+    me = session.get(User, uid)
+    day = food_summary.parse_day(date_) or date.today()
+    summary = food_summary.day_summary(session, me, day)
+    if summary["status"] != "ok":
+        return JSONResponse({"status": summary["status"], "foods": []}, headers={"Cache-Control": "no-store"})
+    fulfil = summary["fulfil"]
+    remaining = fulfil[nutrient]["target"] - fulfil[nutrient]["eaten"]
+    calories_left = fulfil["calories"]["target"] - fulfil["calories"]["eaten"]
+    foods = session.scalars(select(Food).where(or_(Food.owner_id.is_(None), Food.owner_id == uid))).all()
+    picks = recommend_mod.recommend(foods, nutrient, remaining, max(calories_left, 0))
+    return JSONResponse({"status": "ok", "remaining": round(max(remaining, 0), 1), "foods": picks}, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/food/usda")
-def search_usda(q: str = Query("", max_length=80), uid: int = Depends(current_user_id)):
+def search_usda(q: str = Query("", max_length=80), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Live search in the USDA FoodData Central. Only exists when the person running Amide set a key; nothing leaves the server before this is called."""
-    if not config.USDA_API_KEY:
+    key = usda.key_for(session.get(User, uid))
+    if not key:
         raise HTTPException(404, "USDA search is not set up")
     if not q.strip():
         return JSONResponse([], headers={"Cache-Control": "no-store"})
     try:
-        found = usda.search(q, config.USDA_API_KEY, fetch=usda.fetch_json)
+        found = usda.search(q, key, fetch=usda.fetch_json)
     except Exception:
         raise HTTPException(502, "The USDA food database could not be reached") from None
     return JSONResponse(found, headers={"Cache-Control": "no-store"})

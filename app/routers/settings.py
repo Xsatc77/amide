@@ -209,6 +209,22 @@ async def change_reminders(request: Request, session: Session = Depends(get_sess
     return RedirectResponse("/settings#reminders", status_code=303)
 
 
+@router.post("/settings/usda-key")
+async def change_usda_key(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Save or remove the person's own FoodData Central key (it turns on the live food search; it is never shown again)."""
+    form = await request.form()
+    me = _me(session, uid)
+    if form.get("remove"):
+        me.usda_api_key = None
+    else:
+        key = str(form.get("usda_api_key") or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9]{20,64}", key):
+            return _render(request, session, errors={"usda_api_key": "That doesn't look like a FoodData Central key (letters and digits, 20 or more)."}, status_code=422)
+        me.usda_api_key = key
+    session.commit()
+    return RedirectResponse("/settings#usda", status_code=303)
+
+
 @router.post("/settings/reminders/test")
 def test_reminder(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     me = _me(session, uid)

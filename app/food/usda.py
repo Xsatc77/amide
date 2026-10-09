@@ -12,6 +12,12 @@ _NUTRIENTS = {"calories": ("Energy", "KCAL"), "protein_g": ("Protein", "G"), "ca
               "fat_g": ("Total lipid (fat)", "G"), "fiber_g": ("Fiber, total dietary", "G")}
 
 
+def key_for(user) -> str:
+    """The person's own key from Settings, else the one the administrator set in AMIDE_USDA_API_KEY; empty when neither exists."""
+    from app import config
+    return (getattr(user, "usda_api_key", None) or config.USDA_API_KEY or "").strip()
+
+
 def fetch_json(url: str) -> dict:
     with urllib.request.urlopen(url, timeout=10) as response:                # the key is in the address, so this is never logged here
         return json.loads(response.read().decode("utf-8"))

@@ -11,6 +11,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app import units
 from app.measurements.calculations import bmi, body_fat_pct, water_goal_oz, water_pace
+from app.food import usda
 from app.models import BodyMeasurement, DietPreset, Food, LoginSession, MacroGoal, Share, ShareCategory, User
 from app.routers import journal, labs
 from app.templating import templates
@@ -538,7 +539,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
             day = extra["food_date"]
         context.update(food=food_summary.day_summary(session, me_user, day), food_day=day,
                        food_prev=(day - timedelta(days=1)).isoformat(), food_next=(day + timedelta(days=1)).isoformat(),
-                       diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user, usda_enabled=bool(config.USDA_API_KEY),
+                       diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user, usda_enabled=bool(usda.key_for(me_user)),
                        my_foods=session.scalars(select(Food).where(Food.owner_id == uid).order_by(Food.name)).all())
     if extra:
         context.update(extra)

@@ -1001,6 +1001,7 @@ class User(Base):
     calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)      # secret address of the private iCal feed; none = feed off
     ntfy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # push the dose reminders to ntfy
     ntfy_topic: Mapped[str | None] = mapped_column(String(100))
+    usda_api_key: Mapped[str | None] = mapped_column(String(64))      # own FoodData Central key for live food search; never shown again, never in a profile export
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
     photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")

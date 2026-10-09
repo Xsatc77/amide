@@ -9,6 +9,34 @@
     if (!window.confirm("Delete this? This cannot be undone.")) event.preventDefault();
   }));
 
+  // Recommend buttons: foods that fill what is left of protein, carbs or fiber with the fewest carbs.
+  const box = document.querySelector("[data-food-recommend-box]");
+  const NAMES = { protein: "protein", carb: "carbs", fiber: "fiber" };
+  document.querySelectorAll("[data-food-recommend]").forEach((button) => button.addEventListener("click", async () => {
+    const nutrient = button.dataset.foodRecommend;
+    box.hidden = false;
+    box.textContent = "Looking…";
+    try {
+      const response = await fetch(`/food/recommend?nutrient=${nutrient}&date=${button.dataset.day}`, { headers: { Accept: "application/json" } });
+      const data = await response.json();
+      box.textContent = "";
+      if (data.status !== "ok") { box.textContent = "Fill in your profile and a weigh-in above first, so Amide knows what is left."; return; }
+      if (!data.foods.length) { box.textContent = `Nothing to suggest: you have reached your ${NAMES[nutrient]} for today, or no food fits the calories left.`; return; }
+      const heading = document.createElement("p");
+      heading.className = "small";
+      heading.textContent = `About ${data.remaining} g of ${NAMES[nutrient]} left. These get close, with the fewest carbs first:`;
+      const list = document.createElement("ul");
+      data.foods.forEach((food) => {
+        const item = document.createElement("li");
+        item.textContent = `${food.servings} × ${food.name} (${food.serving}): ${food.calories} kcal, protein ${food.protein_g} g, carbs ${food.carb_g} g, fiber ${food.fiber_g} g`;
+        list.append(item);
+      });
+      box.append(heading, list);
+    } catch (error) {
+      box.textContent = "Could not get suggestions.";
+    }
+  }));
+
   const dialog = document.getElementById("food-dialog");
   if (!dialog) return;
   const form = dialog.querySelector("[data-food-form]");

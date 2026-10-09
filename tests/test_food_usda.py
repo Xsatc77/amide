@@ -75,3 +75,17 @@ def test_a_blank_query_is_refused_without_calling_out(client, db, monkeypatch):
     monkeypatch.setattr(config, "USDA_API_KEY", "KEY")
     monkeypatch.setattr(usda, "fetch_json", lambda url: pytest.fail("must not be called"))
     assert client.get("/food/usda", params={"q": "  "}).json() == []
+
+
+def test_a_key_saved_in_settings_turns_the_search_on_and_is_never_shown_again(client, db, monkeypatch):
+    monkeypatch.setattr(config, "USDA_API_KEY", "")
+    seen = []
+    monkeypatch.setattr(usda, "fetch_json", lambda url: seen.append(url) or SAMPLE)
+    mine = "A1b2C3d4E5f6G7h8I9j0K1l2"
+    assert client.post("/settings/usda-key", data={"usda_api_key": "short"}).status_code == 422
+    assert client.post("/settings/usda-key", data={"usda_api_key": mine}, follow_redirects=False).status_code == 303
+    assert "data-usda-search" in client.get("/measurements", params={"tab": "food"}).text
+    assert client.get("/food/usda", params={"q": "banana"}).status_code == 200 and f"api_key={mine}" in seen[0]
+    assert mine not in client.get("/settings").text
+    assert client.post("/settings/usda-key", data={"remove": "1"}, follow_redirects=False).status_code == 303
+    assert client.get("/food/usda", params={"q": "banana"}).status_code == 404

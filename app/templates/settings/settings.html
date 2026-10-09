@@ -156,6 +156,18 @@
         {% if me.ntfy_topic %}<form method="post" action="/settings/reminders/test"><button type="submit" class="btn btn-ghost">Send a test message</button></form>{% endif %}
       </div>
 
+      <div class="settings-form" id="usda">
+        <h3 class="small muted">USDA food search</h3>
+        <p class="small muted">Paste a free <a href="https://fdc.nal.usda.gov/api-key-signup.html" target="_blank" rel="noopener">FoodData Central key</a> to add <strong>Search the USDA database</strong> to the Add food dialog. Amide contacts USDA only when you press Search there, and sends the words you typed and the key. The key is kept with your account and is never shown again or included in your exports.</p>
+        {% if me.usda_api_key %}<p class="small">A key is saved for your account.</p>{% endif %}
+        <form method="post" action="/settings/usda-key" novalidate>
+          <label class="field {{ 'has-error' if errors.usda_api_key }}"><span>{{ 'Replace the key' if me.usda_api_key else 'FoodData Central key' }}</span>
+            <input type="password" name="usda_api_key" maxlength="64" autocomplete="off">{{ err('usda_api_key') }}</label>
+          <button type="submit" class="btn btn-primary">Save key</button>
+          {% if me.usda_api_key %}<button type="submit" name="remove" value="1" class="btn btn-ghost">Remove key</button>{% endif %}
+        </form>
+      </div>
+
       <div class="settings-form" id="calendar-feed">
         <h3 class="small muted">Subscribe to your calendar</h3>
         <p class="small muted">A private address your phone or computer calendar (Apple, Google, Outlook) can subscribe to. Every dose due in the next three months shows up at its time of day, with a pop-up alert. Anyone with the address can read your dose schedule, so keep it to yourself; making a new one cancels the old one.</p>

@@ -1181,7 +1181,7 @@ fieldset[data-day] { min-width: 0; }
 .food-ring { width: 180px; height: 180px; }
 .food-legend { list-style: none; padding: 0; margin: 0; }
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; }
-.fulfil-row { display: grid; grid-template-columns: 150px 1fr 190px; align-items: center; gap: 12px; margin: 8px 0; }
+.fulfil-row { display: grid; grid-template-columns: 200px 1fr 190px 110px; align-items: center; gap: 12px; margin: 8px 0; }
 .fulfil-bar { height: 12px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
 .fulfil-fill { height: 100%; background: var(--muted); }
 .fulfil-row[data-state="good"] .fulfil-fill { background: #059669; }
@@ -1388,3 +1388,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .link-host { margin-left: 8px; }
 .link-desc { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
 .link-actions { display: flex; gap: 4px; flex: none; }
+.fulfil-action .btn { white-space: nowrap; }
+.food-recommend { margin: 8px 0 16px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 0.9rem; }
+.food-recommend ul { margin: 6px 0 0; padding-left: 20px; }
+@media (max-width: 700px) {
+  .fulfil-row { grid-template-columns: 1fr auto; }
+  .fulfil-bar { grid-column: 1 / -1; }
+  .fulfil-num { text-align: left; }
+}
