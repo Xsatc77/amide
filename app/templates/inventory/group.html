@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set active_nav = "inventory" %}
+{% block title %}{{ group.name }} stock{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="muted small"><a href="/inventory">&larr; Inventory</a></p>
+    <h1>{{ group.name }}</h1>
+    <p class="muted">
+      <strong>{{ group.total }}</strong> on hand{% if group.sizes %} ({{ group.sizes | join(', ') }}){% endif %}
+      {% if group.earliest_expiration %} &middot; use first: expires <strong>{{ group.earliest_expiration | shortdate }}</strong>{% endif %}
+    </p>
+    {% if group.owner_id != viewer_id %}<p class="muted small">Shared with you. Read only.</p>{% endif %}
+  </div>
+</div>
+
+<section aria-labelledby="stock-heading">
+  <h2 id="stock-heading" class="section-title">Stock on hand, soonest expiry first</h2>
+  <p class="small muted">Amide counts what you have used for each size, not for each lot, so &ldquo;on hand&rdquo; per lot is an estimate that takes the use from the
+    soonest lots first. The totals are exact.</p>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead>
+        <tr><th>Expires</th><th>Size</th><th class="num">On hand (est.)</th><th class="num">Received</th><th>Arrived</th><th>Lot</th><th>Vendor</th><th><span class="sr-only">Open</span></th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set it = r.item %}{% set lot = r.lot %}
+        <tr{% if lot.remaining == 0 %} class="muted"{% endif %}>
+          <td data-label="Expires">{{ lot.expiration | shortdate if lot.expiration else 'No date' }}</td>
+          <td data-label="Size">{% if it.vial_size_mg %}{{ '%g' % it.vial_size_mg }} {{ it.vial_size_unit.value }}{% else %}—{% endif %}{% if it.medium %} <span class="tag">{{ it.medium.value }}</span>{% endif %}</td>
+          <td data-label="On hand (est.)" class="num">{{ lot.remaining }}</td>
+          <td data-label="Received" class="num">{{ lot.received }}</td>
+          <td data-label="Arrived">{{ lot.arrival | shortdate if lot.arrival else '—' }}</td>
+          <td data-label="Lot">{{ lot.lot_number or '—' }}</td>
+          <td data-label="Vendor">{{ lot.vendor or '—' }}</td>
+          <td class="actions"><a class="btn btn-ghost" href="/inventory/{{ it.id }}">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nothing has been checked in yet.</p>
+  {% endif %}
+  {% if on_the_way %}
+  <p class="small muted">On the way:
+    {% for it, li in on_the_way %}{{ li.quantity }}{% if it.vial_size_mg %} &times; {{ '%g' % it.vial_size_mg }} {{ it.vial_size_unit.value }}{% endif %}, ordered {{ li.order.order_date | shortdate }}{% if not loop.last %}; {% endif %}{% endfor %}.
+    <a href="/inventory/orders">Track orders</a></p>
+  {% endif %}
+</section>
+{% endblock %}

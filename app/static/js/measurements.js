@@ -125,3 +125,7 @@
     });
   });
 })();
+
+// Delete buttons on this page (measurements, journal entries, water entries) ask first.
+document.querySelectorAll("form[data-confirm]").forEach((f) =>
+  f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));

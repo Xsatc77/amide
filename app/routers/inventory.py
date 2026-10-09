@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
@@ -14,6 +14,7 @@ from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_pen_conversion
+from app.inventory.groups import group_items, lots, single_rows, sort_use_first
 from app.inventory.labels import labels_for_order
 from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
@@ -674,6 +675,9 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
                                            i.first_arrival or far, i.name.casefold()))
     bac_water_items = [i for i in items if i.category == Category.BAC_WATER]
     supply_items = [i for i in items if i.category == Category.SUPPLY]
+    medicine_groups = group_items(medicine_items)                  # one row per peptide, whatever the vial size
+    if sort == "use_first":
+        medicine_groups = sort_use_first(medicine_groups)
     in_transit_lines = [
         (item, li) for item in medicine_items + bac_water_items for li in item.order_items
         if li.order.arrival_date is None
@@ -704,6 +708,9 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "run_outs": run_outs,
             "items": items,
             "medicine_items": medicine_items,
+            "medicine_groups": medicine_groups,
+            "bac_water_rows": single_rows(bac_water_items),
+            "supply_rows": single_rows(supply_items),
             "sort": sort,
             "bac_water_items": bac_water_items,
             "supply_items": supply_items,
@@ -753,6 +760,22 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
 @router.get("/inventory")
 def list_inventory(request: Request, session: Session = Depends(get_session)):
     return _render_list(request, session)
+
+
+@router.get("/inventory/stock/{item_id}")
+def stock_breakdown(item_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """All the stock of one peptide: every line (vial size) and, under each, its lots soonest expiry first. Opened from the one-row-per-peptide list."""
+    item = _visible_item(session, item_id, uid)
+    if item is None:
+        raise HTTPException(404, "Inventory item not found")
+    siblings = session.scalars(select(InventoryItem).where(
+        InventoryItem.owner_id == item.owner_id, InventoryItem.category == item.category,
+        func.lower(InventoryItem.name) == item.name.lower())).all()
+    group = group_items(siblings)[0]
+    rows = [{"item": line, "lot": lot} for line in group.items for lot in lots(line)]
+    rows.sort(key=lambda r: (r["lot"].expiration is None, r["lot"].expiration or date.max, r["lot"].arrival or date.max))      # soonest expiry first, across sizes
+    on_the_way = [(line, li) for line in group.items for li in line.order_items if li.order.arrival_date is None]
+    return templates.TemplateResponse(request, "inventory/group.html", {"group": group, "rows": rows, "on_the_way": on_the_way, "viewer_id": uid})
 
 
 @router.get("/inventory/{item_id}")

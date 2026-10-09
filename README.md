@@ -51,7 +51,7 @@ Always remember: Consult a doctor before using any substance. Responsible use be
 - **Reconstitution:** calculator with IU support and a teaching mode; Active Vials with discard dates; peptide pens.
 - **Vendors and price lists:** contacts, payment methods, price history charts, price lists read from PDF, photo (OCR) and spreadsheet, and an optional Telegram watcher that files lists you follow for review ([watcher/README.md](watcher/README.md)).
 - **Body and health:** weight and measurements, body photos (blurred until you reveal them), journal, labs, food and macros, workouts with calorie estimates and a fitness test.
-- **Library:** 107 base peptide cards come with the app (aliases, tags, dosing tiers, cycles, stack notes, monitoring and plain-language sections), plus your own notes and entries.
+- **Library:** 106 base peptide cards come with the app (aliases, tags, dosing tiers, cycles, stack notes, monitoring and plain-language sections), plus your own notes and entries.
 - **You and your data:** accounts with optional two-factor, opt-in sharing, encrypted backup, export and restore. Self-hosted: nothing leaves your machine unless you turn an integration on.
 
 How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md). What came when: [CHANGELOG.md](CHANGELOG.md). What is next: [docs/ROADMAP.md](docs/ROADMAP.md). Running it for real (HTTPS, backups, updates): [docs/DEPLOYING.md](docs/DEPLOYING.md).

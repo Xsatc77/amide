@@ -326,6 +326,17 @@ async def log_water(request: Request, session: Session = Depends(get_session), t
     return RedirectResponse("/dashboard", status_code=303)
 
 
+@router.post("/water/{log_id}/delete")
+def delete_water(log_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Delete one of the signed-in person's own water entries."""
+    row = session.scalar(select(WaterLog).where(WaterLog.id == log_id, WaterLog.owner_id == uid))
+    if row is None:
+        raise HTTPException(404, "Water entry not found")
+    session.delete(row)
+    session.commit()
+    return RedirectResponse("/measurements?tab=food#water-heading", status_code=303)
+
+
 @router.post("/dashboard/alerts/dismiss")
 async def dismiss_ingest_alert(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Dismiss a price-list alert for the signed-in person only (the group-gone alert is acknowledged by the administrator)."""

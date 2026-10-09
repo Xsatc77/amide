@@ -88,7 +88,7 @@
 </dialog>
 {% endif %}
 
-{% macro item_table(section_id, heading, items, show_medium) %}
+{% macro item_table(section_id, heading, groups, show_medium) %}
 <section id="{{ section_id }}" aria-labelledby="{{ section_id }}-heading">
   <h2 id="{{ section_id }}-heading" class="section-title">{{ heading }}</h2>
   {% if show_medium %}
@@ -101,7 +101,7 @@
     <noscript><button type="submit" class="btn btn-ghost">Apply</button></noscript>
   </form>
   {% endif %}
-  {% if items %}
+  {% if groups %}
   <div class="table-wrap">
     <table class="inv-table">
       <thead>
@@ -115,7 +115,25 @@
         </tr>
       </thead>
       <tbody>
-        {% for item in items %}
+        {% for g in groups %}
+        {% set item = g.items[0] %}
+        {% if g.items | length > 1 %}
+        <tr class="stock-group">
+          <td data-label="Item" class="item-name">
+            <a href="/inventory/stock/{{ item.id }}">{{ g.name }}</a>
+            <div class="muted small">{{ g.items | length }} lines in stock</div>
+            {% if g.owner_id != viewer_id %}<div class="muted small">Shared by {{ owner_names[g.owner_id] }}</div>{% endif %}
+          </td>
+          <td data-label="Count" class="num">{{ g.total }}</td>
+          <td data-label="Amount" class="num">{{ g.sizes | join(', ') or '—' }}</td>
+          <td data-label="Medium">{% for m in g.mediums %}<span class="tag">{{ m }}</span> {% else %}—{% endfor %}</td>
+          <td data-label="Storage">{{ g.storages | join(', ') or '—' }}</td>
+          <td data-label="Expires">{{ g.earliest_expiration | shortdate if g.earliest_expiration else '—' }}</td>
+          <td data-label="Arrived">{{ g.first_arrival | shortdate if g.first_arrival else '—' }}</td>
+          <td data-label="Runs out">{% set runs = [] %}{% for line in g.items %}{% if line.id in run_outs %}{% set _ = runs.append(run_outs[line.id]) %}{% endif %}{% endfor %}{% if runs %}{% set soonest = (runs | sort(attribute='date'))[0] %}{{ soonest.date | shortdate }} <span class="muted small">({{ soonest.days }} days)</span>{% else %}—{% endif %}</td>
+          <td class="actions"><a class="btn btn-ghost" href="/inventory/stock/{{ item.id }}">View stock</a></td>
+        </tr>
+        {% else %}
         <tr>
           <td data-label="Item" class="item-name">
             <a href="/inventory/{{ item.id }}">{{ item.name }}</a>
@@ -151,6 +169,7 @@
             {% endif %}
           </td>
         </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
@@ -161,9 +180,9 @@
 </section>
 {% endmacro %}
 
-{{ item_table('medicines', 'Peptides / Medicines', medicine_items, true) }}
-{{ item_table('bac-water', 'BAC Water', bac_water_items, false) }}
-{{ item_table('supplies', 'Supplies', supply_items, false) }}
+{{ item_table('medicines', 'Peptides / Medicines', medicine_groups, true) }}
+{{ item_table('bac-water', 'BAC Water', bac_water_rows, false) }}
+{{ item_table('supplies', 'Supplies', supply_rows, false) }}
 
 <section id="in-transit" aria-labelledby="in-transit-heading">
   <h2 id="in-transit-heading" class="section-title">In-transit <a class="small" href="/inventory/orders">Track orders</a></h2>

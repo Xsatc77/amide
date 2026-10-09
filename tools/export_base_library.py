@@ -45,7 +45,7 @@ def scrub(value):
 
 
 
-EXTRA_NAMES = ["HGH Fragment 176-191", "HGH Fragment 176-192"]      # shipped cards beyond the 105 seed names
+EXTRA_NAMES = ["HGH Fragment 176-191"]      # shipped cards beyond the 105 seed names
 
 
 def base_names() -> list[str]:

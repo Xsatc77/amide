@@ -4,7 +4,10 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.2 (2026-10)
 
-- The base library also ships the HGH Fragment 176-191 and 176-192 cards, with the animal studies they rest on (verified in PubMed) and community dosing labelled as community practice. A completely blank entry you added yourself with the same name is filled in; one with any card data, alias or note is never touched.
+- Inventory lists one row per peptide, whatever the vial size, with the total on hand, the sizes, and the earliest expiry. Opening it shows every lot across sizes in one table, soonest expiry first.
+- You can delete your own body measurements, journal entries and water entries (each asks first). The Nutrition tab lists the last 30 days of water entries.
+
+- The base library also ships the HGH Fragment 176-191 card, with the animal studies it rests on (verified in PubMed) and community dosing labelled as community practice. A completely blank entry you added yourself with the same name as a shipped card is filled in; one with any card data, alias or note is never touched.
 
 ## v1.0.1 (2026-10)
 

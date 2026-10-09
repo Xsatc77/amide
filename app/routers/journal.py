@@ -311,6 +311,17 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
     return RedirectResponse("/measurements?tab=journal", status_code=303)
 
 
+@router.post("/journal/entries/{entry_date}/delete")
+def delete_journal_entry(entry_date: date, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Delete one of the signed-in person's own journal entries (its side-effect ticks and quick notes go with it)."""
+    entry = session.scalar(select(JournalEntry).where(JournalEntry.owner_id == uid, JournalEntry.entry_date == entry_date))
+    if entry is None:
+        raise HTTPException(404, "Journal entry not found")
+    session.delete(entry)
+    session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
 @router.post("/journal/custom-effects/{effect_id}/delete")
 def delete_custom_effect(effect_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Take a side effect off the person's own list. Days that already recorded it keep it."""

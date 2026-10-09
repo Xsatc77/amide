@@ -17,7 +17,7 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 - **Add item** for a peptide, BAC water or a supply (syringes, alcohol pads, pen parts). Tick **Local seller** for something you pick up in person: it gets no late-shipment alert.
 - **New order** records what you bought, from whom, with cost, lot number, expiration date and a lab report (COA). Add tracking details and Amide shows the order in **Orders and tracking** like a parcel.
 - When a package arrives press **Check in**. Vial labels open in your browser's print window (name, size, lot, blank boxes for the reconstitution and expiry dates). Settings, Vial labels changes the label size or turns this off.
-- The peptides list is in **use-first order**: expires soonest, then oldest. **Runs out** estimates when an item will be gone at your current doses. **Spending** shows cost per vial, per mg and per dose, and spend by month.
+- The peptides list has **one row per peptide**, whatever the vial size: the total on hand, the sizes, and the earliest expiry. Click the name (or **View stock**) for every lot across sizes in one table, soonest expiry first. A peptide with only one line opens that line directly. The list is in **use-first order**: expires soonest, then oldest. **Runs out** estimates when an item will be gone at your current doses. **Spending** shows cost per vial, per mg and per dose, and spend by month.
 - **Reconstitute** turns a sealed vial into an **Active Vial** with a concentration and a discard-by date. It also uses up the BAC water and supplies it needs, and a dialog lists the dates to write on the label.
 
 ## Protocols, doses and the calendar
@@ -44,12 +44,12 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 
 ## Body and health
 
-- **Body**: weight and tape measurements (with a body diagram), water goal, **Food** (diet type, calories and macros, a food log; paste a free USDA key in Settings, USDA food search, to add a live USDA food search), **Journal** (mood, energy, sleep, side effects including ones you add to your own list; add or edit any past day; trend charts), **Labs** (a line for every marker; results can be 0, negative, <5 or >100; any past date) and **Body photos** (blurred until you reveal them).
+- **Body**: weight and tape measurements (any of your own entries, journal days and water entries can be deleted; each asks first) (with a body diagram), water goal (the Nutrition tab lists your last 30 days of water entries), **Food** (diet type, calories and macros, a food log; paste a free USDA key in Settings, USDA food search, to add a live USDA food search), **Journal** (mood, energy, sleep, side effects including ones you add to your own list; add or edit any past day; trend charts), **Labs** (a line for every marker; results can be 0, negative, <5 or >100; any past date) and **Body photos** (blurred until you reveal them).
 - **Workouts** and **Fitness Test**: plans from a PDF or built by hand, one active at a time (End plan or Delete when you are done), calorie estimates, an Energy page (TDEE that follows your weight) and a Progress page. **Log a free workout** records one that is not in a plan. **Export log** saves a spreadsheet.
 
 ## Library
 
-The **Library** holds reference cards for peptides, and a new install already has 107 of the commonly used ones (price estimates are not included). Open one to see dosing tiers, cycles, stacking notes and what to monitor. **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
+The **Library** holds reference cards for peptides, and a new install already has 106 of the commonly used ones (price estimates are not included). Open one to see dosing tiers, cycles, stacking notes and what to monitor. **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
 
 ## Links
 

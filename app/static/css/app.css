@@ -1403,3 +1403,5 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .alert-item { margin: 6px 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); }
 .alert-caution { border-left: 4px solid #dc2626; }
 .alert-note { border-left: 4px solid var(--muted); }
+.water-log { list-style: none; margin: 8px 0; padding: 0; }
+.water-log li { display: flex; align-items: center; justify-content: space-between; max-width: 28rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
