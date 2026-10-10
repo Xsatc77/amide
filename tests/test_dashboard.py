@@ -1,3 +1,4 @@
+import re
 import html
 from datetime import date, datetime, timedelta, timezone
 
@@ -74,9 +75,45 @@ def test_dashboard_shows_water_goal_from_latest_weight(client, db):
             s.commit()
 
 
-def test_dashboard_hides_water_goal_with_no_weight_logged(client, db):
+def test_dashboard_still_tracks_water_with_no_weight_logged(client, db):
+    from app.models import WaterLog
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
     t = client.get("/dashboard").text
-    assert 'id="dash-water-heading"' not in t
+    assert 'id="dash-water-heading"' in t and "open-water-dialog" in t
+    assert "weigh-in" in t                                        # says why there is no daily goal yet
+    try:
+        client.post("/dashboard/water/log", data={"ounces": "16"})
+        t = re.sub(r"<[^>]+>", "", client.get("/dashboard").text)
+        assert "16 oz logged today" in re.sub(r"\s+", " ", t)
+    finally:
+        with SessionLocal() as s:
+            s.query(WaterLog).filter_by(owner_id=uid).delete()
+            s.commit()
+
+
+def test_reset_today_zeroes_todays_water_only_and_asks_first(client, db):
+    from datetime import timedelta
+
+    from app.models import WaterLog
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        s.add_all([WaterLog(owner_id=uid, logged_at=date.today(), ounces=8), WaterLog(owner_id=uid, logged_at=date.today(), ounces=16),
+                   WaterLog(owner_id=uid, logged_at=date.today() - timedelta(days=1), ounces=24)])
+        s.commit()
+    try:
+        page = client.get("/dashboard").text
+        assert 'action="/dashboard/water/reset"' in page and "data-confirm" in page
+        r = client.post("/dashboard/water/reset", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/dashboard"
+        with SessionLocal() as s:
+            left = s.scalars(select(WaterLog).where(WaterLog.owner_id == uid)).all()
+            assert [w.ounces for w in left] == [24]               # yesterday stays
+        assert 'action="/dashboard/water/reset"' not in client.get("/dashboard").text      # nothing logged today: nothing to reset
+    finally:
+        with SessionLocal() as s:
+            s.query(WaterLog).filter_by(owner_id=uid).delete()
+            s.commit()
 
 
 def test_dashboard_shows_body_panel_with_weight_chart(client, db):

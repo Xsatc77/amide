@@ -30,3 +30,7 @@
     if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 })();
+
+// Forms that ask first (Reset today's water).
+document.querySelectorAll("form[data-confirm]").forEach((f) =>
+  f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));

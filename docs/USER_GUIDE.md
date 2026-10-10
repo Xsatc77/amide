@@ -44,12 +44,12 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 
 ## Body and health
 
-- **Body**: weight and tape measurements (any of your own entries, journal days and water entries can be deleted; each asks first) (with a body diagram), water goal (the Nutrition tab lists your last 30 days of water entries), **Food** (diet type, calories and macros, a food log; paste a free USDA key in Settings, USDA food search, to add a live USDA food search), **Journal** (mood, energy, sleep, side effects including ones you add to your own list; add or edit any past day; trend charts), **Labs** (a line for every marker; results can be 0, negative, <5 or >100; any past date) and **Body photos** (blurred until you reveal them).
+- **Body**: weight and tape measurements (any of your own entries, journal days and water entries can be deleted; each asks first) (with a body diagram), water goal (from your latest weight; the Dashboard card keeps tracking without one and has Reset today, and the Nutrition tab lists your last 30 days of water entries), **Food** (diet type, calories and macros, a food log; paste a free USDA key in Settings, USDA food search, to add a live USDA food search), **Journal** (mood, energy, sleep, side effects including ones you add to your own list; add or edit any past day; trend charts), **Labs** (a line for every marker; results can be 0, negative, <5 or >100; any past date) and **Body photos** (blurred until you reveal them).
 - **Workouts** and **Fitness Test**: plans from a PDF or built by hand, one active at a time (End plan or Delete when you are done), calorie estimates, an Energy page (TDEE that follows your weight) and a Progress page. **Log a free workout** records one that is not in a plan. **Export log** saves a spreadsheet.
 
 ## Library
 
-The **Library** holds reference cards for peptides, and a new install already has 106 of the commonly used ones (price estimates are not included). Open one to see dosing tiers, cycles, stacking notes and what to monitor. **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
+The **Library** holds reference cards for peptides, and a new install already has 106 of the commonly used ones (price estimates are not included). Open one to see dosing tiers, cycles, stacking notes and what to monitor. The administrator can delete an entry a person added (not a shipped card, and not one a protocol or dose log still uses). **My notes and saved articles** are private to you; **Library, My notes** lists them all. **Library, Goal stacks** reorders each goal's suggested peptides. File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
 
 ## Links
 

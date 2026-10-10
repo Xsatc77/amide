@@ -197,14 +197,16 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             .order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())).all()
         latest_weight, _, _, weight_as_of = _field_current_and_delta(entries, "weight_lbs")
         viewer = session.get(User, effective_uid)
+        consumed_oz = session.scalar(
+            select(func.sum(WaterLog.ounces)).where(
+                WaterLog.owner_id == effective_uid, WaterLog.logged_at == today)) or 0
         if latest_weight is not None:
             goal_oz = water_goal_oz(latest_weight, viewer.water_goal_oz if viewer else None)
-            consumed_oz = session.scalar(
-                select(func.sum(WaterLog.ounces)).where(
-                    WaterLog.owner_id == effective_uid, WaterLog.logged_at == today)) or 0
             water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": weight_as_of,
                     "consumed_oz": consumed_oz,
                     "pct": min(100, round(100 * consumed_oz / goal_oz)) if goal_oz else 0}
+        else:                                  # no weigh-in yet (or it was deleted): still track water, there is just no daily goal to compare with
+            water = {"goal_oz": None, "pace": None, "weight_as_of": None, "consumed_oz": consumed_oz, "pct": 0}
 
         # Always rendered (like Schedule/Alerts' own "nothing yet" states) rather than hidden
         # outright with no data -- fixed to the Overview's own default range/metric (Weight),
@@ -323,6 +325,14 @@ async def log_water(request: Request, session: Session = Depends(get_session), t
     if ounces is not None and ounces > 0:
         session.add(WaterLog(owner_id=uid, logged_at=today, ounces=ounces))
         session.commit()
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@router.post("/dashboard/water/reset")
+def reset_water_today(session: Session = Depends(get_session), today: date = Depends(get_today), uid: int = Depends(current_user_id)):
+    """Zero today's water: delete the signed-in person's own entries for today (earlier days stay)."""
+    session.query(WaterLog).filter(WaterLog.owner_id == uid, WaterLog.logged_at == today).delete(synchronize_session=False)
+    session.commit()
     return RedirectResponse("/dashboard", status_code=303)
 
 

@@ -234,7 +234,7 @@
           <td data-label="Date">{{ m.measured_at | shortdate }}</td>
           <td data-label="Weight ({{ u.weight_label }})">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
           <td data-label="Waist ({{ u.length_label }})">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
-          <td class="actions"><form method="post" action="/measurements/{{ m.id }}/delete" class="inline" data-confirm="Delete the {{ m.measured_at | shortdate }} entry? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ m.measured_at | shortdate }} entry">Delete</button></form></td>
+          <td class="actions"><form method="post" action="/measurements/{{ m.id }}/delete" class="inline" data-confirm="Delete the {{ m.measured_at | shortdate }} entry? This cannot be undone. Your water goal and calorie targets are worked out from your latest weight, so deleting your only weigh-in removes them until you log a new one."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ m.measured_at | shortdate }} entry">Delete</button></form></td>
         </tr>
         {% endfor %}
       </tbody>

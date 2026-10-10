@@ -6,13 +6,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import config
+from app.auth.deps import current_user_id
 from app.db import get_session
 from app.calculator import units as unit_math
 from app.goals import GOALS
 from app.library.price_lists.analysis import price_range, rematch_items
 from app.library.price_lists.vendor_view import build_price_compare
 from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
-from app.models import DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideNote, PeptideSource, Protocol, ProtocolItem
+from app.models import DoseLog, DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideNote, PeptideSource, Protocol, ProtocolItem, User
 from app.templating import templates
 
 router = APIRouter()
@@ -65,6 +66,23 @@ def library_list(request: Request, session: Session = Depends(get_session)):
     })
 
 
+@router.post("/library/{peptide_id}/delete")
+def delete_library_entry(peptide_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Delete a library entry a person added. The library is shared, so only the administrator can; a shipped card cannot be deleted; and an
+    entry that a protocol or dose log still uses is kept (the person is told what uses it)."""
+    p = _get_peptide(session, peptide_id)
+    me = session.get(User, uid)
+    if not me.is_admin or p.source not in (PeptideSource.CUSTOM, PeptideSource.STARTER):
+        raise HTTPException(403, "Only the administrator can delete a library entry that a person added")
+    in_use = (session.scalar(select(ProtocolItem.id).where(ProtocolItem.peptide_id == p.id).limit(1)) is not None
+              or session.scalar(select(DoseLog.id).where(DoseLog.peptide_id == p.id).limit(1)) is not None)
+    if in_use:
+        return RedirectResponse(f"/library/{p.id}?delete_blocked=1", status_code=303)
+    session.delete(p)
+    session.commit()
+    return RedirectResponse("/library", status_code=303)
+
+
 @router.get("/library/{peptide_id}")
 def library_detail(peptide_id: int, request: Request, session: Session = Depends(get_session)):
     p = _get_peptide(session, peptide_id)
@@ -84,6 +102,8 @@ def library_detail(peptide_id: int, request: Request, session: Session = Depends
     return templates.TemplateResponse(request, "library/detail.html", {
         "calc_urls": calc_urls, "my_notes": my_notes,
         "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,
+        "can_delete": bool(session.get(User, request.state.user.id).is_admin) and p.source in (PeptideSource.CUSTOM, PeptideSource.STARTER),
+        "protocols_using": session.scalar(select(func.count(func.distinct(ProtocolItem.protocol_id))).where(ProtocolItem.peptide_id == p.id)) or 0,
         "dosing_tiers": dosing_tiers, "price_range": shown_range,
         "price_compare": build_price_compare(session, p.id, shown_range),
     })

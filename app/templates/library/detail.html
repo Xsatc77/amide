@@ -231,7 +231,8 @@
     {% endif %}
 
     <div class="side-box">
-      <div class="side-head"><h2 class="section-title">Your info</h2><a class="btn btn-ghost" href="/library/{{ p.id }}/edit">Edit</a></div>
+      <div class="side-head"><h2 class="section-title">Your info</h2><a class="btn btn-ghost" href="/library/{{ p.id }}/edit">Edit</a>
+        {% if can_delete %}<form method="post" action="/library/{{ p.id }}/delete" class="inline" data-confirm="Delete “{{ p.name }}” from the library for everyone on this server? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger">Delete</button></form>{% endif %}</div>
       <dl class="kv kv-tight">
         <dt>Dose range</dt>
         <dd>{% if p.dose_low is not none or p.dose_mid is not none or p.dose_high is not none %}
@@ -245,6 +246,10 @@
       </dl>
     </div>
 
+    {% if request.query_params.get('delete_blocked') %}
+    <p class="note" role="alert"><strong>{{ p.name }} was not deleted.</strong> It is still used in {{ protocols_using }} protocol{{ '' if protocols_using == 1 else 's' }} or has logged doses
+      (yours or another person's). Remove it from those first.</p>
+    {% endif %}
     <div class="side-box">
       <h2 class="section-title">Used in protocols</h2>
       {% if used_in %}

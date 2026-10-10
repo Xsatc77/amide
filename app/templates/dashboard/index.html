@@ -205,17 +205,27 @@
       {{ panel_icon('droplet') }}
       <h2 id="dash-water-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=food">Water Goal</a></h2>
     </div>
+    {% if water.goal_oz %}
     <p class="panel-stat">{{ u.volume(water.goal_oz) }} <span class="panel-stat-sub small">{{ u.volume_label }}/day</span></p>
     <p class="muted panel-stat-sub">{{ '%g'|format(u.volume(water.consumed_oz)) }} {{ u.volume_label }} logged today ({{ water.pct }}%)</p>
     <p class="muted panel-stat-sub">about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr</p>
+    {% else %}
+    <p class="panel-stat">{{ '%g'|format(u.volume(water.consumed_oz)) }} <span class="panel-stat-sub small">{{ u.volume_label }} logged today</span></p>
+    <p class="muted panel-stat-sub">Log a <a href="/measurements?tab=measurements">weigh-in</a> to get a daily goal.</p>
+    {% endif %}
     {% if show_quick_capture %}
     <button type="button" class="btn btn-primary panel-stat-sub" data-action="open-water-dialog">+ Log water</button>
+    {% if water.consumed_oz %}
+    <form method="post" action="/dashboard/water/reset" class="inline" data-confirm="Reset today's water to zero? This deletes today's water entries.">
+      <button type="submit" class="btn btn-ghost panel-stat-sub">Reset today</button>
+    </form>
+    {% endif %}
     {% endif %}
   </div>
 </section>
 {% endif %}
 
-{% if show_quick_capture and water %}
+{% if show_quick_capture %}
 <dialog id="water-dialog" class="dialog">
   <form method="post" action="/dashboard/water/log">
     <header class="dialog-head">

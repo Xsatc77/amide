@@ -2,6 +2,12 @@
 
 Newest first. Dates are when the work was done.
 
+## v1.0.3 (2026-10)
+
+- The Dashboard's Water card no longer disappears when you have no weigh-in: it keeps tracking what you log, says a weigh-in gives a daily goal, and has a **Reset today** button (asks first) that zeroes today's water. Deleting a weigh-in now warns that the water goal and calorie targets come from your latest weight.
+
+- The administrator can delete a library entry that a person added (a Delete button beside Edit). A shipped card cannot be deleted, and an entry that a protocol or dose log still uses is kept, with a note saying so.
+
 ## v1.0.2 (2026-10)
 
 - Inventory lists one row per peptide, whatever the vial size, with the total on hand, the sizes, and the earliest expiry. Opening it shows every lot across sizes in one table, soonest expiry first.
