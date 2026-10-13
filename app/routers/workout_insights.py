@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app import units
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -79,7 +80,7 @@ def _energy_context(session: Session, uid: int, goal: str, carb: str, range_key:
     if missing:
         return {"status": "missing", "missing": missing}
 
-    today = date.today()
+    today = clock.today()
     male = user.sex == BiologicalSex.MALE
     report = tdee.report(male=male, age=_age(user.birth_date, today), height_in=user.height_in, weight_lb=weight,
                          activity_factor=float(user.activity_level.value), life_stage=user.life_stage)
@@ -157,7 +158,7 @@ def _progress_context(session: Session, uid: int, exercise: str, range_key: str,
     u = u or units.Units()
     k = 1 / units.LB_PER_KG if u.metric else 1          # stored loads are pounds; show kilograms when metric
     unit = u.load_label
-    today = date.today()
+    today = clock.today()
     range_key = range_key if range_key in PROGRESS_RANGES else "90"
     everything = load_logged(session, uid)
     names = progress.exercises_by_recency(everything)

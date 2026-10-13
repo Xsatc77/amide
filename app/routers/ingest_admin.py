@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -50,7 +51,7 @@ def _page(request: Request, session: Session, me: User, *, status: str = "", q: 
         "me": me, "tokens": list(session.scalars(select(IngestToken).order_by(IngestToken.id.desc()))),
         "sources": shown, "source_by_id": sources, "topics_by_source": topics_by_source, "q": q, "items": items, "statuses": INGEST_STATUSES, "status": status,
         "waiting": waiting, "vendors": list(session.scalars(select(Vendor).order_by(Vendor.name))), "new_secret": new_secret, "new_label": new_label,
-        "today": date.today().isoformat(),
+        "today": clock.today().isoformat(),
     }, status_code=code)
 
 

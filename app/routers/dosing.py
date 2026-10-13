@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app.calculator import units as unit_math
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
@@ -181,7 +182,7 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
     item = _own_protocol_item(session, protocol_id, protocol_item_id, uid)
     if item is None:
         raise HTTPException(404, "Protocol item not found")
-    if scheduled_date > date.today():
+    if scheduled_date > clock.today():
         raise HTTPException(422, "Can't log a dose for a future date.")
 
     # A double-click, browser back-button resubmit, two open tabs, or a stale catch-up link can
@@ -221,7 +222,7 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
         if site is None:
             site = recommend(_last_site_for_peptide(session, uid, item.peptide_id), item.route.value)
 
-    status = DoseStatus.ON_TIME if scheduled_date == date.today() else DoseStatus.LATE
+    status = DoseStatus.ON_TIME if scheduled_date == clock.today() else DoseStatus.LATE
     session.add(DoseLog(
         owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, active_vial_id=vial.id if vial else None,
         peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
@@ -289,7 +290,7 @@ async def undo_dose(request: Request, session: Session = Depends(get_session),
     log = session.get(DoseLog, log_id)
     if log is None or log.owner_id != uid:
         raise HTTPException(404, "Dose log not found")
-    if log.scheduled_date != date.today():
+    if log.scheduled_date != clock.today():
         raise HTTPException(422, "Only a dose scheduled for today can be undone.")
 
     if log.active_vial_id is not None and log.volume_ml is not None:

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
+from app import clock
 from app import body_photos, config, photo_access
 from app.auth import sessions
 from app.auth.deps import current_user_id
@@ -81,14 +82,14 @@ async def upload(request: Request, session: Session = Depends(get_session), uid:
     form = await request.form()
     values = {k: str(form.get(k, "")).strip() for k in ("taken_on", "angle", "note")}
     errors: dict[str, str] = {}
-    taken_on = date.today()
+    taken_on = clock.today()
     if values["taken_on"]:
         try:
             taken_on = date.fromisoformat(values["taken_on"])
         except ValueError:
             errors["taken_on"] = "Enter the photo date as a valid date."
         else:
-            if taken_on > date.today() + timedelta(days=1):
+            if taken_on > clock.today() + timedelta(days=1):
                 errors["taken_on"] = "A photo's date cannot be in the future."
     if values["angle"] and values["angle"] not in BODY_PHOTO_ANGLES:
         errors["angle"] = "Choose Front, Side, Back or Other."

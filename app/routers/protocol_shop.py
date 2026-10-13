@@ -8,6 +8,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import Protocol, ProtocolItem, User
@@ -58,7 +59,7 @@ def shop_protocol_text(protocol_id: int, request: Request, session: Session = De
     if request.query_params.get("download"):
         slug = re.sub(r"[^a-z0-9]+", "-", data["protocol"]["name"].lower()).strip("-") or "protocol"
         headers["Content-Disposition"] = f'attachment; filename="shopping-plan-{slug}.txt"'
-    return PlainTextResponse(shop_text(data, date.today()), headers=headers)
+    return PlainTextResponse(shop_text(data, clock.today()), headers=headers)
 
 
 @router.post("/protocols/shop/defaults")

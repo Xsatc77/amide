@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
+from app import clock
 from app import uploads
 from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
@@ -650,7 +651,7 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
         },
         "edit_data": _form_values(item),
         "bac_water_options": _bac_water_options(session, uid) if item.category == Category.MEDICINE else [],
-        "today_iso": date.today().isoformat(),
+        "today_iso": clock.today().isoformat(),
         "checkin_data": {
             li.order_id: [
                 {"id": sib.id, "quantity": sib.quantity, "item_name": sib.inventory_item.name}
@@ -692,10 +693,10 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
     now = now_utc()
     expired_prompts = {
         v.id for v in vials
-        if v.owner_id == uid and v.discard_by < date.today()
+        if v.owner_id == uid and v.discard_by < clock.today()
         and (v.last_discard_prompt_at is None or now - v.last_discard_prompt_at > timedelta(hours=24))
     }
-    run_outs = runs_out(session, uid, date.today())
+    run_outs = runs_out(session, uid, clock.today())
     label_vial = None
     if request.query_params.get("labels", "").isdigit():            # just reconstituted: dates to write on the label
         candidate = session.get(ActiveVial, int(request.query_params["labels"]))
@@ -723,8 +724,8 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "vial_items": vial_items,
             "vial_owner_names": vial_owner_names,
             "expired_prompts": expired_prompts,
-            "today": date.today(),
-            "today_iso": date.today().isoformat(),
+            "today": clock.today(),
+            "today_iso": clock.today().isoformat(),
             "edit_data": {i.id: _form_values(i) for i in items if i.owner_id == uid},
             "mediums": list(Medium),
             "dose_units": list(DoseUnit),
@@ -972,7 +973,7 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
                 vendor.price_list_filename = None
             if old_filename and old_filename != vendor.price_list_filename:
                 old_price_list_filename_to_delete = old_filename
-            vendor.price_list_updated_at = date.today()
+            vendor.price_list_updated_at = clock.today()
 
     order = Order(**header_values)
     session.add(order)
@@ -1075,7 +1076,7 @@ def _parse_arrival_date(order_date: date, shipped_date: date | None, raw_value: 
     arrival_date = _parse_date(raw_value, "arrival_date", errors)
     if arrival_date is None and "arrival_date" not in errors:
         errors["arrival_date"] = "Arrival date is required."
-    elif arrival_date and arrival_date > date.today():
+    elif arrival_date and arrival_date > clock.today():
         errors["arrival_date"] = "Arrival date can't be in the future."
     elif arrival_date and shipped_date and arrival_date < shipped_date:
         errors["arrival_date"] = "Arrival date can't be before the shipped date."
@@ -1194,7 +1195,7 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
     sale_date = _parse_date(raw["sale_date"], "sale_date", errors)
     if sale_date is None and "sale_date" not in errors:
         errors["sale_date"] = "Sale date is required."
-    elif sale_date and sale_date > date.today():
+    elif sale_date and sale_date > clock.today():
         errors["sale_date"] = "Sale date can't be in the future."
 
     main = _parse_sale_fields(raw, "", item.name, item.available_count, errors)

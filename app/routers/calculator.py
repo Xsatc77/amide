@@ -14,6 +14,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.calculator import units as unit_math
 from app.calculator.reconstitution import SYRINGE_CAPACITIES_UNITS, compute, water_for_target_units
@@ -146,7 +147,7 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
         "inventory": [{"id": i.id, "name": i.name, "vial_mg": i.vial_size_mg, "unit": i.vial_size_unit.value, "count": i.available_count,
                        "iu_per_mg": i.iu_per_mg or unit_math.default_iu_per_mg(i.name), "peptide_id": _library_match(i.name, peptides)} for i in inventory],
         "library": library,
-        "bac": _bac_data(session, uid, date.today()),
+        "bac": _bac_data(session, uid, clock.today()),
         "protocol_doses": [
             {"protocol": p.name, "peptide": it.peptide.name, "dose": it.dose, "unit": it.dose_unit.value}
             for p in protocols for it in p.items if it.dose is not None
@@ -220,7 +221,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
         owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=result.concentration, vial_unit=vial_unit,
         iu_per_mg=iu_per_mg if ("IU" in (vial_unit, dose_unit)) else None,
         water_ml=water_ml, dose_value=dose_value, dose_unit=DoseUnit(dose_unit),
-        doses_total=result.doses_per_vial, date_mixed=date.today(), discard_by=discard_by,
+        doses_total=result.doses_per_vial, date_mixed=clock.today(), discard_by=discard_by,
         volume_remaining_ml=water_ml,
         dispensing_method=DispensingMethod.PEN if load_into_pen else DispensingMethod.SYRINGE,
     )

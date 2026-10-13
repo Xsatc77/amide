@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
+from app.settings.rules import timezone_error
+from app import clock
 from app.auth import sessions
 from app.db import SessionLocal
 from app.models import User
@@ -39,12 +41,19 @@ def _deny(request: Request, step: str) -> Response:
     return RedirectResponse(step, status_code=303)
 
 
+def _device_zone(request: Request) -> str | None:
+    """The time zone the browser reported (a cookie set by every page), when it is a real one; used for people who left Settings on automatic."""
+    name = request.cookies.get("amide_tz", "")
+    return name if name and timezone_error(name) is None else None
+
+
 def install(app: FastAPI) -> None:
     @app.middleware("http")
     async def gate(request: Request, call_next):
         path = request.url.path
         request.state.user = None
         request.state.session_id = None
+        clock.set_zone(None)
 
         if request.method in UNSAFE_METHODS and not _same_origin(request):
             return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
@@ -61,6 +70,7 @@ def install(app: FastAPI) -> None:
                     user = db.get(User, row.user_id)
                     db.expunge(user)
                     request.state.user = user
+                    clock.set_zone(user.timezone or _device_zone(request))          # "today" is the person's own day, not the server's
             accepted = row is not None and row.notice_accepted_at is not None
             signed_in = row is not None and row.user_id is not None
             pending = row is not None and row.twofa_pending

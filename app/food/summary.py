@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app.food.targets import day_targets, deficit, fulfilment, sum_totals
 from app.measurements import tdee
 from app.models import FOOD_MEAL_LABELS, FOOD_MEALS, BiologicalSex, DietPreset, FoodLog, MacroGoal, User
@@ -20,7 +21,7 @@ def parse_day(raw: str | None) -> date | None:
         day = date.fromisoformat((raw or "").strip())
     except ValueError:
         return None
-    return day if date(2000, 1, 1) <= day <= date.today() + _MAX_AHEAD else None
+    return day if date(2000, 1, 1) <= day <= clock.today() + _MAX_AHEAD else None
 
 
 def workout_burn(session: Session, uid: int, day: date) -> float:
@@ -54,7 +55,7 @@ def day_summary(session: Session, user: User, day: date) -> dict:
             return summary | {"status": "missing_custom_macros"}
         custom = (user.custom_protein_pct, user.custom_carb_pct, user.custom_fat_pct)
 
-    report = tdee.report(male=user.sex == BiologicalSex.MALE, age=_age(user.birth_date, date.today()), height_in=user.height_in,
+    report = tdee.report(male=user.sex == BiologicalSex.MALE, age=_age(user.birth_date, clock.today()), height_in=user.height_in,
                          weight_lb=weight, activity_factor=float(user.activity_level.value), life_stage=user.life_stage)
     try:
         targets = day_targets(report.tdee, user.macro_goal or MacroGoal.MAINTAIN, preset, custom, user.sex)

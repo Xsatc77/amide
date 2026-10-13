@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app import config, photo_access
 from app.auth import sessions
 from app.auth.deps import current_user_id
@@ -311,9 +312,9 @@ def _range_window(range_param: str | None, as_of_param: str | None) -> tuple[str
     a just-logged entry vanish from its own chart."""
     range_key = range_param if range_param in RANGES else DEFAULT_RANGE
     try:
-        as_of = date.fromisoformat(as_of_param) if as_of_param else date.today()
+        as_of = date.fromisoformat(as_of_param) if as_of_param else clock.today()
     except ValueError:
-        as_of = date.today()
+        as_of = clock.today()
     days = RANGE_DAYS.get(range_key)
     start = as_of - timedelta(days=days) if days is not None else None
     return range_key, as_of, start
@@ -510,7 +511,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "shared_views": shared_views,
         "form": form or {},
         "errors": errors or {},
-        "today": date.today().isoformat(),
+        "today": clock.today().isoformat(),
         "active_tab": tab,
         "silhouette": _silhouette_points(display_entries(own_entries, u), u.length_label),
         "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
@@ -534,12 +535,12 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context["open_photo_dialog"] = request.query_params.get("add_photo") == "1"
     if tab == "food" and me_user:
         from app.food import summary as food_summary
-        day = food_summary.parse_day(request.query_params.get("date")) or date.today()
+        day = food_summary.parse_day(request.query_params.get("date")) or clock.today()
         if isinstance((extra or {}).get("food_date"), date):
             day = extra["food_date"]
         context.update(food=food_summary.day_summary(session, me_user, day), food_day=day,
                        food_prev=(day - timedelta(days=1)).isoformat(), food_next=(day + timedelta(days=1)).isoformat(),
-                       water_entries=session.scalars(select(WaterLog).where(WaterLog.owner_id == uid, WaterLog.logged_at >= date.today() - timedelta(days=30))
+                       water_entries=session.scalars(select(WaterLog).where(WaterLog.owner_id == uid, WaterLog.logged_at >= clock.today() - timedelta(days=30))
                                                      .order_by(WaterLog.logged_at.desc(), WaterLog.id.desc())).all(),
                        diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user, usda_enabled=bool(usda.key_for(me_user)),
                        my_foods=session.scalars(select(Food).where(Food.owner_id == uid).order_by(Food.name)).all())
@@ -616,9 +617,9 @@ async def create_measurement(request: Request, session: Session = Depends(get_se
             measured_at = date.fromisoformat(measured_at_raw)
         except ValueError:
             errors["measured_at"] = "Enter a valid date."
-            measured_at = date.today()
+            measured_at = clock.today()
     else:
-        measured_at = date.today()
+        measured_at = clock.today()
 
     u = units.for_user(request.state.user)
     values = {field: _parse_float(field) for field in FLOAT_FIELDS}

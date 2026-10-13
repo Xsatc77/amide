@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from app import clock
 from app.goals import GOALS_BY_SLUG
 from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, TimeOfDay
 
@@ -133,7 +134,7 @@ def state_from_protocol(p: Protocol, *, repeat: bool = False, today: date | None
     start, end = p.start_date, p.end_date
     name = p.name
     if repeat:
-        today = today or date.today()
+        today = today or clock.today()
         name = f"{p.name} (repeat)"
         end = today + (end - start) if end else None
         start = today

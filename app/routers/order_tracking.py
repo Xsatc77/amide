@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.inventory.tracking import DEFAULT_DELAY_DAYS, STATUS_LABELS, build_timeline, tracking_link
@@ -36,7 +37,7 @@ def _my_orders(session: Session, uid: int) -> list[dict]:
 def _cards(session: Session, uid: int, status: str) -> list[dict]:
     me = session.get(User, uid)
     delay = me.shipment_delay_days if me is not None and me.shipment_delay_days is not None else DEFAULT_DELAY_DAYS
-    today = date.today()
+    today = clock.today()
     cards = []
     for entry in _my_orders(session, uid):
         order = entry["order"]
@@ -49,7 +50,7 @@ def _cards(session: Session, uid: int, status: str) -> list[dict]:
 def _page(request: Request, session: Session, uid: int, status: str, *, errors: dict | None = None, code: int = 200):
     status = status if status in {key for key, _ in TABS} else ""
     return templates.TemplateResponse(request, "inventory/orders.html", {
-        "cards": _cards(session, uid, status), "tabs": TABS, "status": status, "errors": errors or {}, "labels": STATUS_LABELS, "today_iso": date.today().isoformat(),
+        "cards": _cards(session, uid, status), "tabs": TABS, "status": status, "errors": errors or {}, "labels": STATUS_LABELS, "today_iso": clock.today().isoformat(),
     }, status_code=code)
 
 
@@ -70,7 +71,7 @@ def _date_field(raw, key: str, errors: dict, order: Order, earliest: date | None
     except ValueError:
         errors[key] = "Enter a valid date."
         return None
-    if found > date.today():
+    if found > clock.today():
         errors[key] = "That date can't be in the future."
     elif found < order.order_date or (earliest is not None and found < earliest):
         errors[key] = "That date can't be before an earlier step."

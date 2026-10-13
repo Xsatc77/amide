@@ -15,6 +15,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app import config, photo_access
 from app.auth import sessions as login_sessions
 from app.auth.deps import current_user_id
@@ -247,7 +248,7 @@ def export_json(session: Session = Depends(get_session), uid: int = Depends(curr
         "protocols": [_protocol_row(p) for p in protocols],
     }
     body = json.dumps(payload, indent=2)
-    filename = f"amide-backup-{date.today().isoformat()}.json"
+    filename = f"amide-backup-{clock.today().isoformat()}.json"
     return Response(body, media_type="application/json",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -299,7 +300,7 @@ def export_inventory_csv(session: Session = Depends(get_session), uid: int = Dep
         for sale in i.sales:
             row = {**_sale_row(sale), "item_name": i.name}
             writer.writerow(["" if row[key] is None else row[key] for _, key in SALE_CSV_COLUMNS])
-    filename = f"amide-inventory-{date.today().isoformat()}.csv"
+    filename = f"amide-inventory-{clock.today().isoformat()}.csv"
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 

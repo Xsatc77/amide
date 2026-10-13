@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.calendar.ical import build_calendar
 from app.calendar.layout import initials, month_rows, month_weeks
@@ -124,7 +125,7 @@ def calendar_feed(token: str, session: Session = Depends(get_session)):
     user = session.scalar(select(User).where(User.calendar_token == token)) if token else None
     if user is None:
         raise HTTPException(404)
-    today = date.today()
+    today = clock.today()
     protocols = session.scalars(select(Protocol).where(Protocol.owner_id == user.id).options(
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide), selectinload(Protocol.items).selectinload(ProtocolItem.steps),
         selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs), selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item))).all()

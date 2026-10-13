@@ -1,0 +1,22 @@
+"""'Today' for the signed-in person. The server (a container, usually) runs in UTC, so its date turns over hours before a person's own in
+the Americas: at 8 PM Monday in Chicago the server already says Tuesday. The request gate sets the person's time zone once per request
+and everything that asks "what day is it" calls today() here instead of date.today(). With no zone known (background work, someone who
+has not chosen one) it is the server's date, as before."""
+
+from contextvars import ContextVar
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+_zone: ContextVar[ZoneInfo | None] = ContextVar("amide_zone", default=None)
+
+
+def set_zone(name: str | None) -> None:
+    try:
+        _zone.set(ZoneInfo(name) if name else None)
+    except Exception:                       # an unknown or malformed zone name: fall back to the server's date
+        _zone.set(None)
+
+
+def today() -> date:
+    zone = _zone.get()
+    return datetime.now(zone).date() if zone else date.today()

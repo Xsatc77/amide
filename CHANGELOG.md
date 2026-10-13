@@ -2,6 +2,10 @@
 
 Newest first. Dates are when the work was done.
 
+## v1.0.4 (2026-10)
+
+- "Today" is now the signed-in person's own day, not the server's. A server in UTC turns over to the next day at 7 PM in Chicago, so the dashboard, Today, calendar, water, food, workouts, journal and every other "today" jumped ahead each evening. The time zone chosen in Settings is used everywhere; people who leave it on Automatic now follow their device's own time zone (the browser reports it), where before Automatic meant the server's.
+
 ## v1.0.3 (2026-10)
 
 - The Dashboard's Water card no longer disappears when you have no weigh-in: it keeps tracking what you log, says a weigh-in gives a daily goal, and has a **Reset today** button (asks first) that zeroes today's water. Deleting a weigh-in now warns that the water goal and calorie targets come from your latest weight.

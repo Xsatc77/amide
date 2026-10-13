@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
@@ -155,7 +156,7 @@ def parse_entry_date(raw: str | None) -> date:
         day = date.fromisoformat((raw or "").strip())
     except ValueError:
         raise ValueError("Pick a valid date for the entry.") from None
-    if day > date.today():
+    if day > clock.today():
         raise ValueError("An entry cannot be for a day that has not happened yet.")
     if day < EARLIEST_ENTRY:
         raise ValueError("That date is too far back.")
@@ -193,7 +194,7 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
     # there instead of blank -- re-saving must edit that same row, not silently wipe it (spec's
     # "Full entry form" section). Only the read side of get_or_create_entry's lookup; never create
     # a row here, since merely opening the dialog/viewing the tab must not touch the database.
-    target = form_date or date.today()                  # the day the entry dialog is for: today, or the earlier day being added or edited
+    target = form_date or clock.today()                  # the day the entry dialog is for: today, or the earlier day being added or edited
     today_row = session.scalar(_journal_query(viewer_uid).where(JournalEntry.entry_date == target))
     today_entry = (
         _entry_view(today_row, doses_for(session, viewer_uid, target),
@@ -214,12 +215,12 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
         "journal_entries": views,
         "today_entry": today_entry,
         "journal_form_date": target,
-        "journal_form_is_today": target == date.today(),
+        "journal_form_is_today": target == clock.today(),
         "journal_side_effects": list(JournalSideEffect),
         "journal_custom_effects": session.scalars(select(JournalCustomEffect).where(JournalCustomEffect.owner_id == viewer_uid).order_by(JournalCustomEffect.name)).all(),
-        "today_doses": doses_for(session, viewer_uid, date.today()),
+        "today_doses": doses_for(session, viewer_uid, clock.today()),
         "workout_day_options": _workout_day_options(session, viewer_uid),
-        "today_iso": date.today().isoformat(),
+        "today_iso": clock.today().isoformat(),
     }
 
 
@@ -248,7 +249,7 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
             continue
         values[field] = value
 
-    entry_day = date.today()
+    entry_day = clock.today()
     if _raw("entry_date"):
         try:
             entry_day = parse_entry_date(_raw("entry_date"))
@@ -343,7 +344,7 @@ async def add_quick_note(request: Request, session: Session = Depends(get_sessio
         # raw JSON error page; just bounce back to the Dashboard as if nothing was submitted.
         return RedirectResponse("/dashboard", status_code=303)
 
-    entry = get_or_create_entry(session, uid, date.today())
+    entry = get_or_create_entry(session, uid, clock.today())
     session.add(JournalQuickNote(entry_id=entry.id, text=text))
     session.commit()
     return RedirectResponse("/dashboard", status_code=303)

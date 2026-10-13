@@ -90,7 +90,7 @@
       <form method="post" action="/settings/timezone" class="settings-form" novalidate>
         <h3 class="small muted">Timezone</h3>
         <p class="small muted">Used to display times like "last login" in Admin. Doesn't change dates on Protocols or Calendar yet.</p>
-        <label class="check"><input type="radio" name="mode" value="system" {{ 'checked' if not me.timezone }}> System time</label>
+        <label class="check"><input type="radio" name="mode" value="system" {{ 'checked' if not me.timezone }}> Automatic (this device's time zone)</label>
         <label class="check"><input type="radio" name="mode" value="manual" {{ 'checked' if me.timezone }}> Manual</label>
         <label class="field {{ 'has-error' if errors.timezone }}">
           <span>Timezone</span>

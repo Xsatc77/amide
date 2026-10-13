@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
@@ -36,7 +37,7 @@ CATCH_UP_WINDOW_DAYS = 14
 
 def get_today() -> date:
     """Today's date; a dependency so tests can pin it."""
-    return date.today()
+    return clock.today()
 
 
 def _protocol_query(uid: int):

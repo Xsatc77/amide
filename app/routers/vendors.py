@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
+from app import clock
 from app import config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -257,7 +258,7 @@ def _detail_context(session: Session, vendor: Vendor, uid: int, price_import: st
         "checked_payment_type_ids": {pm.method_type_id for pm in vendor.payment_methods},
         "order_lines": order_lines,
         "owner_names": owner_names,
-        "today": date.today(),
+        "today": clock.today(),
         "edit_data": _form_values(vendor),
         "price_history": build_price_history(session, vendor.id),
         "current_lists": current_price_lists(session, vendor.id),
@@ -405,7 +406,7 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     # Uploads are validated (extension/size/sniff) only once the rest of the form is known-good --
     # never store a file for a submission that ends up 422ing anyway, mirroring how the New Order
     # flow's own price-list-replace upload is deferred past its own error gate.
-    list_date = date.today()
+    list_date = clock.today()
     if raw["price_list_warehouse"] not in ("auto", "us", "china"):
         errors["price_list_warehouse"] = "Choose detect, US or China for the price list."
     if raw["price_list_date"]:
@@ -476,7 +477,7 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         vendor.price_list_url = None
         price_list_changed = True
     if price_list_changed:
-        vendor.price_list_updated_at = date.today()
+        vendor.price_list_updated_at = clock.today()
 
     vendor.contacts.clear()
     session.flush()  # the deletes must land before the unique/insert side below, mirroring

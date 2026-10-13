@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app import config, units, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -185,7 +186,7 @@ def _activate(session: Session, plan: WorkoutPlan, uid: int) -> None:
         select(WorkoutPlan).where(WorkoutPlan.owner_id == uid, WorkoutPlan.id != plan.id,
                                   WorkoutPlan.ended_on.is_(None)))
     if previously_active is not None:
-        previously_active.ended_on = date.today()
+        previously_active.ended_on = clock.today()
 
 
 def _days_from_form(form: dict) -> tuple[str, list[dict]]:
@@ -251,7 +252,7 @@ async def workouts_create(request: Request, session: Session = Depends(get_sessi
     raw = await request.form()
     form = {k: raw.getlist(k) for k in raw.keys()}
     name, days_data = _days_from_form(form)
-    plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.MANUAL, started_on=date.today())
+    plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.MANUAL, started_on=clock.today())
     session.add(plan)
     save_workout_plan(session, plan, name, days_data)
     session.flush()
@@ -276,7 +277,7 @@ async def workouts_upload(pdf: UploadFile = File(...), session: Session = Depend
         text = ""
     parsed = parse_workout_pdf(text)
     plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.PDF, source_pdf_filename=filename,
-                       started_on=date.today())
+                       started_on=clock.today())
     session.add(plan)
     name = parsed["name"] or pdf.filename or "Imported Plan"
     save_workout_plan(session, plan, name, parsed["days"])
@@ -353,7 +354,7 @@ async def workouts_match_exercise(exercise_id: int, request: Request, session: S
 def workouts_end(plan_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Stop following a plan; it stays in the list (and can be made active again)."""
     plan = _get_own_plan(session, plan_id, uid)
-    plan.ended_on = date.today()
+    plan.ended_on = clock.today()
     session.commit()
     return RedirectResponse("/workouts", status_code=303)
 
@@ -392,7 +393,7 @@ def workouts_log_picker(plan_day_id: int, log_date: date_type | None = None, ses
 def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | None = None,
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     day = _get_own_day(session, plan_day_id, uid)
-    log_date = log_date or date_type.today()
+    log_date = log_date or clock.today()
     # Re-opening an already-logged date shows what was logged (saving replaces that log), instead
     # of a blank form that would silently overwrite it with blanks.
     existing = session.scalar(
@@ -454,7 +455,7 @@ async def _free_form_save(request: Request, session: Session, uid: int, existing
 
 @router.get("/workouts/free/log")
 def workouts_free_form(request: Request, log_date: date_type | None = None, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    return _free_form_page(request, session, uid, None, log_date or date_type.today())
+    return _free_form_page(request, session, uid, None, log_date or clock.today())
 
 
 @router.post("/workouts/free/log")

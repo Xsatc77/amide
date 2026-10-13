@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import FitnessTestExerciseName, FitnessTestResult
@@ -49,7 +50,7 @@ def _charts_and_suggestions(session: Session, uid: int) -> list[dict]:
         ).all()
         points = [(r.tested_at, r.value) for r in rows]
         last_tested = rows[-1].tested_at if rows else None
-        suggest_retest = last_tested is not None and (date.today() - last_tested).days >= _RETEST_AFTER_DAYS
+        suggest_retest = last_tested is not None and (clock.today() - last_tested).days >= _RETEST_AFTER_DAYS
         out.append({
             "key": exercise.value, "label": _LABELS[exercise],
             "chart": _chart(points) if len(points) >= 2 else None,
@@ -63,7 +64,7 @@ def fitness_test_page(request: Request, session: Session = Depends(get_session),
                       uid: int = Depends(current_user_id)):
     return templates.TemplateResponse(request, "fitness_test/index.html", {
         "exercises": _charts_and_suggestions(session, uid),
-        "today": date.today(),
+        "today": clock.today(),
     })
 
 

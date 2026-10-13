@@ -9,6 +9,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app.auth.sessions import now_utc
 from app.models import ActiveVial, Category, DispensingMethod, InventoryItem, SupplyType
 
@@ -95,7 +96,7 @@ def _plan_bac(session: Session, uid: int, water_ml: float, today: date, plan: Pl
 
 def plan_reconstitution(session: Session, uid: int, *, water_ml: float, pen: bool, today: date | None = None,
                         bac_item_id: int | None = None) -> Plan:
-    today = today or date.today()
+    today = today or clock.today()
     plan = Plan()
     _plan_bac(session, uid, water_ml, today, plan, bac_item_id)
     _plan_supplies(session, uid, _needs(recon=True, pen=pen), plan)
@@ -111,7 +112,7 @@ def plan_pen_conversion(session: Session, uid: int) -> Plan:
 def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0, discard_days: int = 28, today: date | None = None) -> None:
     """Use up what the plan chose. Call only when `plan.errors` is empty; the caller commits."""
     from datetime import timedelta
-    today = today or date.today()
+    today = today or clock.today()
     for item, take in plan.supplies:
         item.count -= take
     if plan.open_vial is not None:

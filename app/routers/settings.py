@@ -11,6 +11,7 @@ import secrets
 import zoneinfo
 from datetime import date, timezone
 
+from app import clock
 from app import body_photos, config, reminders, units, uploads
 from app.auth import passwords, sessions
 from app.auth.deps import current_user_id
@@ -426,7 +427,7 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
         if value is not None and not (0 <= value <= 100) and field not in errors:
             errors[field] = "Enter a percentage between 0 and 100."
 
-    if birth_date is not None and birth_date > date.today() and "birth_date" not in errors:
+    if birth_date is not None and birth_date > clock.today() and "birth_date" not in errors:
         errors["birth_date"] = "Birth date can't be in the future."
 
     # Reuse Task 2's macros_for_preset validation (custom pcts required + must sum to 100) instead

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app import clock
 from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -35,7 +36,7 @@ async def food_settings(request: Request, session: Session = Depends(get_session
     form = await request.form()
     values = {k: str(form.get(k, "")).strip() for k in ("diet_preset", "macro_goal", "custom_protein_pct", "custom_carb_pct",
                                                         "custom_fat_pct", "date")}
-    day = food_summary.parse_day(values["date"]) or date.today()
+    day = food_summary.parse_day(values["date"]) or clock.today()
     errors: dict[str, str] = {}
     try:
         preset = DietPreset(values["diet_preset"])
@@ -103,7 +104,7 @@ async def log_food(request: Request, session: Session = Depends(get_session), ui
     else:
         errors["mode"] = "Choose a food."
     if errors:
-        return _fail(request, session, uid, day or date.today(), errors,
+        return _fail(request, session, uid, day or clock.today(), errors,
                      {k: str(v) for k, v in form.items() if not hasattr(v, "filename")})
     if mode == "create":
         food_id = foods_mod.own_or_create(session, uid, values).id
@@ -114,7 +115,7 @@ async def log_food(request: Request, session: Session = Depends(get_session), ui
 @router.post("/food/log/{log_id}/edit")
 async def edit_log(log_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     form = await request.form()
-    day = food_summary.parse_day(str(form.get("date", ""))) or date.today()
+    day = food_summary.parse_day(str(form.get("date", ""))) or clock.today()
     servings, problem = logs_mod.parse_servings(form.get("servings")) if form.get("servings") else (None, None)
     meal = _meal(str(form.get("meal", ""))) if form.get("meal") else None
     try:
@@ -130,7 +131,7 @@ async def edit_log(log_id: int, request: Request, session: Session = Depends(get
 @router.post("/food/log/{log_id}/delete")
 async def delete_log(log_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     form = await request.form()
-    day = food_summary.parse_day(str(form.get("date", ""))) or date.today()
+    day = food_summary.parse_day(str(form.get("date", ""))) or clock.today()
     try:
         logs_mod.delete_entry(session, uid, log_id)
     except LookupError:
@@ -152,7 +153,7 @@ def recommend_foods(nutrient: str = Query(...), date_: str | None = Query(None, 
     if nutrient not in recommend_mod.NUTRIENTS:
         raise HTTPException(422, "Choose protein, carbs or fiber")
     me = session.get(User, uid)
-    day = food_summary.parse_day(date_) or date.today()
+    day = food_summary.parse_day(date_) or clock.today()
     summary = food_summary.day_summary(session, me, day)
     if summary["status"] != "ok":
         return JSONResponse({"status": summary["status"], "foods": []}, headers={"Cache-Control": "no-store"})
@@ -189,7 +190,7 @@ def _own_or_404(session: Session, food_id: int, uid: int) -> Food:
 @router.post("/food/foods")
 async def create_food(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     form = await request.form()
-    day = food_summary.parse_day(str(form.get("date", ""))) or date.today()
+    day = food_summary.parse_day(str(form.get("date", ""))) or clock.today()
     values, errors = foods_mod.parse_food(_food_values(form))
     if errors:
         return _fail(request, session, uid, day, errors, _food_values(form))
@@ -201,7 +202,7 @@ async def create_food(request: Request, session: Session = Depends(get_session),
 async def edit_food(food_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     food = _own_or_404(session, food_id, uid)
     form = await request.form()
-    day = food_summary.parse_day(str(form.get("date", ""))) or date.today()
+    day = food_summary.parse_day(str(form.get("date", ""))) or clock.today()
     values, errors = foods_mod.parse_food(_food_values(form))
     if errors:
         return _fail(request, session, uid, day, errors, _food_values(form))
@@ -218,7 +219,7 @@ async def edit_food(food_id: int, request: Request, session: Session = Depends(g
 async def delete_food(food_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     food = _own_or_404(session, food_id, uid)
     form = await request.form()
-    day = food_summary.parse_day(str(form.get("date", ""))) or date.today()
+    day = food_summary.parse_day(str(form.get("date", ""))) or clock.today()
     session.delete(food)
     session.commit()
     return _back(day)
