@@ -195,6 +195,45 @@ def rows_from_lines(lines, page: int = 0) -> list[ParsedRow]:
     return rows
 
 
+_SHORT_UNIT = r"(?:mg|mcg|ug|iu|ml)"
+_SHORT_PRICE = r"(?:[:：]\s*|\s+|(?=\$))(?:US\$|\$)?\s*(?P<price>\d+(?:\.\d+)?)(?![A-Za-z0-9])\s*\$?(?:\s*/\s*kit)?"
+_SHORT_NAMED = re.compile(  # "5 Amino 50mg $139": a name, the size with its unit, then the price
+    r"^(?P<name>[A-Za-z0-9][A-Za-z0-9\- ]*?[A-Za-z][A-Za-z0-9\- ]*?)\s+(?P<amt>\d+(?:\.\d+)?)\s*(?P<unit>" + _SHORT_UNIT + r")" + _SHORT_PRICE + "$",
+    re.IGNORECASE)
+_SHORT_CODE = re.compile(  # "T10 $41", "Mots10$63", "TESA10： 151/kit", "SS31-10： 89/kit", "BB10mg $87"
+    r"(?<![A-Za-z0-9])(?P<letters>[A-Za-z]{1,10})(?:\d+-)?(?P<num>\d+(?:\.\d+)?)\s*(?P<unit>" + _SHORT_UNIT + r")?" + _SHORT_PRICE, re.IGNORECASE)
+
+
+def _short_row(code, name, amount, unit, price, page):
+    unit = {"iu": "IU", "ug": "mcg"}.get((unit or "mg").lower(), (unit or "mg").lower())
+    if amount <= 0 or price <= 0:
+        return None
+    return ParsedRow(code=code, name=name, spec=Spec(amount, unit, _KIT_VIALS), pack_price=price, page=page, flags=["text-shorthand"])
+
+
+def rows_from_shorthand(lines, page: int = 0) -> list[ParsedRow]:
+    """Prices posted as plain chat text: "T10 $41", "R10: 87/kit", "SS31-10： 89/kit", "BPC5mg+TB5mg=BB10mg $87", "5 Amino 50mg $139".
+    The code carries the vial size, the price is per kit of 10 vials, and a line that gives no size or no price is not a product."""
+    rows = []
+    for raw in lines:
+        line = _clean(raw)
+        if "=" in line:
+            line = line.rsplit("=", 1)[1].strip()
+        named = _SHORT_NAMED.match(line)
+        if named:
+            row = _short_row(None, named.group("name").strip(), float(named.group("amt")), named.group("unit"), float(named.group("price")), page)
+            if row:
+                rows.append(row)
+            continue
+        for m in _SHORT_CODE.finditer(line):
+            letters, num = m.group("letters"), m.group("num")
+            unit = m.group("unit") or ("ml" if letters.upper() == "BAC" else "mg")
+            row = _short_row(letters + num, None, float(num), unit, float(m.group("price")), page)
+            if row:
+                rows.append(row)
+    return rows
+
+
 def scan_notes(lines) -> tuple[str | None, str | None]:
     """(shipping note, warehouse hint) from a list's text. Product lines are never notes."""
     notes: list[str] = []

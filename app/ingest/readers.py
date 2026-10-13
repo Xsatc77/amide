@@ -8,7 +8,7 @@ from app import config
 from app.library.price_lists import ocr
 from app.library.price_lists.names import propagate_names
 from app.library.price_lists.reader import (
-    ParsedRow, PriceListData, read_pdf, rows_from_lines, rows_from_table, scan_notes, unread_spec_lines,
+    ParsedRow, PriceListData, read_pdf, rows_from_lines, rows_from_shorthand, rows_from_table, scan_notes, unread_spec_lines,
 )
 
 _MAX_SHEETS, _MAX_ROWS, _MAX_COLS = 10, 5000, 40
@@ -107,7 +107,10 @@ def read_xlsx(data: bytes) -> PriceListData:
 
 def read_text(text: str) -> PriceListData:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return _data(rows_from_lines(lines), lines)
+    rows = rows_from_lines(lines)
+    if not rows:                                  # chat text in vendor shorthand: "T10 $41"
+        rows = rows_from_shorthand(lines)
+    return _data(rows, lines)
 
 
 def priced_fraction(data: PriceListData) -> float:

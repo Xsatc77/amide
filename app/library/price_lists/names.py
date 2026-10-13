@@ -93,3 +93,25 @@ def repair_names(rows: list[ParsedRow], table: dict[str, PrefixName], is_known: 
         else:
             continue
         row.flags.append("name-from-code")
+
+
+# What the common vendor abbreviations stand for, used only for rows read from chat text that carry no name. Abbreviations that more than one
+# product shares (MT1, MT2) are left out, and a name is only used when the library has that product.
+DEFAULT_PREFIX_NAMES = {
+    "T": "Tirzepatide", "R": "Retatrutide", "SEMA": "Semaglutide", "TESA": "Tesamorelin", "MOTS": "MOTS-c", "MOT": "MOTS-c",
+    "CAG": "Cagrilintide", "CU": "GHK-Cu", "GHK": "GHK-Cu", "SS": "SS-31 (Elamipretide)", "BPC": "BPC-157", "TB": "TB-500",
+    "KLOW": "KLOW", "GLOW": "GLOW", "AHK": "AHK-Cu", "SEMAX": "Semax", "SELANK": "Selank", "KISS": "Kisspeptin-10", "KPV": "KPV",
+    "NAD": "NAD+", "EPI": "Epithalon", "BAC": "BAC Water",
+}
+_NO_LIBRARY_NEEDED = {"BAC Water"}
+
+
+def apply_default_names(rows: list[ParsedRow], is_known: Callable[[str], bool]) -> None:
+    """Name the nameless rows read from chat text by their code letters (T10 is Tirzepatide), when the library knows that product."""
+    for row in rows:
+        if row.name or not row.code or "text-shorthand" not in row.flags:
+            continue
+        name = DEFAULT_PREFIX_NAMES.get("".join(c for c in row.code if c.isalpha()).upper())
+        if name and (name in _NO_LIBRARY_NEEDED or is_known(name)):
+            row.name = name
+            row.flags.append("name-from-shorthand")

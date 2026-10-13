@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.library.matching import match_name, name_key
 from app.library.price_lists.filename import FileInfo, parse_filename
-from app.library.price_lists.names import PrefixName, learn_prefixes, propagate_names, repair_names
+from app.library.price_lists.names import PrefixName, apply_default_names, learn_prefixes, propagate_names, repair_names
 from app.library.price_lists.reader import PriceListData, read_pdf
 from app.library.price_lists.rows import code_prefix, pack_type
 from app.library.price_lists.specs import format_spec, merge_specs
@@ -102,6 +102,7 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
     rows = data.rows
     propagate_names(rows)
     repair_names(rows, prefix_table, lambda name: match_name(name, cards) is not None)
+    apply_default_names(rows, lambda name: match_name(name, cards) is not None)
 
     if vendor is None:
         vendor, report.vendor_created = resolve_vendor(session, info.vendor, info.list_date)
