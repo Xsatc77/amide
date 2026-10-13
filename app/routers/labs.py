@@ -139,8 +139,36 @@ def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[
         chart = _chart([(p["drawn_at"], p["value"]) for p in points], band=band)
         if chart is not None:
             charts.append({"marker_label": label, "chart": chart})
+    charts += _ratio_charts(_in_window(own_panels, window_start))
     charts.sort(key=lambda c: c["marker_label"])
     return charts
+
+
+def _ratio_charts(panels: list[LabPanel]) -> list[dict]:
+    """Charts of ratios worked out from results on the same panel (see app/measurements/derived.py). Each needs both inputs on a panel and
+    at least two such panels. Glucose in mmol/L uses HOMA-IR's matching constant (22.5 instead of 405)."""
+    from app.measurements import derived
+    from app.routers.measurements import _chart
+    points: dict[str, list[tuple[date, float]]] = {}
+    for panel in panels:
+        have = {r.marker: r for r in panel.results if r.marker is not LabMarker.OTHER}
+
+        def val(marker):
+            return have[marker].value if marker in have else None
+
+        glucose = have.get(LabMarker.FASTING_GLUCOSE)
+        homa = None
+        if glucose is not None:
+            mmol = "mmol" in (glucose.unit or "").lower()
+            homa = (round(val(LabMarker.FASTING_INSULIN) * glucose.value / 22.5, 2) if mmol and val(LabMarker.FASTING_INSULIN)
+                    else derived.homa_ir(val(LabMarker.FASTING_INSULIN), glucose.value))
+        for label, value in (("HOMA-IR", homa),
+                             ("Triglycerides / HDL", derived.tg_hdl(val(LabMarker.TRIGLYCERIDES), val(LabMarker.HDL))),
+                             ("Non-HDL cholesterol", derived.non_hdl(val(LabMarker.TOTAL_CHOLESTEROL), val(LabMarker.HDL))),
+                             ("LDL / HDL", derived.ldl_hdl(val(LabMarker.LDL), val(LabMarker.HDL)))):
+            if value is not None:
+                points.setdefault(label, []).append((panel.drawn_at, value))
+    return [{"marker_label": f"{label} (calculated)", "chart": _chart(pts)} for label, pts in points.items() if len(pts) >= 2]
 
 
 def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifetime",

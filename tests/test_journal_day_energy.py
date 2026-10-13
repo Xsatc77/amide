@@ -6,7 +6,7 @@ import pytest
 
 from app.food import day_overview
 from app.measurements import tdee
-from app.models import (ActivityLevel, BiologicalSex, BodyMeasurement, FoodLog, JournalEntry, User, WaterLog)
+from app.models import (ActivityLevel, BiologicalSex, BodyMeasurement, FoodLog, JournalEntry, User, WaterLog, WeightUnit, WorkoutExerciseLog, WorkoutLog)
 
 DAY = date(2026, 9, 2)
 OTHER = date(2026, 9, 3)
@@ -16,7 +16,7 @@ OTHER = date(2026, 9, 3)
 def clean(client, db, me):
     yield
     db.rollback()
-    for model in (WaterLog, JournalEntry, FoodLog, BodyMeasurement):
+    for model in (WaterLog, JournalEntry, FoodLog, BodyMeasurement, WorkoutLog):
         db.query(model).delete()
     user = db.get(User, me)
     for field in ("sex", "birth_date", "height_in", "activity_level"):
@@ -88,3 +88,18 @@ def test_a_day_with_nothing_logged_shows_a_dash(client, db, me):
     db.commit()
     page = client.get("/measurements?tab=journal").text
     assert "kcal eaten" not in page and "Deficit <b>" not in page and "Surplus <b>" not in page
+
+
+def test_cardio_minutes_and_weight_lifted_are_part_of_the_day(client, db, me):
+    log = WorkoutLog(owner_id=me, plan_day_id=None, day_label="Mixed", plan_name="P", log_date=DAY)
+    log.exercise_logs += [
+        WorkoutExerciseLog(name="Treadmill", completed=True, equipment="Conditioning/Cardio", duration_min=24.0),
+        WorkoutExerciseLog(name="Bench Press", completed=True, equipment="Barbell", weight_value=100.0, weight_unit=WeightUnit.LB, sets=3, reps_value=10, volume_lb=12400.0),
+        WorkoutExerciseLog(name="Unticked", completed=False, equipment="Barbell", volume_lb=5000.0)]
+    db.add(log)
+    db.add(JournalEntry(owner_id=me, entry_date=DAY, mood=3))
+    db.commit()
+    row = day_overview.day_overviews(db, db.get(User, me), [DAY])[DAY]
+    assert row["cardio_min"] == 24 and row["lifted_lb"] == 12400
+    page = client.get("/measurements?tab=journal").text
+    assert "<b>24</b> min cardio" in page and "<b>12,400</b> lb lifted" in page

@@ -19,6 +19,23 @@ def burn_by_day(session: Session, uid: int) -> dict[date, float]:
     return progress.daily_net_kcal(load_logged(session, uid))
 
 
+CARDIO_EQUIPMENT = "Conditioning/Cardio"
+
+
+def workout_totals(session: Session, uid: int) -> dict[date, dict]:
+    """{day: {"cardio_min", "lifted_lb"}} over every completed exercise: cardio minutes are the minutes logged on cardio machines and
+    activities, and the weight lifted is sets x reps x load."""
+    from app.routers.workout_insights import load_logged     # imported here: that module imports routers and templates
+    totals: dict[date, dict] = {}
+    for row in load_logged(session, uid):
+        day = totals.setdefault(row.log_date, {"cardio_min": 0.0, "lifted_lb": 0.0})
+        if row.equipment == CARDIO_EQUIPMENT and row.minutes:
+            day["cardio_min"] += row.minutes
+        if row.volume_lb:
+            day["lifted_lb"] += row.volume_lb
+    return totals
+
+
 def maintenance(session: Session, user: User) -> tuple[float | None, str | None]:
     """(calories to hold weight, why not). It needs sex, birth date, height, activity level and a weigh-in."""
     missing = [label for attr, label in (("sex", "sex"), ("birth_date", "birth date"), ("height_in", "height"),
@@ -45,13 +62,16 @@ def day_overviews(session: Session, user: User, days) -> dict[date, dict]:
     eaten = dict(session.execute(select(FoodLog.eaten_on, func.sum(FoodLog.calories)).where(
         FoodLog.owner_id == user.id, FoodLog.eaten_on.in_(wanted)).group_by(FoodLog.eaten_on)).all())
     burn = burn_by_day(session, user.id)
+    work = workout_totals(session, user.id)
     base, note = maintenance(session, user)
     out = {}
     for day in wanted:
         w, e, b = water.get(day) or 0, eaten.get(day) or 0, burn.get(day) or 0
-        if not (w or e or b):
+        cardio, lifted = work.get(day, {}).get("cardio_min", 0), work.get(day, {}).get("lifted_lb", 0)
+        if not (w or e or b or cardio or lifted):
             continue
         out[day] = {"water_oz": round(w, 1) if w % 1 else int(w), "eaten_kcal": round(e), "burn_kcal": round(b),
+                    "cardio_min": round(cardio), "lifted_lb": round(lifted),
                     "deficit": deficit(base, b, e) if base is not None and e else None,
                     "deficit_note": note if base is None and e else None}
     return out

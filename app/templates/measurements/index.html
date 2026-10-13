@@ -2,7 +2,7 @@
 {% set active_nav = "nutrition" if active_tab == "food" else "measurements" %}
 {% block title %}Weight & Measurements{% endblock %}
 
-{% from "measurements/_silhouette_macros.html" import line_chart, y_grid, silhouette_point %}
+{% from "measurements/_silhouette_macros.html" import line_chart, dual_chart, y_grid, silhouette_point %}
 
 {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 
@@ -61,7 +61,8 @@
   <section class="overview-chart-section" aria-labelledby="overview-heading">
     {% set overview_metrics = charts.series | selectattr('chart') | list %}
     {% set overview_avgs = charts.bilateral_avg | selectattr('chart') | list %}
-    {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf %}
+    {% set overview_extra = (charts.extra or []) | selectattr('chart') | list %}
+    {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf or overview_extra %}
     <div class="overview-controls-row">
       {% if has_metrics %}
       <label class="field">
@@ -72,6 +73,7 @@
           {% if charts.bp %}<option value="bp">Blood Pressure</option>{% endif %}
           {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
           {% if charts.bf %}<option value="bf">Body Fat %</option>{% endif %}
+          {% if overview_extra %}<optgroup label="Worked out from your entries">{% for s in overview_extra %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}</optgroup>{% endif %}
         </select>
       </label>
       {% endif %}
@@ -91,6 +93,10 @@
       {% if charts.bp %}<div class="overview-chart-panel" data-metric="bp"{{ '' if not shown.done else ' hidden' }}>{{ bp_chart(charts.bp) }}</div>{% set shown.done = true %}{% endif %}
       {% if charts.bmi %}<div class="overview-chart-panel" data-metric="bmi"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bmi, 'BMI') }}</div>{% set shown.done = true %}{% endif %}
       {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bf, 'Body Fat %') }}</div>{% set shown.done = true %}{% endif %}
+      {% for s in overview_extra %}
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{% if s.kind == 'dual' %}{{ dual_chart(s.chart, s.label, s.a_label, s.b_label) }}{% else %}{{ line_chart(s.chart, s.label) }}{% endif %}</div>
+      {% set shown.done = true %}
+      {% endfor %}
     </div>
     <div id="chart-tooltip" class="chart-tooltip" hidden role="status"></div>
     {% else %}
@@ -132,8 +138,9 @@
       <p class="muted">Not enough data to calculate body fat % -- check that waist is greater than neck (and, for a female profile, that hips are logged too).</p>
     </div>
     {% endif %}
+    {% for s in charts.extra or [] %}{% if s.kind == 'dual' %}{{ dual_chart(s.chart, s.label, s.a_label, s.b_label) }}{% else %}{{ line_chart(s.chart, s.label) }}{% endif %}{% endfor %}
 
-    {% if not charts.series|selectattr('chart')|list and not charts.bp and not charts.bmi and not charts.bf and not charts.bf_status %}
+    {% if not charts.series|selectattr('chart')|list and not charts.bp and not charts.bmi and not charts.bf and not charts.bf_status and not (charts.extra or [])|selectattr('chart')|list %}
     <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
     {% endif %}
   </div>
@@ -356,6 +363,11 @@
         <input name="sleep_quality" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.sleep_quality if today_entry and today_entry.sleep_quality is not none else '' }}">
         {{ err('sleep_quality') }}
       </label>
+      <label class="field {{ 'has-error' if errors.appetite }}">
+        <span>Appetite (1 none &ndash; 5 very hungry)</span>
+        <input name="appetite" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.appetite if today_entry and today_entry.appetite is not none else '' }}">
+        {{ err('appetite') }}
+      </label>
     </div>
 
     <fieldset class="form-section">
@@ -473,6 +485,7 @@
           <th class="col-rate">Mood</th>
           <th class="col-rate">Energy</th>
           <th class="col-rate">Sleep</th>
+          <th class="col-rate">Appetite</th>
           <th>Side effects</th>
           <th>Notes</th>
           <th>That day's doses</th>
@@ -488,6 +501,7 @@
           <td data-label="Mood" class="col-rate">{% if e.mood is not none %}<span class="num-icon n{{ e.mood }}" role="img" aria-label="Mood {{ e.mood }} of 5">{{ e.mood }}</span>{% else %}—{% endif %}</td>
           <td data-label="Energy" class="col-rate">{% if e.energy is not none %}<span class="num-icon n{{ e.energy }}" role="img" aria-label="Energy {{ e.energy }} of 5">{{ e.energy }}</span>{% else %}—{% endif %}</td>
           <td data-label="Sleep" class="col-rate">{% if e.sleep_quality is not none %}<span class="num-icon n{{ e.sleep_quality }}" role="img" aria-label="Sleep {{ e.sleep_quality }} of 5">{{ e.sleep_quality }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Appetite" class="col-rate">{% if e.appetite is not none %}<span class="num-icon rating-neutral" role="img" aria-label="Appetite {{ e.appetite }} of 5">{{ e.appetite }}</span>{% else %}—{% endif %}</td>
           <td data-label="Side effects">
             {%- if e.side_effects or e.custom_effects or e.side_effects_other -%}
               {{ (e.side_effects + e.custom_effects + ([e.side_effects_other] if e.side_effects_other else [])) | join(', ') }}
@@ -532,6 +546,8 @@
               {% if t.water_oz %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3.5 4.5 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 2.5-6.5 6-11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span><b>{{ t.water_oz }}</b> oz water</span></li>{% endif %}
               {% if t.eaten_kcal %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2.5 1.5-3 5-3 8h3v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>{{ "{:,}".format(t.eaten_kcal) }}</b> kcal eaten</span></li>{% endif %}
               {% if t.burn_kcal %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-2.5 1-4 2.5-5.5C9 11 10 11.5 11 11c0-3-.5-5.5 1-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span><b>{{ "{:,}".format(t.burn_kcal) }}</b> kcal burned</span></li>{% endif %}
+              {% if t.cardio_min %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="14" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 14V10M9 3h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span><b>{{ t.cardio_min }}</b> min cardio</span></li>{% endif %}
+              {% if t.lifted_lb %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span><b>{{ "{:,}".format(u.weight(t.lifted_lb, 0)) }}</b> {{ u.load_label }} lifted</span></li>{% endif %}
             </ul>
             {% if t.deficit %}
             <div class="deficit-pill{{ ' is-surplus' if t.deficit.surplus else '' }}" title="Your daily need plus workouts, minus food. Every calorie figure here is an estimate.">

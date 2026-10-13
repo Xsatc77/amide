@@ -470,6 +470,17 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
            "bf": bf_chart, "bf_status": bf_status}
 
 
+def _add_derived_charts(session: Session, user: User, own_entries: list, window_start, u, charts: dict) -> None:
+    """The charts worked out from other entries (see app/measurements/extra_charts.py), and the dose-change markers on the body charts."""
+    from app.measurements import extra_charts
+    markers = extra_charts.dose_markers_for(session, user.id)
+    for s in (*charts["series"], *charts["bilateral_avg"]):
+        extra_charts.attach_markers(s["chart"], markers)
+    extra_charts.attach_markers(charts["bmi"], markers)
+    extra_charts.attach_markers(charts["bf"], markers)
+    charts["extra"] = extra_charts.extra_series(session, user, own_entries, window_start, u, _chart, _dual_chart, markers)
+
+
 def _render(request: Request, session: Session, uid: int, *, tab: str = "measurements",
            range_param: str | None = None, as_of_param: str | None = None,
            form: dict | None = None, errors: dict | None = None, status_code: int = 200,
@@ -519,6 +530,8 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "charts": _charts_context(own_windowed, me_user, range_key, u),
         "as_of": as_of.isoformat(),
     }
+    if tab == "measurements" and me_user:
+        _add_derived_charts(session, me_user, own_entries, window_start, u, context["charts"])
     if tab == "journal":
         edit_raw = (extra or {}).get("journal_edit") or request.query_params.get("edit")
         try:

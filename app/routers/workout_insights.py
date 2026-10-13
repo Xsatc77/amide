@@ -47,7 +47,7 @@ def load_logged(session: Session, uid: int) -> list[progress.LoggedExercise]:
             load = el.weight_value * (LB_PER_KG if el.weight_unit == WeightUnit.KG else 1)
         out.append(progress.LoggedExercise(
             day, el.db_exercise or el.name or "Exercise", el.area, el.equipment, load, el.sets, el.reps_value,
-            el.volume_lb, el.net_kcal, el.gross_kcal))
+            el.volume_lb, el.net_kcal, el.gross_kcal, el.duration_min))
     return out
 
 

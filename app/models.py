@@ -1189,6 +1189,7 @@ class JournalEntry(Base):
         CheckConstraint("mood IS NULL OR mood BETWEEN 1 AND 5", name="ck_journal_entry_mood_range"),
         CheckConstraint("energy IS NULL OR energy BETWEEN 1 AND 5", name="ck_journal_entry_energy_range"),
         CheckConstraint("sleep_quality IS NULL OR sleep_quality BETWEEN 1 AND 5", name="ck_journal_entry_sleep_range"),
+        CheckConstraint("appetite IS NULL OR appetite BETWEEN 1 AND 5", name="ck_journal_entry_appetite_range"),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -1196,6 +1197,7 @@ class JournalEntry(Base):
     mood: Mapped[int | None] = mapped_column(Integer)
     energy: Mapped[int | None] = mapped_column(Integer)
     sleep_quality: Mapped[int | None] = mapped_column(Integer)
+    appetite: Mapped[int | None] = mapped_column(Integer)         # 1 none, 5 very hungry: not good-or-bad, so never coloured as such
     side_effects_other: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

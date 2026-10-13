@@ -16,7 +16,7 @@ from app.models import (
 
 router = APIRouter()
 
-RATING_FIELDS = ("mood", "energy", "sleep_quality")
+RATING_FIELDS = ("mood", "energy", "sleep_quality", "appetite")
 
 
 def _journal_query(uid: int):
@@ -100,7 +100,7 @@ def _workout_only_views(session: Session, uid: int, entry_dates: set[date]) -> l
     for d in session.scalars(select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date.in_(list(by_day)))):
         doses.setdefault(d.scheduled_date, []).append(_dose_dict(d))
     return [{
-        "date": day, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [], "custom_effects": [],
+        "date": day, "mood": None, "energy": None, "sleep_quality": None, "appetite": None, "side_effects": [], "custom_effects": [],
         "side_effects_other": None, "notes": None, "owner_name": None, "quick_notes": [],
         "doses": doses.get(day, []), "workouts": [_workout_dict(r) for r in day_logs], "has_entry": False,
     } for day, day_logs in by_day.items()]
@@ -133,6 +133,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
         "mood": entry.mood,
         "energy": entry.energy,
         "sleep_quality": entry.sleep_quality,
+        "appetite": entry.appetite,
         "side_effects": [se.side_effect.value for se in entry.side_effects],
         "custom_effects": sorted(c.name for c in entry.custom_effects),
         "side_effects_other": entry.side_effects_other,
@@ -211,7 +212,7 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
 
     from app.routers.measurements import _chart          # deferred: measurements imports this module at load time
     journal_charts = []
-    for label, field in (("Mood", "mood"), ("Energy", "energy"), ("Sleep quality", "sleep_quality")):
+    for label, field in (("Mood", "mood"), ("Energy", "energy"), ("Sleep quality", "sleep_quality"), ("Appetite", "appetite")):
         points = [(e.entry_date, float(getattr(e, field))) for e in own_entries if getattr(e, field) is not None]
         chart = _chart(points) if len(points) >= 2 else None                  # one day is not a trend
         if chart is not None:
@@ -297,6 +298,7 @@ async def save_journal_entry(request: Request, session: Session = Depends(get_se
     entry.mood = values["mood"]
     entry.energy = values["energy"]
     entry.sleep_quality = values["sleep_quality"]
+    entry.appetite = values["appetite"]
     entry.side_effects_other = _raw("side_effects_other") or None
     entry.notes = _raw("notes") or None
 

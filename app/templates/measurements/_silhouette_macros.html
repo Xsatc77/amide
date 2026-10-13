@@ -11,11 +11,31 @@
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
     {{ y_grid(chart.y_axis) }}
     {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
+    {% for m in chart.markers or () %}<line class="dose-marker" x1="{{ m.x }}" x2="{{ m.x }}" y1="12" y2="{{ chart.height - 16 }}"></line>{% endfor %}
     <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
     {% for cx, cy in chart.points %}{% set d, v = chart.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}" class="chart-point"
       data-date="{{ d | shortdate }}" data-value="{{ v }}"></circle>{% endfor %}
+    {% for m in chart.markers or () %}<circle cx="{{ m.x }}" cy="12" r="4" class="chart-point dose-dot" data-date="{{ m.date | shortdate }}" data-value="{{ m.label }}"></circle>{% endfor %}
   </svg>
-  <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · range {{ chart.min_v }}–{{ chart.max_v }}</p>
+  <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · range {{ chart.min_v }}–{{ chart.max_v }}{% if chart.markers %} · <span class="dose-key">&#9679;</span> dose start or change{% endif %}</p>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro dual_chart(chart, label, a_label, b_label) %}
+{% if chart %}
+<div class="card">
+  <h3>{{ label }}</h3>
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
+    {{ y_grid(chart.y_axis) }}
+    <polyline points="{{ chart.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
+    {% for cx, cy in chart.points_a %}{% set d, v = chart.raw_a[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--accent)" class="chart-point"
+      data-date="{{ d | shortdate }}" data-value="{{ v }} eaten"></circle>{% endfor %}
+    <polyline points="{{ chart.poly_b }}" fill="none" stroke="var(--info)" stroke-width="2" stroke-dasharray="4 3"></polyline>
+    {% for cx, cy in chart.points_b %}{% set d, v = chart.raw_b[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="var(--info)" class="chart-point"
+      data-date="{{ d | shortdate }}" data-value="{{ v }} deficit"></circle>{% endfor %}
+  </svg>
+  <p class="muted">{{ a_label }} / {{ b_label }} · {{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }}</p>
 </div>
 {% endif %}
 {% endmacro %}

@@ -23,6 +23,7 @@ class LoggedExercise:
     volume_lb: float | None
     net_kcal: float | None
     gross_kcal: float | None
+    minutes: float | None = None  # time logged, for cardio
 
 
 @dataclass(frozen=True)
