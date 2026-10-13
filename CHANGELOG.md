@@ -4,6 +4,9 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Journal: each day now shows its **water, food calories (estimated), workout calories burned (estimated) and an estimated deficit** (your daily need plus workouts, minus food; a surplus is shown as a surplus). The deficit needs your profile and a weigh-in, and says so when they are missing.
+- Phones: the **Save button no longer hides below the screen** in popups (Add item and every other popup). The popup fits the visible page height, and its Save/Cancel row stays pinned at the bottom while the form scrolls.
+
 - Watcher and Price lists: a list posted **only as message text** is now read. Vendors often post lines such as `T10 $41`, `R10: 87/kit` or `SS31-10： 89/kit`: the code carries the vial size, the price is per kit of 10 vials, and `A+B=BB10mg $87` blend lines use the right side. Shipping fees, chatter and lines with no size or no price are skipped. A row with no name is named from its code letters (T is Tirzepatide, R is Retatrutide, and so on) when your library has that product, and the row is flagged so you can check it.
 
 - Colorways: text that was too faint in Tequila Sunrise, Fireworks, Solarin, The Bricks, Retro and Greensleeves now meets WCAG AA (4.5:1). I measured every visible piece of text against its real background in each theme across 21 pages (all dialogs open), found 25 kinds of failure (links, tabs, chart labels and bold text in the accent colour; muted text; tier badges; calendar chips; faded "coming soon" panels; two goal-chip colours) and fixed them with readable text versions of each theme's colours. Light, Dark and High Contrast are unchanged.

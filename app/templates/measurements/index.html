@@ -476,6 +476,7 @@
           <th>Side effects</th>
           <th>Notes</th>
           <th>That day's doses</th>
+          <th>Water, food and calories</th>
           <th>Shared by</th>
         </tr>
       </thead>
@@ -523,6 +524,18 @@
               {% endfor %}
             </ul>
             {% endif %}
+          </td>
+          <td data-label="Water, food and calories">
+            {%- if e.energy -%}
+            <ul class="dose-list">
+              {% if e.energy.water_oz %}<li>Water {{ e.energy.water_oz }} oz</li>{% endif %}
+              {% if e.energy.eaten_kcal %}<li>{{ e.energy.eaten_kcal }} kcal eaten (estimated)</li>{% endif %}
+              {% if e.energy.burn_kcal %}<li>{{ e.energy.burn_kcal }} kcal burned in workouts (estimated)</li>{% endif %}
+              {% if e.energy.deficit %}<li><strong>Estimated {{ 'surplus' if e.energy.deficit.surplus else 'deficit' }}: {{ e.energy.deficit.kcal | abs }} kcal</strong>
+                <span class="muted small">(your daily need plus workouts, minus food)</span></li>
+              {% elif e.energy.deficit_note %}<li class="muted small">{{ e.energy.deficit_note }}</li>{% endif %}
+            </ul>
+            {%- else -%}—{%- endif -%}
           </td>
           <td data-label="Shared by">{{ e.owner_name or '—' }}</td>
         </tr>

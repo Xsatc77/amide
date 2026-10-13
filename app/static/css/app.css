@@ -340,7 +340,9 @@ form.inline { display: inline; }
 .dialog {
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);                 /* a phone's 100vh is taller than the visible page, which pushed Save off the bottom */
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -353,6 +355,12 @@ form.inline { display: inline; }
 .dialog-head, .dialog-foot { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; }
 .dialog-head { border-bottom: 1px solid var(--border); }
 .dialog-foot { border-top: 1px solid var(--border); justify-content: flex-end; gap: 8px; }
+/* Save stays at the bottom edge of the popup while the form scrolls under it, so it never has to be hunted for */
+.dialog-foot, .dialog-submit-row {
+  position: sticky; bottom: 0; z-index: 2; background: var(--surface);
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.dialog-submit-row { border-top: 1px solid var(--border); padding-top: 12px; }
 .item-form .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
 .form-section { border: 0; margin: 0; padding: 0 20px 16px; min-width: 0; }
 .form-section:last-of-type { padding-bottom: 20px; }

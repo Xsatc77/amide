@@ -191,6 +191,11 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
     ]
     views += _workout_only_views(session, viewer_uid, {e.entry_date for e in own_entries})
     views.sort(key=lambda v: v["date"], reverse=True)
+    if viewer is not None:
+        from app.food.day_overview import day_overviews       # deferred: the food package imports routers' helpers at load time
+        energy = day_overviews(session, viewer, [v["date"] for v in views if not v["owner_name"]])
+        for v in views:
+            v["energy"] = None if v["owner_name"] else energy.get(v["date"])
 
     # Today's own entry (if any), so the "New Entry" dialog can open pre-filled with what's already
     # there instead of blank -- re-saving must edit that same row, not silently wipe it (spec's
