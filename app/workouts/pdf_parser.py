@@ -23,7 +23,7 @@ from pypdf import PdfReader
 # The literal table-header row, with or without a trailing Rest column. This is the one thing
 # that's exactly consistent across every observed real file -- unlike the day/workout labels,
 # which vary in style (see _DAY_LABEL_PATTERNS).
-_TABLE_HEADER = re.compile(r"^Exercise\s+Sets\s+Reps(\s+Rest)?$")
+_TABLE_HEADER = re.compile(r"^Exercise\s+Sets\s+(?:Reps|Working\s+Time)(\s+Rest)?$")
 
 # Three known day/workout label shapes, tried in order. Each captures a label when the style has
 # one; the bare "Workout N" style has none, so its label defaults to "Day N" by the caller.
@@ -43,8 +43,8 @@ _DAY_LABEL_PATTERNS = [
 _ROW_PATTERN = re.compile(
     r"^(?P<name>.+?)\s+"
     r"(?P<sets>\d+(?:\s*-\s*\d+)?)\s+"
-    r"(?P<reps>\d+\s*(?:Min|Sec)|\d+(?:\s*-\s*\d+)?\*?(?:,?\s*Each(?:\s+\w+)?)?)"
-    r"(?:\s+(?P<rest>\d+\s*(?:Min|Sec)))?$"
+    r"(?P<reps>\d+\s*(?:[Mm]in|[Ss]ec)[a-z]*|\d+(?:\s*,\s*\d+)+|\d+(?:\s*-\s*\d+)?\*?(?:,?\s*Each(?:\s+\w+)?)?)"
+    r"(?:\s+(?P<rest>\d+\s*(?:[Mm]in|[Ss]ec)[a-z]*))?$"
 )
 
 
@@ -53,6 +53,45 @@ def extract_text(pdf_bytes: bytes) -> str:
     (an image-only PDF) -- that page just contributes nothing."""
     reader = PdfReader(BytesIO(pdf_bytes))
     return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+
+def _norm(text: str) -> str:
+    return " ".join(text.split())
+
+
+def extract_links(pdf_bytes: bytes) -> dict[str, str]:
+    """{the text of a line: the web address its link points to}, for every link a PDF puts over text. Muscle & Strength links each exercise
+    name to its video page; the link covers the name, and the line it sits on (name, sets, reps) identifies the row. A PDF with no
+    links, or one that cannot be read, gives {}."""
+    from app.workouts.video import safe_url
+    try:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        found: dict[str, str] = {}
+        for page in reader.pages:
+            boxes = []
+            for annot in page.get("/Annots") or []:
+                annot = annot.get_object()
+                action = annot.get("/A")
+                url = safe_url(action.get_object().get("/URI")) if action else None
+                if url and "/Rect" in annot:
+                    x0, y0, x1, y1 = (float(v) for v in annot["/Rect"])
+                    boxes.append((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1), url))
+            if not boxes:
+                continue
+            chunks = []
+
+            def visit(text, cm, tm, _font, _size):
+                if text.strip():
+                    chunks.append((tm[4] * cm[0] + tm[5] * cm[2] + cm[4], tm[4] * cm[1] + tm[5] * cm[3] + cm[5], _norm(text)))
+
+            page.extract_text(visitor_text=visit)
+            for x0, y0, x1, y1, url in boxes:
+                for x, y, text in chunks:
+                    if x0 - 2 <= x <= x1 + 2 and y0 - 2 <= y <= y1 + 2:
+                        found.setdefault(text, url)
+        return found
+    except Exception:  # noqa: BLE001 -- a PDF pypdf cannot read has no links to give
+        return {}
 
 
 def _find_table_starts(lines: list[str]) -> list[int]:
@@ -75,6 +114,16 @@ def _find_day_labels(lines: list[str]) -> list[str | None]:
     return labels
 
 
+def _title_above(lines: list[str], header_at: int) -> str | None:
+    """The line just above a table's header when it reads as a title ("Pull Day Workout"): some PDFs title each table directly instead of
+    listing the days in a summary later. A line that is itself a table row or header is not a title."""
+    for line in reversed(lines[max(0, header_at - 2):header_at]):
+        text = line.strip()
+        if text and len(text) <= 60 and not _TABLE_HEADER.match(text) and not _ROW_PATTERN.match(text):
+            return text
+    return None
+
+
 def _parse_exercise_row(line: str) -> dict | None:
     """One exercise row from its raw line, or None if it doesn't match the known row shape at
     all (e.g. it's blank, or a stray line from something else entirely)."""
@@ -89,7 +138,7 @@ def _parse_exercise_row(line: str) -> dict | None:
     }
 
 
-def parse_workout_pdf(text: str) -> dict:
+def parse_workout_pdf(text: str, links: dict[str, str] | None = None) -> dict:
     """Parse one workout-plan PDF's extracted text into {"name": str, "days": [...]}.
 
     Never raises on an unrecognized format -- worst case, "days" is an empty list, and the
@@ -107,7 +156,9 @@ def parse_workout_pdf(text: str) -> dict:
         for line in lines[start + 1:end]:
             row = _parse_exercise_row(line)
             if row:
+                if links and _norm(line) in links:
+                    row["video_url"] = links[_norm(line)]
                 exercises.append(row)
-        label = day_labels[i] if i < len(day_labels) and day_labels[i] else f"Day {i + 1}"
+        label = day_labels[i] if i < len(day_labels) and day_labels[i] else _title_above(lines, start) or f"Day {i + 1}"
         days.append({"label": label, "exercises": exercises})
     return {"name": "", "days": days}

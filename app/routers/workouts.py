@@ -31,7 +31,8 @@ from app.workouts import exercise_db
 from app.workouts.export import workout_log_xlsx
 from app.workouts.exercise_match import match_exercise
 from app.workouts import logging as workout_logging
-from app.workouts.pdf_parser import extract_text, parse_workout_pdf
+from app.workouts.pdf_parser import extract_links, extract_text, parse_workout_pdf
+from app.workouts.video import safe_url
 
 router = APIRouter()
 
@@ -171,6 +172,7 @@ def _reconcile_exercises(day: WorkoutPlanDay, exercises_data: list[dict]) -> Non
         ex.sets_text = data.get("sets_text")
         ex.reps_text = data.get("reps_text")
         ex.rest_text = data.get("rest_text")
+        ex.video_url = safe_url(data.get("video_url"))
         if renamed or not ex.db_exercise_confirmed:
             match = match_exercise(ex.name)
             ex.db_exercise = match.exercise.name if match.confident else None
@@ -203,10 +205,11 @@ def _days_from_form(form: dict) -> tuple[str, list[dict]]:
         ex_sets = form.get(f"exercise_sets[{i}][]", [])
         ex_reps = form.get(f"exercise_reps[{i}][]", [])
         ex_rest = form.get(f"exercise_rest[{i}][]", [])
+        ex_video = form.get(f"exercise_video[{i}][]", [])
         exercises = [
             {"id": _form_id(ex_ids, j), "name": ex_names[j].strip(),
              "sets_text": _at(ex_sets, j) or None, "reps_text": _at(ex_reps, j) or None,
-             "rest_text": _at(ex_rest, j) or None}
+             "rest_text": _at(ex_rest, j) or None, "video_url": _at(ex_video, j) or None}
             for j in range(len(ex_names)) if ex_names[j].strip()
         ]
         day = {"id": _form_id(day_ids, i), "label": label.strip(), "exercises": exercises}
@@ -313,7 +316,7 @@ async def workouts_upload(pdf: UploadFile = File(...), session: Session = Depend
         # Never reject an upload outright: an unreadable PDF becomes an empty plan the user fills
         # in by hand in the editor (same as a readable one the parser found no days in).
         text = ""
-    parsed = parse_workout_pdf(text)
+    parsed = parse_workout_pdf(text, extract_links(raw_bytes))
     plan = WorkoutPlan(owner_id=uid, source=WorkoutSource.PDF, source_pdf_filename=filename,
                        started_on=clock.today())
     session.add(plan)

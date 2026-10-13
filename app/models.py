@@ -1366,6 +1366,7 @@ class WorkoutExercise(Base):
     # match survives edits; an automatic one is recomputed when the name changes.
     db_exercise: Mapped[str | None] = mapped_column(String(200))
     db_exercise_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    video_url: Mapped[str | None] = mapped_column(String(500))      # a demo video page, from the PDF's own link or typed in
 
 
 class WorkoutLog(Base):

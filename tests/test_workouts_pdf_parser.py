@@ -139,3 +139,23 @@ def test_parse_more_tables_than_labels_falls_back_to_day_n():
 def test_parse_unrecognized_format_returns_zero_days_never_raises():
     result = parse_workout_pdf("Some random PDF text\nwith no day headers at all.\n")
     assert result["days"] == []
+
+
+TITLE_ABOVE = (
+    "Pull Day Workout\nExercise Sets Reps\nOne Arm Row 5 30, 25, 20, 15, 10\nSeated Curl 3 20, 20, 20\nSuperman 3 30 seconds\n"
+    "Full-Body Workout\nExercise Sets Working Time Rest\nPlank 1 60 seconds 60 seconds\nPush Up 1 30 seconds 30 seconds\nFooter text\n"
+)
+
+
+def test_a_title_above_each_table_labels_the_day_and_comma_reps_and_seconds_are_read():
+    days = parse_workout_pdf(TITLE_ABOVE)["days"]
+    assert [d["label"] for d in days] == ["Pull Day Workout", "Full-Body Workout"]
+    assert days[0]["exercises"][0] == {"name": "One Arm Row", "sets_text": "5", "reps_text": "30, 25, 20, 15, 10", "rest_text": None}
+    assert days[0]["exercises"][2]["reps_text"] == "30 seconds"
+    assert days[1]["exercises"][0] == {"name": "Plank", "sets_text": "1", "reps_text": "60 seconds", "rest_text": "60 seconds"}
+    assert [len(d["exercises"]) for d in days] == [3, 2]
+
+
+def test_a_working_time_table_is_a_table_and_labels_found_the_old_way_still_win():
+    old = "Exercise Sets Reps\nPush-up 3 10 - 12\nDay 1: Upper Body\n"
+    assert parse_workout_pdf(old)["days"][0]["label"] == "Upper Body"

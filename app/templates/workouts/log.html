@@ -62,7 +62,7 @@
       <tr>
         <td><input type="checkbox" name="completed[{{ ex.id }}]"{% if p and p.completed %} checked{% endif %}></td>
         <td>
-          <strong>{{ ex.name }}</strong>
+          <strong>{{ ex.name }}</strong> <a class="small" href="{{ demo_url(ex.name, ex.video_url) }}" target="_blank" rel="noopener noreferrer">{{ 'Watch' if ex.video_url else 'Find a demo' }}</a>
           {% if db and db.name != ex.name %}<span class="tag tag-plain" title="{{ db.evidence }}">{{ db.name }}</span>{% endif %}
           {% if not db %}<div class="muted small">No match in the exercise database, so no calorie estimate.</div>{% endif %}
           <div class="muted small">Plan: {{ ex.sets_text or '—' }} × {{ ex.reps_text or '—' }}</div>
