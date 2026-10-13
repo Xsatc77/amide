@@ -162,6 +162,17 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
                                        "alert_counts": {p.id: len(alerts_mod.for_protocol(session, p, uid)) for p in protocols}})
 
 
+@router.get("/protocols/split-dose")
+def split_dose_plan(request: Request, uid: int = Depends(current_user_id)):
+    """The plan for a split dose: ?total=&period=&period_unit=days|weeks&injections= (the builder's split-dose helper)."""
+    from app.protocols.split import SplitError, split_dose
+    q = request.query_params
+    try:
+        return split_dose(q.get("total"), q.get("period"), q.get("period_unit"), q.get("injections"))
+    except SplitError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
 @router.get("/protocols/titration-steps")
 def titration_steps(request: Request, uid: int = Depends(current_user_id)):
     """The step rows for a ramp: ?start=&increase=&weeks=&target= (the builder's ramp helper)."""

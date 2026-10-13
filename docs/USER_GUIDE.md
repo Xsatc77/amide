@@ -24,6 +24,7 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 ## Protocols, doses and the calendar
 
 - **Protocols**: pick one or more goals, then choose peptides, dose, schedule, time of day, route and an optional inventory item. Frequencies: daily, every other day, every N days, specific days, weekly, as needed.
+- **Split a dose** (in the protocol builder, on each item): enter a total, a period in days or weeks and a number of injections. Amide divides the dose and sets the days (or one item per time of day for several injections in a day). You choose the numbers; it only does the arithmetic.
 - **Titration** ramps a dose up in weekly steps. "Fill the steps from a ramp" builds the steps from a start dose, an increase, weeks per step and a target. **Cycle off** weeks pause an item. Use the same peptide twice for two doses a day.
 - **Times of day**: Fasting, Waking, AM, Pre-workout, Post-workout, PM, Before bed, Bedtime, Any.
 - The icons on a protocol card print it, show its **alerts** (the bell), total what the course needs, and **shop** it (see below).

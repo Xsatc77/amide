@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Protocol builder: **Split a dose**. Enter a total, a period in days or weeks and a number of injections; Amide divides the dose and sets the schedule (a week split into 2 to 7 days, every N days when it divides evenly, or several injections in one day as one item per time of day). You choose the numbers; Amide only does the arithmetic.
+
 - Settings, Vial labels: a **Custom sheet** option. Enter your label maker's own measurements (paper, labels across and down, label size, margins, pitch, rectangle or round; inches or millimetres) and Amide prints your labels to match, with a **Print a test sheet** button to check the alignment on plain paper. Migration 0060.
 
 - Workouts: a **Quick activity** button (Workouts page and Journal tab) logs a walk, jog, run or machine session in one step (activity, minutes, optional distance, date), with calories from the exercise database. Exercises you add on the day show **Last time** (weight, sets and reps, or minutes). The workout log keeps the screen awake so a phone does not lock mid-set and the sign-in does not time out.

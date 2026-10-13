@@ -214,6 +214,39 @@
       } }, "Fill steps"), note);
   }
 
+  // "Split a dose": a total over a period (days or weeks) divided into equal injections. The division and the schedule are on the server; this
+  // fills the dose and the schedule, and adds one more item per extra time of day when the split is several injections in one day.
+  function splitHelper(it) {
+    const values = { total: "", period: "1", period_unit: "weeks", injections: "" };
+    const input = (name, label, attrs = {}) => h("label", { class: "small ramp-field" }, h("span", { text: label }),
+      h("input", { type: "number", min: "0", step: "any", inputmode: "decimal", "aria-label": label, value: values[name], ...attrs,
+        oninput: (e) => (values[name] = e.target.value) }));
+    const unit = h("select", { "aria-label": "Period unit", onchange: (e) => (values.period_unit = e.target.value) },
+      h("option", { value: "weeks", text: "weeks" }), h("option", { value: "days", text: "days" }));
+    const note = h("span", { class: "small muted", role: "status" });
+    return h("details", { class: "ramp-helper split-helper" },
+      h("summary", { class: "small", text: "Split a dose" }),
+      h("p", { class: "small muted", text: "Divide a total amount over a period into equal injections. You choose the total, the period and how many injections; Amide only does the arithmetic and spreads the days." }),
+      h("div", { class: "inline-inputs" }, input("total", `Total (${it.dose_unit})`), input("period", "Every", { min: "1", step: "1" }), unit,
+        input("injections", "Injections in that period", { min: "1", step: "1" })),
+      h("button", { type: "button", class: "btn btn-ghost", onclick: async () => {
+        note.textContent = "";
+        const response = await fetch(`/protocols/split-dose?${new URLSearchParams(values)}`, { credentials: "same-origin" });
+        const body = await response.json();
+        if (!response.ok) { note.textContent = body.detail || "Check the numbers."; return; }
+        it.dose = String(body.dose);
+        it.frequency = body.frequency;
+        it.weekdays = body.weekdays || "";
+        it.every_n_days = body.every_n_days ? String(body.every_n_days) : "";
+        it.time_of_day = body.times[0];
+        const at = items.indexOf(it);
+        body.times.slice(1).forEach((time, n) => items.splice(at + 1 + n, 0, newItem({
+          peptide_id: it.peptide_id, new_name: it.new_name, dose: String(body.dose), dose_unit: it.dose_unit, frequency: "daily",
+          route: it.route, inventory_item_id: it.inventory_item_id, time_of_day: time })));
+        changed();
+      } }, "Apply split"), note);
+  }
+
   function stepRow(it, i, j, step, unitLabel) {
     const p = `items-${i}-steps-${j}`;
     const num = (name, value, placeholder) => h("input", {
@@ -301,6 +334,7 @@
           set("inventory_item_id"))),
         field("Notes", h("input", { name: `${p}-notes`, maxlength: "300", value: it.notes,
           oninput: (e) => set("notes")(e.target.value) }), "span-2")),
+      splitHelper(it),
       h("div", { class: "steps" },
         h("div", { class: "steps-head" }, h("strong", { class: "small", text: "Titration steps" })),
         it.steps.map((s, j) => stepRow(it, i, j, s, unitLabel)),
