@@ -338,13 +338,13 @@ def test_charts_range_query_param_changes_window(client, db, me):
     try:
         with SessionLocal() as s:
             tester = s.scalar(select(User).where(User.username_key == "tester"))
-            s.add(BodyMeasurement(owner_id=tester.id, measured_at=old, weight_lbs=190))
+            s.add(BodyMeasurement(owner_id=tester.id, measured_at=old, weight_lbs=193.7))
             s.add(BodyMeasurement(owner_id=tester.id, measured_at=recent, weight_lbs=180))
             s.commit()
         r_lifetime = client.get("/measurements?range=lifetime")
         r_7d = client.get(f"/measurements?range=7d&as_of={recent.isoformat()}")
-        assert "190" in r_lifetime.text
-        assert "190" not in r_7d.text  # outside the 7-day window from the pinned "as_of" date
+        assert "193.7" in r_lifetime.text
+        assert "193.7" not in r_7d.text  # outside the 7-day window from the pinned "as_of" date
     finally:
         _clear_measurements(me)
 
