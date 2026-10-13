@@ -413,6 +413,10 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
     water_goal_oz = _parse_int("water_goal_oz")
     if water_goal_oz is not None:
         water_goal_oz = round(units_.volume_in(water_goal_oz))
+    surgery = bool(form.get("prior_gastric_surgery"))
+    measured_tdee = _parse_int("measured_tdee") if surgery else None
+    if measured_tdee is not None and not 800 <= measured_tdee <= 6000 and "measured_tdee" not in errors:
+        errors["measured_tdee"] = "Enter calories per day between 800 and 6,000."
     custom_protein_pct = _parse_int("custom_protein_pct")
     custom_carb_pct = _parse_int("custom_carb_pct")
     custom_fat_pct = _parse_int("custom_fat_pct")
@@ -464,6 +468,7 @@ async def change_body_profile(request: Request, session: Session = Depends(get_s
     me.custom_carb_pct = custom_carb_pct
     me.custom_fat_pct = custom_fat_pct
     me.water_goal_oz = water_goal_oz
+    me.prior_gastric_surgery, me.measured_tdee = surgery, measured_tdee
     session.commit()
     return RedirectResponse("/settings#user", status_code=303)
 

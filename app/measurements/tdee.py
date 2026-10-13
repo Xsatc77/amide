@@ -75,6 +75,12 @@ class Report:
     math: tuple[str, ...]
 
 
+def measured_for(user) -> int | None:
+    """The person's measured daily calorie need, but only while "prior gastric surgery" is ticked: no published formula covers that case,
+    so a measurement (dietitian, indirect calorimetry) is the better number."""
+    return user.measured_tdee if getattr(user, "prior_gastric_surgery", False) and user.measured_tdee else None
+
+
 def bmi_category(bmi: float) -> str:
     for limit, name in ((18.5, "Underweight"), (25, "Normal"), (30, "Overweight"), (35, "Obese Class I"),
                         (40, "Obese Class II")):
@@ -96,7 +102,7 @@ def adjust(tdee: float, stage: LifeStage | None, bmr: float) -> float:
 
 
 def report(*, male: bool, age: int, height_in: float, weight_lb: float, activity_factor: float,
-           life_stage: str | None = None) -> Report:
+           life_stage: str | None = None, measured: int | None = None) -> Report:
     kg, cm = weight_lb * KG_PER_LB, height_in * CM_PER_IN
     stage = LIFE_STAGES.get(life_stage or "") if not male else None   # life stages are female-only
     mifflin = 10 * kg + 6.25 * cm - 5 * age + (5 if male else -161)
@@ -106,11 +112,12 @@ def report(*, male: bool, age: int, height_in: float, weight_lb: float, activity
     average = (mifflin + harris + katch + cunningham) / 4
 
     unadjusted = mifflin * activity_factor
-    adjusted = adjust(unadjusted, stage, mifflin)
+    adjusted = float(measured) if measured else adjust(unadjusted, stage, mifflin)     # a measured need replaces the estimate entirely
     bmr_r, tdee_r = round_half_up(mifflin), round_half_up(adjusted)
     tef_r = round_half_up(adjusted * TEF_SHARE)
-    activity_r = max(0, tdee_r - bmr_r - tef_r)
-    parts = (bmr_r, activity_r, tef_r)
+    split_bmr = round_half_up(bmr_r * adjusted / unadjusted) if measured else bmr_r      # a measured need below the formula's BMR scales the parts down together
+    activity_r = max(0, tdee_r - split_bmr - tef_r)
+    parts = (split_bmr, activity_r, tef_r)
     total = sum(parts)
     pct = tuple(round_half_up(p / total * 100) if total else 0 for p in parts)
 
@@ -119,7 +126,9 @@ def report(*, male: bool, age: int, height_in: float, weight_lb: float, activity
     goals = tuple((name, delta, round_half_up(adjusted + delta)) for name, delta in GOAL_LADDER)
     bmi = 703 * weight_lb / height_in ** 2
     note = "No life-stage adjustment applied."
-    if stage is not None:
+    if measured:
+        note = f"Using your measured daily need of {tdee_r:,} kcal/day (Settings) in place of the formula's {round_half_up(unadjusted):,}."
+    elif stage is not None:
         change = round_half_up(tdee_r - unadjusted)
         note = f"{stage.label.split(' (')[0]} {change:+d} kcal/day: adjusted TDEE {tdee_r:,} kcal/day."
     sex_word = "MALE" if male else "FEMALE"

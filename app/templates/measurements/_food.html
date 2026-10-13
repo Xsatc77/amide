@@ -42,12 +42,13 @@
   {% else %}
   {% set t = food.targets %}{% set e = food.eaten %}{% set d = food.deficit %}
   {% if t.floored %}<p class="alert" role="alert">Adjusted: your calculated limit was below a safe minimum, so it was raised to a safe floor.</p>{% endif %}
+  {% if food.surgery %}<p class="muted small" role="note">You marked prior gastric surgery. No published formula adjusts calorie needs for it, so the estimates here are less certain{% if not food.measured %}; a measured daily need (Settings) is a better number{% endif %}. Ask your care team how much to eat.</p>{% endif %}
   <div class="card food-calories">
     <p class="stat-big">{{ '{:,}'.format(t.calories) }} kcal limit</p>
     <ul class="kv-list">
       <li>Eaten: <strong>{{ '{:,}'.format(e.calories | round | int) }}</strong> kcal</li>
       <li>{{ 'Remaining' if e.calories <= t.calories else 'Over by' }}: <strong>{{ '{:,}'.format((t.calories - e.calories) | abs | round | int) }}</strong> kcal</li>
-      <li>TDEE: {{ '{:,}'.format(food.tdee) }} kcal &middot; logged workout burn: {{ '{:,}'.format(food.workout_burn) }} kcal</li>
+      <li>TDEE{% if food.measured %} (your measured need){% endif %}: {{ '{:,}'.format(food.tdee) }} kcal &middot; logged workout burn: {{ '{:,}'.format(food.workout_burn) }} kcal</li>
       <li>Potential {{ 'surplus' if d.surplus else 'deficit' }}: <strong>{{ '{:,}'.format(d.kcal | abs) }}</strong> kcal
         <span class="muted small">(TDEE + workout burn - eaten; about {{ u.weight(d.lb_per_week) }} {{ 'kg' if u.metric else 'lb' }} per week if every day were like this: an estimate)</span></li>
     </ul>

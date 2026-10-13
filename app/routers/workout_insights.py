@@ -83,7 +83,8 @@ def _energy_context(session: Session, uid: int, goal: str, carb: str, range_key:
     today = clock.today()
     male = user.sex == BiologicalSex.MALE
     report = tdee.report(male=male, age=_age(user.birth_date, today), height_in=user.height_in, weight_lb=weight,
-                         activity_factor=float(user.activity_level.value), life_stage=user.life_stage)
+                         activity_factor=float(user.activity_level.value), life_stage=user.life_stage,
+                         measured=tdee.measured_for(user))
     goal = goal if goal in tdee.MACRO_GRID else "maintain"
     carb = carb if carb in ("low", "moderate", "high") else "moderate"
     top = max(level[2] for level in report.levels)
@@ -107,7 +108,8 @@ def _energy_context(session: Session, uid: int, goal: str, carb: str, range_key:
         key = (weight_on, _age(user.birth_date, day))
         if key not in reports:
             reports[key] = tdee.report(male=male, age=key[1], height_in=user.height_in, weight_lb=weight_on,
-                                       activity_factor=float(user.activity_level.value), life_stage=user.life_stage)
+                                       activity_factor=float(user.activity_level.value), life_stage=user.life_stage,
+                                       measured=tdee.measured_for(user))
         return reports[key]
 
     daily = {d: report_on(d) for d in days}

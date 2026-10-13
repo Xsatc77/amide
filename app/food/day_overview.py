@@ -31,7 +31,8 @@ def maintenance(session: Session, user: User) -> tuple[float | None, str | None]
     today, born = clock.today(), user.birth_date
     age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
     return tdee.report(male=user.sex == BiologicalSex.MALE, age=age, height_in=user.height_in, weight_lb=weight,
-                       activity_factor=float(user.activity_level.value), life_stage=user.life_stage).tdee, None
+                       activity_factor=float(user.activity_level.value), life_stage=user.life_stage,
+                       measured=tdee.measured_for(user)).tdee, None
 
 
 def day_overviews(session: Session, user: User, days) -> dict[date, dict]:

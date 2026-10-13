@@ -1013,6 +1013,8 @@ class User(Base):
     macro_goal: Mapped[MacroGoal | None] = mapped_column(_enum_column(MacroGoal))
     diet_preset: Mapped[DietPreset | None] = mapped_column(_enum_column(DietPreset))
     life_stage: Mapped[str | None] = mapped_column(String(20))  # a key of app.measurements.tdee.LIFE_STAGES; women only
+    prior_gastric_surgery: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    measured_tdee: Mapped[int | None] = mapped_column(Integer)       # a measured daily calorie need that replaces the formula; used only with prior_gastric_surgery
     custom_protein_pct: Mapped[int | None] = mapped_column(Integer)
     custom_carb_pct: Mapped[int | None] = mapped_column(Integer)
     custom_fat_pct: Mapped[int | None] = mapped_column(Integer)

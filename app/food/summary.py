@@ -56,7 +56,8 @@ def day_summary(session: Session, user: User, day: date) -> dict:
         custom = (user.custom_protein_pct, user.custom_carb_pct, user.custom_fat_pct)
 
     report = tdee.report(male=user.sex == BiologicalSex.MALE, age=_age(user.birth_date, clock.today()), height_in=user.height_in,
-                         weight_lb=weight, activity_factor=float(user.activity_level.value), life_stage=user.life_stage)
+                         weight_lb=weight, activity_factor=float(user.activity_level.value), life_stage=user.life_stage,
+                         measured=tdee.measured_for(user))
     try:
         targets = day_targets(report.tdee, user.macro_goal or MacroGoal.MAINTAIN, preset, custom, user.sex)
     except ValueError as exc:
@@ -76,6 +77,6 @@ def day_summary(session: Session, user: User, day: date) -> dict:
     total = sum(targets.kcal_split) or 1
     legend = [{"name": n, "grams": g, "pct": round(k / total * 100), "color": MACRO_COLORS[n]}
               for n, g, k in zip(names, grams, targets.kcal_split)]
-    return summary | {"targets": targets, "tdee": report.tdee, "workout_burn": round(burn),
+    return summary | {"surgery": bool(user.prior_gastric_surgery), "measured": tdee.measured_for(user) is not None, "targets": targets, "tdee": report.tdee, "workout_burn": round(burn),
                       "deficit": deficit(report.tdee, burn, eaten.calories), "fulfil": fulfil, "ring": ring,
                       "legend": legend, "colors": MACRO_COLORS}

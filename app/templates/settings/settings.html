@@ -276,6 +276,17 @@
             </select>
             {{ err('activity_level') }}
           </label>
+          <label class="field check-field">
+            <span><input type="checkbox" name="prior_gastric_surgery" value="on" {{ 'checked' if me.prior_gastric_surgery }}> Prior gastric surgery</span>
+            <small class="muted">No published formula adjusts calorie needs for gastric surgery (bypass, sleeve, band and others), so Amide marks its estimates as less certain.</small>
+          </label>
+          <label class="field {{ 'has-error' if errors.measured_tdee }}" id="measured-tdee-field">
+            <span>Measured daily calories (optional)</span>
+            <input name="measured_tdee" type="number" min="800" max="6000" step="1" inputmode="numeric" placeholder="From your dietitian or a metabolic test"
+                   value="{{ me.measured_tdee if me.measured_tdee is not none else '' }}">
+            <small class="muted">Only used when the box above is ticked. It replaces the formula's daily calories everywhere in Amide.</small>
+            {{ err('measured_tdee') }}
+          </label>
           <label class="field {{ 'has-error' if errors.macro_goal }}">
             <span>Goal</span>
             <select name="macro_goal">
