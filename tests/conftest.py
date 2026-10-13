@@ -52,6 +52,7 @@ def clean(client):
     tokens.limiter._hits.clear()          # the per-token request counter must not leak from one test into the next
     yield
     with SessionLocal() as s:
+        s.query(User).update({User.timezone: None})      # a test that picks a time zone must not move every later test's "today"
         s.query(PriceAlertIgnore).delete()
         s.query(PriceList).delete()
         s.query(Vendor).delete()
