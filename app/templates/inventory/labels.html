@@ -1,16 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<style>{{ page_rule | safe }}</style>
-<div class="label-tools no-print">
-  <h1 class="page-title">{{ title }}</h1>
-  <p class="muted">{{ labels | length }} label{{ '' if labels | length == 1 else 's' }}. The print window opens by itself; if it does not, use the button.</p>
-  <button type="button" class="btn btn-primary" data-print>Print</button>
-  <a class="btn btn-ghost" href="{{ next_page }}">Back</a>
-  <a class="btn btn-ghost" href="/settings">Label settings</a>
-</div>
-<div class="label-sheet label-{{ size }}"{% if auto %} data-auto-print data-next="{{ next_page }}"{% endif %}>
-  {% for l in labels %}
+{% macro label_card(l) %}
   <div class="vial-label">
     <div class="vl-name">{{ l.name }}</div>
     <div class="vl-line">{{ l.size }}{% if l.lot %} · Lot {{ l.lot }}{% endif %}{% if l.received %} · Received {{ l.received | shortdate }}{% endif %}</div>
@@ -21,7 +12,24 @@
     </div>
     <div class="vl-ruo">Research Use Only</div>
   </div>
-  {% endfor %}
+{% endmacro %}
+<style>{{ page_rule | safe }}{% if custom_css %}
+{{ custom_css | safe }}{% endif %}</style>
+<div class="label-tools no-print">
+  <h1 class="page-title">{{ title }}</h1>
+  <p class="muted">{{ labels | length }} label{{ '' if labels | length == 1 else 's' }}. The print window opens by itself; if it does not, use the button.</p>
+  <button type="button" class="btn btn-primary" data-print>Print</button>
+  <a class="btn btn-ghost" href="{{ next_page }}">Back</a>
+  <a class="btn btn-ghost" href="/settings">Label settings</a>
 </div>
+{% if pages %}
+<div class="label-sheet label-custom{{ ' round' if shape == 'round' }}"{% if auto %} data-auto-print data-next="{{ next_page }}"{% endif %}>
+  {% for page in pages %}<div class="label-page">{% for l in page %}{{ label_card(l) }}{% endfor %}</div>{% endfor %}
+</div>
+{% else %}
+<div class="label-sheet label-{{ size }}"{% if auto %} data-auto-print data-next="{{ next_page }}"{% endif %}>
+  {% for l in labels %}{{ label_card(l) }}{% endfor %}
+</div>
+{% endif %}
 {% endblock %}
 {% block scripts %}<script src="{{ static_url('js/labels.js') }}" defer></script>{% endblock %}

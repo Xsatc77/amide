@@ -189,7 +189,29 @@
           <select name="label_size">{% for key, text in label_sizes.items() %}<option value="{{ key }}"{% if key == me.label_size %} selected{% endif %}>{{ text }}</option>{% endfor %}</select>
           {{ err('label_size') }}
         </label>
+        {% set L = me.label_layout or {} %}
+        <fieldset class="form-section" id="custom-labels">
+          <legend>Custom sheet</legend>
+          <p class="small muted">Used when the size above is &ldquo;Custom sheet&rdquo;. Everyone prints on different labels, so enter the numbers from your label maker's template
+            (for Avery, the template on their website lists the page margins, label size and pitch). Pitch is the distance from the edge of one label to the same edge of
+            the next. Numbers already saved are shown in inches. Use <strong>Print a test sheet</strong> to check the alignment on plain paper.</p>
+          {% if errors.label_layout %}<p class="error small" role="alert">{{ errors.label_layout }}</p>{% endif %}
+          <div class="grid">
+            <label class="field"><span>Paper</span><select name="page"><option value="letter" {{ 'selected' if L.get('page', 'letter') == 'letter' }}>Letter (8.5 x 11 in)</option><option value="a4" {{ 'selected' if L.get('page') == 'a4' }}>A4</option></select></label>
+            <label class="field"><span>Measurements in</span><select name="unit"><option value="in">Inches</option><option value="mm">Millimetres</option></select></label>
+            <label class="field"><span>Shape</span><select name="shape"><option value="rect" {{ 'selected' if L.get('shape', 'rect') == 'rect' }}>Rectangle</option><option value="round" {{ 'selected' if L.get('shape') == 'round' }}>Round</option></select></label>
+            <label class="field"><span>Labels across (columns)</span><input name="cols" type="number" min="1" max="12" step="1" value="{{ L.get('cols', '') }}"></label>
+            <label class="field"><span>Labels down (rows)</span><input name="rows" type="number" min="1" max="30" step="1" value="{{ L.get('rows', '') }}"></label>
+            <label class="field"><span>Label width</span><input name="width" type="number" min="0" step="any" value="{{ L.get('width', '') }}"></label>
+            <label class="field"><span>Label height (diameter if round)</span><input name="height" type="number" min="0" step="any" value="{{ L.get('height', '') }}"></label>
+            <label class="field"><span>Top margin</span><input name="top" type="number" min="0" step="any" value="{{ L.get('top', '') }}"></label>
+            <label class="field"><span>Left margin</span><input name="left" type="number" min="0" step="any" value="{{ L.get('left', '') }}"></label>
+            <label class="field"><span>Horizontal pitch</span><input name="h_pitch" type="number" min="0" step="any" value="{{ L.get('h_pitch', '') }}"></label>
+            <label class="field"><span>Vertical pitch</span><input name="v_pitch" type="number" min="0" step="any" value="{{ L.get('v_pitch', '') }}"></label>
+          </div>
+        </fieldset>
         <button type="submit" class="btn btn-primary">Save</button>
+        {% if me.label_size == 'custom' and me.label_layout %}<a class="btn btn-ghost" href="/inventory/labels/test" target="_blank" rel="noopener">Print a test sheet</a>{% endif %}
       </form>
 
       <form method="post" action="/settings/shopping" class="settings-form" novalidate>

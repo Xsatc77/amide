@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Settings, Vial labels: a **Custom sheet** option. Enter your label maker's own measurements (paper, labels across and down, label size, margins, pitch, rectangle or round; inches or millimetres) and Amide prints your labels to match, with a **Print a test sheet** button to check the alignment on plain paper. Migration 0060.
+
 - Workouts: a **Quick activity** button (Workouts page and Journal tab) logs a walk, jog, run or machine session in one step (activity, minutes, optional distance, date), with calories from the exercise database. Exercises you add on the day show **Last time** (weight, sets and reps, or minutes). The workout log keeps the screen awake so a phone does not lock mid-set and the sign-in does not time out.
 - Dashboard: a low-stock alert can be **snoozed for 7 or 10 days**, and each item can have its own alert level, set right on the alert. Migration 0059.
 

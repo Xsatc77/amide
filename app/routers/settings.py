@@ -19,6 +19,7 @@ from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
 from app.inventory.labels import LABEL_SIZES
+from app.inventory.label_layout import LayoutError, parse_layout
 from app.shopping.build import parse_fee, saved_shipping
 from app.models import (
     ActivityLevel, BiologicalSex, BodyPhoto, Colorway, Food, FoodLog, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
@@ -261,7 +262,13 @@ async def change_label_settings(request: Request, session: Session = Depends(get
     if size not in LABEL_SIZES:
         return _render(request, session, errors={"label_size": "Pick one of the sizes in the list."}, status_code=422)
     me = _me(session, uid)
-    me.auto_print_labels, me.label_size = bool(form.get("auto_print_labels")), size
+    layout = me.label_layout
+    if size == "custom":
+        try:
+            layout = parse_layout(form).to_dict()
+        except LayoutError as exc:
+            return _render(request, session, errors={"label_layout": str(exc)}, status_code=422)
+    me.auto_print_labels, me.label_size, me.label_layout = bool(form.get("auto_print_labels")), size, layout
     session.commit()
     return RedirectResponse("/settings", status_code=303)
 

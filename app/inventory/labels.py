@@ -12,6 +12,7 @@ LABEL_SIZES = {
     "5160": ("Sheet of 30 (Avery 5160, 2 5/8 x 1 in)", "@page { size: letter; margin: 0.5in 0.19in; }"),
     "2x1": ("Roll, 2 x 1 in", "@page { size: 2in 1in; margin: 0; }"),
     "4x2": ("Roll, 4 x 2 in", "@page { size: 4in 2in; margin: 0; }"),
+    "custom": ("Custom sheet (enter your label maker's measurements below)", ""),
 }
 
 
