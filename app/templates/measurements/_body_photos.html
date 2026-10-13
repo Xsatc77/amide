@@ -43,7 +43,8 @@
       {% if photo_error and photo_error.note %}<p class="error small">{{ photo_error.note }}</p>{% endif %}
       <p class="muted small">Location and camera details are removed when the photo is saved. It stays blurred until you reveal it and is never shared.</p>
     </div>
-    <div class="dialog-foot"><button type="submit" class="btn btn-primary">Save photo</button></div>
+    <p class="error small" data-photo-upload-error role="alert" hidden></p>
+    <div class="dialog-foot"><button type="submit" class="btn btn-primary" data-photo-save>Save photo</button></div>
   </form>
 </dialog>
 

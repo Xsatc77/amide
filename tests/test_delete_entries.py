@@ -83,3 +83,45 @@ def test_deleting_something_that_is_already_gone_is_a_404_not_an_error(client):
     assert client.post("/measurements/999999/delete", follow_redirects=False).status_code == 404
     assert client.post("/journal/entries/2001-01-01/delete", follow_redirects=False).status_code == 404
     assert client.post("/water/999999/delete", follow_redirects=False).status_code == 404
+
+
+def test_a_day_with_only_a_workout_has_no_journal_delete_but_can_delete_the_workout(client):
+    from app.models import WorkoutLog
+    day = date.today() - timedelta(days=3)
+    with SessionLocal() as s:
+        log = WorkoutLog(owner_id=tester(), day_label="Delwalk Workout", log_date=day)
+        s.add(log)
+        s.commit()
+        lid = log.id
+    try:
+        page = client.get("/measurements?tab=journal").text
+        assert "Delwalk Workout" in page
+        assert f'action="/journal/entries/{day.isoformat()}/delete"' not in page          # there is no journal entry to delete on that day
+        assert f'action="/workouts/log/{lid}/delete"' in page and "data-confirm" in page
+        with other_client("delother4") as stranger:
+            assert stranger.post(f"/workouts/log/{lid}/delete", follow_redirects=False).status_code == 404
+        r = client.post(f"/workouts/log/{lid}/delete", follow_redirects=False)
+        assert r.status_code == 303 and "journal" in r.headers["location"]
+        with SessionLocal() as s:
+            assert s.get(WorkoutLog, lid) is None
+    finally:
+        with SessionLocal() as s:
+            s.query(WorkoutLog).filter(WorkoutLog.day_label == "Delwalk Workout").delete()
+            s.commit()
+
+
+def test_a_day_with_a_journal_entry_and_a_workout_offers_both_deletes(client):
+    from app.models import WorkoutLog
+    day = date.today() - timedelta(days=4)
+    with SessionLocal() as s:
+        s.add(JournalEntry(owner_id=tester(), entry_date=day, mood=3))
+        s.add(WorkoutLog(owner_id=tester(), day_label="Delboth Workout", log_date=day))
+        s.commit()
+    try:
+        page = client.get("/measurements?tab=journal").text
+        assert f'action="/journal/entries/{day.isoformat()}/delete"' in page and "Delboth Workout" in page
+        assert page.count('/delete"') >= 2
+    finally:
+        with SessionLocal() as s:
+            s.query(WorkoutLog).filter(WorkoutLog.day_label == "Delboth Workout").delete()
+            s.commit()

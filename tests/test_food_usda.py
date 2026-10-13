@@ -89,3 +89,26 @@ def test_a_key_saved_in_settings_turns_the_search_on_and_is_never_shown_again(cl
     assert mine not in client.get("/settings").text
     assert client.post("/settings/usda-key", data={"remove": "1"}, follow_redirects=False).status_code == 303
     assert client.get("/food/usda", params={"q": "banana"}).status_code == 404
+
+
+def test_adding_a_usda_result_returns_the_saved_food_and_adding_it_again_reuses_it(client, db):
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import Food
+    body = {"name": "Usdatest Banana", "serving": "1 medium", "serving_g": "118", "calories": "105", "protein_g": "1.3", "carb_g": "27", "fat_g": "0.4", "fiber_g": "3.1"}
+    first = client.post("/food/usda/add", data=body)
+    assert first.status_code == 200
+    saved = first.json()
+    assert saved["name"] == "Usdatest Banana" and saved["id"] and saved["calories"] == 105
+    again = client.post("/food/usda/add", data=body).json()
+    assert again["id"] == saved["id"]
+    with SessionLocal() as s:
+        assert len(s.scalars(select(Food).where(Food.name == "Usdatest Banana")).all()) == 1
+        s.query(Food).filter(Food.name == "Usdatest Banana").delete()
+        s.commit()
+
+
+def test_adding_a_usda_result_with_bad_numbers_is_a_422_not_a_saved_food(client, db):
+    r = client.post("/food/usda/add", data={"name": "Usdatest Bad", "serving": "1", "calories": "lots", "protein_g": "1", "carb_g": "1", "fat_g": "1", "fiber_g": "1"})
+    assert r.status_code == 422 and "calories" in r.json()["errors"]

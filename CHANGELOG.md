@@ -4,6 +4,10 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Journal: deleting an old day no longer says "not found" (days that only have a workout have no journal entry, so they now offer Delete for the workout instead); a logged workout can be deleted; the 1-5 ratings are explained and the entry boxes fill the popup.
+- Food: a USDA result is added to My foods and selected in one step, and the results list closes so it cannot be added twice.
+- Body photos: the photo is shrunk in the browser before it is sent (a phone photo is several MB, and a proxy with a small upload limit would refuse it silently), and a failed upload now says why.
+
 - "Today" is now the signed-in person's own day, not the server's. A server in UTC turns over to the next day at 7 PM in Chicago, so the dashboard, Today, calendar, water, food, workouts, journal and every other "today" jumped ahead each evening. The time zone chosen in Settings is used everywhere; people who leave it on Automatic now follow their device's own time zone (the browser reports it), where before Automatic meant the server's.
 
 ## v1.0.3 (2026-10)

@@ -380,6 +380,17 @@ def workouts_activate(plan_id: int, session: Session = Depends(get_session),
     return RedirectResponse("/workouts", status_code=303)
 
 
+@router.post("/workouts/log/{log_id}/delete")
+def delete_workout_log(log_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Delete one of the signed-in person's own logged workouts (its exercise rows go with it). The plan it came from is untouched."""
+    log = session.scalar(select(WorkoutLog).where(WorkoutLog.id == log_id, WorkoutLog.owner_id == uid))
+    if log is None:
+        raise HTTPException(404, "Workout not found")
+    session.delete(log)
+    session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
 @router.get("/workouts/log")
 def workouts_log_picker(plan_day_id: int, log_date: date_type | None = None, session: Session = Depends(get_session),
                         uid: int = Depends(current_user_id)):

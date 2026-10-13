@@ -338,19 +338,20 @@
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
 
+    <p class="muted small scale-hint">Rate each from 1 to 5: <strong>1 = bad</strong>, 3 = okay, <strong>5 = great</strong>. Leave one blank if you don't want to rate it.</p>
     <div class="grid">
       <label class="field {{ 'has-error' if errors.mood }}">
-        <span>Mood (1-5)</span>
+        <span>Mood (1 bad &ndash; 5 great)</span>
         <input name="mood" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.mood if today_entry and today_entry.mood is not none else '' }}">
         {{ err('mood') }}
       </label>
       <label class="field {{ 'has-error' if errors.energy }}">
-        <span>Energy (1-5)</span>
+        <span>Energy (1 low &ndash; 5 high)</span>
         <input name="energy" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.energy if today_entry and today_entry.energy is not none else '' }}">
         {{ err('energy') }}
       </label>
       <label class="field {{ 'has-error' if errors.sleep_quality }}">
-        <span>Sleep quality (1-5)</span>
+        <span>Sleep quality (1 poor &ndash; 5 great)</span>
         <input name="sleep_quality" type="number" min="1" max="5" step="1" inputmode="numeric" value="{{ today_entry.sleep_quality if today_entry and today_entry.sleep_quality is not none else '' }}">
         {{ err('sleep_quality') }}
       </label>
@@ -481,7 +482,7 @@
         {% for e in journal_entries %}
         <tr>
           <td data-label="Date">{{ e.date | shortdate }}{% if not e.owner_name %} <a class="small" href="/measurements?tab=journal&edit={{ e.date.isoformat() }}">Edit</a>
-            <form method="post" action="/journal/entries/{{ e.date.isoformat() }}/delete" class="inline" data-confirm="Delete the {{ e.date | shortdate }} journal entry, its side effects and notes? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ e.date | shortdate }} entry">Delete</button></form>{% endif %}</td>
+            {% if e.has_entry %}<form method="post" action="/journal/entries/{{ e.date.isoformat() }}/delete" class="inline" data-confirm="Delete the {{ e.date | shortdate }} journal entry, its side effects and notes? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ e.date | shortdate }} entry">Delete</button></form>{% endif %}{% endif %}</td>
           <td data-label="Mood">{{ e.mood if e.mood is not none else '—' }}</td>
           <td data-label="Energy">{{ e.energy if e.energy is not none else '—' }}</td>
           <td data-label="Sleep">{{ e.sleep_quality if e.sleep_quality is not none else '—' }}</td>
@@ -516,7 +517,8 @@
             {% if e.workouts %}
             <ul class="dose-list">
               {% for w in e.workouts %}
-              <li>{{ w.label }} — {{ w.completed_count }}/{{ w.total_count }} exercises completed{% if w.net_kcal %}, about {{ w.net_kcal }} kcal (net, estimated){% endif %}</li>
+              <li>{{ w.label }} — {{ w.completed_count }}/{{ w.total_count }} exercises completed{% if w.net_kcal %}, about {{ w.net_kcal }} kcal (net, estimated){% endif %}
+                {% if not e.owner_name %}<form method="post" action="/workouts/log/{{ w.id }}/delete" class="inline" data-confirm="Delete this logged workout ({{ w.label }}, {{ e.date | shortdate }})? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ w.label }} workout from {{ e.date | shortdate }}">Delete</button></form>{% endif %}</li>
               {% endfor %}
             </ul>
             {% endif %}

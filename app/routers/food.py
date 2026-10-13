@@ -198,6 +198,19 @@ async def create_food(request: Request, session: Session = Depends(get_session),
     return _back(day)
 
 
+@router.post("/food/usda/add")
+async def add_usda_food(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Save a USDA result into the person's own foods and return it, so the Add food dialog can select it straight away.
+    Adding the same food again returns the one already saved."""
+    form = await request.form()
+    values, errors = foods_mod.parse_food(_food_values(form))
+    if errors:
+        return JSONResponse({"errors": errors}, status_code=422)
+    food = foods_mod.own_or_create(session, uid, values)
+    return JSONResponse({"id": food.id, "name": food.name, "serving": food.serving, **{k: getattr(food, k) for k in foods_mod.LIMITS}},
+                        headers={"Cache-Control": "no-store"})
+
+
 @router.post("/food/foods/{food_id}/edit")
 async def edit_food(food_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     food = _own_or_404(session, food_id, uid)

@@ -73,6 +73,7 @@ def _workout_dict(r) -> dict:
     net = sum(el.net_kcal for el in r.exercise_logs if el.net_kcal)
     gross = sum(el.gross_kcal for el in r.exercise_logs if el.gross_kcal)
     return {
+        "id": r.id,
         "label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
         "completed_count": sum(1 for el in r.exercise_logs if el.completed),
         "total_count": len(r.exercise_logs),
@@ -101,7 +102,7 @@ def _workout_only_views(session: Session, uid: int, entry_dates: set[date]) -> l
     return [{
         "date": day, "mood": None, "energy": None, "sleep_quality": None, "side_effects": [], "custom_effects": [],
         "side_effects_other": None, "notes": None, "owner_name": None, "quick_notes": [],
-        "doses": doses.get(day, []), "workouts": [_workout_dict(r) for r in day_logs],
+        "doses": doses.get(day, []), "workouts": [_workout_dict(r) for r in day_logs], "has_entry": False,
     } for day, day_logs in by_day.items()]
 
 
@@ -143,6 +144,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
         ],
         "doses": doses,
         "workouts": workouts,
+        "has_entry": True,
     }
 
 

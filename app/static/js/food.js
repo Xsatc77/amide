@@ -113,11 +113,21 @@
         add.className = "food-result";
         add.textContent = food.name + " (" + food.serving + ") " + Math.round(food.calories) + " kcal, P " + food.protein_g + " C " + food.carb_g + " F " + food.fat_g + " — add to My foods";
         add.addEventListener("click", async () => {
-          const body = new URLSearchParams({ name: food.name, serving: food.serving, serving_g: food.serving_g, calories: food.calories,
-            protein_g: food.protein_g, carb_g: food.carb_g, fat_g: food.fat_g, fiber_g: food.fiber_g, date: document.querySelector("input[name=date]")?.value || "" });
-          const saved = await fetch("/food/foods", { method: "POST", body, credentials: "same-origin", redirect: "manual" });
-          add.textContent = (saved.ok || saved.type === "opaqueredirect") ? "Added to My foods: search above to pick it" : "Could not add";
           add.disabled = true;
+          const body = new URLSearchParams({ name: food.name, serving: food.serving, serving_g: food.serving_g, calories: food.calories,
+            protein_g: food.protein_g, carb_g: food.carb_g, fat_g: food.fat_g, fiber_g: food.fiber_g });
+          let saved = null;
+          try {
+            const response = await fetch("/food/usda/add", { method: "POST", body, credentials: "same-origin" });
+            if (response.ok) saved = await response.json();
+          } catch (error) { saved = null; }
+          if (!saved) { add.disabled = false; note.textContent = "Could not add that food. Try again."; return; }
+          // Added to My foods and selected for logging in one step; the results list closes so it cannot be added twice.
+          idInput.value = saved.id;
+          picked.textContent = "Selected: " + saved.name + " (" + saved.serving + ")";
+          usdaResults.replaceChildren();
+          note.textContent = "Added to My foods and selected.";
+          runSearch();
         });
         li.appendChild(add);
         return li;
