@@ -1422,3 +1422,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .water-log li { display: flex; align-items: center; justify-content: space-between; max-width: 28rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
 .dialog .settings-form > .field, .dialog .settings-form > fieldset, .dialog .settings-form > .quick-notes-readonly { width: 100%; }      /* inputs fill the popup, not just their own text */
 .scale-hint { margin: 0 0 4px; }
+
+/* Journal: the day's energy numbers with an icon each, and 1-5 ratings as round number badges (low is red, high is green) */
+.energy-list { list-style: none; margin: 0; padding: 0; }
+.energy-list li { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0; }
+.e-icon { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--accent-fg, var(--accent)); }
+.num-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 700; font-size: 0.9rem;
+  border: 2px solid var(--rate, var(--border)); color: var(--text); background: var(--surface); }
+.num-icon.n1 { --rate: #b91c1c; } .num-icon.n2 { --rate: #c2410c; } .num-icon.n3 { --rate: #a16207; } .num-icon.n4 { --rate: #4d7c0f; } .num-icon.n5 { --rate: #15803d; }

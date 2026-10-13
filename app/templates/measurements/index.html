@@ -485,9 +485,9 @@
         <tr>
           <td data-label="Date">{{ e.date | shortdate }}{% if not e.owner_name %} <a class="small" href="/measurements?tab=journal&edit={{ e.date.isoformat() }}">Edit</a>
             {% if e.has_entry %}<form method="post" action="/journal/entries/{{ e.date.isoformat() }}/delete" class="inline" data-confirm="Delete the {{ e.date | shortdate }} journal entry, its side effects and notes? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ e.date | shortdate }} entry">Delete</button></form>{% endif %}{% endif %}</td>
-          <td data-label="Mood">{{ e.mood if e.mood is not none else '—' }}</td>
-          <td data-label="Energy">{{ e.energy if e.energy is not none else '—' }}</td>
-          <td data-label="Sleep">{{ e.sleep_quality if e.sleep_quality is not none else '—' }}</td>
+          <td data-label="Mood">{% if e.mood is not none %}<span class="num-icon n{{ e.mood }}" role="img" aria-label="Mood {{ e.mood }} of 5">{{ e.mood }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Energy">{% if e.energy is not none %}<span class="num-icon n{{ e.energy }}" role="img" aria-label="Energy {{ e.energy }} of 5">{{ e.energy }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Sleep">{% if e.sleep_quality is not none %}<span class="num-icon n{{ e.sleep_quality }}" role="img" aria-label="Sleep {{ e.sleep_quality }} of 5">{{ e.sleep_quality }}</span>{% else %}—{% endif %}</td>
           <td data-label="Side effects">
             {%- if e.side_effects or e.custom_effects or e.side_effects_other -%}
               {{ (e.side_effects + e.custom_effects + ([e.side_effects_other] if e.side_effects_other else [])) | join(', ') }}
@@ -527,11 +527,11 @@
           </td>
           <td data-label="Water, food and calories">
             {%- if e.energy -%}
-            <ul class="dose-list">
-              {% if e.energy.water_oz %}<li>Water {{ e.energy.water_oz }} oz</li>{% endif %}
-              {% if e.energy.eaten_kcal %}<li>{{ e.energy.eaten_kcal }} kcal eaten (estimated)</li>{% endif %}
-              {% if e.energy.burn_kcal %}<li>{{ e.energy.burn_kcal }} kcal burned in workouts (estimated)</li>{% endif %}
-              {% if e.energy.deficit %}<li><strong>Estimated {{ 'surplus' if e.energy.deficit.surplus else 'deficit' }}: {{ e.energy.deficit.kcal | abs }} kcal</strong>
+            <ul class="energy-list">
+              {% if e.energy.water_oz %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3.5 4.5 6 7.5 6 11a6 6 0 0 1-12 0c0-3.500 2.500-6.500 6-11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Water {{ e.energy.water_oz }} oz</li>{% endif %}
+              {% if e.energy.eaten_kcal %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2.500 1.500-3 5-3 8h3v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>{{ e.energy.eaten_kcal }} kcal eaten (estimated)</li>{% endif %}
+              {% if e.energy.burn_kcal %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-2.500 1-4 2.500-5.500C9 11 10 11.500 11 11c0-3-.5-5.500 1-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>{{ e.energy.burn_kcal }} kcal burned in workouts (estimated)</li>{% endif %}
+              {% if e.energy.deficit %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v14M6 12l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" {% if e.energy.deficit.surplus %}transform="rotate(180 12 12)"{% endif %}/></svg><strong>Estimated {{ 'surplus' if e.energy.deficit.surplus else 'deficit' }}: {{ e.energy.deficit.kcal | abs }} kcal</strong>
                 <span class="muted small">(your daily need plus workouts, minus food)</span></li>
               {% elif e.energy.deficit_note %}<li class="muted small">{{ e.energy.deficit_note }}</li>{% endif %}
             </ul>
