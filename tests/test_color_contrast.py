@@ -64,3 +64,37 @@ def test_main_text_pairs_are_readable_in_every_theme(theme):
     colors = THEMES[theme]
     low = [(fg, bg, round(contrast(colors[fg], colors[bg]), 2)) for fg, bg in PAIRS if fg in colors and bg in colors and contrast(colors[fg], colors[bg]) < 4.5]
     assert low == [], f"{theme}: {low}"
+
+
+# The six decorative colorways (everything except Light, Dark and High Contrast): accent colour used as text (links, tabs, chart labels),
+# tier colours used as text, the "info" blue, and the text drawn on the coloured calendar chips must each reach 4.5:1 on the colours they sit on.
+DECORATIVE = ["tequila_sunrise", "fireworks", "solarin", "bricks", "retro", "greensleeves"]
+TEXT_PAIRS = [("accent-fg", "bg"), ("accent-fg", "surface"), ("info", "surface"), ("info", "bg"),
+              ("on-danger", "danger"), ("on-tier-beginner", "tier-beginner"), ("on-muted", "muted")]
+
+
+@pytest.mark.parametrize("theme", DECORATIVE)
+def test_accent_text_chips_and_tier_text_are_readable_in_the_decorative_colorways(theme):
+    colors = THEMES[theme]
+    pairs = list(TEXT_PAIRS)
+    for tier in ("beginner", "intermediate", "advanced"):
+        fg = f"tier-{tier}-fg" if f"tier-{tier}-fg" in colors else f"tier-{tier}"
+        pairs += [(fg, "bg"), (fg, "surface")]
+    missing = [name for pair in pairs for name in pair if name not in colors]
+    assert missing == [], f"{theme} lacks {sorted(set(missing))}"
+    low = [(fg, bg, round(contrast(colors[fg], colors[bg]), 2)) for fg, bg in pairs if contrast(colors[fg], colors[bg]) < 4.5]
+    assert low == [], f"{theme}: {low}"
+
+
+def test_goal_chip_colours_keep_their_dark_text_readable():
+    base = variables(re.search(r"^:root \{(.*?)\n\}", CSS, re.S | re.M).group(1))
+    text = rgb(re.search(r"--goal-text:\s*([^;]+);", CSS).group(1))
+    goals = {name: rgb(value) for name, value in re.findall(r"--(goal-[a-z0-9-]+):\s*(#[0-9a-fA-F]{6});", CSS) if name != "goal-text"}
+    low = {name: round(contrast(text, color), 2) for name, color in goals.items() if contrast(text, color) < 4.5}
+    assert low == {} and len(goals) >= 10
+
+
+def test_no_text_is_faded_with_opacity_in_the_decorative_panels():
+    for selector in (".dash-area-integrations", ".integration-card", ".nav .soon", ".nav-soon"):
+        rule = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", CSS).group(1)
+        assert "opacity" not in rule, selector

@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Colorways: text that was too faint in Tequila Sunrise, Fireworks, Solarin, The Bricks, Retro and Greensleeves now meets WCAG AA (4.5:1). I measured every visible piece of text against its real background in each theme across 21 pages (all dialogs open), found 25 kinds of failure (links, tabs, chart labels and bold text in the accent colour; muted text; tier badges; calendar chips; faded "coming soon" panels; two goal-chip colours) and fixed them with readable text versions of each theme's colours. Light, Dark and High Contrast are unchanged.
+
 - Food: **Scan a barcode** in the Add food dialog (camera, or type the digits under it). The code is matched exactly against the USDA branded foods with your USDA key, and the result is added to My foods and selected in one tap. The camera needs an https address; typing the digits works anywhere. The scanner (ZXing, Apache/MIT) is bundled, so nothing loads from the internet.
 - Workouts: **Last time** on a planned workout now finds your most recent session of that exercise from any plan, by its database match or by its own name, whether or not you ticked "done", and shows its date.
 
