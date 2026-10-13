@@ -1430,3 +1430,17 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .num-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 700; font-size: 0.9rem;
   border: 2px solid var(--rate, var(--border)); color: var(--text); background: var(--surface); }
 .num-icon.n1 { --rate: #b91c1c; } .num-icon.n2 { --rate: #c2410c; } .num-icon.n3 { --rate: #a16207; } .num-icon.n4 { --rate: #4d7c0f; } .num-icon.n5 { --rate: #15803d; }
+
+/* Journal table: narrow centred rating columns, a compact day-totals column with one icon per figure */
+.journal-table th, .journal-table td { vertical-align: top; }
+.journal-table td:first-child { white-space: nowrap; }
+.journal-table .col-rate { width: 1%; text-align: center; white-space: nowrap; }
+.journal-table .col-totals { min-width: 190px; }
+.journal-table td[data-label="Notes"] { min-width: 220px; max-width: 360px; }
+.day-totals { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.day-totals li { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.day-totals .e-icon, .deficit-pill .e-icon { margin: 0; }
+.deficit-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--text);
+  border: 1px solid var(--accent); white-space: nowrap; font-size: 0.92rem; }
+.deficit-pill.is-surplus { background: transparent; border-color: var(--danger, #b91c1c); }
+.day-note { margin: 6px 0 0; max-width: 24ch; }

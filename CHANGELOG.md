@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Journal: fixed the **Energy** column showing raw data instead of the 1 to 5 rating (the new day totals overwrote it), and tidied the table: narrow centred rating badges, and a compact **Day totals** column with an icon for water, food eaten and calories burned and a Deficit (or Surplus) pill.
 - Workouts: a PDF import keeps the **video link** on each exercise (Muscle & Strength links every exercise name to its demo page). The plan editor and the workout log show a **Watch** link beside the exercise; an exercise with no link gets a **Find a demo** link that searches for it. The import also reads the layout with a title above each table, comma-separated reps (30, 20, 10) and times in seconds. Migration 0061.
 - Journal: the water, food and calories column has an icon for each item, and Mood, Energy and Sleep show their 1 to 5 rating as a round number badge (red for 1 through green for 5).
 - Journal: each day now shows its **water, food calories (estimated), workout calories burned (estimated) and an estimated deficit** (your daily need plus workouts, minus food; a surplus is shown as a surplus). The deficit needs your profile and a weigh-in, and says so when they are missing.

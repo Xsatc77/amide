@@ -195,7 +195,7 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
         from app.food.day_overview import day_overviews       # deferred: the food package imports routers' helpers at load time
         energy = day_overviews(session, viewer, [v["date"] for v in views if not v["owner_name"]])
         for v in views:
-            v["energy"] = None if v["owner_name"] else energy.get(v["date"])
+            v["day_totals"] = None if v["owner_name"] else energy.get(v["date"])   # not "energy": that key is the 1-5 energy rating
 
     # Today's own entry (if any), so the "New Entry" dialog can open pre-filled with what's already
     # there instead of blank -- re-saving must edit that same row, not silently wipe it (spec's
