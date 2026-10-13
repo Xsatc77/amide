@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY alembic.ini .
 COPY migrations ./migrations
 COPY app ./app
+COPY public ./public
 
 RUN useradd --create-home --uid 1000 amide && mkdir -p /data && chown amide:amide /data
 USER amide
