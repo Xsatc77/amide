@@ -165,6 +165,21 @@ def recommend_foods(nutrient: str = Query(...), date_: str | None = Query(None, 
     return JSONResponse({"status": "ok", "remaining": round(max(remaining, 0), 1), "foods": picks}, headers={"Cache-Control": "no-store"})
 
 
+@router.get("/food/barcode")
+def barcode_lookup(code: str = Query("", max_length=20), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Foods whose barcode is exactly the scanned or typed one (USDA branded foods). Needs the same optional USDA key as the USDA search."""
+    key = usda.key_for(session.get(User, uid))
+    if not key:
+        raise HTTPException(404, "USDA search is not set up")
+    try:
+        found = usda.by_barcode(code, key, fetch=usda.fetch_json)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    except Exception:
+        raise HTTPException(502, "The USDA food database could not be reached") from None
+    return JSONResponse(found, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/food/usda")
 def search_usda(q: str = Query("", max_length=80), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Live search in the USDA FoodData Central. Only exists when the person running Amide set a key; nothing leaves the server before this is called."""

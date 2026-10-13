@@ -4,6 +4,9 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Food: **Scan a barcode** in the Add food dialog (camera, or type the digits under it). The code is matched exactly against the USDA branded foods with your USDA key, and the result is added to My foods and selected in one tap. The camera needs an https address; typing the digits works anywhere. The scanner (ZXing, Apache/MIT) is bundled, so nothing loads from the internet.
+- Workouts: **Last time** on a planned workout now finds your most recent session of that exercise from any plan, by its database match or by its own name, whether or not you ticked "done", and shows its date.
+
 - Protocol builder: **Split a dose**. Enter a total, a period in days or weeks and a number of injections; Amide divides the dose and sets the schedule (a week split into 2 to 7 days, every N days when it divides evenly, or several injections in one day as one item per time of day). You choose the numbers; Amide only does the arithmetic.
 
 - Settings, Vial labels: a **Custom sheet** option. Enter your label maker's own measurements (paper, labels across and down, label size, margins, pitch, rectangle or round; inches or millimetres) and Amide prints your labels to match, with a **Print a test sheet** button to check the alignment on plain paper. Migration 0060.

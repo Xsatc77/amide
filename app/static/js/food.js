@@ -99,13 +99,8 @@
   if (usda) {
     const usdaResults = usda.querySelector("[data-usda-results]");
     const note = usda.querySelector("[data-usda-note]");
-    usda.querySelector("[data-usda-run]").addEventListener("click", async () => {
-      note.textContent = "";
-      usdaResults.replaceChildren();
-      const response = await fetch("/food/usda?q=" + encodeURIComponent(search.value), { credentials: "same-origin" });
-      if (!response.ok) { note.textContent = "The USDA database could not be reached."; return; }
-      const found = await response.json();
-      if (!found.length) note.textContent = "Nothing found.";
+    // Shows USDA results (from the typed search or a scanned barcode) as one list; picking one adds it to My foods and selects it.
+    function showUsda(found) {
       usdaResults.replaceChildren(...found.map((food) => {
         const li = document.createElement("li");
         const add = document.createElement("button");
@@ -132,6 +127,19 @@
         li.appendChild(add);
         return li;
       }));
+    }
+    usda.addEventListener("usda-results", (event) => {
+      note.textContent = event.detail.message || "";
+      showUsda(event.detail.foods || []);
+    });
+    usda.querySelector("[data-usda-run]").addEventListener("click", async () => {
+      note.textContent = "";
+      usdaResults.replaceChildren();
+      const response = await fetch("/food/usda?q=" + encodeURIComponent(search.value), { credentials: "same-origin" });
+      if (!response.ok) { note.textContent = "The USDA database could not be reached."; return; }
+      const found = await response.json();
+      if (!found.length) note.textContent = "Nothing found.";
+      showUsda(found);
     });
   }
 

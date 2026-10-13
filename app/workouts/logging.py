@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date as date_type
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app import units
@@ -216,22 +216,35 @@ def build_exercise_log(row: ParsedRow, body_weight_lb: float | None) -> WorkoutE
     return log
 
 
-def last_performance(session: Session, uid: int, db_exercise: str | None) -> WorkoutExerciseLog | None:
-    """The most recent completed log of this database exercise by this owner, in any plan."""
-    if not db_exercise:
+def last_performance(session: Session, uid: int, db_exercise: str | None, name: str | None = None) -> WorkoutExerciseLog | None:
+    """The most recent time this owner did this exercise, in any plan: matched by its database exercise or by the name it was logged
+    under (so an exercise the database does not know still has a history). It counts when it was ticked done or when anything was
+    entered for it (weight, reps or minutes): a row that was saved empty is not a performance. The log's date is on `.last_date`."""
+    keys = []
+    if db_exercise:
+        keys.append(WorkoutExerciseLog.db_exercise == db_exercise)
+    if name and name.strip():
+        keys.append(func.lower(WorkoutExerciseLog.name) == name.strip().lower())
+    if not keys:
         return None
-    return session.scalar(
-        select(WorkoutExerciseLog).join(WorkoutLog, WorkoutExerciseLog.workout_log_id == WorkoutLog.id)
-        .where(WorkoutLog.owner_id == uid, WorkoutExerciseLog.db_exercise == db_exercise,
-               WorkoutExerciseLog.completed.is_(True))
-        .order_by(WorkoutLog.log_date.desc(), WorkoutExerciseLog.id.desc()).limit(1))
+    did_something = or_(WorkoutExerciseLog.completed.is_(True), WorkoutExerciseLog.weight_value.is_not(None),
+                        WorkoutExerciseLog.reps_value.is_not(None), WorkoutExerciseLog.duration_min.is_not(None))
+    found = session.execute(
+        select(WorkoutExerciseLog, WorkoutLog.log_date).join(WorkoutLog, WorkoutExerciseLog.workout_log_id == WorkoutLog.id)
+        .where(WorkoutLog.owner_id == uid, or_(*keys), did_something)
+        .order_by(WorkoutLog.log_date.desc(), WorkoutExerciseLog.id.desc()).limit(1)).first()
+    if found is None:
+        return None
+    row, log_date = found
+    row.last_date = log_date
+    return row
 
 
 def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExerciseLog | None) -> dict:
     """What the log form needs to draw one plan exercise: its database match, this date's saved log (if any), the
     last time the exercise was logged anywhere, and the values to show in the inputs."""
     db = resolve_db(ex)
-    last = None if prior is not None else last_performance(session, uid, db.name if db else None)
+    last = None if prior is not None else last_performance(session, uid, db.name if db else None, ex.name)
     source = prior or last
     table = exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None
     return {

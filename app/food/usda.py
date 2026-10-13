@@ -51,7 +51,8 @@ def parse_results(payload: dict) -> list[dict]:
         name = _title(item.get("description", ""))
         if item.get("brandOwner"):
             name = f"{name} ({_title(item['brandOwner'])})"
-        out.append({"fdc_id": item.get("fdcId"), "name": name[:120], "serving": serving[:60], "serving_g": serving_g,
+        out.append({"fdc_id": item.get("fdcId"), "gtin": "".join(c for c in str(item.get("gtinUpc") or "") if c.isdigit()),
+                    "name": name[:120], "serving": serving[:60], "serving_g": serving_g,
                     **{field: round(per_100.get(field, 0.0) * scale, 1) for field in _NUTRIENTS}})
     return out
 
@@ -62,3 +63,19 @@ def search(query: str, key: str, fetch=None) -> list[dict]:
         return []
     url = ENDPOINT + "?" + urllib.parse.urlencode({"query": query, "pageSize": PAGE_SIZE, "api_key": key, "dataType": "Foundation,SR Legacy,Branded"})
     return parse_results((fetch or fetch_json)(url))
+
+
+def _digits(code: str) -> str:
+    return "".join(c for c in str(code or "") if c.isdigit())
+
+
+def by_barcode(code: str, key: str, fetch=None) -> list[dict]:
+    """The branded foods whose barcode is exactly this one. A UPC-A, an EAN-13 and a zero-padded GTIN-14 of the same product differ only in
+    leading zeros, so those are ignored when comparing. A near miss is not a match: an empty list means USDA has no record of it."""
+    raw = (code or "").strip()
+    digits = _digits(raw)
+    if not raw.isdigit() or not 8 <= len(digits) <= 14:
+        raise ValueError("Enter the 8 to 14 digits printed under the barcode.")
+    url = ENDPOINT + "?" + urllib.parse.urlencode({"query": raw, "pageSize": 25, "api_key": key, "dataType": "Branded"})
+    wanted = digits.lstrip("0")
+    return [f for f in parse_results((fetch or fetch_json)(url)) if f.get("gtin", "").lstrip("0") == wanted]

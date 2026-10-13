@@ -708,4 +708,6 @@
 <script src="{{ static_url('js/workout-quick.js') }}" defer></script>
 <script src="{{ static_url('js/journal.js') }}" defer></script>
 <script src="{{ static_url('js/labs.js') }}" defer></script>
+{% if usda_enabled %}<script src="{{ static_url('vendor/zxing/zxing-library.min.js') }}" defer></script>
+<script src="{{ static_url('js/barcode.js') }}" defer></script>{% endif %}
 {% endblock %}

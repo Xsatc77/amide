@@ -155,6 +155,17 @@
           <small class="muted">Sends what you typed to the USDA FoodData Central. Nothing else leaves your computer.</small>
           <ul class="food-results" data-usda-results></ul>
           <small class="error" data-usda-note role="status"></small>
+          <div class="barcode-scan" data-barcode>
+            <button type="button" class="btn btn-ghost" data-barcode-scan>Scan a barcode</button>
+            <label class="small barcode-type"><span>or type the digits under it</span>
+              <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="14" autocomplete="off" data-barcode-code placeholder="e.g. 012345678905"></label>
+            <button type="button" class="btn btn-ghost" data-barcode-lookup>Look up</button>
+            <div class="barcode-camera" data-barcode-camera hidden>
+              <video playsinline muted aria-label="Camera view for scanning a barcode"></video>
+              <button type="button" class="btn" data-barcode-stop>Cancel</button>
+            </div>
+            <small class="muted" data-barcode-note role="status"></small>
+          </div>
         </div>
         {% endif %}
         <p class="muted small" data-food-picked></p>

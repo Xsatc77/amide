@@ -269,7 +269,7 @@ def workouts_last(name: str = "", session: Session = Depends(get_session), uid: 
     typed = name.strip()[:200]
     match = match_exercise(typed) if typed else None
     exercise = match.exercise if match is not None and match.confident else (approximate_exercise(typed) if typed else None)
-    last = workout_logging.last_performance(session, uid, exercise.name) if exercise else None
+    last = workout_logging.last_performance(session, uid, exercise.name if exercise else None, typed)
     out = None
     if last is not None:
         parts = []
@@ -279,7 +279,7 @@ def workouts_last(name: str = "", session: Session = Depends(get_session), uid: 
             parts.append(f"{last.sets} × {last.reps_value}")
         elif last.duration_min:
             parts.append(f"{last.duration_min:g} min")
-        log_date = session.scalar(select(WorkoutLog.log_date).where(WorkoutLog.id == last.workout_log_id))
+        log_date = last.last_date
         out = {"text": " · ".join(parts), "date": log_date.isoformat() if log_date else None}
     return JSONResponse({"name": exercise.name if exercise else None, "last": out}, headers={"Cache-Control": "no-store"})
 
