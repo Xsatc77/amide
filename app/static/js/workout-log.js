@@ -13,6 +13,34 @@
 
   rows.querySelectorAll("[data-extra-row]").forEach(wire);
 
+  // Last time: under an exercise added on the day, what was last completed for it (sets, reps, weight or minutes).
+  let lastTimer = null;
+  function showLast(input) {
+    const cell = input.closest("td");
+    let note = cell.querySelector("[data-last-time]");
+    if (!note) {
+      note = document.createElement("div");
+      note.className = "muted small";
+      note.dataset.lastTime = "";
+      cell.appendChild(note);
+    }
+    const name = input.value.trim();
+    if (!name) { note.textContent = ""; return; }
+    fetch("/workouts/last?name=" + encodeURIComponent(name), { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        note.textContent = data && data.last && data.last.text ? "Last time: " + data.last.text : "";
+      })
+      .catch(() => { note.textContent = ""; });
+  }
+  rows.addEventListener("change", (event) => { if (event.target.matches('input[name$="-exercise"]')) showLast(event.target); });
+  rows.addEventListener("input", (event) => {
+    if (!event.target.matches('input[name$="-exercise"]')) return;
+    clearTimeout(lastTimer);
+    lastTimer = setTimeout(() => showLast(event.target), 400);
+  });
+  rows.querySelectorAll('input[name$="-exercise"]').forEach((input) => { if (input.value.trim()) showLast(input); });
+
   addButton.addEventListener("click", () => {
     const fragment = template.content.cloneNode(true);
     fragment.querySelectorAll("[name]").forEach((el) => {

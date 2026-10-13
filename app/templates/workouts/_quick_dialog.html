@@ -1,0 +1,31 @@
+{#- Quick activity: a walk, run or machine session in one step. Included wherever there is a "Quick activity" button. -#}
+<dialog id="quick-activity-dialog" class="dialog">
+  <form method="post" action="/workouts/quick" class="settings-form">
+    <header class="dialog-head">
+      <h2>Quick activity</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-quick-close aria-label="Close">&times;</button>
+    </header>
+    <p class="muted small">For something outside your plan: a family walk, an impromptu run, a machine session. Calories come from the exercise database and your latest weight.</p>
+    <label class="field">
+      <span>Activity</span>
+      <select name="activity" required>
+        {% for key, item in quick_activities.items() %}<option value="{{ key }}">{{ item[0] }}</option>{% endfor %}
+      </select>
+    </label>
+    <div class="grid">
+      <label class="field">
+        <span>Minutes</span>
+        <input name="minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" required>
+      </label>
+      <label class="field">
+        <span>Distance ({{ 'km' if u.metric else 'miles' }}, optional)</span>
+        <input name="distance" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Walk, jog and run only">
+      </label>
+      <label class="field">
+        <span>Date</span>
+        <input name="log_date" type="date" value="{{ clock_today().isoformat() }}" max="{{ clock_today().isoformat() }}">
+      </label>
+    </div>
+    <footer class="dialog-foot"><button type="submit" class="btn btn-primary">Log it</button></footer>
+  </form>
+</dialog>

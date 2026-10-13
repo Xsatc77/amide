@@ -100,7 +100,17 @@
   {% else %}
   <ul class="dose-list">
     {% for a in alerts.low_stock %}
-    <li><a href="/inventory">{{ a.name }}</a> — low stock ({{ a.available_count }} left, threshold {{ a.threshold }})</li>
+    <li><a href="/inventory">{{ a.name }}</a> — low stock ({{ a.available_count }} left, threshold {{ a.threshold }})
+      {% if viewer_id == request.state.user.id %}
+      <span class="alert-actions">
+        <form method="post" action="/dashboard/alerts/snooze" class="inline"><input type="hidden" name="key" value="lowstock:{{ a.item_id }}">
+          <button type="submit" name="days" value="7" class="btn btn-ghost small">Snooze 7 days</button>
+          <button type="submit" name="days" value="10" class="btn btn-ghost small">10 days</button></form>
+        <form method="post" action="/inventory/{{ a.item_id }}/low-stock" class="inline"><label class="small muted">Alert at
+          <input type="number" name="threshold" min="0" step="1" value="{{ a.threshold }}" style="width: 4em" aria-label="Alert level for {{ a.name }}"></label>
+          <button type="submit" class="btn btn-ghost small">Set</button></form>
+      </span>
+      {% endif %}</li>
     {% endfor %}
     {% for a in alerts.runout %}
     <li><a href="/inventory">{{ a.name }}</a> — runs out in {{ a.days }} day{{ '' if a.days == 1 else 's' }} ({{ a.date | shortdate }}) at your current doses</li>

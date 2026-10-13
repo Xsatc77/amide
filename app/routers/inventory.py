@@ -763,6 +763,23 @@ def list_inventory(request: Request, session: Session = Depends(get_session)):
     return _render_list(request, session)
 
 
+@router.post("/inventory/{item_id}/low-stock")
+async def set_low_stock_level(item_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Set one item's own low-stock alert level (blank goes back to the person's default)."""
+    item = session.get(InventoryItem, item_id)
+    if item is None or item.owner_id != uid:
+        raise HTTPException(404, "Inventory item not found")
+    text = str((await request.form()).get("threshold") or "").strip()
+    if text:
+        if not text.isdigit() or int(text) > 100000:
+            raise HTTPException(422, "The alert level must be a whole number, 0 or more.")
+        item.low_stock_threshold = int(text)
+    else:
+        item.low_stock_threshold = None
+    session.commit()
+    return RedirectResponse("/dashboard", status_code=303)
+
+
 @router.get("/inventory/stock/{item_id}")
 def stock_breakdown(item_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """All the stock of one peptide: every line (vial size) and, under each, its lots soonest expiry first. Opened from the one-row-per-peptide list."""

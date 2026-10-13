@@ -4,6 +4,9 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Workouts: a **Quick activity** button (Workouts page and Journal tab) logs a walk, jog, run or machine session in one step (activity, minutes, optional distance, date), with calories from the exercise database. Exercises you add on the day show **Last time** (weight, sets and reps, or minutes). The workout log keeps the screen awake so a phone does not lock mid-set and the sign-in does not time out.
+- Dashboard: a low-stock alert can be **snoozed for 7 or 10 days**, and each item can have its own alert level, set right on the alert. Migration 0059.
+
 - Journal: deleting an old day no longer says "not found" (days that only have a workout have no journal entry, so they now offer Delete for the workout instead); a logged workout can be deleted; the 1-5 ratings are explained and the entry boxes fill the popup.
 - Food: a USDA result is added to My foods and selected in one step, and the results list closes so it cannot be added twice.
 - Body photos: the photo is shrunk in the browser before it is sent (a phone photo is several MB, and a proxy with a small upload limit would refuse it silently), and a failed upload now says why.

@@ -1531,4 +1531,5 @@ class DashboardDismissal(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     alert_key: Mapped[str] = mapped_column(String(120))
+    snoozed_until: Mapped[date | None] = mapped_column(Date)      # None = dismissed for good; a date = hidden until that day has passed
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)

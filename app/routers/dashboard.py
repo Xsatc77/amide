@@ -18,7 +18,7 @@ from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
 from app.db import get_session
 from app.models import (
-    TIME_ORDER, ActiveVial, BodyMeasurement, Category, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
+    TIME_ORDER, ActiveVial, BodyMeasurement, Category, DashboardDismissal, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
     Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, naive_utcnow,
 )
 from app.protocols.status import Status, protocol_status
@@ -261,8 +261,12 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             expiration_items.append(types.SimpleNamespace(
                 id=item.id, name=item.name, available_count=item.available_count, expiration_date=earliest))
 
+        snoozed = {d.alert_key for d in session.scalars(select(DashboardDismissal).where(
+            DashboardDismissal.user_id == uid, DashboardDismissal.alert_key.like("lowstock:%")))
+            if d.snoozed_until is None or d.snoozed_until >= today}
         alerts = {
-            "low_stock": low_stock_alerts(threshold_items, default_threshold, on_order=_items_on_order(session, effective_uid)),
+            "low_stock": [a for a in low_stock_alerts(threshold_items, default_threshold, on_order=_items_on_order(session, effective_uid))
+                          if f"lowstock:{a['item_id']}" not in snoozed],
             "expiration": expiration_alerts(vials=vials, items=expiration_items, today=today),
             "shipment": shipment_alerts(orders, today=today, threshold_days=delay_days),
             "runout": _runout_alerts(session, effective_uid, today) if ShareCategory.PERSONAL_DATA in categories else [],
@@ -345,6 +349,28 @@ def delete_water(log_id: int, session: Session = Depends(get_session), uid: int 
     session.delete(row)
     session.commit()
     return RedirectResponse("/measurements?tab=food#water-heading", status_code=303)
+
+
+@router.post("/dashboard/alerts/snooze")
+async def snooze_low_stock(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+                           uid: int = Depends(current_user_id)):
+    """Hide one of the person's own low-stock alerts for 7 or 10 days; it comes back after that if the stock is still low."""
+    form = await request.form()
+    key, days = str(form.get("key") or ""), str(form.get("days") or "")
+    kind, _, ident = key.partition(":")
+    if kind != "lowstock" or not ident.isdigit() or days not in ("7", "10"):
+        raise HTTPException(status_code=422, detail="Unknown alert.")
+    item = session.get(InventoryItem, int(ident))
+    if item is None or item.owner_id != uid:
+        raise HTTPException(status_code=422, detail="Unknown alert.")
+    until = today + timedelta(days=int(days))
+    row = session.scalar(select(DashboardDismissal).where(DashboardDismissal.user_id == uid, DashboardDismissal.alert_key == key))
+    if row is None:
+        session.add(DashboardDismissal(user_id=uid, alert_key=key, snoozed_until=until))
+    else:
+        row.snoozed_until = until
+    session.commit()
+    return RedirectResponse("/dashboard", status_code=303)
 
 
 @router.post("/dashboard/alerts/dismiss")

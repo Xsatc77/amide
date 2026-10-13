@@ -306,6 +306,7 @@
   <h2 id="journal-heading" class="section-title">Journal</h2>
   <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
   <button type="button" class="btn" data-action="open-workout-log">Log Workout</button>
+  <button type="button" class="btn btn-primary" data-quick-open>Quick activity</button>
   <a class="btn btn-ghost" href="/workouts/free/log">Log a workout that is not in a plan</a>
   <a class="btn" href="/measurements?tab=measurements&add_photo=1#body-photos">Add body photo</a>
   {% if journal_custom_effects %}
@@ -699,10 +700,12 @@
   {% endif %}
 </section>
 {% endif %}
+{% include "workouts/_quick_dialog.html" %}
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ static_url('js/measurements.js') }}" defer></script>
+<script src="{{ static_url('js/workout-quick.js') }}" defer></script>
 <script src="{{ static_url('js/journal.js') }}" defer></script>
 <script src="{{ static_url('js/labs.js') }}" defer></script>
 {% endblock %}

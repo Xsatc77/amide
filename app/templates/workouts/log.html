@@ -36,6 +36,7 @@
 
 {% block content %}
 <div class="page-head"><div><h1>{{ day.label if day else (free_label or 'Free workout') }}</h1><p class="muted">{{ log_date | shortdate }}{% if free %} · not part of a plan{% endif %}</p></div></div>
+<p class="muted small" data-keep-awake-note></p>
 
 <form method="post" action="{{ form_action if free else '/workouts/day/' ~ day.id ~ '/log' }}" id="workout-log-form">
   <input type="hidden" name="log_date" value="{{ log_date }}">
@@ -136,4 +137,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/workout-log.js') }}" defer></script>
+<script src="{{ static_url('js/keep-awake.js') }}" defer></script>
 {% endblock %}

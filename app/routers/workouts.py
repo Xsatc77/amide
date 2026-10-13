@@ -261,6 +261,44 @@ async def workouts_create(request: Request, session: Session = Depends(get_sessi
     return RedirectResponse(f"/workouts/{plan.id}/edit", status_code=303)
 
 
+@router.get("/workouts/last")
+def workouts_last(name: str = "", session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """What the person last completed for this exercise (as typed or matched in the database): shown under the name on the log form."""
+    from fastapi.responses import JSONResponse
+    from app.workouts.exercise_match import approximate_exercise
+    typed = name.strip()[:200]
+    match = match_exercise(typed) if typed else None
+    exercise = match.exercise if match is not None and match.confident else (approximate_exercise(typed) if typed else None)
+    last = workout_logging.last_performance(session, uid, exercise.name) if exercise else None
+    out = None
+    if last is not None:
+        parts = []
+        if last.weight_value is not None:
+            parts.append(f"{last.weight_value:g} {last.weight_unit.value if last.weight_unit else 'lb'}")
+        if last.sets and last.reps_value:
+            parts.append(f"{last.sets} × {last.reps_value}")
+        elif last.duration_min:
+            parts.append(f"{last.duration_min:g} min")
+        log_date = session.scalar(select(WorkoutLog.log_date).where(WorkoutLog.id == last.workout_log_id))
+        out = {"text": " · ".join(parts), "date": log_date.isoformat() if log_date else None}
+    return JSONResponse({"name": exercise.name if exercise else None, "last": out}, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/workouts/quick")
+async def workouts_quick(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Log one walk, run or machine session in a single step (activity, minutes, optional distance, date). Same checks and calorie estimate as any workout."""
+    from app.workouts import quick
+    form = await request.form()
+    label, raw = quick.build_form(str(form.get("activity", "")), str(form.get("minutes", "")), str(form.get("distance", "")), str(form.get("log_date", "")))
+    parsed = workout_logging.parse_log_form(raw, types.SimpleNamespace(exercises=[]), {}, units.for_user(request.state.user))
+    quick.check_date(parsed.log_date)
+    body_weight = parsed.body_weight_lb or workout_logging.latest_body_weight(session, uid)
+    exercise_logs = [workout_logging.build_exercise_log(row, body_weight) for row in parsed.rows]
+    session.add(WorkoutLog(owner_id=uid, plan_day_id=None, day_label=label, plan_name=None, log_date=parsed.log_date, exercise_logs=exercise_logs))
+    session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
 @router.post("/workouts/upload")
 async def workouts_upload(pdf: UploadFile = File(...), session: Session = Depends(get_session),
                           uid: int = Depends(current_user_id)):
