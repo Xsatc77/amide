@@ -3,6 +3,7 @@
 {% block content %}
 {% macro label_card(l) %}
   <div class="vial-label">
+    {% if l.symbol %}<div class="element-tile" aria-hidden="true"><span class="el-symbol">{{ l.symbol }}</span><span class="el-amount">{{ l.size }}</span></div>{% endif %}
     <div class="vl-name">{{ l.name }}</div>
     <div class="vl-line">{{ l.size }}{% if l.lot %} · Lot {{ l.lot }}{% endif %}{% if l.received %} · Received {{ l.received | shortdate }}{% endif %}</div>
     <div class="vl-line">Conc: {% if l.concentration %}{{ l.concentration }}{% else %}<span class="vl-blank">__________</span>{% endif %}</div>

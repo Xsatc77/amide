@@ -27,6 +27,7 @@
 {% endmacro %}
 
 {% block content %}
+{% set calibrate_next = '/dashboard' %}{% include 'inventory/_calibrate_dialog.html' %}
 <div class="page-head"><h1>Dashboard</h1></div>
 
 {% if shared_with_me %}

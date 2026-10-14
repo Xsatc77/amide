@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import date
 
+from app.inventory.symbol import symbol
 from app.models import Category, Order
 
 DEFAULT_SIZE = "5160"
@@ -29,6 +30,7 @@ class Label:
     concentration: str | None = None
     recon_date: date | None = None
     discard_by: date | None = None
+    symbol: str | None = None          # the periodic-table style tile of an open vial (see app/inventory/symbol.py)
 
 
 def _amount(item) -> str:
@@ -51,4 +53,5 @@ def labels_for_order(order: Order, uid: int) -> list[Label]:
 def label_for_vial(vial) -> Label:
     item = vial.inventory_item
     unit = vial.vial_unit or (item.vial_size_unit.value if item.vial_size_unit else "mg")
-    return Label(name=item.name, size=_amount(item), concentration=f"{vial.concentration_mg_ml:g} {unit}/mL", recon_date=vial.date_mixed, discard_by=vial.discard_by)
+    return Label(name=item.name, size=_amount(item), concentration=f"{vial.concentration_mg_ml:g} {unit}/mL", recon_date=vial.date_mixed, discard_by=vial.discard_by,
+                 symbol=symbol(item.name) if item.category == Category.MEDICINE else None)

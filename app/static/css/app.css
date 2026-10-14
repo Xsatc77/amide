@@ -1469,3 +1469,21 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
   font-size: 0.58rem; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; line-height: 17px; padding: 0 37px;
   box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
 }
+
+/* The periodic-table style tile: a one- or two-letter symbol with the vial's amount centred below it. On a card it sits on the vial's own label; on a printed label it is in the corner. */
+.element-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; border: 1.5px solid #1f2937; border-radius: 3px; background: #fff; color: #111827; line-height: 1; text-align: center; }
+.element-tile .el-symbol { font-weight: 800; letter-spacing: -0.02em; }
+.element-tile .el-amount { font-weight: 600; white-space: nowrap; }
+.vial-card-art { position: relative; flex: none; }
+.vial-card-art .element-tile { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-width: 1px; }
+.vial-card-art .el-symbol { font-size: 0.82rem; }
+.vial-card-art .el-amount { font-size: 0.42rem; margin-top: 2px; }
+.vial-label .element-tile { float: right; width: 0.5in; height: 0.5in; margin: 0 0 2px 4px; border-color: #000; }
+.vial-label .el-symbol { font-size: 15pt; }
+.vial-label .el-amount { font-size: 6pt; margin-top: 2px; }
+.label-4x2 .vial-label .element-tile { width: 0.9in; height: 0.9in; }
+.label-4x2 .vial-label .el-symbol { font-size: 30pt; }
+.label-4x2 .vial-label .el-amount { font-size: 10pt; }
+.inline-fields { display: flex; gap: 8px; }
+.inline-fields input { flex: 1; min-width: 0; }
+.inline-fields select { flex: none; }

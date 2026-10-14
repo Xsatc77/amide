@@ -127,6 +127,6 @@ def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0,
         bottle.reconstituted_count += 1                                    # one bottle off the shelf
         remaining = max(plan.bottle_ml - water_ml, 0.0)
         session.add(ActiveVial(
-            owner_id=uid, inventory_item_id=bottle.id, water_ml=plan.bottle_ml, volume_remaining_ml=remaining, lot_number=lot, date_mixed=today,
+            owner_id=uid, inventory_item_id=bottle.id, water_ml=plan.bottle_ml, volume_remaining_ml=remaining, lot_number=lot, confirmed=True, date_mixed=today,
             discard_by=today + timedelta(days=discard_days), dispensing_method=DispensingMethod.SYRINGE,
             discarded_at=now_utc() if remaining <= EMPTY_EPSILON else None))

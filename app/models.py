@@ -626,6 +626,8 @@ class ActiveVial(Base):
     iu_per_mg: Mapped[float | None] = mapped_column(Float)     # bridges IU and mass doses for this vial
     volume_remaining_ml: Mapped[float] = mapped_column(Float)
     lot_number: Mapped[str | None] = mapped_column(String(100))   # the lot this vial came from, noted when it was reconstituted
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")   # the amount left is known, not estimated (see app/inventory/calibrate.py)
+    prompted_at: Mapped[datetime | None] = mapped_column(DateTime)                          # when the person was asked about this vial's amount
     date_mixed: Mapped[date] = mapped_column(Date)
     discard_by: Mapped[date] = mapped_column(Date)
     discarded_at: Mapped[datetime | None] = mapped_column(DateTime)

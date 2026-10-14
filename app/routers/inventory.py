@@ -15,7 +15,9 @@ from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_pen_conversion
+from app.inventory import calibrate
 from app.inventory.gauge import vial_gauges
+from app.inventory.symbol import symbol
 from app.inventory.groups import group_items, lot_covering, lots, single_rows, sort_use_first
 from app.inventory.labels import labels_for_order
 from app.inventory.runout import runs_out
@@ -666,7 +668,8 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200,
                  new_order_form: dict | None = None, new_order_errors=None,
-                 new_order_line_groups: dict | None = None, new_order_contact_groups: dict | None = None):
+                 new_order_line_groups: dict | None = None, new_order_contact_groups: dict | None = None,
+                 calibrate_errors: dict | None = None):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
     medicine_items = [i for i in items if i.category == Category.MEDICINE]
@@ -725,6 +728,8 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "owner_names": owner_names,
             "open_vials": open_vials,
             "active_vials": vials, "vial_gauges": vial_gauge_map, "vial_lots": vial_lot_map,
+            "calibrate_vials": calibrate.dialog_vials(session, uid, request.query_params.get("calibrate")), "calibrate_errors": calibrate_errors or {},
+            "vial_symbols": {v.id: symbol(vial_items[v.inventory_item_id].name) for v in vials if v.inventory_item_id in vial_items},
             "vial_items": vial_items,
             "vial_owner_names": vial_owner_names,
             "expired_prompts": expired_prompts,
@@ -1337,6 +1342,27 @@ def get_order_coa(item_id: int, order_item_id: int, session: Session = Depends(g
 def _own_active_vial(session: Session, vial_id: int, uid: int) -> ActiveVial | None:
     vial = session.get(ActiveVial, vial_id)
     return vial if vial is not None and vial.owner_id == uid else None
+
+
+@router.post("/active-vials/calibrate")
+async def calibrate_active_vials(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    errors = calibrate.apply(session, uid, form)
+    if errors:
+        return _render_list(request, session, calibrate_errors=errors, status_code=422)
+    return RedirectResponse(_safe_next(form.get("next")), status_code=303)
+
+
+@router.post("/active-vials/calibrate/skip")
+async def skip_calibration(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    calibrate.skip(session, uid)
+    return RedirectResponse(_safe_next(form.get("next")), status_code=303)
+
+
+def _safe_next(raw) -> str:
+    """Where to go after the prompt: the dashboard or the inventory page, nothing else."""
+    return "/dashboard" if str(raw or "") == "/dashboard" else "/inventory#active-vials"
 
 
 @router.post("/active-vials/{vial_id}/discard")

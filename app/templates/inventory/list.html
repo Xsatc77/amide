@@ -41,11 +41,12 @@
       {% set g = vial_gauges.get(v.id) %}{% set lot = vial_lots.get(v.id) %}
       {% if lot and lot[0] %}<div class="lot-ribbon" title="{{ 'Lot in use, estimated from your stock: ' if lot[1] else 'Lot ' }}{{ lot[0] }}"><span>LOT {{ lot[0] }}</span></div>{% endif %}
       <div class="vial-card-body">
-        <img class="vial-card-pic" src="{{ static_url('img/icons/vial-bac-hospira.png' if is_bac and 'hospira' in item.name | lower else 'img/icons/vial-blank-label.png') }}" alt="">
+        <div class="vial-card-art"><img class="vial-card-pic" src="{{ static_url('img/icons/vial-bac-hospira.png' if is_bac and 'hospira' in item.name | lower else 'img/icons/vial-blank-label.png') }}" alt="">
+          {% if not is_bac and item and v.id in vial_symbols %}<div class="element-tile" aria-hidden="true"><span class="el-symbol">{{ vial_symbols[v.id] }}</span><span class="el-amount">{{ '%g' % item.vial_size_mg if item.vial_size_mg else '' }} {{ item.vial_size_unit.value if item.vial_size_mg else '' }}</span></div>{% endif %}</div>
         {% if g %}<div class="vial-gauge level-{{ g.level }}" role="meter" aria-label="Amount left in {{ item.name if item else 'this vial' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ g.percent }}" title="{{ g.left_text }}"><div class="vial-gauge-fill" style="height: {{ g.percent }}%"></div></div>{% endif %}
         <div class="vial-card-text">
           <strong>{{ item.name if item else 'Item' }}</strong>
-          {% if g %}<span class="vial-left"><b>{{ g.left_text }}</b></span>
+          {% if g %}<span class="vial-left"><b>{{ g.left_text }}</b>{% if g.estimated %} <span class="muted small">(estimated{% if is_mine %}, <a href="/inventory?calibrate={{ v.id }}#calibrate-dialog">update</a>{% endif %})</span>{% endif %}</span>
           {% if g.projection %}
           {% if g.projection.count %}<span class="vial-plan">{{ g.projection.count }} more scheduled dose{{ '' if g.projection.count == 1 else 's' }}, through {{ g.projection.through | shortdate }}</span>{% endif %}
           {% if g.projection.short_on %}<span class="vial-plan vial-plan-warn">The {{ g.projection.short_on | shortdate }} dose ({{ g.next_dose if g.projection.count == 0 else 'next' }}) needs a new vial</span>{% endif %}
@@ -83,6 +84,8 @@
   <p class="muted">No open vials yet — reconstitute one from a Lyophilized item above.</p>
   {% endif %}
 </section>
+
+{% set calibrate_next = '/inventory#active-vials' %}{% include 'inventory/_calibrate_dialog.html' %}
 
 {% if label_vial %}
 <dialog id="label-dates-dialog" class="dialog" data-open-on-load aria-labelledby="label-dates-title">

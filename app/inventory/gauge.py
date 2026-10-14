@@ -37,6 +37,7 @@ class VialGauge:
     projection: Projection | None   # None when no active protocol uses this vial
     next_dose: str | None           # "1 mg", the next scheduled dose
     protocol_note: str | None
+    estimated: bool = False         # the amount has not been confirmed by the person (see app/inventory/calibrate.py)
 
 
 def simulate(remaining: float, doses: list[tuple[date, float]], discard_by: date) -> Projection:
@@ -115,5 +116,5 @@ def vial_gauges(session: Session, uid: int, vials: list[ActiveVial], items: dict
                 else:
                     note = "No active protocol uses this vial."
         doses_left = projection.count if projection is not None and projection.short_on is not None else None
-        out[v.id] = VialGauge(fraction, round(fraction * 100), left_text, level(fraction, doses_left), projection, next_dose, note)
+        out[v.id] = VialGauge(fraction, round(fraction * 100), left_text, level(fraction, doses_left), projection, next_dose, note, not v.confirmed)
     return out

@@ -224,7 +224,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
         iu_per_mg=iu_per_mg if ("IU" in (vial_unit, dose_unit)) else None,
         water_ml=water_ml, dose_value=dose_value, dose_unit=DoseUnit(dose_unit),
         doses_total=result.doses_per_vial, date_mixed=clock.today(), discard_by=discard_by,
-        volume_remaining_ml=water_ml, lot_number=lot,
+        volume_remaining_ml=water_ml, lot_number=lot, confirmed=True,
         dispensing_method=DispensingMethod.PEN if load_into_pen else DispensingMethod.SYRINGE,
     )
     session.add(new_vial)

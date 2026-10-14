@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import compliance, units
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
+from app.inventory import calibrate
 from app.inventory.runout import ALERT_DAYS as RUNOUT_ALERT_DAYS, runs_out
 from app.library.price_lists.analysis import new_peptides
 from app.auth.deps import current_user_id
@@ -285,6 +286,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             cost_snapshot = _cost_snapshot(session, effective_uid, today)
 
     return templates.TemplateResponse(request, "dashboard/index.html", {
+        "calibrate_vials": calibrate.dialog_vials(session, uid) if effective_uid == uid else [],
         "schedule": schedule,
         "alerts": alerts,
         "can_ignore_alerts": bool(request.state.user.is_admin),
