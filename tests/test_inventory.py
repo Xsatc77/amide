@@ -1542,7 +1542,7 @@ def test_new_order_new_item_line_validates_category_fields(client, db):
         assert s.query(InventoryItem).count() == 0
 
 
-def test_new_order_rejects_supply_category_for_new_lines(client, db):
+def test_new_order_supply_line_without_a_kind_is_refused(client, db):
     r = client.post("/inventory/orders", data={
         "order_date": "2026-09-01",
         "lines-0-mode": "new", "lines-0-category": "Supply", "lines-0-name": "Syringes",

@@ -88,6 +88,7 @@ If someone shares their data with you (Settings, Sharing) you can view their Das
 - **Add item** records a peptide, BAC water or a supply (syringes, alcohol pads and so on). Tick **Local seller** for something you pick up in person: it will not raise a late-shipment alert.
 - The peptide list is in **use-first order**: what expires soonest, then what arrived earliest. Empty shelves go last. Switch to alphabetical with the sort box.
 - **Runs out** tells you when an item will be gone at your current doses, and the Dashboard warns you ahead of time.
+- **Ordering supplies.** Press **New order** and choose **Supply** on a line: a new supply (pick what kind it is, so Amide knows what a shot or a reconstitution uses) or a restock of one you already track. When the order arrives, **Check in** it: the received quantity is added to the supply's count.
 - **What each action uses up.** Amide takes these from your supplies for you (each is a supply item of that type):
   - Reconstituting a vial: 4 alcohol pads and 1 reconstitution syringe. Loading it into a pen at the same time also takes 2 more pads, 1 pen cartridge, 1 dosing syringe and 1 pen needle.
   - Converting an open vial to a pen later: 2 alcohol pads, 1 reconstitution syringe, 1 pen cartridge and 1 pen needle.

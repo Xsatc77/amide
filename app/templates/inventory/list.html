@@ -646,7 +646,7 @@
         <span>Item</span>
         <select name="lines-__I__-item_id" data-line-item-select>
           <option value="">— Select —</option>
-          {% for i in (medicine_items + bac_water_items) | selectattr('owner_id', 'equalto', viewer_id) %}
+          {% for i in (medicine_items + bac_water_items + supply_items) | selectattr('owner_id', 'equalto', viewer_id) %}
           <option value="{{ i.id }}" data-name="{{ i.name }}">{{ i.name }} ({{ i.category.value }})</option>
           {% endfor %}
         </select>
@@ -657,7 +657,14 @@
       <div class="chips" role="radiogroup" aria-label="Category">
         <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="Medicine" checked> Medicine</label>
         <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="BAC Water"> BAC Water</label>
+        <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="Supply" data-line-category> Supply</label>
       </div>
+      <label class="field span-2" data-supply-field hidden><span>What kind of supply is it?</span>
+        <select name="lines-__I__-supply_type">
+          <option value="">— Select —</option>
+          {% for t in supply_types %}<option value="{{ t.value }}">{{ t.label }}</option>{% endfor %}
+        </select>
+      </label>
       <label class="field span-2"><span>Item name</span><input name="lines-__I__-name" maxlength="200" data-line-item-name></label>
       <label class="field" data-new-field="medium"><span>Medium</span>
         <select name="lines-__I__-medium">
@@ -689,9 +696,9 @@
       <label class="field"><span>Cost ($)</span><input name="lines-__I__-cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
       <label class="field"><span>Lot / Batch #</span><input name="lines-__I__-lot_number"></label>
       <label class="field"><span>Expiration date</span><input name="lines-__I__-expiration_date" type="date"></label>
-      <label class="field span-2"><span>COA (photo or PDF)</span><input name="lines-__I__-coa" type="file" accept="image/*,.heic,.heif,application/pdf"></label>
-      <label class="field"><span>Lab vial size (mg)</span><input name="lines-__I__-coa_vial_size_mg" type="number" min="0" step="any"></label>
-      <label class="field"><span>Lab purity (%)</span><input name="lines-__I__-coa_purity_pct" type="number" min="0" max="100" step="any"></label>
+      <label class="field span-2" data-medicine-only><span>COA (photo or PDF)</span><input name="lines-__I__-coa" type="file" accept="image/*,.heic,.heif,application/pdf"></label>
+      <label class="field" data-medicine-only><span>Lab vial size (mg)</span><input name="lines-__I__-coa_vial_size_mg" type="number" min="0" step="any"></label>
+      <label class="field" data-medicine-only><span>Lab purity (%)</span><input name="lines-__I__-coa_purity_pct" type="number" min="0" max="100" step="any"></label>
     </div>
     <button type="button" class="btn btn-ghost btn-danger" data-action="remove-line">Remove item</button>
   </fieldset>

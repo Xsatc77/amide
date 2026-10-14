@@ -180,11 +180,13 @@
   {% endif %}
 </section>
 
-{% if item.category.value != 'Supply' %}
+{% if item.category.value != 'Supply' or item.order_items %}
 <section aria-labelledby="orders-heading">
   <h2 id="orders-heading" class="section-title">Order history</h2>
-  {% if is_owner %}
+  {% if is_owner and item.category.value != 'Supply' %}
   <button type="button" class="btn btn-ghost" data-action="add-order">Add order</button>
+  {% elif is_owner %}
+  <p class="muted small">Order more of this from <strong>New order</strong> on the Inventory page; what arrives is added to the count when you check it in.</p>
   {% endif %}
   {% if item.order_items %}
   <div class="table-wrap">
@@ -304,6 +306,7 @@
 <script type="application/json" id="checkin-data">{{ checkin_data | tojson }}</script>
 <script type="application/json" id="checkin-error-data">{{ {"order_id": checkin_order.id if checkin_order else None, "errors": checkin_errors or {}, "form": checkin_form or {}} | tojson }}</script>
 
+{% if item.category.value != 'Supply' %}
 <section aria-labelledby="sales-heading">
   <h2 id="sales-heading" class="section-title">Sale history</h2>
   {% if is_owner %}
@@ -325,8 +328,10 @@
   <p class="muted">No sales yet.</p>
   {% endif %}
 </section>
+{% endif %}
 
 {% if is_owner %}
+{% if item.category.value != 'Supply' %}
 {% set sf = sale_form or {} %}
 {% macro serr(field) %}{% if sale_errors and sale_errors[field] %}<small class="error">{{ sale_errors[field] }}</small>{% endif %}{% endmacro %}
 {% macro scls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if sale_errors and sale_errors[field] }}"{% endmacro %}
@@ -407,6 +412,7 @@
     </footer>
   </form>
 </dialog>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endblock %}

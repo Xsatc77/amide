@@ -15,7 +15,7 @@ from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_pen_conversion
-from app.inventory import calibrate
+from app.inventory import calibrate, supply_stock
 from app.inventory.gauge import vial_gauges
 from app.inventory.symbol import symbol
 from app.inventory.groups import group_items, lot_covering, lots, single_rows, sort_use_first
@@ -70,7 +70,7 @@ def _group_contacts(form: dict[str, list[str]]) -> dict[int, dict[str, str]]:
     return dict(sorted(contacts.items()))
 
 
-_NEW_LINE_ITEM_FIELDS = ("mode", "item_id", "name", "category", "medium", "vial_size_mg",
+_NEW_LINE_ITEM_FIELDS = ("mode", "item_id", "name", "category", "supply_type", "medium", "vial_size_mg",
                         "vial_size_unit", "volume_ml", "units_per_package", "storage", "notes",
                         "quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg",
                         "coa_purity_pct")
@@ -246,6 +246,20 @@ def _parse_order_header_fields(raw: dict[str, str], session: Session, uid: int, 
     values["tax_cents"] = _parse_money(raw["tax"], "tax", "Tax", errors)
     values["shipping_cents"] = _parse_money(raw["shipping"], "shipping", "Shipping", errors)
     return values
+
+
+def _parse_supply_line_item(line_raw: dict[str, str], prefix: str, errors: dict) -> dict:
+    """A new supply (syringes, alcohol pads, pen needles) ordered on the New Order form: a name and what kind of supply it is. Its count starts at 0 and
+    goes up when the order is checked in (see app/inventory/supply_stock.py)."""
+    name = line_raw["name"].strip()
+    if not name:
+        errors[f"{prefix}name"] = "Item name is required."
+    kind = _parse_choice(SupplyType, line_raw["supply_type"], None, f"{prefix}supply_type", errors)
+    if kind is None and f"{prefix}supply_type" not in errors:
+        errors[f"{prefix}supply_type"] = "Pick what kind of supply this is."
+    return {"category": Category.SUPPLY, "name": name, "supply_type": kind, "count": 0, "medium": None, "vial_size_mg": None, "vial_size_unit": DoseUnit.MG,
+            "purchasing_unit": PurchasingUnit.INDIVIDUAL, "volume_ml": None, "units_per_package": None, "storage": None, "notes": None, "cost_cents": None,
+            "vendor_id": None, "vendor": None, "bac_priority": None, "low_stock_threshold": None, "local_seller": False}
 
 
 def _parse_order_line_fields(raw: dict[str, str], *, prefix: str = "") -> tuple[dict, dict]:
@@ -684,7 +698,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
     if sort == "use_first":
         medicine_groups = sort_use_first(medicine_groups)
     in_transit_lines = [
-        (item, li) for item in medicine_items + bac_water_items for li in item.order_items
+        (item, li) for item in medicine_items + bac_water_items + supply_items for li in item.order_items
         if li.order.arrival_date is None
     ]
     in_transit_by_order: dict[int, list] = {}
@@ -930,12 +944,12 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
             existing_item = None
             if line_raw["item_id"].isdigit():
                 existing_item = _own_item(session, int(line_raw["item_id"]), uid)
-            if existing_item is None or existing_item.category == Category.SUPPLY:
+            if existing_item is None:
                 line_errors[f"{prefix}item_id"] = "Select an item you already track."
         else:
             category = _parse_choice(Category, line_raw["category"], Category.MEDICINE, f"{prefix}category", line_errors)
             if category == Category.SUPPLY:
-                line_errors[f"{prefix}category"] = "New order lines can only be Medicine or BAC Water."
+                new_item_values = _parse_supply_line_item(line_raw, prefix, line_errors)
             else:
                 new_item_values, item_errs = _parse_item_fields(line_raw, session, uid, category)
                 for f, msg in item_errs.items():
@@ -1157,6 +1171,7 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
         qty, note = received[li.id]
         li.received_quantity = qty
         li.received_note = note
+        supply_stock.sync(li)
     session.commit()
     back = f"/inventory/{item_id}"
     if session.get(User, uid).auto_print_labels and labels_for_order(order, uid):
@@ -1317,6 +1332,7 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
         setattr(li, key, value)
     li.order.arrival_date = new_arrival_date
     li.received_quantity = received_quantity
+    supply_stock.sync(li)
     if new_coa or remove_coa:
         uploads.delete_coa(li.coa_filename)
         li.coa_filename = new_coa

@@ -638,11 +638,20 @@
     fieldset.querySelectorAll('[data-line-mode]').forEach((radio) =>
       radio.addEventListener("change", () => { syncLineMode(fieldset); applyPriceRecall(fieldset); }));
     fieldset.querySelector('[data-action="remove-line"]').addEventListener("click", () => fieldset.remove());
+    fieldset.querySelectorAll('input[name$="-category"]').forEach((radio) => radio.addEventListener("change", () => syncLineCategory(fieldset)));
+    syncLineCategory(fieldset);
     fieldset.querySelector("[data-line-item-select]").addEventListener("change", () => applyPriceRecall(fieldset));
     fieldset.querySelector("[data-line-item-name]").addEventListener("blur", () => applyPriceRecall(fieldset));
     const costInput = fieldset.querySelector('[name$="-cost"]');
     if (costInput) wireCostRecallInput(costInput);
     linesContainer.appendChild(fragment);
+  }
+
+  // A Supply line has no medium, amount or COA: it is a name, what kind of supply it is, a quantity and a cost.
+  function syncLineCategory(fieldset) {
+    const supply = fieldset.querySelector('input[name$="-category"]:checked')?.value === "Supply";
+    fieldset.querySelectorAll("[data-supply-field]").forEach((el) => { el.hidden = !supply; });
+    fieldset.querySelectorAll("[data-new-field], [data-medicine-only]").forEach((el) => { el.hidden = supply; });
   }
 
   function syncLineMode(fieldset) {

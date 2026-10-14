@@ -552,6 +552,7 @@ class OrderItem(Base):
     inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
     quantity: Mapped[int] = mapped_column(Integer)
     received_quantity: Mapped[int | None] = mapped_column(Integer)
+    stock_applied: Mapped[int] = mapped_column(Integer, default=0, server_default="0")   # supplies: how much of this line is already in the item's count (app/inventory/supply_stock.py)
     received_note: Mapped[str | None] = mapped_column(String(300))
     cost_cents: Mapped[int | None] = mapped_column(Integer)
     lot_number: Mapped[str | None] = mapped_column(String(100))
