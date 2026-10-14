@@ -245,3 +245,10 @@ def test_the_tile_is_lined_up_with_the_concentration_line_by_a_script(client, db
     vid = vial(me, item, confirmed=True)
     page = html.unescape(client.get('/inventory').text)
     assert 'class="vial-conc"' in card(client, vid) and 'js/vial-tile.js' in page
+
+
+def test_the_dose_size_box_is_not_squeezed_out_by_the_unit_select():
+    """The .field rules give every input and select width: 100%, so the inline rules must be at least as specific or the dose box collapses (it did)."""
+    from pathlib import Path
+    css = (Path(__file__).resolve().parent.parent / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    assert ".field .inline-fields input" in css and ".field .inline-fields select" in css

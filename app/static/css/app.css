@@ -1484,6 +1484,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .label-4x2 .vial-label .element-tile { width: 0.9in; height: 0.9in; }
 .label-4x2 .vial-label .el-symbol { font-size: 30pt; }
 .label-4x2 .vial-label .el-amount { font-size: 10pt; }
-.inline-fields { display: flex; gap: 8px; }
-.inline-fields input { flex: 1; min-width: 0; }
-.inline-fields select { flex: none; }
+.inline-fields { display: flex; gap: 8px; align-items: stretch; }
+/* the .field rules set width: 100% on every input and select, so these need the same weight to win */
+.field .inline-fields input:not([type="checkbox"]) { flex: 1 1 0; width: auto; min-width: 0; }
+.field .inline-fields select { flex: 0 0 6.5em; width: 6.5em; }
