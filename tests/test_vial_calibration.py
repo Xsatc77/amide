@@ -252,3 +252,30 @@ def test_the_dose_size_box_is_not_squeezed_out_by_the_unit_select():
     from pathlib import Path
     css = (Path(__file__).resolve().parent.parent / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
     assert ".field .inline-fields input" in css and ".field .inline-fields select" in css
+
+
+def test_a_confirmed_vial_still_offers_an_update_so_a_wrong_answer_can_be_corrected(client, db, me):
+    item = make_stock(me, vials=3)
+    vid = vial(me, item, confirmed=True, prompted=datetime(2026, 10, 1))
+    c = card(client, vid)
+    assert f'calibrate={vid}' in c and 'estimated' not in c
+    page = html.unescape(client.get(f'/inventory?calibrate={vid}').text)
+    assert 'id="calibrate-dialog"' in page and f'name="water_ml[{vid}]"' in page
+
+
+def test_doses_that_add_up_to_more_than_the_vial_held_are_refused_not_silently_emptied(client, db, me):
+    item = make_stock(me, vials=3, size=10.0)
+    vid = vial(me, item)
+    r = client.post('/active-vials/calibrate', data={**answers(vid, doses_taken=1, dose_amount=12), 'next': '/inventory'}, follow_redirects=False)
+    assert r.status_code == 422 and 'more than the vial held' in html.unescape(r.text)
+    assert get(vid).confirmed is False and get(vid).volume_remaining_ml == 2.0
+    ok = client.post('/active-vials/calibrate', data={**answers(vid, doses_taken=10, dose_amount=1), 'next': '/inventory'}, follow_redirects=False)
+    assert ok.status_code == 303 and get(vid).volume_remaining_ml == 0.0                      # exactly the whole vial is allowed
+
+
+def test_a_refused_answer_keeps_the_prompt_open_with_its_message_even_for_a_vial_asked_before(client, db, me):
+    item = make_stock(me, vials=3, size=10.0)
+    vid = vial(me, item, prompted=datetime(2026, 10, 1))
+    r = client.post('/active-vials/calibrate', data={**answers(vid, doses_taken=1, dose_amount=12), 'next': '/inventory'}, follow_redirects=False)
+    page = html.unescape(r.text)
+    assert r.status_code == 422 and 'id="calibrate-dialog"' in page and 'more than the vial held' in page

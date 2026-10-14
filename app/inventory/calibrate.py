@@ -35,6 +35,17 @@ def remaining_after(*, size: float, vial_unit: str, water_ml: float, doses_taken
     return Result(concentration, round(max(water_ml - drawn / concentration, 0.0), 4))
 
 
+def ml_left_is_blank(left) -> bool:
+    return left is None
+
+
+def _drawn(size, taken, amount, unit, item, vial, factor) -> float:
+    """What `taken` doses of `amount` come to, in the vial's own unit."""
+    vial_unit = item.vial_size_unit.value if item is not None else (vial.vial_unit or "mg")
+    per_dose = unit_math.convert(amount, unit, vial_unit, factor)
+    return (per_dose or 0.0) * taken
+
+
 def pending(session: Session, uid: int) -> list[ActiveVial]:
     """The person's open vials that have not been confirmed and not been asked about yet."""
     return list(session.scalars(select(ActiveVial).where(
@@ -42,13 +53,18 @@ def pending(session: Session, uid: int) -> list[ActiveVial]:
         .order_by(ActiveVial.discard_by, ActiveVial.id)))
 
 
-def dialog_vials(session: Session, uid: int, target_raw=None) -> list[dict]:
+def dialog_vials(session: Session, uid: int, target_raw=None, extra_ids=()) -> list[dict]:
     """The vials the prompt asks about, each as {vial, item, bac}: the ones never asked about, plus the one a card's Update link names."""
     vials = pending(session, uid)
     if target_raw and str(target_raw).isdigit() and int(target_raw) not in {v.id for v in vials}:
         target = session.get(ActiveVial, int(target_raw))
         if target is not None and target.owner_id == uid and target.discarded_at is None:
             vials.append(target)
+    for raw in extra_ids:                                  # vials whose answers were just refused stay in the prompt, with their messages
+        if str(raw).isdigit() and int(raw) not in {v.id for v in vials}:
+            more = session.get(ActiveVial, int(raw))
+            if more is not None and more.owner_id == uid and more.discarded_at is None:
+                vials.append(more)
     out = []
     for vial in vials:
         item = session.get(InventoryItem, vial.inventory_item_id)
@@ -110,6 +126,9 @@ def apply(session: Session, uid: int, form) -> dict[str, str]:
             errors[key("water_ml")] = "This vial's size is not known, so Amide cannot work out what is left."
             continue
         factor = (item.iu_per_mg if item is not None else None) or vial.iu_per_mg or unit_math.default_iu_per_mg(item.name if item else None)
+        if ml_left_is_blank(left) and taken and amount and _drawn(size, taken, amount, unit, item, vial, factor) > size * 1.0001:
+            errors[key("doses_taken")] = f"{taken} dose(s) of {amount:g} {unit} comes to more than the vial held ({size:g} {item.vial_size_unit.value if item else ''}). Check the dose size."
+            continue
         result = remaining_after(size=size, vial_unit=item.vial_size_unit.value if item is not None else (vial.vial_unit or "mg"), water_ml=water,
                                  doses_taken=taken, dose_amount=amount, dose_unit=unit, iu_per_mg=factor, ml_left=left)
         changes.append((vial, water, result.concentration, result.volume_remaining_ml))

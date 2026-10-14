@@ -669,7 +669,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
                  editing: InventoryItem | None = None, status_code: int = 200,
                  new_order_form: dict | None = None, new_order_errors=None,
                  new_order_line_groups: dict | None = None, new_order_contact_groups: dict | None = None,
-                 calibrate_errors: dict | None = None):
+                 calibrate_errors: dict | None = None, calibrate_ids=()):
     uid = request.state.user.id
     items, owner_names = _visible_items(session, uid)
     medicine_items = [i for i in items if i.category == Category.MEDICINE]
@@ -728,7 +728,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "owner_names": owner_names,
             "open_vials": open_vials,
             "active_vials": vials, "vial_gauges": vial_gauge_map, "vial_lots": vial_lot_map,
-            "calibrate_vials": calibrate.dialog_vials(session, uid, request.query_params.get("calibrate")), "calibrate_errors": calibrate_errors or {},
+            "calibrate_vials": calibrate.dialog_vials(session, uid, request.query_params.get("calibrate"), calibrate_ids), "calibrate_errors": calibrate_errors or {},
             "vial_symbols": {v.id: symbol(vial_items[v.inventory_item_id].name) for v in vials if v.inventory_item_id in vial_items},
             "vial_items": vial_items,
             "vial_owner_names": vial_owner_names,
@@ -1349,7 +1349,7 @@ async def calibrate_active_vials(request: Request, session: Session = Depends(ge
     form = await request.form()
     errors = calibrate.apply(session, uid, form)
     if errors:
-        return _render_list(request, session, calibrate_errors=errors, status_code=422)
+        return _render_list(request, session, calibrate_errors=errors, calibrate_ids=form.getlist("vial_ids"), status_code=422)
     return RedirectResponse(_safe_next(form.get("next")), status_code=303)
 
 

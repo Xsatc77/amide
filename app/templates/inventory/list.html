@@ -46,7 +46,7 @@
         {% if g %}<div class="vial-gauge level-{{ g.level }}" role="meter" aria-label="Amount left in {{ item.name if item else 'this vial' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ g.percent }}" title="{{ g.left_text }}"><div class="vial-gauge-fill" style="height: {{ g.percent }}%"></div></div>{% endif %}
         <div class="vial-card-text">
           <strong>{{ item.name if item else 'Item' }}</strong>
-          {% if g %}<span class="vial-left"><b>{{ g.left_text }}</b>{% if g.estimated %} <span class="muted small">(estimated{% if is_mine %}, <a href="/inventory?calibrate={{ v.id }}#calibrate-dialog">update</a>{% endif %})</span>{% endif %}</span>
+          {% if g %}<span class="vial-left"><b>{{ g.left_text }}</b>{% if g.estimated %} <span class="muted small">(estimated{% if is_mine %}, <a href="/inventory?calibrate={{ v.id }}#calibrate-dialog">update</a>{% endif %})</span>{% elif is_mine %} <span class="muted small">(<a href="/inventory?calibrate={{ v.id }}#calibrate-dialog">update</a>)</span>{% endif %}</span>
           {% if g.projection %}
           {% if g.projection.count %}<span class="vial-plan">{{ g.projection.count }} more scheduled dose{{ '' if g.projection.count == 1 else 's' }}, through {{ g.projection.through | shortdate }}</span>{% endif %}
           {% if g.projection.short_on %}<span class="vial-plan vial-plan-warn">The {{ g.projection.short_on | shortdate }} dose ({{ g.next_dose if g.projection.count == 0 else 'next' }}) needs a new vial</span>{% endif %}
