@@ -249,14 +249,13 @@ def _parse_order_header_fields(raw: dict[str, str], session: Session, uid: int, 
 
 
 def _parse_supply_line_item(line_raw: dict[str, str], prefix: str, errors: dict) -> dict:
-    """A new supply (syringes, alcohol pads, pen needles) ordered on the New Order form: a name and what kind of supply it is. Its count starts at 0 and
+    """A new supply (syringes, alcohol pads, pen needles) ordered on the New Order form: a name and what kind of supply it is (or None for things nothing uses up,
+    such as gloves or a sharps container). Its count starts at 0 and
     goes up when the order is checked in (see app/inventory/supply_stock.py)."""
     name = line_raw["name"].strip()
     if not name:
         errors[f"{prefix}name"] = "Item name is required."
-    kind = _parse_choice(SupplyType, line_raw["supply_type"], None, f"{prefix}supply_type", errors)
-    if kind is None and f"{prefix}supply_type" not in errors:
-        errors[f"{prefix}supply_type"] = "Pick what kind of supply this is."
+    kind = _parse_choice(SupplyType, line_raw["supply_type"], None, f"{prefix}supply_type", errors)       # blank is None: not used up by shots or reconstitution
     return {"category": Category.SUPPLY, "name": name, "supply_type": kind, "count": 0, "medium": None, "vial_size_mg": None, "vial_size_unit": DoseUnit.MG,
             "purchasing_unit": PurchasingUnit.INDIVIDUAL, "volume_ml": None, "units_per_package": None, "storage": None, "notes": None, "cost_cents": None,
             "vendor_id": None, "vendor": None, "bac_priority": None, "low_stock_threshold": None, "local_seller": False}

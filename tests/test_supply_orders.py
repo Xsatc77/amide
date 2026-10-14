@@ -108,10 +108,10 @@ def test_an_order_that_has_not_arrived_shows_on_the_way(client, me):
     assert "SUPPLY1" in page and "Sorder Alcohol Pads" in page
 
 
-def test_a_new_supply_line_needs_a_name_a_kind_and_a_quantity(client, me):
+def test_a_new_supply_line_needs_a_name_and_a_quantity(client, me):
     for line in ({"mode": "new", "category": "Supply", "name": "", "supply_type": SupplyType.ALCOHOL_PAD.value, "quantity": "5"},
-                 {"mode": "new", "category": "Supply", "name": "Sorder Pads", "supply_type": "", "quantity": "5"},
-                 {"mode": "new", "category": "Supply", "name": "Sorder Pads", "supply_type": SupplyType.ALCOHOL_PAD.value, "quantity": "0"}):
+                 {"mode": "new", "category": "Supply", "name": "Sorder Pads", "supply_type": SupplyType.ALCOHOL_PAD.value, "quantity": "0"},
+                 {"mode": "new", "category": "Supply", "name": "Sorder Pads", "supply_type": "bogus", "quantity": "5"}):
         assert place(client, a=line).status_code == 422
     assert item("Sorder Pads") is None
 
@@ -168,3 +168,16 @@ def test_a_supply_with_no_orders_keeps_its_plain_page(client, me):
     existing = make_supply(me, "Sorder Gloves", SupplyType.PEPTIDE_FILTER, 4)
     page = html.unescape(client.get(f"/inventory/{existing}").text)
     assert "Order history" not in page and "Count:" in page
+
+
+def test_a_supply_can_be_ordered_with_no_type_for_things_that_are_not_consumed(client, me):
+    r = place(client, a={"mode": "new", "category": "Supply", "name": "Sorder Sharps Container", "supply_type": "", "quantity": "2", "cost": "9.00"})
+    assert r.status_code == 303
+    item_id, category, kind, count = item("Sorder Sharps Container")
+    assert category == Category.SUPPLY and kind is None
+    li, order_id = the_line(item_id)
+    check_in(client, item_id, order_id, **{str(li): 2})
+    assert item("Sorder Sharps Container")[3] == 2                         # still counted, just never used up by a shot or a reconstitution
+    page = html.unescape(client.get('/inventory').text)
+    tpl = page.split('id="new-order-line-template"', 1)[1].split('</template>', 1)[0]
+    assert '<option value="">— None —</option>' in tpl.split('lines-__I__-supply_type', 1)[1][:200]

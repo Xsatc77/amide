@@ -659,11 +659,12 @@
         <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="BAC Water"> BAC Water</label>
         <label class="chip-radio"><input type="radio" name="lines-__I__-category" value="Supply" data-line-category> Supply</label>
       </div>
-      <label class="field span-2" data-supply-field hidden><span>What kind of supply is it?</span>
+      <label class="field span-2" data-supply-field hidden><span>Supply type</span>
         <select name="lines-__I__-supply_type">
-          <option value="">— Select —</option>
+          <option value="">— None —</option>
           {% for t in supply_types %}<option value="{{ t.value }}">{{ t.label }}</option>{% endfor %}
         </select>
+        <small class="muted">Shots and reconstitution use up supplies by type. Choose None for things that are not consumed.</small>
       </label>
       <label class="field span-2"><span>Item name</span><input name="lines-__I__-name" maxlength="200" data-line-item-name></label>
       <label class="field" data-new-field="medium"><span>Medium</span>
