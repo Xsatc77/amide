@@ -625,6 +625,7 @@ class ActiveVial(Base):
     vial_unit: Mapped[str] = mapped_column(String(10), default="mg", server_default="mg")
     iu_per_mg: Mapped[float | None] = mapped_column(Float)     # bridges IU and mass doses for this vial
     volume_remaining_ml: Mapped[float] = mapped_column(Float)
+    lot_number: Mapped[str | None] = mapped_column(String(100))   # the lot this vial came from, noted when it was reconstituted
     date_mixed: Mapped[date] = mapped_column(Date)
     discard_by: Mapped[date] = mapped_column(Date)
     discarded_at: Mapped[datetime | None] = mapped_column(DateTime)

@@ -87,6 +87,24 @@ def lots(item) -> list[Lot]:
     return result
 
 
+def lot_covering(item, nth: int) -> str | None:
+    """The lot number of the `nth` vial taken from the line (1 is the first), in the same use-first order `lots` uses: the lot whose vials
+    that count falls in. Past the last lot it is the last lot; a line with no lot numbers gives None."""
+    taken = 0
+    last = None
+    for lot in lots(item):
+        taken += lot.received
+        last = lot
+        if nth <= taken:
+            break
+    return last.lot_number if last is not None else None
+
+
+def lot_in_use(item) -> str | None:
+    """The lot the next vial opened from this line comes from."""
+    return lot_covering(item, (item.reconstituted_count or 0) + (item.sold_count or 0) + 1)
+
+
 class _Row:
     """A one-line row for lists that are not grouped (BAC water, supplies), shaped like a StockGroup so one table macro draws both."""
 

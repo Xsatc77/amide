@@ -15,7 +15,8 @@ from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_pen_conversion
-from app.inventory.groups import group_items, lots, single_rows, sort_use_first
+from app.inventory.gauge import vial_gauges
+from app.inventory.groups import group_items, lot_covering, lots, single_rows, sort_use_first
 from app.inventory.labels import labels_for_order
 from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
@@ -690,6 +691,9 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
     own_lyo_ids = [i.id for i in medicine_items if i.owner_id == uid and i.medium == Medium.LYOPHILIZED]
     open_vials = _open_active_vials(session, own_lyo_ids)
     vials, vial_items, vial_owner_names = _visible_active_vials(session, uid)
+    vial_gauge_map = vial_gauges(session, uid, vials, vial_items, clock.today())
+    vial_lot_map = {v.id: (v.lot_number, False) if v.lot_number else (lot_covering(vial_items[v.inventory_item_id], max(1, (vial_items[v.inventory_item_id].reconstituted_count or 0) + (vial_items[v.inventory_item_id].sold_count or 0))), True)
+                    for v in vials if v.inventory_item_id in vial_items}
     now = now_utc()
     expired_prompts = {
         v.id for v in vials
@@ -720,7 +724,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "pen_error": request.query_params.get("pen_error", "")[:300],
             "owner_names": owner_names,
             "open_vials": open_vials,
-            "active_vials": vials,
+            "active_vials": vials, "vial_gauges": vial_gauge_map, "vial_lots": vial_lot_map,
             "vial_items": vial_items,
             "vial_owner_names": vial_owner_names,
             "expired_prompts": expired_prompts,

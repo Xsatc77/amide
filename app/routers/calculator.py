@@ -21,6 +21,7 @@ from app.calculator.reconstitution import SYRINGE_CAPACITIES_UNITS, compute, wat
 from app.calculator.teaching import explain
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_reconstitution
+from app.inventory.groups import lot_in_use
 from app.library.matching import match_name
 from app.models import (
     ActiveVial, Category, DispensingMethod, DoseUnit, InventoryItem, Medium, Peptide, PeptideDosingTier, Protocol, ProtocolItem,
@@ -216,13 +217,14 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
                                bac_item_id=int(bac_raw) if bac_raw else None)
     if plan.errors:
         return error_redirect(". ".join(plan.errors))
+    lot = lot_in_use(item)
     apply_plan(session, uid, plan, water_ml=water_ml, discard_days=request.state.user.default_discard_days or 28)
     new_vial = ActiveVial(
         owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=result.concentration, vial_unit=vial_unit,
         iu_per_mg=iu_per_mg if ("IU" in (vial_unit, dose_unit)) else None,
         water_ml=water_ml, dose_value=dose_value, dose_unit=DoseUnit(dose_unit),
         doses_total=result.doses_per_vial, date_mixed=clock.today(), discard_by=discard_by,
-        volume_remaining_ml=water_ml,
+        volume_remaining_ml=water_ml, lot_number=lot,
         dispensing_method=DispensingMethod.PEN if load_into_pen else DispensingMethod.SYRINGE,
     )
     session.add(new_vial)

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import clock
 from app.auth.sessions import now_utc
+from app.inventory.groups import lot_in_use
 from app.models import ActiveVial, Category, DispensingMethod, InventoryItem, SupplyType
 
 RECON_SUPPLIES = {SupplyType.ALCOHOL_PAD: 4, SupplyType.RECON_SYRINGE: 1}
@@ -122,9 +123,10 @@ def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0,
             vial.discarded_at = now_utc()                                  # used up: it leaves the Active Vials list
     elif plan.new_bottle is not None:
         bottle = plan.new_bottle
+        lot = lot_in_use(bottle)
         bottle.reconstituted_count += 1                                    # one bottle off the shelf
         remaining = max(plan.bottle_ml - water_ml, 0.0)
         session.add(ActiveVial(
-            owner_id=uid, inventory_item_id=bottle.id, water_ml=plan.bottle_ml, volume_remaining_ml=remaining, date_mixed=today,
+            owner_id=uid, inventory_item_id=bottle.id, water_ml=plan.bottle_ml, volume_remaining_ml=remaining, lot_number=lot, date_mixed=today,
             discard_by=today + timedelta(days=discard_days), dispensing_method=DispensingMethod.SYRINGE,
             discarded_at=now_utc() if remaining <= EMPTY_EPSILON else None))

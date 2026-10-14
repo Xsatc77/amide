@@ -38,12 +38,21 @@
              data-vial-id="{{ v.id }}" {% if is_mine and v.id in expired_prompts %}data-expired-prompt="{{ v.id }}"{% endif %}
              {% if is_mine %}data-item-id-for-reconstitute="{{ v.inventory_item_id }}" data-item-name="{{ item.name if item else 'Item' }}"{% endif %}>
       {% set is_bac = item and item.category.value == 'BAC Water' %}
+      {% set g = vial_gauges.get(v.id) %}{% set lot = vial_lots.get(v.id) %}
+      {% if lot and lot[0] %}<div class="lot-ribbon" title="{{ 'Lot in use, estimated from your stock: ' if lot[1] else 'Lot ' }}{{ lot[0] }}"><span>LOT {{ lot[0] }}</span></div>{% endif %}
       <div class="vial-card-body">
-        <img class="vial-card-pic" src="{{ static_url('img/icons/vial-blank-label.png') }}" alt="">
+        <img class="vial-card-pic" src="{{ static_url('img/icons/vial-bac-hospira.png' if is_bac and 'hospira' in item.name | lower else 'img/icons/vial-blank-label.png') }}" alt="">
+        {% if g %}<div class="vial-gauge level-{{ g.level }}" role="meter" aria-label="Amount left in {{ item.name if item else 'this vial' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ g.percent }}" title="{{ g.left_text }}"><div class="vial-gauge-fill" style="height: {{ g.percent }}%"></div></div>{% endif %}
         <div class="vial-card-text">
           <strong>{{ item.name if item else 'Item' }}</strong>
+          {% if g %}<span class="vial-left"><b>{{ g.left_text }}</b></span>
+          {% if g.projection %}
+          {% if g.projection.count %}<span class="vial-plan">{{ g.projection.count }} more scheduled dose{{ '' if g.projection.count == 1 else 's' }}, through {{ g.projection.through | shortdate }}</span>{% endif %}
+          {% if g.projection.short_on %}<span class="vial-plan vial-plan-warn">The {{ g.projection.short_on | shortdate }} dose ({{ g.next_dose if g.projection.count == 0 else 'next' }}) needs a new vial</span>{% endif %}
+          {% elif g.protocol_note %}<span class="muted small">{{ g.protocol_note }}</span>{% endif %}
+          {% endif %}
           {% if is_bac %}
-          <span>{{ '%g' % (v.volume_remaining_ml | round(1)) }} mL left of {{ '%g' % v.water_ml }} mL</span>
+          {% if not g %}<span>{{ '%g' % (v.volume_remaining_ml | round(1)) }} mL left of {{ '%g' % v.water_ml }} mL</span>{% endif %}
           <span>Use by {{ v.discard_by | shortdate }}</span>
           <span class="vial-note">Room temperature, do not refrigerate</span>
           {% else %}
@@ -55,6 +64,7 @@
         </div>
       </div>
       {% if is_mine %}
+      <div class="vial-card-actions">
       {% if v.dispensing_method.value == 'syringe' and not is_bac %}
       <form method="post" action="/active-vials/{{ v.id }}/convert-to-pen" class="inline">
         <button type="submit" class="btn btn-ghost">Convert to peptide pen</button>
@@ -64,6 +74,7 @@
             data-confirm="Discard this vial? This can't be undone.">
         <button type="submit" class="btn btn-ghost btn-danger">Discard</button>
       </form>
+      </div>
       {% endif %}
     </article>
     {% endfor %}
