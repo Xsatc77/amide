@@ -2,6 +2,7 @@
 the upcoming protocol will take from it. Dose by dose, the schedule is walked forward to the vial's discard-by date, so a titration that
 grows (0.5, 1, 2 mg) uses the vial faster than a flat dose would."""
 
+import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -85,6 +86,36 @@ def _doses_for(protocols, logged, item: InventoryItem, today: date, last: date) 
                 amount = unit_math.convert(due.dose, due.unit, unit, factor)
                 if amount is not None:
                     out.append((occ.date, amount))
+    return out
+
+
+def _lot_in_use(item: InventoryItem) -> tuple[str | None, bool]:
+    """(lot number, estimated): the lot the unit being used comes from, in use-first order. The part-used unit counts as the one in use."""
+    from app.inventory.groups import lot_covering
+    done = (item.reconstituted_count or 0) + (item.sold_count or 0) + math.floor((item.dosed_units or 0.0) + 1e-9)
+    return lot_covering(item, done + 1), True
+
+
+def item_gauges(session: Session, uid: int, items: list[InventoryItem], today: date) -> dict[int, VialGauge]:
+    """A gauge for each active medicine that is not a powder vial: units left of what has been received (each unit is one `vial_size_mg` of its own unit),
+    and what the upcoming protocol will take from it, dose by dose until it runs out or expires."""
+    last = today + timedelta(days=HORIZON_DAYS)
+    protocols, logged = _upcoming(session, uid, today, last) if items else ([], set())
+    out: dict[int, VialGauge] = {}
+    for item in items:
+        left = max(item.units_left, 0.0)
+        received = sum((li.received_quantity or 0) for li in item.order_items if li.order.arrival_date is not None)
+        fraction = max(0.0, min(1.0, left / received)) if received else 0.0
+        expires = item.next_expiration or last
+        queue = _doses_for(protocols, logged, item, today, last)
+        projection = next_dose = note = None
+        if queue and item.vial_size_mg:
+            projection = simulate(left * item.vial_size_mg, queue, min(expires, last))
+            next_dose = f"{_g(queue[0][1])} {item.vial_size_unit.value}"
+        else:
+            note = "No active protocol uses this."
+        doses_left = projection.count if projection is not None and projection.short_on is not None else None
+        out[item.id] = VialGauge(fraction, round(fraction * 100), f"{_g(left)} left of {_g(received)}", level(fraction, doses_left), projection, next_dose, note, False)
     return out
 
 

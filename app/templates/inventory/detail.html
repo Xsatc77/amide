@@ -150,6 +150,9 @@
         {{ ierr('storage') }}
       </label>
 
+      {% if item.category.value == 'Medicine' and item.medium and item.medium.value != 'Lyophilized' %}
+      <label class="field span-2 check-field"><input type="checkbox" name="is_active" value="1" {% if ef.is_active %}checked{% endif %}><span>Active: in use now. Shows in the Active section with a gauge of what is left.</span></label>
+      {% endif %}
       <label class="field span-2 check-field"><input type="checkbox" name="local_seller" value="1" {% if ef.local_seller %}checked{% endif %}><span>Local seller: picked up in person (no shipping wait, so no late-shipment alert)</span></label>
       <label class="field span-2">
         <span>Notes</span>

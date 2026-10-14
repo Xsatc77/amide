@@ -21,7 +21,7 @@
   const preview = dialog.querySelector("[data-coa-preview]");
   const fields = [
     "name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium", "volume_ml",
-    "units_per_package", "storage", "cost", "vendor", "notes", "supply_type", "bac_priority", "bac_volume", "local_seller",
+    "units_per_package", "storage", "cost", "vendor", "notes", "supply_type", "bac_priority", "bac_volume", "local_seller", "is_active",
   ];
   const rules = JSON.parse(document.getElementById("inv-rules").textContent);
   const mediumSelect = form.elements.medium;
@@ -38,6 +38,8 @@
     // Volume and units-per-package only matter once a medium says so; Amount is always shown.
     fieldWrappers.volume_ml.hidden = !rule.required.includes("volume_ml");
     fieldWrappers.units_per_package.hidden = !rule.required.includes("units_per_package");
+    const activeField = form.querySelector("[data-active-field]");               // a medicine that is not a powder vial can be marked active
+    if (activeField) activeField.hidden = !medium || medium === "Lyophilized" || form.querySelector('input[name="category"]:checked')?.value !== "Medicine";
     for (const [field, wrapper] of Object.entries(fieldWrappers)) {
       const input = wrapper.querySelector("input");
       input.required = rule.required.includes(field);
@@ -65,6 +67,7 @@
     const storageSelect = form.elements.storage;
     if (category === "BAC Water" && storageSelect && !storageSelect.value) storageSelect.value = "room_temp";  // never refrigerated
     if (category === "Medicine") syncMediumFields();
+    else { const activeField = form.querySelector("[data-active-field]"); if (activeField) activeField.hidden = true; }
   }
   categoryRadios.forEach((r) => r.addEventListener("change", syncCategoryFields));
 
@@ -89,6 +92,7 @@
     for (const f of fields) {
       if (f === "category") continue;  // radios, set below
       if (f === "local_seller") { form.elements.local_seller.checked = Boolean(item && item.local_seller); continue; }
+      if (f === "is_active") { form.elements.is_active.checked = Boolean(item && item.is_active); continue; }
       form.elements[f].value = item ? item[f] ?? "" : f === "count" ? "1" : f === "vial_size_unit" ? "mg" : f === "purchasing_unit" ? "individual" : "";
     }
     const category = item ? item.category : "Medicine";

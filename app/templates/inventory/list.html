@@ -28,8 +28,31 @@
 <section id="active-vials" aria-labelledby="active-vials-heading">
   <h2 id="active-vials-heading" class="section-title">Active Vials</h2>
   {% if pen_error %}<div class="alert" role="alert">Can't load this vial into a pen: {{ pen_error }}.</div>{% endif %}
-  {% if active_vials %}
+  {% if active_vials or active_items %}
   <div class="card-grid vial-card-grid">
+    {% for ai in active_items %}
+    {% set it = ai.item %}{% set g = ai.gauge %}
+    <article class="vial-card" data-active-item-id="{{ it.id }}">
+      {% if ai.lot %}<div class="lot-ribbon" title="Lot in use: {{ ai.lot }}"><span>LOT {{ ai.lot }}</span></div>{% endif %}
+      <div class="vial-card-body">
+        <div class="vial-card-art"><img class="vial-card-pic" src="{{ static_url(ai.image) }}" alt=""></div>
+        <div class="vial-gauge level-{{ g.level }}" role="meter" aria-label="Amount left of {{ it.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ g.percent }}" title="{{ g.left_text }}"><div class="vial-gauge-fill" style="height: {{ g.percent }}%"></div></div>
+        <div class="vial-card-text">
+          <strong>{{ it.name }}</strong>
+          <span class="vial-left"><b>{{ g.left_text }}</b></span>
+          {% if g.projection %}
+          {% if g.projection.count %}<span class="vial-plan">{{ g.projection.count }} more scheduled dose{{ '' if g.projection.count == 1 else 's' }}, through {{ g.projection.through | shortdate }}</span>{% endif %}
+          {% if g.projection.short_on %}<span class="vial-plan vial-plan-warn">The {{ g.projection.short_on | shortdate }} dose ({{ g.next_dose if g.projection.count == 0 else 'next' }}) needs more stock</span>{% endif %}
+          {% elif g.protocol_note %}<span class="muted small">{{ g.protocol_note }}</span>{% endif %}
+          <span class="muted small">{{ it.medium.value }}{% if it.vial_size_mg %} · {{ '%g' % it.vial_size_mg }} {{ it.vial_size_unit.value }} each{% endif %}</span>
+        </div>
+      </div>
+      <div class="vial-card-actions">
+        <a class="btn btn-ghost" href="/inventory/{{ it.id }}">Details</a>
+        <form method="post" action="/inventory/{{ it.id }}/active" class="inline"><input type="hidden" name="active" value=""><button type="submit" class="btn btn-ghost">Stop using</button></form>
+      </div>
+    </article>
+    {% endfor %}
     {% for v in active_vials %}
     {% set is_mine = v.owner_id == viewer_id %}
     {% set expired = v.discard_by < today %}
@@ -464,6 +487,7 @@
 
     <fieldset class="form-section">
       <div class="grid">
+        <label class="field span-2 check-field" data-active-field hidden><input type="checkbox" name="is_active" value="1" {% if f.is_active %}checked{% endif %}><span>Active: in use now. Shows in the Active section with a gauge of what is left.</span></label>
         <label class="field span-2 check-field"><input type="checkbox" name="local_seller" value="1" {% if f.local_seller %}checked{% endif %}><span>Local seller: picked up in person (no shipping wait, so no late-shipment alert)</span></label>
         <label class="field span-2">
           <span>Notes</span>

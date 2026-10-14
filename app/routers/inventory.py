@@ -35,7 +35,7 @@ router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium",
-              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller")
+              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 RECON_FIELDS = ("supply_type", "bac_priority", "bac_volume")      # what a Supply item is; how BAC water is ranked and how big its bottle is
@@ -142,6 +142,7 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         values["storage"] = StorageLocation.ROOM_TEMP         # BAC water is never refrigerated, even once opened
     values["notes"] = raw["notes"] or None
     values["local_seller"] = raw.get("local_seller") == "1"
+    values["is_active"] = raw.get("is_active") == "1" and category == Category.MEDICINE and raw.get("medium", "") not in ("", Medium.LYOPHILIZED.value)     # powder vials go active by reconstituting
     values["supply_type"] = _parse_choice(SupplyType, raw.get("supply_type", ""), None, "supply_type", errors) if category == Category.SUPPLY else None
     values["bac_priority"] = None
     if category == Category.BAC_WATER and raw.get("bac_priority", ""):
@@ -544,6 +545,7 @@ def _form_values(item: InventoryItem) -> dict:
         "vendor": item.vendor or "",
         "notes": item.notes or "",
         "local_seller": "1" if item.local_seller else "",
+        "is_active": "1" if item.is_active else "",
     }
 
 
@@ -678,6 +680,15 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
     }
 
 
+def _active_items(session: Session, uid: int, items: list[InventoryItem]) -> list[dict]:
+    """The person's own medicines that are not powder vials and are marked active, each with its gauge, picture and lot."""
+    from app.inventory.gauge import _lot_in_use, item_gauges
+    from app.inventory.item_art import image_for
+    mine = [i for i in items if i.owner_id == uid and i.is_active and i.category == Category.MEDICINE and i.medium != Medium.LYOPHILIZED]
+    gauges = item_gauges(session, uid, mine, clock.today())
+    return [{"item": i, "gauge": gauges[i.id], "image": image_for(i.medium), "lot": _lot_in_use(i)[0]} for i in mine]
+
+
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,
                  editing: InventoryItem | None = None, status_code: int = 200,
                  new_order_form: dict | None = None, new_order_errors=None,
@@ -741,6 +752,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "owner_names": owner_names,
             "open_vials": open_vials,
             "active_vials": vials, "vial_gauges": vial_gauge_map, "vial_lots": vial_lot_map,
+            "active_items": _active_items(session, uid, items),
             "calibrate_vials": calibrate.dialog_vials(session, uid, request.query_params.get("calibrate"), calibrate_ids), "calibrate_errors": calibrate_errors or {},
             "vial_symbols": {v.id: symbol(vial_items[v.inventory_item_id].name) for v in vials if v.inventory_item_id in vial_items},
             "vial_items": vial_items,
@@ -1061,6 +1073,18 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         setattr(item, key, value)
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
+
+
+@router.post("/inventory/{item_id}/active")
+async def set_item_active(item_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Mark a medicine that is not a powder vial as in use (on the Active section) or not."""
+    item = _own_item(session, item_id, uid)
+    if item is None or item.category != Category.MEDICINE:
+        raise HTTPException(404, "Inventory item not found")
+    form = await request.form()
+    item.is_active = bool(str(form.get("active") or "").strip()) and item.medium != Medium.LYOPHILIZED
+    session.commit()
+    return RedirectResponse("/inventory#active-vials", status_code=303)
 
 
 @router.post("/inventory/{item_id}/delete")

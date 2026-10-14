@@ -413,6 +413,8 @@ class InventoryItem(Base):
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
     # Non-powder medicines (drops, pills, ...): how many units' worth of doses have been taken, a unit being one `vial_size_mg` (see app/inventory/unit_use.py).
     dosed_units: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    # A medicine that is not a powder vial (pills, drops, salve...) shown on the Active section while it is in use (see app/inventory/gauge.py).
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     # Supply items only: which supply this is (alcohol pad, recon syringe, ...). BAC Water only: 1 = used first, 4 = last, none = after all ranked.
     supply_type: Mapped[SupplyType | None] = mapped_column(_enum_column(SupplyType))
     bac_priority: Mapped[int | None] = mapped_column(Integer)
