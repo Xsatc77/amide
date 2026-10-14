@@ -35,7 +35,8 @@
     <article class="vial-card" data-active-item-id="{{ it.id }}">
       {% if ai.lot %}<div class="lot-ribbon" title="Lot in use: {{ ai.lot }}"><span>LOT {{ ai.lot }}</span></div>{% endif %}
       <div class="vial-card-body">
-        <div class="vial-card-art"><img class="vial-card-pic" src="{{ static_url(ai.image) }}" alt=""></div>
+        <div class="vial-card-art"><img class="vial-card-pic" src="{{ static_url(ai.image) }}" alt="">
+          {% if it.vial_size_mg %}<div class="element-tile on-item" aria-hidden="true" style="--tile: {{ ai.tile[2] }}px; left: {{ (ai.tile[0] * 100) | round(1) }}%; top: {{ (ai.tile[1] * 100) | round(1) }}%;"><span class="el-symbol">{{ ai.symbol }}</span><span class="el-amount">{{ '%g' % it.vial_size_mg }} {{ it.vial_size_unit.value }}</span></div>{% endif %}</div>
         <div class="vial-gauge level-{{ g.level }}" role="meter" aria-label="Amount left of {{ it.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ g.percent }}" title="{{ g.left_text }}"><div class="vial-gauge-fill" style="height: {{ g.percent }}%"></div></div>
         <div class="vial-card-text">
           <strong>{{ it.name }}</strong>

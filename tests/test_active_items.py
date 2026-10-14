@@ -22,7 +22,7 @@ def clean(client, me):
     with SessionLocal() as s:
         s.query(Protocol).filter(Protocol.name.like("Actitem%")).delete(synchronize_session=False)
         s.query(Order).delete()
-        s.query(InventoryItem).filter(InventoryItem.name.like("Actitem%")).delete(synchronize_session=False)
+        s.query(InventoryItem).filter(InventoryItem.name.like("Actitem%") | (InventoryItem.name == "B-12 drops")).delete(synchronize_session=False)
         s.query(Peptide).filter(Peptide.name.like("Actitem%")).delete(synchronize_session=False)
         s.commit()
 
@@ -169,3 +169,24 @@ def test_migration_0069_adds_the_column(tmp_path):
     command.downgrade(cfg, "0068")
     with sqlite3.connect(db) as c:
         assert "is_active" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+
+
+@pytest.mark.parametrize("name,expected", [("B-12 drops", "B"), ("Vitamin D pills", "Vt"), ("Healing salve", "Hl"), ("Magnesium Glycinate capsules", "Mg"), ("Nasal spray", "Ns"),
+                                           ("Semaglutide pen", "Sm"), ("Drops", "Dr")])
+def test_the_form_word_in_a_name_is_left_out_of_the_symbol(name, expected):
+    from app.inventory.item_art import symbol_for
+    assert symbol_for(name) == expected
+
+
+def test_each_form_has_a_tile_place_that_fits_its_picture():
+    from app.inventory.item_art import tile_spec
+    for medium in (Medium.PILL, Medium.DROPS, Medium.SALVE, Medium.AUTOINJECTOR, Medium.INHALER, Medium.LIQUID):
+        x, y, size = tile_spec(medium)
+        assert 0.3 <= x <= 0.7 and 0.2 <= y <= 0.85 and 26 <= size <= 50
+
+
+def test_an_active_item_carries_the_periodic_table_tile(client, me):
+    item_id = make(me, Medium.DROPS, name="B-12 drops")
+    c = card(client, item_id)
+    assert 'class="element-tile on-item"' in c and '<span class="el-symbol">B</span>' in c and '<span class="el-amount">5000 mcg</span>' in c
+    assert "--tile:" in c

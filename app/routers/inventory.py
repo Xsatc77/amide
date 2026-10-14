@@ -683,10 +683,10 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
 def _active_items(session: Session, uid: int, items: list[InventoryItem]) -> list[dict]:
     """The person's own medicines that are not powder vials and are marked active, each with its gauge, picture and lot."""
     from app.inventory.gauge import _lot_in_use, item_gauges
-    from app.inventory.item_art import image_for
+    from app.inventory.item_art import image_for, symbol_for, tile_spec
     mine = [i for i in items if i.owner_id == uid and i.is_active and i.category == Category.MEDICINE and i.medium != Medium.LYOPHILIZED]
     gauges = item_gauges(session, uid, mine, clock.today())
-    return [{"item": i, "gauge": gauges[i.id], "image": image_for(i.medium), "lot": _lot_in_use(i)[0]} for i in mine]
+    return [{"item": i, "gauge": gauges[i.id], "image": image_for(i.medium), "lot": _lot_in_use(i)[0], "symbol": symbol_for(i.name), "tile": tile_spec(i.medium)} for i in mine]
 
 
 def _render_list(request: Request, session: Session, *, form: dict | None = None, errors=None,

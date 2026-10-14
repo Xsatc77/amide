@@ -1491,3 +1491,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 
 .barcode-photo { cursor: pointer; }
 .barcode-camera-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+/* The tile on an active medicine that is not a powder vial: sized and placed per picture (inline --tile, left and top), the type scales with it. */
+.vial-card-art .element-tile.on-item { width: var(--tile, 40px); height: var(--tile, 40px); border-width: 1px; transform: translate(-50%, -50%); }
+.vial-card-art .element-tile.on-item .el-symbol { font-size: calc(var(--tile, 40px) * 0.30); }
+.vial-card-art .element-tile.on-item .el-amount { font-size: calc(var(--tile, 40px) * 0.165); margin-top: 2px; }
