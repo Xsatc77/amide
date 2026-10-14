@@ -17,15 +17,16 @@ def image_for(medium: Medium | None) -> str:
     return "img/icons/" + _IMAGES.get(medium, "vial-blank-label.png")
 
 
-# Where the periodic-table tile sits on each picture (centre as a fraction across and down the picture) and how big it is in pixels: on the label where the
-# picture has one, on the body of the tube, spray bottle and autoinjector, which are narrower.
+# The periodic-table tile on each picture: (centre across, centre down as fractions of the picture, side in px, the picture's height in px). Measured against each
+# picture's silhouette so the whole tile, border included, sits inside the item with a few pixels to spare, and centred on it. The narrow items (tube, spray bottle,
+# autoinjector) are drawn taller so their tile can be a readable size. tests/test_active_items.py re-measures the pictures, so a new picture cannot overhang.
 _TILES = {
-    Medium.PILL: (0.50, 0.57, 44),
-    Medium.DROPS: (0.50, 0.72, 42),
-    Medium.SALVE: (0.50, 0.46, 36),
-    Medium.AUTOINJECTOR: (0.50, 0.42, 30),
-    Medium.INHALER: (0.50, 0.72, 34),
-    Medium.LIQUID: (0.47, 0.51, 44),
+    Medium.PILL: (0.4615, 0.57, 46, 150),
+    Medium.DROPS: (0.4936, 0.69, 46, 150),
+    Medium.SALVE: (0.4865, 0.37, 40, 180),
+    Medium.AUTOINJECTOR: (0.4474, 0.54, 33, 200),
+    Medium.INHALER: (0.4603, 0.72, 40, 180),
+    Medium.LIQUID: (0.462, 0.58, 48, 140),
 }
 
 # Words that name the form, not the medicine: "B-12 drops" is B-12.
@@ -33,7 +34,7 @@ _FORM_WORDS = {"drops", "drop", "pills", "pill", "capsules", "capsule", "tablets
                "liquid", "oral", "tincture", "injector", "autoinjector", "pen", "inhaler"}
 
 
-def tile_spec(medium: Medium | None) -> tuple[float, float, int]:
+def tile_spec(medium: Medium | None) -> tuple[float, float, int, int]:
     return _TILES.get(medium, _TILES[Medium.LIQUID])
 
 

@@ -178,11 +178,44 @@ def test_the_form_word_in_a_name_is_left_out_of_the_symbol(name, expected):
     assert symbol_for(name) == expected
 
 
-def test_each_form_has_a_tile_place_that_fits_its_picture():
+def _silhouette(path, height):
+    """Per row, the leftmost and rightmost visible pixel of the picture drawn `height` px tall (-1 where the row is empty)."""
+    import numpy as np
+    from PIL import Image
+    im = Image.open(path).convert("RGBA")
+    im = im.resize((round(im.width * height / im.height), height), Image.LANCZOS)
+    visible = np.array(im)[:, :, 3] > 40
+    left, right = [], []
+    for row in visible:
+        xs = np.where(row)[0]
+        left.append(int(xs[0]) if len(xs) else -1)
+        right.append(int(xs[-1]) if len(xs) else -1)
+    return im.width, left, right
+
+
+@pytest.mark.parametrize("medium", [Medium.PILL, Medium.DROPS, Medium.SALVE, Medium.AUTOINJECTOR, Medium.INHALER, Medium.LIQUID])
+def test_the_tile_sits_wholly_inside_its_item_and_centred_on_it(medium):
     from app.inventory.item_art import tile_spec
-    for medium in (Medium.PILL, Medium.DROPS, Medium.SALVE, Medium.AUTOINJECTOR, Medium.INHALER, Medium.LIQUID):
-        x, y, size = tile_spec(medium)
-        assert 0.3 <= x <= 0.7 and 0.2 <= y <= 0.85 and 26 <= size <= 50
+    x, y, size, pic_h = tile_spec(medium)
+    width, left, right = _silhouette(ICONS / Path(image_for(medium)).name, pic_h)
+    cx, cy = x * width, y * pic_h
+    top, bottom = int(cy - size / 2), int(cy + size / 2)
+    assert top >= 0 and bottom < pic_h
+    inner_left = max(left[r] for r in range(top, bottom + 1))
+    inner_right = min(right[r] for r in range(top, bottom + 1))
+    assert inner_left >= 0
+    assert cx - size / 2 >= inner_left + 2 and cx + size / 2 <= inner_right - 2, "the tile hangs off the item"
+    assert abs(cx - (inner_left + inner_right) / 2) <= 2, "the tile is not centred on the item"
+
+
+def test_the_powder_vial_tile_fits_inside_the_glass_wherever_the_script_may_put_it():
+    width, left, right = _silhouette(ICONS / "vial-blank-label.png", 140)
+    size = 48
+    for centre in range(int(0.30 * 140 + size / 2), int(0.77 * 140 - size / 2) + 1):         # the range app/static/js/vial-tile.js keeps the tile within
+        top, bottom = centre - size // 2, centre + size // 2
+        lo, hi = max(left[top:bottom + 1]), min(right[top:bottom + 1])
+        cx = 0.462 * width
+        assert cx - size / 2 >= lo + 1 and cx + size / 2 <= hi - 1, f"the tile hangs off the vial at {centre}px"
 
 
 def test_an_active_item_carries_the_periodic_table_tile(client, me):

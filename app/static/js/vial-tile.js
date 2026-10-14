@@ -3,7 +3,7 @@
 (() => {
   const LABEL_TOP = 0.30, LABEL_BOTTOM = 0.77;      // the blank label's span of the vial picture, as a fraction of its height
   const NUDGE_DOWN = 4;                             // px below the concentration line's centre: it reads as centred on the vial's label
-  const BOTTLE_CENTRE = 0.47;                       // the glass body's centre across the picture (it sits a little left of the picture's middle)
+  const BOTTLE_CENTRE = 0.462;                       // the glass body's centre across the picture (it sits a little left of the picture's middle)
 
   function align(card) {
     const art = card.querySelector(".vial-card-art");

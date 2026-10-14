@@ -574,7 +574,7 @@ section + section { margin-top: 36px; }
 .vial-card-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
 .vial-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .vial-card-body { display: flex; align-items: center; gap: 14px; }
-.vial-card-pic { height: 140px; width: auto; flex: none; }
+.vial-card-pic { height: var(--pic-h, 140px); width: auto; flex: none; }
 .vial-card-text { display: flex; flex-direction: column; gap: 3px; font-size: 0.9rem; line-height: 1.35; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
 .vial-card-text strong { font-size: 1rem; }
 .vial-note { font-weight: 600; color: var(--accent-fg, var(--accent)); }
@@ -1452,7 +1452,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .num-icon.rating-neutral { --rate: var(--accent, #0f766e); }
 
 /* Active vial cards: a level gauge beside the vial, and the lot number on a banner across the lower right corner (same band as the protocol cards' status ribbon, in green with yellow writing) */
-.vial-gauge { position: relative; width: 14px; height: 140px; flex: none; border: 1.5px solid var(--border); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.vial-gauge { position: relative; width: 14px; height: var(--pic-h, 140px); flex: none; border: 1.5px solid var(--border); border-radius: 6px; background: var(--surface); overflow: hidden; }
 .vial-gauge-fill { position: absolute; left: 0; right: 0; bottom: 0; background: #16a34a; transition: height 0.3s; }
 .vial-gauge.level-low .vial-gauge-fill { background: #d97706; }
 .vial-gauge.level-empty .vial-gauge-fill { background: #b91c1c; }
@@ -1475,7 +1475,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .element-tile .el-symbol { font-weight: 800; letter-spacing: -0.02em; }
 .element-tile .el-amount { font-weight: 600; white-space: nowrap; }
 .vial-card-art { position: relative; flex: none; }
-.vial-card-art .element-tile { position: absolute; left: 47%; top: 44%; transform: translateX(-50%); width: 48px; height: 48px; border-width: 1.5px; }
+.vial-card-art .element-tile { position: absolute; left: 46.2%; top: 44%; transform: translateX(-50%); width: 48px; height: 48px; border-width: 1.5px; }
 .vial-card-art .el-symbol { font-size: 1.15rem; }
 .vial-card-art .el-amount { font-size: 0.6rem; margin-top: 3px; }
 .vial-label .element-tile { float: right; width: 0.5in; height: 0.5in; margin: 0 0 2px 4px; border-color: #000; }

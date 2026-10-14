@@ -32,7 +32,7 @@
   <div class="card-grid vial-card-grid">
     {% for ai in active_items %}
     {% set it = ai.item %}{% set g = ai.gauge %}
-    <article class="vial-card" data-active-item-id="{{ it.id }}">
+    <article class="vial-card" data-active-item-id="{{ it.id }}" style="--pic-h: {{ ai.tile[3] }}px;">
       {% if ai.lot %}<div class="lot-ribbon" title="Lot in use: {{ ai.lot }}"><span>LOT {{ ai.lot }}</span></div>{% endif %}
       <div class="vial-card-body">
         <div class="vial-card-art"><img class="vial-card-pic" src="{{ static_url(ai.image) }}" alt="">
