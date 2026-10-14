@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Inventory: **supplies are used up by shots and conversions.** A shot from a syringe takes 1 alcohol pad and 1 dosing syringe; a shot from a peptide pen takes 1 pad and 1 pen needle; converting an open vial to a pen takes 2 pads, 1 reconstitution syringe, 1 pen cartridge and 1 pen needle (loading a pen while reconstituting is unchanged). A logged shot is never refused for a missing supply, and undoing it gives them back. Migration 0067.
 - Inventory: **doses now use up drops, pills, autoinjectors and other non-powder items.** Each logged dose takes its share of one unit (a unit is the item's amount, so a 5000 mcg dose from a bottle of 5000 mcg drops is one unit; a 2500 mcg dose is half). The count and the Runs out date follow, undoing a dose gives it back, a skip takes nothing, and it never goes below zero. Powder vials are still tracked by the open vial's volume. Migration 0066.
 - Inventory, Active Vials: the lot banner is wider with larger writing, and the lot text is kept clear of the card's edges.
 - Inventory, Active Vials: every card now has an **update** link beside its amount (not only the estimated ones), so a wrong answer to the open-vials prompt can be corrected. The prompt refuses doses that add up to more than the vial held instead of quietly emptying it, and a refused answer keeps the prompt open with its message.

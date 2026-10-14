@@ -193,7 +193,8 @@ def test_converting_a_vial_to_a_pen_later_uses_the_pen_supplies(client, db, me, 
     r = client.post(f"/active-vials/{vial_of(peptide)}/convert-to-pen", follow_redirects=False)
     assert r.status_code == 303
     after = counts(ids)
-    assert (after["pads"], after["pen_vial"], after["dosing"], after["pen_needle"]) == (before["pads"] - 2, 9, 9, 9)
+    assert (after["pads"], after["pen_vial"], after["recon"], after["pen_needle"]) == (before["pads"] - 2, 9, before["recon"] - 1, 9)
+    assert after["dosing"] == before["dosing"]
     with SessionLocal() as s:
         assert s.get(ActiveVial, vial_of(peptide)).dispensing_method.value == "pen"
 

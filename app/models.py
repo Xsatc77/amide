@@ -738,6 +738,7 @@ class DoseLog(Base):
     injection_site: Mapped[InjectionSite | None] = mapped_column(_enum_column(InjectionSite))
     volume_ml: Mapped[float | None] = mapped_column(Float)
     inventory_units: Mapped[float | None] = mapped_column(Float)   # the share of a unit this dose took from a drops/pills item (see app/inventory/unit_use.py)
+    supplies_used: Mapped[dict | None] = mapped_column(JSON)       # {supply item id: how many} this shot took (pads, syringes, needles), given back on undo
 
     protocol: Mapped["Protocol"] = relationship()
     active_vial: Mapped["ActiveVial | None"] = relationship()

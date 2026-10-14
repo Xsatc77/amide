@@ -12,7 +12,7 @@ from app.calculator import units as unit_math
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.dosing.site import eligible_sites, recommend
-from app.inventory import unit_use
+from app.inventory import consumption, unit_use
 from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Protocol, ProtocolItem, User
 from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
@@ -230,12 +230,13 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
         share = unit_use.units_for_dose(stock, effective_dose, item.dose_unit)
         if share is not None:
             units_taken = unit_use.take(stock, share)
+    supplies = consumption.use_for_shot(session, uid, vial.dispensing_method) if vial is not None else {}
     session.add(DoseLog(
         owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, active_vial_id=vial.id if vial else None,
         peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
         dose_unit=item.dose_unit, route=item.route.value, scheduled_date=scheduled_date,
         scheduled_time_of_day=item.time_of_day, status=status, logged_at=datetime.now(timezone.utc),
-        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken,
+        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken, supplies_used=supplies or None,
     ))
 
     empty_vial_id = None
@@ -305,6 +306,7 @@ async def undo_dose(request: Request, session: Session = Depends(get_session),
         if vial is not None:
             vial.volume_remaining_ml = round(vial.volume_remaining_ml + log.volume_ml, 4)
 
+    consumption.give_back(session, uid, log.supplies_used)
     if log.inventory_units and log.protocol_item_id is not None:
         pitem = session.get(ProtocolItem, log.protocol_item_id)
         stock = session.get(InventoryItem, pitem.inventory_item_id) if pitem is not None and pitem.inventory_item_id is not None else None

@@ -16,6 +16,9 @@ from app.models import ActiveVial, Category, DispensingMethod, InventoryItem, Su
 
 RECON_SUPPLIES = {SupplyType.ALCOHOL_PAD: 4, SupplyType.RECON_SYRINGE: 1}
 PEN_SUPPLIES = {SupplyType.ALCOHOL_PAD: 2, SupplyType.PEN_VIAL: 1, SupplyType.DOSING_SYRINGE: 1, SupplyType.PEN_NEEDLE: 1}
+CONVERT_SUPPLIES = {SupplyType.ALCOHOL_PAD: 2, SupplyType.RECON_SYRINGE: 1, SupplyType.PEN_VIAL: 1, SupplyType.PEN_NEEDLE: 1}       # an open vial converted to a pen later
+SHOT_SUPPLIES = {SupplyType.ALCOHOL_PAD: 1, SupplyType.DOSING_SYRINGE: 1}                                                       # one shot from a syringe
+PEN_SHOT_SUPPLIES = {SupplyType.ALCOHOL_PAD: 1, SupplyType.PEN_NEEDLE: 1}                                                       # one shot from a peptide pen
 DEFAULT_BOTTLE_ML = 30.0
 EMPTY_EPSILON = 0.001
 
@@ -106,8 +109,34 @@ def plan_reconstitution(session: Session, uid: int, *, water_ml: float, pen: boo
 
 def plan_pen_conversion(session: Session, uid: int) -> Plan:
     plan = Plan()
-    _plan_supplies(session, uid, _needs(recon=False, pen=True), plan)
+    _plan_supplies(session, uid, dict(CONVERT_SUPPLIES), plan)
     return plan
+
+
+def use_for_shot(session: Session, uid: int, method: DispensingMethod) -> dict[str, int]:
+    """Take the supplies one shot uses (see SHOT_SUPPLIES, PEN_SHOT_SUPPLIES) from the person's stock, as much of them as there is: a shot that has really
+    been given is never refused for want of a pad. Returns {item id: how many} so an undo can give them back."""
+    needs = PEN_SHOT_SUPPLIES if method == DispensingMethod.PEN else SHOT_SUPPLIES
+    used: dict[str, int] = {}
+    for kind, need in needs.items():
+        left = need
+        for item in session.scalars(select(InventoryItem).where(
+                InventoryItem.owner_id == uid, InventoryItem.category == Category.SUPPLY, InventoryItem.supply_type == kind,
+                InventoryItem.count > 0).order_by(InventoryItem.id)):
+            take = min(item.count, left)
+            item.count -= take
+            used[str(item.id)] = used.get(str(item.id), 0) + take
+            left -= take
+            if not left:
+                break
+    return used
+
+
+def give_back(session: Session, uid: int, used: dict | None) -> None:
+    for raw_id, qty in (used or {}).items():
+        item = session.get(InventoryItem, int(raw_id))
+        if item is not None and item.owner_id == uid and item.category == Category.SUPPLY:
+            item.count += int(qty)
 
 
 def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0, discard_days: int = 28, today: date | None = None) -> None:

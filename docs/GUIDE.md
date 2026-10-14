@@ -88,6 +88,12 @@ If someone shares their data with you (Settings, Sharing) you can view their Das
 - **Add item** records a peptide, BAC water or a supply (syringes, alcohol pads and so on). Tick **Local seller** for something you pick up in person: it will not raise a late-shipment alert.
 - The peptide list is in **use-first order**: what expires soonest, then what arrived earliest. Empty shelves go last. Switch to alphabetical with the sort box.
 - **Runs out** tells you when an item will be gone at your current doses, and the Dashboard warns you ahead of time.
+- **What each action uses up.** Amide takes these from your supplies for you (each is a supply item of that type):
+  - Reconstituting a vial: 4 alcohol pads and 1 reconstitution syringe. Loading it into a pen at the same time also takes 2 more pads, 1 pen cartridge, 1 dosing syringe and 1 pen needle.
+  - Converting an open vial to a pen later: 2 alcohol pads, 1 reconstitution syringe, 1 pen cartridge and 1 pen needle.
+  - A shot from a syringe: 1 alcohol pad and 1 dosing syringe. A shot from a peptide pen: 1 alcohol pad and 1 pen needle.
+  - Reconstituting and converting are refused if a supply is missing, and nothing is used. A logged shot is never refused: it takes whatever is in stock, and undoing the dose gives the supplies back.
+  - A dose of drops, pills, autoinjectors and other non-powder items uses its share of one unit of that item.
 - **Delete** removes an item and its order lines. Amide will not delete an item that is still on an order that has not arrived: check that order in first.
 
 ### An item's page
