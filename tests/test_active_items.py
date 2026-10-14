@@ -223,3 +223,18 @@ def test_an_active_item_carries_the_periodic_table_tile(client, me):
     c = card(client, item_id)
     assert 'class="element-tile on-item"' in c and '<span class="el-symbol">B</span>' in c and '<span class="el-amount">5000 mcg</span>' in c
     assert "--tile:" in c
+
+
+# The white label of each bottle that has one, measured on the pictures: (left, top, right, bottom) as fractions of the picture.
+LABELS = {Medium.PILL: (0.208, 0.350, 0.766, 0.761), Medium.DROPS: (0.207, 0.581, 0.793, 0.867)}
+
+
+@pytest.mark.parametrize("medium", list(LABELS))
+def test_the_tile_stays_on_the_white_label_and_off_the_bottle_glass(medium):
+    from app.inventory.item_art import tile_spec
+    x, y, size, pic_h = tile_spec(medium)
+    width = round(__import__('PIL.Image', fromlist=['Image']).open(ICONS / Path(image_for(medium)).name).width * pic_h / __import__('PIL.Image', fromlist=['Image']).open(ICONS / Path(image_for(medium)).name).height)
+    left, top, right, bottom = LABELS[medium]
+    cx, cy = x * width, y * pic_h
+    assert cx - size / 2 >= left * width + 1 and cx + size / 2 <= right * width - 1, 'the tile runs off the label sideways'
+    assert cy - size / 2 >= top * pic_h + 1 and cy + size / 2 <= bottom * pic_h - 1, 'the tile runs off the label up or down'

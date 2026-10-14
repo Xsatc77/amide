@@ -19,12 +19,13 @@ def image_for(medium: Medium | None) -> str:
 
 # The periodic-table tile on each picture: (centre across, centre down as fractions of the picture, side in px, the picture's height in px). Measured against each
 # picture's silhouette so the whole tile, border included, sits inside the item with a few pixels to spare, and centred on it. The narrow items (tube, spray bottle,
-# autoinjector) are drawn taller so their tile can be a readable size. tests/test_active_items.py re-measures the pictures, so a new picture cannot overhang.
+# autoinjector) are drawn taller so their tile can be a readable size. On the bottles with a white label (pill, dropper) the tile stays on the label, never on the
+# orange or brown glass around it. tests/test_active_items.py re-measures the pictures, so a new picture cannot overhang.
 _TILES = {
-    Medium.PILL: (0.4615, 0.57, 46, 150),
-    Medium.DROPS: (0.4936, 0.69, 46, 150),
+    Medium.PILL: (0.486, 0.555, 40, 160),
+    Medium.DROPS: (0.50, 0.724, 42, 170),
     Medium.SALVE: (0.4865, 0.37, 40, 180),
-    Medium.AUTOINJECTOR: (0.4474, 0.54, 33, 200),
+    Medium.AUTOINJECTOR: (0.4474, 0.375, 33, 200),
     Medium.INHALER: (0.4603, 0.72, 40, 180),
     Medium.LIQUID: (0.462, 0.58, 48, 140),
 }
