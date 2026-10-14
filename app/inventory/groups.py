@@ -4,6 +4,7 @@ A lot is a checked-in order line. Amide counts what has been used per line (reco
 from the lots in use-first order (nearest expiration, then the oldest arrival), the order the Peptides list already sorts by. That makes the
 per-lot "on hand" an estimate, and the lots add up to the line's available count."""
 
+import math
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -76,7 +77,7 @@ def lots(item) -> list[Lot]:
     """The line's checked-in lots, soonest expiry first, with the line's use taken from the first lots (see the module note)."""
     arrived = [li for li in item.order_items if li.order.arrival_date is not None and (li.received_quantity or 0) > 0]
     arrived.sort(key=lambda li: (li.expiration_date is None, li.expiration_date or FAR, li.order.arrival_date))
-    used = (item.reconstituted_count or 0) + (item.sold_count or 0)
+    used = (item.reconstituted_count or 0) + (item.sold_count or 0) + math.ceil((getattr(item, "dosed_units", 0) or 0) - 1e-9)     # a part-used unit is an opened one
     result = []
     for li in arrived:
         taken = min(used, li.received_quantity)

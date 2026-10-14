@@ -12,7 +12,8 @@ from app.calculator import units as unit_math
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.dosing.site import eligible_sites, recommend
-from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, Protocol, ProtocolItem, User
+from app.inventory import unit_use
+from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Protocol, ProtocolItem, User
 from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
 from app.auth.deps import current_user_id
@@ -223,12 +224,18 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
             site = recommend(_last_site_for_peptide(session, uid, item.peptide_id), item.route.value)
 
     status = DoseStatus.ON_TIME if scheduled_date == clock.today() else DoseStatus.LATE
+    units_taken = None
+    stock = session.get(InventoryItem, item.inventory_item_id) if item.inventory_item_id is not None else None
+    if vial is None and unit_use.tracks_units(stock):
+        share = unit_use.units_for_dose(stock, effective_dose, item.dose_unit)
+        if share is not None:
+            units_taken = unit_use.take(stock, share)
     session.add(DoseLog(
         owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, active_vial_id=vial.id if vial else None,
         peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
         dose_unit=item.dose_unit, route=item.route.value, scheduled_date=scheduled_date,
         scheduled_time_of_day=item.time_of_day, status=status, logged_at=datetime.now(timezone.utc),
-        injection_site=site, volume_ml=volume_ml,
+        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken,
     ))
 
     empty_vial_id = None
@@ -297,6 +304,12 @@ async def undo_dose(request: Request, session: Session = Depends(get_session),
         vial = session.get(ActiveVial, log.active_vial_id)
         if vial is not None:
             vial.volume_remaining_ml = round(vial.volume_remaining_ml + log.volume_ml, 4)
+
+    if log.inventory_units and log.protocol_item_id is not None:
+        pitem = session.get(ProtocolItem, log.protocol_item_id)
+        stock = session.get(InventoryItem, pitem.inventory_item_id) if pitem is not None and pitem.inventory_item_id is not None else None
+        if stock is not None:
+            unit_use.give_back(stock, log.inventory_units)
 
     session.delete(log)
     session.commit()

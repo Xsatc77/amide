@@ -1,4 +1,5 @@
 import enum
+import math
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
@@ -410,6 +411,8 @@ class InventoryItem(Base):
     category: Mapped[Category] = mapped_column(_enum_column(Category), default=Category.MEDICINE)
     reconstituted_count: Mapped[int] = mapped_column(Integer, default=0)
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Non-powder medicines (drops, pills, ...): how many units' worth of doses have been taken, a unit being one `vial_size_mg` (see app/inventory/unit_use.py).
+    dosed_units: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
     # Supply items only: which supply this is (alcohol pad, recon syringe, ...). BAC Water only: 1 = used first, 4 = last, none = after all ranked.
     supply_type: Mapped[SupplyType | None] = mapped_column(_enum_column(SupplyType))
     bac_priority: Mapped[int | None] = mapped_column(Integer)
@@ -438,9 +441,15 @@ class InventoryItem(Base):
         original quantity ordered."""
         if self.category == Category.SUPPLY:
             return self.count
+        return math.floor(self.units_left + 1e-9)
+
+    @property
+    def units_left(self) -> float:
+        """Medicine/BAC Water: received minus reconstituted, sold and (for drops, pills and the like) the doses taken, as a number that can hold a part
+        of a unit. `available_count` is its whole units."""
         arrived = sum(
             (li.received_quantity or 0) for li in self.order_items if li.order.arrival_date is not None)
-        return arrived - self.reconstituted_count - self.sold_count
+        return arrived - (self.reconstituted_count or 0) - (self.sold_count or 0) - (self.dosed_units or 0.0)
 
     def _checked_in_lines(self):
         return [li for li in self.order_items if li.order.arrival_date is not None and (li.received_quantity or 0) > 0]
@@ -728,6 +737,7 @@ class DoseLog(Base):
     logged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     injection_site: Mapped[InjectionSite | None] = mapped_column(_enum_column(InjectionSite))
     volume_ml: Mapped[float | None] = mapped_column(Float)
+    inventory_units: Mapped[float | None] = mapped_column(Float)   # the share of a unit this dose took from a drops/pills item (see app/inventory/unit_use.py)
 
     protocol: Mapped["Protocol"] = relationship()
     active_vial: Mapped["ActiveVial | None"] = relationship()

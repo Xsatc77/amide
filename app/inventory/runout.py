@@ -69,7 +69,7 @@ def runs_out(session: Session, uid: int, today: date) -> dict[int, RunOut]:
         if per_day <= 0:
             continue
         inv = items[item_id]
-        stock = max(inv.available_count, 0) * inv.vial_size_mg + open_left.get(item_id, 0.0)
+        stock = max(inv.units_left, 0) * inv.vial_size_mg + open_left.get(item_id, 0.0)
         days = int(stock / per_day + 1e-9)
         out[item_id] = RunOut(days=days, date=today + timedelta(days=days))
     return out
