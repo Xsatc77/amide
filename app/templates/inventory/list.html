@@ -57,7 +57,7 @@
           <span>Use by {{ v.discard_by | shortdate }}</span>
           <span class="vial-note">Room temperature, do not refrigerate</span>
           {% else %}
-          <span>{{ item.vial_size_mg | mg if item else '' }} · {{ v.concentration_mg_ml | dose_num }} mg/mL</span>
+          <span class="vial-conc">{{ item.vial_size_mg | mg if item else '' }} · {{ v.concentration_mg_ml | dose_num }} mg/mL</span>
           <span>Discard by {{ v.discard_by | shortdate }}</span>
           <span>{{ v.doses_total }} doses</span>
           {% endif %}
@@ -731,4 +731,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/inventory.js') }}" defer></script>
+<script src="{{ static_url('js/vial-tile.js') }}" defer></script>
 {% endblock %}

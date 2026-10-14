@@ -238,3 +238,10 @@ def test_the_printed_label_of_an_open_vial_has_the_tile_and_a_sealed_vials_does_
     vid = vial(me, item_id, confirmed=True)
     page = html.unescape(client.get(f"/active-vials/{vid}/label").text)
     assert 'class="element-tile"' in page and '<span class="el-symbol">Rt</span>' in page
+
+
+def test_the_tile_is_lined_up_with_the_concentration_line_by_a_script(client, db, me):
+    item = make_stock(me, vials=3)
+    vid = vial(me, item, confirmed=True)
+    page = html.unescape(client.get('/inventory').text)
+    assert 'class="vial-conc"' in card(client, vid) and 'js/vial-tile.js' in page
