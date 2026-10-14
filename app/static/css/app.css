@@ -1488,3 +1488,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* the .field rules set width: 100% on every input and select, so these need the same weight to win */
 .field .inline-fields input:not([type="checkbox"]) { flex: 1 1 0; width: auto; min-width: 0; }
 .field .inline-fields select { flex: 0 0 6.5em; width: 6.5em; }
+
+.barcode-photo { cursor: pointer; }
+.barcode-camera-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }

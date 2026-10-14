@@ -158,12 +158,17 @@
           <small class="error" data-usda-note role="status"></small>
           <div class="barcode-scan" data-barcode>
             <button type="button" class="btn btn-ghost" data-barcode-scan>Scan a barcode</button>
+            <label class="btn btn-ghost barcode-photo">Photo of a barcode
+              <input type="file" accept="image/*" capture="environment" hidden data-barcode-photo></label>
             <label class="small barcode-type"><span>or type the digits under it</span>
               <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="14" autocomplete="off" data-barcode-code placeholder="e.g. 012345678905"></label>
             <button type="button" class="btn btn-ghost" data-barcode-lookup>Look up</button>
             <div class="barcode-camera" data-barcode-camera hidden>
-              <video playsinline muted aria-label="Camera view for scanning a barcode"></video>
-              <button type="button" class="btn" data-barcode-stop>Cancel</button>
+              <video playsinline muted autoplay aria-label="Camera view for scanning a barcode"></video>
+              <div class="barcode-camera-actions">
+                <button type="button" class="btn btn-primary" data-barcode-now>Read it now</button>
+                <button type="button" class="btn" data-barcode-stop>Cancel</button>
+              </div>
             </div>
             <small class="muted" data-barcode-note role="status"></small>
           </div>

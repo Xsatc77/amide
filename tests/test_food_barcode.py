@@ -65,3 +65,9 @@ def test_the_add_food_dialog_offers_scan_and_type_a_code_only_with_a_key(client,
     monkeypatch.setattr(config, "USDA_API_KEY", "KEY")
     page = client.get("/measurements", params={"tab": "food"}).text
     assert "data-barcode-scan" in page and "data-barcode-code" in page and "barcode.js" in page
+
+
+def test_the_scanner_has_a_read_it_now_button_and_a_photo_option_for_phones(client, db, monkeypatch):
+    monkeypatch.setattr(config, "USDA_API_KEY", "KEY")
+    page = client.get('/measurements?tab=food').text
+    assert 'data-barcode-now' in page and 'data-barcode-photo' in page and 'capture="environment"' in page and 'autoplay' in page
