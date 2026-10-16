@@ -1,0 +1,19 @@
+{% from "learn/_macros.html" import check %}
+<p>Treat every vendor as unproven until they've earned your trust. Use this scorecard. Your ticks are saved on this device only.</p>
+<h3>Testing</h3>
+{{ check("t1", "Do they publish lab reports for each batch (lot), not one generic report?") }}
+{{ check("t2", "Is the lab independent of the vendor?") }}
+{{ check("t3", "Can you contact the lab yourself to confirm a report is real?") }}
+{{ check("t4", "Has any buyer sent a vial for independent testing, and what came back?") }}
+<h3>Track record</h3>
+{{ check("r1", "How long have they operated, and under what name?") }}
+{{ check("r2", "Do stories about them agree across different groups?") }}
+{{ check("r3", "Have problems been handled fairly: refunds, replacements, honest answers?") }}
+<h3>Honesty</h3>
+{{ check("h1", "Are claims modest? \"Pharma grade,\" \"99.9% guaranteed,\" or promised cures are red flags. Selling with health claims is also what regulators act on.") }}
+{{ check("h2", "Are lot numbers on the vial and on the report?") }}
+<h3>Price and practicalities</h3>
+{{ check("p1", "Is the price believable? Very cheap often means very cut corners.") }}
+{{ check("p2", "How do they ship and package, especially for heat?") }}
+{{ check("p3", "What payment methods do they accept? Prefer ones that offer some protection, and be wary of anything you can't get back.") }}
+<p>No single box proves a vendor is trustworthy. Many unticked boxes are a clear signal to stay away. Keep notes as you go: Amide's <a href="/vendors">Vendors page</a> can hold them.</p>

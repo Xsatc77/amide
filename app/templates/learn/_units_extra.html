@@ -1,0 +1,26 @@
+{% set a = drawn(10, 10, 2) %}{% set b = drawn(10, 10, 1) %}
+<table class="learn-table">
+  <thead><tr><th>Syringe</th><th>Holds</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>Small</td><td>0.3 mL</td><td>up to 30</td></tr>
+    <tr><td>Medium</td><td>0.5 mL</td><td>up to 50</td></tr>
+    <tr><td>Large</td><td>1 mL</td><td>up to 100</td></tr>
+  </tbody>
+</table>
+<p>How much peptide those units hold depends on how strong your mix is (its concentration):</p>
+<p class="learn-formula">peptide drawn = (units ÷ 100) × concentration</p>
+<p><strong>Worked examples</strong> (made-up numbers, to show the arithmetic only. They are not dose suggestions.)</p>
+<p><em>Same vial, two different mixes.</em> A vial holds 10 mg of peptide.</p>
+<ul>
+  <li>Mixed with 2 mL of water, it is {{ num(a.concentration_mg_ml, 2) }} mg/mL. Then 10 units ({{ num(a.volume_ml, 2) }} mL) holds {{ num(a.mg) }} mg, which is {{ num(a.mcg, 0) }} mcg.</li>
+  <li>Mixed with 1 mL of water, it is {{ num(b.concentration_mg_ml, 2) }} mg/mL. Then the same 10 units holds {{ num(b.mg) }} mg.</li>
+</ul>
+<p>That is the whole point: the mark on the syringe is identical, but you have drawn twice as much peptide.</p>
+<p><em>Working backward.</em> You want to draw 0.5 mg from a 2.5 mg/mL mix (5 mg in 2 mL): 0.5 ÷ 2.5 = {{ num(0.5 / 2.5, 2) }} mL, which is {{ num(units_for(0.5, 5, 2), 0) }} units.</p>
+<p><strong>Three traps</strong></p>
+<ol>
+  <li>Units are not milligrams. "10 units" says nothing about how much peptide you drew until you know the concentration.</li>
+  <li>mg and mcg: 1 mg is 1,000 mcg. A slip of one decimal place is a tenfold error.</li>
+  <li>Check the label on your syringe. This assumes U-100, but some syringes are marked in mL only, and a few (such as some veterinary insulin syringes) are U-40, where 40 units is 1 mL.</li>
+</ol>
+<p>When you mix a vial, check your numbers with Amide's <a href="/calculator">calculator</a> and do not rely on mental arithmetic.</p>

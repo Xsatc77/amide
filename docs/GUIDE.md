@@ -315,6 +315,10 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 
 ---
 
+## 12a. Learn
+
+The account menu has a **Learn** page: a tutorial for newcomers to gray-market peptides, with a glossary. Underlined words show a short definition when you hover (or tap) them, with a link to the full glossary entry. The vendor scorecard in section 4 remembers your ticks on this device only. The syringe teaching aid uses made-up numbers; none of them is a dose suggestion. The page says when it was last updated and what still needs expert review.
+
 ## 12b. Links
 
 The **Links** page keeps the sites you use, grouped under their type (Vendor, Supplies, Community, Research, Blog/Vlog, Calculator, Workouts, Nutrition, Other) and sorted A to Z by site name. Only types you have links for get a section.

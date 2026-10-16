@@ -1,0 +1,13 @@
+{% macro terms_box(section) %}
+<div class="learn-terms" aria-label="Terms in this section">
+  <p class="learn-terms-title">Terms in this section</p>
+  <ul>
+    {% for term in section.terms %}{% set e = by_term[term] %}
+    <li><a href="#g-{{ slug(term) }}" title="{{ e.definition }}">{{ term }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endmacro %}
+{% macro check(id, text) %}
+<label class="learn-check"><input type="checkbox" data-learn-check="{{ id }}"> <span>{{ text }}</span></label>
+{% endmacro %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "learn/_macros.html" import terms_box, check with context %}
+
+{% block title %}Learn{% endblock %}
+
+{% block page_class %}learn-page{% endblock %}
+
+{% block content %}
+<article class="learn">
+  <header class="learn-header">
+    <h1>Gray Market for Beginners Tutorial</h1>
+    <p class="learn-disclaimer"><strong>This is general education. It is not medical or legal advice,</strong> and it does not recommend that you use anything. Every number in it is made up to show how the arithmetic works; none of them is a dose suggestion. Talk to a clinician or pharmacist about anything you plan to put in your body.</p>
+    <p class="muted">Last updated {{ last_updated }}. It has not yet been reviewed by a clinician or pharmacist.</p>
+  </header>
+
+  <nav class="learn-contents" aria-label="Contents">
+    <ol>
+      {% for s in sections %}<li><a href="#{{ s.slug }}">{{ s.title }}</a></li>{% endfor %}
+      <li><a href="#glossary">Glossary</a></li>
+      <li><a href="#sources">Sources and review</a></li>
+    </ol>
+  </nav>
+
+  {% for s in sections %}
+  <section id="{{ s.slug }}" class="learn-section">
+    <h2>{{ loop.index }}. {{ s.title }}</h2>
+    <div class="learn-prose" data-learn-section="{{ s.slug }}">{% include s.template %}</div>
+    {{ terms_box(s) }}
+  </section>
+  {% endfor %}
+
+  <section id="glossary" class="learn-section">
+    <h2>Glossary</h2>
+    <dl class="learn-glossary">
+      {% for e in glossary_entries %}
+      <div class="learn-gloss-entry" id="g-{{ slug(e.term) }}">
+        <dt>{{ e.term }}</dt>
+        <dd>{{ e.definition }}{% if e.extra %}{% include e.extra %}{% endif %}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+    <h3>Terms from Amide</h3>
+    <dl class="learn-glossary">
+      {% for e in amide_terms %}
+      <div class="learn-gloss-entry" id="g-{{ slug(e.term) }}">
+        <dt>{{ e.term }}</dt>
+        <dd>{{ e.definition }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  <section id="sources" class="learn-section">
+    <h2>Sources and review</h2>
+    <p>This page was written as plain-language education from general knowledge of how peptide products, lab reports and injection supplies work. It is not a substitute for the sources below, and it has not been reviewed by a clinician.</p>
+    <h3>Still needs expert review</h3>
+    <ul>
+      <li>The syringe-units entry and teaching aid (a pharmacist or nurse).</li>
+      <li>Section 10, what to do if you react (a clinician).</li>
+      <li>Section 11, legal details by country. The US, UK and EU points rest on secondary sources, and how anti-doping rules classify some compounds is disputed.</li>
+      <li>Sections 5 and 6, on lab reports (someone with laboratory experience).</li>
+      <li>The benzyl alcohol and newborns wording, against a current package insert.</li>
+    </ul>
+    <h3>Where to check</h3>
+    <ul>
+      <li>Your country's medicines regulator (for example the FDA, TGA, Health Canada or MHRA) for what is allowed.</li>
+      <li>The current WADA Prohibited List, if you compete in a tested sport.</li>
+      <li>The package insert of any approved product, and a pharmacist, for storage and use.</li>
+    </ul>
+    <p class="muted">Last updated {{ last_updated }}.</p>
+  </section>
+</article>
+
+<script type="application/json" id="learn-glossary">{{ hover | tojson }}</script>
+<script type="application/json" id="learn-sections">{{ section_terms | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/learn.js') }}" defer></script>
+<script src="{{ static_url('js/learn-syringe.js') }}" defer></script>
+{% endblock %}

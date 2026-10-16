@@ -1496,3 +1496,58 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .vial-card-art .element-tile.on-item { width: var(--tile, 40px); height: var(--tile, 40px); border-width: 1px; transform: translate(-50%, -50%); }
 .vial-card-art .element-tile.on-item .el-symbol { font-size: calc(var(--tile, 40px) * 0.30); }
 .vial-card-art .element-tile.on-item .el-amount { font-size: calc(var(--tile, 40px) * 0.165); margin-top: 2px; }
+
+/* ---- Learn page ---- */
+.learn { max-width: 760px; margin: 0 auto; line-height: 1.55; }
+.learn-header h1 { margin-bottom: .4rem; }
+.learn-disclaimer { background: var(--accent-soft); border-radius: 8px; padding: .75rem 1rem; color: #134e4a; }
+.learn-contents { margin: 1rem 0 2rem; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.learn-contents ol { margin: 0; padding-left: 1.4rem; }
+.learn-section { margin: 2.5rem 0; scroll-margin-top: 4rem; }
+.learn-section h2 { border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+.learn-prose h3 { margin: 1.4rem 0 .4rem; }
+.learn-prose blockquote { margin: 1rem 0; padding: .6rem 1rem; border-left: 4px solid var(--accent); background: var(--surface); }
+.learn-terms { margin-top: 1.5rem; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.learn-terms-title { margin: 0 0 .4rem; font-weight: 600; font-size: .9rem; color: var(--muted); }
+.learn-terms ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.learn-terms a { display: inline-block; padding: .15rem .6rem; border-radius: 999px; background: var(--accent-soft); color: #134e4a; text-decoration: none; font-size: .9rem; }
+.learn-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.learn-table th, .learn-table td { border: 1px solid var(--border); padding: .4rem .6rem; text-align: left; vertical-align: top; }
+.learn-formula { margin: 1rem 0; padding: .6rem 1rem; text-align: center; font-weight: 600; background: var(--surface); border: 1px dashed var(--border); border-radius: 8px; }
+.learn-check { display: flex; gap: .6rem; align-items: flex-start; padding: .3rem 0; }
+.learn-check input { margin-top: .3rem; }
+.learn .term { border-bottom: 1px dotted var(--accent); cursor: help; }
+.learn .term:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.learn-card { position: absolute; z-index: 50; padding: .7rem .9rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); font-size: .9rem; line-height: 1.4; }
+.learn-card p { margin: .3rem 0 .5rem; }
+.learn-glossary { margin: 0; }
+.learn-gloss-entry { padding: .6rem 0; border-bottom: 1px solid var(--border); scroll-margin-top: 4rem; }
+.learn-gloss-entry dt { font-weight: 600; }
+.learn-gloss-entry dd { margin: .2rem 0 0; }
+.learn-gloss-entry:target { background: var(--accent-soft); }
+.learn-syringe-card { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.learn-sy-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; }
+.learn-sy-field { display: flex; flex-direction: column; gap: .2rem; font-size: .85rem; }
+.learn-sy-field input, .learn-sy-field select { width: 100%; }
+.learn-sy-units { margin-top: .8rem; font-weight: 600; }
+.learn-syringe-card input[type=range] { width: 100%; }
+.learn-sy-message { color: var(--danger); min-height: 1.2em; margin: .4rem 0; }
+.learn-sy-pictures { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.learn-sy-one h4 { margin: 0 0 .2rem; }
+.learn-sy-one p { margin: .1rem 0; }
+.learn-sy-result { font-weight: 600; }
+.learn-sy-back { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--border); }
+.learn-sy-note { font-size: .85rem; color: var(--muted); }
+.learn-syringe-svg { width: 100%; height: auto; }
+.learn-syringe-svg .sy-needle { stroke: #6b7280; stroke-width: 2; }
+.learn-syringe-svg .sy-hub { fill: #9ca3af; }
+.learn-syringe-svg .sy-barrel { fill: #f9fafb; stroke: #6b7280; stroke-width: 1.5; }
+.learn-syringe-svg .sy-liquid { fill: #99f6e4; }
+.learn-syringe-svg .sy-tick { stroke: #374151; stroke-width: .7; }
+.learn-syringe-svg .sy-major { stroke-width: 1.2; }
+.learn-syringe-svg .sy-num { font-size: 8px; fill: #374151; }
+.learn-syringe-svg .sy-stopper { fill: #1f2937; }
+.learn-syringe-svg .sy-rod { fill: #9ca3af; stroke: #6b7280; stroke-width: .8; }
+.learn-syringe-svg .sy-flange { fill: #d1d5db; stroke: #6b7280; stroke-width: 1; }
+.learn-syringe-svg .sy-thumb { fill: #d1d5db; stroke: #6b7280; stroke-width: 1; }
+.learn-syringe-svg .sy-cap { font-size: 9px; fill: #6b7280; }
