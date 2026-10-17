@@ -146,3 +146,9 @@ def test_every_section_number_the_text_points_to_is_the_number_that_section_is_s
     by_title = {s.title: i for i, s in enumerate(SECTIONS, 1)}
     assert f"Section {by_title['If you react: what to do']}, what to do if you react" in sources
     assert f"Section {by_title['Is this legal where I live?']}, legal details" in sources
+
+
+def test_the_coa_reading_section_says_consistency_in_mass_is_fundamental(client):
+    body = page(client).split('id="s07"', 1)[1].split('id="s08"', 1)[0].lower()
+    for phrase in ("consistency in mass is fundamental", "microgram", "150% overfill", "quality-control"):
+        assert phrase in body, phrase

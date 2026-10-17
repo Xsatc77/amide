@@ -24,7 +24,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("s04", "How to locate gray market vendors", ("Affiliate link", "Third-party testing")),
     Section("s05", "How to vet gray market vendors", ("Batch / lot", "Third-party testing")),
     Section("s06", "What is a COA, and why the type matters?", ("Certificate of Analysis (COA)", "HPLC", "Mass spectrometry", "Purity", "Identity", "Quantity", "Net peptide content", "Endotoxin")),
-    Section("s07", "How to read a COA", ("Sample", "Batch / lot")),
+    Section("s07", "How to read a COA", ("Sample", "Batch / lot", "Overfill")),
     Section("s08", "What are these little bottles?", ("Vial", "Lyophilized", "Cake", "Multi-dose vial")),
     Section("s09", "You want me to put water off my back where?", ("Bacteriostatic", "BAC water", "Benzyl alcohol", "Preservative", "Sterile")),
     Section("s10", "You want me to stab myself, sometimes multiple times per day?", ("Sharps container", "Units (on a syringe)")),

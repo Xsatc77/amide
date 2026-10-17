@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Learn, "How to read a COA": a new **Consistency in mass is fundamental** part (a vial that is 150% over, 70% over or 10% under its label from lot to lot cannot be dosed to the microgram, and a big overfill is a quality-control red flag, not a bonus), a matching red flag, and an "Overfill" glossary entry.
 - Measurements: **changing the Range no longer resets the Overview metric.** The chosen metric now stays put whichever dropdown you change first (it travels in the address, so a reload or a shared link keeps it too).
 - Measurements: the **Nutrition** ring is now a choice in the Overview "Metric" dropdown (it follows the Range dropdown next to it) instead of a separate card.
 - Protocol editor: **"Split a dose" into several times a day now saves.** The editor refused to save the same peptide twice, which is exactly what a split into two or more injections a day makes, so it failed with "Please fix the highlighted fields." The same peptide can now appear again at a different time of day (it is still refused at the same time of day). And the red banner now lists each problem, saying which peptide or step it belongs to, instead of only telling you to fix the highlighted fields.

@@ -64,6 +64,7 @@ ENTRIES: tuple[Entry, ...] = (
     _E("Multi-dose vial", "A vial designed to be entered more than once, which is why it contains a preservative.", ("multi-dose",)),
     _E("Net peptide content", "The share of the powder that is actual peptide, once water and counterions are subtracted. A high purity number does not tell you this.", ()),
     _E("Off-label", "Using an approved medicine for something other than what it is approved for. It is not the same as using an unapproved product.", ()),
+    _E("Overfill", "More peptide in the vial than the label says. It sounds like a bonus, but a vial that is far over (or under) its label points to poor quality control, and it makes an exact dose impossible to calculate.", ("overfilled", "underfill", "underfilled", "overfills")),
     _E("Peptide", "A short chain of amino acids. Longer chains are proteins.", ("peptides",)),
     _E("Peptide pen", "An injector pen loaded with a cartridge, which gives measured doses without drawing from a vial each time.", ("pen",)),
     _E("Preservative", "A chemical that slows microbes from growing in a liquid, like benzyl alcohol in BAC water.", ()),
