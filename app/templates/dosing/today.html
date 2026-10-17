@@ -8,7 +8,13 @@
     <h1>Today</h1>
     <p class="muted">{{ today.strftime('%A, %B') }} {{ today.day }}, {{ today.year }}</p>
   </div>
+  <div class="today-actions">
+    <button type="button" class="btn btn-primary" data-quick-open>Quick Exercise</button>
+    <a class="btn" href="/measurements?tab=journal&amp;edit={{ today_iso }}">Journal</a>
+  </div>
 </div>
+{% set quick_return_to = "/today" %}
+{% include "workouts/_quick_dialog.html" %}
 
 {% if empty_vial %}
 <div class="alert" role="alert" data-empty-vial-banner>
@@ -117,4 +123,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/dosing.js') }}" defer></script>
+<script src="{{ static_url('js/workout-quick.js') }}" defer></script>
 {% endblock %}

@@ -1551,3 +1551,5 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .learn-syringe-svg .sy-flange { fill: #d1d5db; stroke: #6b7280; stroke-width: 1; }
 .learn-syringe-svg .sy-thumb { fill: #d1d5db; stroke: #6b7280; stroke-width: 1; }
 .learn-syringe-svg .sy-cap { font-size: 9px; fill: #6b7280; }
+
+.today-actions { display: flex; gap: 8px; flex-wrap: wrap; }

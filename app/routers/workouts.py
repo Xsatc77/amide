@@ -299,7 +299,7 @@ async def workouts_quick(request: Request, session: Session = Depends(get_sessio
     exercise_logs = [workout_logging.build_exercise_log(row, body_weight) for row in parsed.rows]
     session.add(WorkoutLog(owner_id=uid, plan_day_id=None, day_label=label, plan_name=None, log_date=parsed.log_date, exercise_logs=exercise_logs))
     session.commit()
-    return RedirectResponse("/measurements?tab=journal", status_code=303)
+    return RedirectResponse("/today" if form.get("return_to") == "/today" else "/measurements?tab=journal", status_code=303)       # only the Today screen may ask to be returned to
 
 
 @router.post("/workouts/upload")
