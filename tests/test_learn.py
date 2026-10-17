@@ -100,7 +100,7 @@ def test_the_hover_data_is_embedded_and_matches_the_glossary(client):
     assert data["BAC water"]["id"] == "g-bac-water"
     assert not any(k in data for k in ("Active vial", "Lot banner"))                 # Amide's own terms are not underlined in the tutorial
     sections = json.loads(re.search(r'<script type="application/json" id="learn-sections">(.*?)</script>', text, re.S).group(1))
-    assert sections["s08"] == [t for t in next(s for s in SECTIONS if s.slug == "s08").terms]
+    assert sections["s09"] == [t for t in next(s for s in SECTIONS if s.slug == "s09").terms]
 
 
 def test_the_units_entry_shows_computed_worked_examples(client):
@@ -124,3 +124,25 @@ def test_the_account_menu_links_to_learn(client):
 def test_nothing_names_a_vendor_and_no_dose_advice_slips_in(client):
     text = page(client).lower()
     assert "recommended dose" not in text and "you should take" not in text
+
+
+# ---- the Wild West section and the section numbers people are pointed to ---------------------------------------------------------------
+
+def test_the_wild_west_section_is_third_and_covers_what_it_should(client):
+    assert SECTIONS[2].title == "Break Out Yer 6-Guns, Welcome to the Wild Wild West"
+    body = page(client).split('id="s03"', 1)[1].split('id="s04"', 1)[0].lower()
+    for phrase in ("do not contact you first", "vetted vendors", "small batch", "customs clearance", "lunar new year", "embargo", "controlled substance", "too good to be true", "pressure"):
+        assert phrase in body, phrase
+
+
+def test_every_section_number_the_text_points_to_is_the_number_that_section_is_shown_with(client):
+    text = page(client)
+    numbers = {s.slug: i for i, s in enumerate(SECTIONS, 1)}
+    found = re.findall(r'<a href="#(s\d\d)">[Ss]ection (\d+)</a>', text)
+    assert found, "expected some section cross-references"
+    for slug, shown in found:
+        assert numbers[slug] == int(shown), f"{slug} is section {numbers[slug]} but the text says {shown}"
+    sources = text.split('id="sources"', 1)[1]
+    by_title = {s.title: i for i, s in enumerate(SECTIONS, 1)}
+    assert f"Section {by_title['If you react: what to do']}, what to do if you react" in sources
+    assert f"Section {by_title['Is this legal where I live?']}, legal details" in sources
