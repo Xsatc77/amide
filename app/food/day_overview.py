@@ -76,7 +76,7 @@ def day_overviews(session: Session, user: User, days) -> dict[date, dict]:
         cardio, lifted = work.get(day, {}).get("cardio_min", 0), work.get(day, {}).get("lifted_lb", 0)
         if not (w or e or b or cardio or lifted):
             continue
-        out[day] = {"water_oz": round(w, 1) if w % 1 else int(w), "water_goal_oz": per_day[day][1] if day in per_day else None, "eaten_kcal": round(e), "macro_ring": macro_ring(*macros[day][:3], macros[day][3] + pills.get(day, 0)) if day in macros else None, "burn_kcal": round(b),
+        out[day] = {"water_oz": round(w, 1) if w % 1 else int(w), "water_goal_oz": per_day[day][1] if day in per_day else None, "eaten_kcal": round(e), "macro_ring": macro_ring(*macros[day][:3], macros[day][3] + pills.get(day, 0), e) if day in macros else None, "burn_kcal": round(b),
                     "cardio_min": round(cardio), "lifted_lb": round(lifted),
                     "deficit": deficit(base, b, e) if base is not None and e else None,
                     "deficit_note": note if base is None and e else None}

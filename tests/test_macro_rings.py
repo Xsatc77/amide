@@ -117,3 +117,23 @@ def test_the_food_tab_ring_counts_a_fiber_pill_in_the_fiber_slice(client, db, me
     page = client.get("/measurements?tab=food").text
     seg = page.split("data-eaten-ring", 1)[1][:2500]
     assert "Fiber: <strong>11 g" in seg and "Carbs: <strong>30 g" in seg
+
+
+def test_the_middle_of_the_ring_is_the_calories_logged_not_worked_out_from_the_grams(db, me):
+    db.add(FoodLog(owner_id=me, eaten_on=TODAY - timedelta(days=2), meal="lunch", name="Odd label", serving="1", servings=1, calories=777, protein_g=10, carb_g=10, fat_g=10, fiber_g=1))
+    db.commit()
+    day = TODAY - timedelta(days=2)
+    assert day_overview.day_overviews(db, db.get(User, me), [day])[day]["macro_ring"]["kcal"] == 777
+
+
+def test_the_food_tab_ring_shows_the_days_logged_calories(client, db, me):
+    eat(db, me, 0, protein=30, carb=60, fat=10)
+    seg = client.get("/measurements?tab=food").text.split("data-eaten-ring", 1)[1][:2000]
+    assert ">450</text>" in seg and ">kcal</text>" in seg
+
+
+def test_the_range_ring_shows_the_calories_logged_over_the_range(client, db, me):
+    eat(db, me, 3, protein=30, carb=60, fat=10)
+    eat(db, me, 4, protein=30, carb=60, fat=10)
+    seg = client.get("/measurements?tab=measurements&range=7d").text.split("data-range-ring", 1)[1][:2500]
+    assert ">900</text>" in seg

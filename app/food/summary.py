@@ -48,7 +48,7 @@ def day_summary(session: Session, user: User, day: date) -> dict:
         eaten = replace(eaten, fiber_g=eaten.fiber_g + sum(g for _, g in supplements))
     summary = {"status": "ok", "day": day, "meals": meals, "eaten": eaten, "entries": rows,
                "fiber_supplements": [(name, round(g, 1)) for name, g in supplements]}
-    summary["eaten_ring"] = macro_ring(eaten.protein_g, eaten.carb_g, eaten.fat_g, eaten.fiber_g)
+    summary["eaten_ring"] = macro_ring(eaten.protein_g, eaten.carb_g, eaten.fat_g, eaten.fiber_g, eaten.calories)
 
     labels = (("sex", "sex"), ("birth_date", "birth date"), ("height_in", "height"), ("activity_level", "activity level"))
     missing = [label for attr, label in labels if getattr(user, attr) is None]

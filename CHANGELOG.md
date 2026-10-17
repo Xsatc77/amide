@@ -4,7 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
-- **Fiber in the rings.** Each macro ring (Food tab, Journal days, and the Measurements range ring) is now sized by the grams you logged: protein, carbs, fat and fiber, with nothing converted or subtracted. Fiber from a pill adds to the fiber slice.
+- **Fiber in the rings.** Each macro ring (Food tab, Journal days, and the Measurements range ring) is sized by the grams you logged (protein, carbs, fat and fiber) with the day's logged calories in the middle, exactly as the nutrition tab has them. Fiber from a pill adds to the fiber slice.
 - **Macro rings.** The Food tab and each Journal day now show a donut of what you ate that day, split into protein, carbs and fat. The Measurements tab has a "Nutrition over ..." ring with its own range dropdown (the same ranges as the charts), showing the split over that period with grams in total and per day.
 - **Fiber pills count toward fiber.** A medicine that is a pill, drops, etc. has a new "Fiber in one dose (g)" field (set it to the grams of fiber in a dose of, say, your psyllium husk pill). Each dose you log adds that fiber to the day's fiber on the Food tab, with a note saying how much came from the pill; undo takes it back, a skipped dose adds nothing. Amide does not guess the amount: enter it from the label.
 - **Today screen: Quick Exercise and Journal buttons.** Quick Exercise opens the same quick-activity dialog as the Journal tab and brings you back to Today after logging. Journal opens today's journal entry.

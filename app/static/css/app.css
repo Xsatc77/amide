@@ -1557,7 +1557,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* ---- macro rings: what was eaten, per day and per range ---- */
 .macro-ring-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
 .macro-ring { width: 120px; height: 120px; flex: none; }
-.macro-ring-total { font-size: 15px; font-weight: 600; fill: currentColor; }
+.macro-ring-total { font-size: 17px; font-weight: 600; fill: currentColor; }
+.macro-ring-unit { font-size: 10px; fill: var(--muted); }
 .macro-ring-wrap .food-legend { margin: 0; }
 .nutrition-range { margin: 16px 0; }
 .nutrition-range-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

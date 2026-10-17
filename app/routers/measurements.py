@@ -303,14 +303,14 @@ def _silhouette_shape(sex: str | None) -> dict:
 def _nutrition_range(session: Session, uid: int, window_start: date | None, as_of: date) -> dict | None:
     """The macros eaten across the chosen range, as a ring: grams in total, and per day over the days that have food logged. None when nothing was logged."""
     from app.food.rings import macro_ring
-    query = select(func.sum(FoodLog.protein_g), func.sum(FoodLog.carb_g), func.sum(FoodLog.fat_g), func.sum(FoodLog.fiber_g), func.count(func.distinct(FoodLog.eaten_on))).where(
+    query = select(func.sum(FoodLog.protein_g), func.sum(FoodLog.carb_g), func.sum(FoodLog.fat_g), func.sum(FoodLog.fiber_g), func.sum(FoodLog.calories), func.count(func.distinct(FoodLog.eaten_on))).where(
         FoodLog.owner_id == uid, FoodLog.eaten_on <= as_of)
     if window_start is not None:
         query = query.where(FoodLog.eaten_on >= window_start)
     from app.food import fiber as pill_fiber
-    protein, carb, fat, food_fiber, days = session.execute(query).one()
+    protein, carb, fat, food_fiber, calories, days = session.execute(query).one()
     pills = sum(pill_fiber.by_day(session, uid, window_start, as_of).values())
-    ring = macro_ring(protein or 0, carb or 0, fat or 0, (food_fiber or 0) + pills)
+    ring = macro_ring(protein or 0, carb or 0, fat or 0, (food_fiber or 0) + pills, calories or 0)
     return {"ring": ring, "days": days, "days_logged": days} if ring else None
 
 
