@@ -85,29 +85,20 @@ def _protocol_bar(session: Session, uid: int, today: date, window: int) -> dict:
 
 # ---------------------------------------------------------------- water
 
-def _water_goal(session: Session, user: User) -> int | None:
-    from app.measurements.calculations import water_goal_oz
-    from app.workouts import logging as workout_logging
-    weight = workout_logging.latest_body_weight(session, user.id)
-    if user.water_goal_oz is None and weight is None:
-        return None
-    return water_goal_oz(weight or 0, user.water_goal_oz)
-
-
 def _water_bar(session: Session, user: User, today: date, window: int) -> dict:
+    from app import water
     first = session.scalar(select(func.min(WaterLog.logged_at)).where(WaterLog.owner_id == user.id))
     if first is None:
         return _bar("h2o", "H2O", 0, 0, "No water logged yet")
-    goal = _water_goal(session, user)
-    if not goal:
+    if not water.current_goal_oz(session, user) and not session.scalar(select(func.count()).where(WaterLog.owner_id == user.id, WaterLog.goal_oz.is_not(None))):
         return _bar("h2o", "H2O", 0, 0, "Add a weigh-in or set a water goal to compare against")
     since, last = _start(today, window, first), today - timedelta(days=1)
     if since > last:
         return _bar("h2o", "H2O", 0, 0, "Not enough completed days yet")
-    totals = dict(session.execute(select(WaterLog.logged_at, func.sum(WaterLog.ounces)).where(
-        WaterLog.owner_id == user.id, WaterLog.logged_at >= since, WaterLog.logged_at <= last).group_by(WaterLog.logged_at)).all())
+    per_day = water.day_water(session, user, since, last)
     days = list(_days(since, last))
-    return _bar("h2o", "H2O", sum(1 for d in days if water_day_ok(totals.get(d, 0) or 0, goal)), len(days), f"Days at 90% or more of your {goal} oz goal")
+    good = sum(1 for d in days if d in per_day and water_day_ok(per_day[d][0], per_day[d][1] or 0))
+    return _bar("h2o", "H2O", good, len(days), "Days at 90% or more of that day's water goal")
 
 
 # ---------------------------------------------------------------- diet

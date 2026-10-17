@@ -1128,6 +1128,7 @@ class WaterLog(Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     logged_at: Mapped[date] = mapped_column(Date, index=True)
     ounces: Mapped[float] = mapped_column(Float)
+    goal_oz: Mapped[int | None] = mapped_column(Integer)        # the day's goal as it stood when this was logged, so a later change to the goal never rewrites a past day; null on older rows
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

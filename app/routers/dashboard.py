@@ -329,7 +329,8 @@ async def log_water(request: Request, session: Session = Depends(get_session), t
     except (TypeError, ValueError):
         ounces = None
     if ounces is not None and ounces > 0:
-        session.add(WaterLog(owner_id=uid, logged_at=today, ounces=ounces))
+        from app import water       # the goal it is logged against is kept with it, so a later change never rewrites today
+        session.add(WaterLog(owner_id=uid, logged_at=today, ounces=ounces, goal_oz=water.current_goal_oz(session, session.get(User, uid))))
         session.commit()
     return RedirectResponse("/dashboard", status_code=303)
 
