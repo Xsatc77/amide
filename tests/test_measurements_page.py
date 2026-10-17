@@ -590,3 +590,9 @@ def test_water_pace_shows_both_cups_and_bottles_per_hour(client, db):
         assert "cups per hour" in t and "bottles per hour" in t
     finally:
         _clear_measurements(tester)
+
+
+def test_the_range_form_carries_the_chosen_metric_so_changing_the_range_keeps_it(client):
+    t = client.get("/measurements?tab=measurements").text
+    form = t.split('class="range-controls"', 1)[1].split("</form>", 1)[0]
+    assert 'name="metric"' in form and 'name="range"' in form

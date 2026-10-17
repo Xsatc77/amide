@@ -20,15 +20,26 @@
     panels.forEach((p) => { p.hidden = p.dataset.metric !== select.value; });
   }
 
+  // The chosen metric rides along in the address and in every range form, so changing the range (a page load) keeps the metric, whichever
+  // dropdown is changed first.
+  function rememberMetric() {
+    document.querySelectorAll('.range-controls input[name="metric"]').forEach((input) => { input.value = select.value; });
+    const url = new URL(window.location.href);
+    url.searchParams.set("metric", select.value);
+    window.history.replaceState(null, "", url);
+  }
+
   function selectMetric(key) {
     if (![...panels].some((p) => p.dataset.metric === key)) return false;
     select.value = key;
     syncPanels();
+    rememberMetric();
     return true;
   }
 
   if (select) {
-    syncPanels();
+    const wanted = new URLSearchParams(window.location.search).get("metric");
+    if (!(wanted && selectMetric(wanted))) syncPanels();
     select.addEventListener("change", () => selectMetric(select.value));
   }
 

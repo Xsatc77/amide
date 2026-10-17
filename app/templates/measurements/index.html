@@ -12,6 +12,7 @@
   <span>Range</span>
   <form class="range-controls" method="get" action="/measurements">
     <input type="hidden" name="tab" value="{{ tab }}">
+    {% if tab == 'measurements' %}<input type="hidden" name="metric" value="">{% endif %}
     <select name="range" id="{{ idprefix }}-range-select" aria-label="Chart range">
       {% for opt in charts.range_options %}
       <option value="{{ opt }}" {{ 'selected' if current_range == opt }}>{{ charts.range_labels[opt] }}</option>
