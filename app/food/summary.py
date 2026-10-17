@@ -1,18 +1,19 @@
 """A day of eating for the Food tab: the entries by meal, the totals, and (when the profile allows) the targets."""
 
+from dataclasses import replace
 from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import clock
+from app.food.rings import MACRO_COLORS, macro_ring
 from app.food.targets import day_targets, deficit, fulfilment, sum_totals
 from app.measurements import tdee
-from app.models import FOOD_MEAL_LABELS, FOOD_MEALS, BiologicalSex, DietPreset, FoodLog, MacroGoal, User
+from app.models import FOOD_MEAL_LABELS, FOOD_MEALS, BiologicalSex, DietPreset, DoseLog, DoseStatus, FoodLog, MacroGoal, User
 from app.workouts import charts, progress
 from app.workouts import logging as workout_logging
 
-MACRO_COLORS = {"Protein": "#2563eb", "Carbs": "#ca8a04", "Fat": "#db2777"}
 _MAX_AHEAD = timedelta(days=7)
 
 
@@ -39,7 +40,15 @@ def day_summary(session: Session, user: User, day: date) -> dict:
                            .order_by(FoodLog.id)).all()
     meals = [{"key": key, "label": FOOD_MEAL_LABELS[key], "entries": [r for r in rows if r.meal == key],
               "totals": sum_totals([r for r in rows if r.meal == key])} for key in FOOD_MEALS]
-    summary = {"status": "ok", "day": day, "meals": meals, "eaten": sum_totals(rows), "entries": rows}
+    eaten = sum_totals(rows)
+    supplements = session.execute(select(DoseLog.peptide_name, func.sum(DoseLog.fiber_g)).where(
+        DoseLog.owner_id == user.id, DoseLog.scheduled_date == day, DoseLog.status != DoseStatus.SKIPPED, DoseLog.fiber_g.is_not(None))
+        .group_by(DoseLog.peptide_name).order_by(DoseLog.peptide_name)).all()
+    if supplements:                              # a fiber pill or powder taken today counts toward the day's fiber
+        eaten = replace(eaten, fiber_g=eaten.fiber_g + sum(g for _, g in supplements))
+    summary = {"status": "ok", "day": day, "meals": meals, "eaten": eaten, "entries": rows,
+               "fiber_supplements": [(name, round(g, 1)) for name, g in supplements]}
+    summary["eaten_ring"] = macro_ring(summary["eaten"].protein_g, summary["eaten"].carb_g, summary["eaten"].fat_g)
 
     labels = (("sex", "sex"), ("birth_date", "birth date"), ("height_in", "height"), ("activity_level", "activity level"))
     missing = [label for attr, label in labels if getattr(user, attr) is None]

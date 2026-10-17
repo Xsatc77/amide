@@ -38,8 +38,8 @@
     // Volume and units-per-package only matter once a medium says so; Amount is always shown.
     fieldWrappers.volume_ml.hidden = !rule.required.includes("volume_ml");
     fieldWrappers.units_per_package.hidden = !rule.required.includes("units_per_package");
-    const activeField = form.querySelector("[data-active-field]");               // a medicine that is not a powder vial can be marked active
-    if (activeField) activeField.hidden = !medium || medium === "Lyophilized" || form.querySelector('input[name="category"]:checked')?.value !== "Medicine";
+    const hideActive = !medium || medium === "Lyophilized" || form.querySelector('input[name="category"]:checked')?.value !== "Medicine";
+    form.querySelectorAll("[data-active-field]").forEach((el) => { el.hidden = hideActive; });      // a medicine that is not a powder vial can be marked active and can carry fiber
     for (const [field, wrapper] of Object.entries(fieldWrappers)) {
       const input = wrapper.querySelector("input");
       input.required = rule.required.includes(field);
@@ -67,7 +67,7 @@
     const storageSelect = form.elements.storage;
     if (category === "BAC Water" && storageSelect && !storageSelect.value) storageSelect.value = "room_temp";  // never refrigerated
     if (category === "Medicine") syncMediumFields();
-    else { const activeField = form.querySelector("[data-active-field]"); if (activeField) activeField.hidden = true; }
+    else form.querySelectorAll("[data-active-field]").forEach((el) => { el.hidden = true; });
   }
   categoryRadios.forEach((r) => r.addEventListener("change", syncCategoryFields));
 

@@ -489,6 +489,11 @@
     <fieldset class="form-section">
       <div class="grid">
         <label class="field span-2 check-field" data-active-field hidden><input type="checkbox" name="is_active" value="1" {% if f.is_active %}checked{% endif %}><span>Active: in use now. Shows in the Active section with a gauge of what is left.</span></label>
+        <label class="field span-2" data-active-field hidden>
+          <span>Fiber in one dose (g, optional)</span>
+          <input type="number" name="fiber_g_per_dose" min="0" max="100" step="0.1" inputmode="decimal" value="{{ f.fiber_g_per_dose }}" placeholder="e.g. a psyllium husk pill">
+          <small class="muted">Each dose you log adds this to the day's fiber on the Food tab.</small>
+        </label>
         <label class="field span-2 check-field"><input type="checkbox" name="local_seller" value="1" {% if f.local_seller %}checked{% endif %}><span>Local seller: picked up in person (no shipping wait, so no late-shipment alert)</span></label>
         <label class="field span-2">
           <span>Notes</span>

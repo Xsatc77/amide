@@ -35,7 +35,7 @@ router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium",
-              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active")
+              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active", "fiber_g_per_dose")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 RECON_FIELDS = ("supply_type", "bac_priority", "bac_volume")      # what a Supply item is; how BAC water is ranked and how big its bottle is
@@ -143,6 +143,16 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
     values["notes"] = raw["notes"] or None
     values["local_seller"] = raw.get("local_seller") == "1"
     values["is_active"] = raw.get("is_active") == "1" and category == Category.MEDICINE and raw.get("medium", "") not in ("", Medium.LYOPHILIZED.value)     # powder vials go active by reconstituting
+    values["fiber_g_per_dose"] = None
+    raw_fiber = (raw.get("fiber_g_per_dose") or "").strip()
+    if raw_fiber and category == Category.MEDICINE:
+        try:
+            values["fiber_g_per_dose"] = float(raw_fiber)
+            if not 0 <= values["fiber_g_per_dose"] <= 100:
+                raise ValueError
+        except ValueError:
+            values["fiber_g_per_dose"] = None
+            errors["fiber_g_per_dose"] = "Fiber per dose is a number of grams from 0 to 100."
     values["supply_type"] = _parse_choice(SupplyType, raw.get("supply_type", ""), None, "supply_type", errors) if category == Category.SUPPLY else None
     values["bac_priority"] = None
     if category == Category.BAC_WATER and raw.get("bac_priority", ""):
@@ -546,6 +556,7 @@ def _form_values(item: InventoryItem) -> dict:
         "notes": item.notes or "",
         "local_seller": "1" if item.local_seller else "",
         "is_active": "1" if item.is_active else "",
+        "fiber_g_per_dose": "" if item.fiber_g_per_dose is None else f"{item.fiber_g_per_dose:g}",
     }
 
 

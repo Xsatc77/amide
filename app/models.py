@@ -415,6 +415,7 @@ class InventoryItem(Base):
     dosed_units: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
     # A medicine that is not a powder vial (pills, drops, salve...) shown on the Active section while it is in use (see app/inventory/gauge.py).
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    fiber_g_per_dose: Mapped[float | None] = mapped_column(Float)      # grams of fiber in one dose of a pill or powder (psyllium husk, say); a logged dose adds it to the day's fiber
     # Supply items only: which supply this is (alcohol pad, recon syringe, ...). BAC Water only: 1 = used first, 4 = last, none = after all ranked.
     supply_type: Mapped[SupplyType | None] = mapped_column(_enum_column(SupplyType))
     bac_priority: Mapped[int | None] = mapped_column(Integer)
@@ -740,6 +741,7 @@ class DoseLog(Base):
     logged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     injection_site: Mapped[InjectionSite | None] = mapped_column(_enum_column(InjectionSite))
     volume_ml: Mapped[float | None] = mapped_column(Float)
+    fiber_g: Mapped[float | None] = mapped_column(Float)            # fiber this dose added to the day (from the item's fiber per dose); null when none
     inventory_units: Mapped[float | None] = mapped_column(Float)   # the share of a unit this dose took from a drops/pills item (see app/inventory/unit_use.py)
     supplies_used: Mapped[dict | None] = mapped_column(JSON)       # {supply item id: how many} this shot took (pads, syringes, needles), given back on undo
 

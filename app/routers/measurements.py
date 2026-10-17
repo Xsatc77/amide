@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import clock
@@ -13,7 +13,7 @@ from app.db import get_session
 from app import units
 from app.measurements.calculations import bmi, body_fat_pct, water_goal_oz, water_pace
 from app.food import usda
-from app.models import WaterLog, BodyMeasurement, DietPreset, Food, LoginSession, MacroGoal, Share, ShareCategory, User
+from app.models import FoodLog, WaterLog, BodyMeasurement, DietPreset, Food, LoginSession, MacroGoal, Share, ShareCategory, User
 from app.routers import journal, labs
 from app.templating import templates
 
@@ -300,6 +300,18 @@ def _silhouette_shape(sex: str | None) -> dict:
     return {"body_path": path, "points": points, "label_slots": _LABEL_SLOTS}
 
 
+def _nutrition_range(session: Session, uid: int, window_start: date | None, as_of: date) -> dict | None:
+    """The macros eaten across the chosen range, as a ring: grams in total, and per day over the days that have food logged. None when nothing was logged."""
+    from app.food.rings import macro_ring
+    query = select(func.sum(FoodLog.protein_g), func.sum(FoodLog.carb_g), func.sum(FoodLog.fat_g), func.count(func.distinct(FoodLog.eaten_on))).where(
+        FoodLog.owner_id == uid, FoodLog.eaten_on <= as_of)
+    if window_start is not None:
+        query = query.where(FoodLog.eaten_on >= window_start)
+    protein, carb, fat, days = session.execute(query).one()
+    ring = macro_ring(protein or 0, carb or 0, fat or 0)
+    return {"ring": ring, "days": days, "days_logged": days} if ring else None
+
+
 def _range_window(range_param: str | None, as_of_param: str | None) -> tuple[str, date, date | None]:
     """(range_key, as_of, window_start). `range_key` is always one of RANGES -- an absent or
     unrecognized value silently falls back to DEFAULT_RANGE, never a 500. `as_of` mirrors
@@ -532,6 +544,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     }
     if tab == "measurements" and me_user:
         _add_derived_charts(session, me_user, own_entries, window_start, u, context["charts"])
+        context["nutrition_range"] = _nutrition_range(session, uid, window_start, as_of)
     if tab == "journal":
         edit_raw = (extra or {}).get("journal_edit") or request.query_params.get("edit")
         try:

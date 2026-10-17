@@ -1,0 +1,13 @@
+{#- A donut of what was eaten, split into protein, carbs and fat by calories, with its legend. `r` comes from app.food.rings.macro_ring. -#}
+{% macro macro_ring(r, label, per_day=none) %}
+<div class="macro-ring-wrap">
+  <svg viewBox="0 0 {{ r.ring.size }} {{ r.ring.size }}" class="macro-ring" role="img" aria-label="{{ label }}">
+    {% for s in r.ring.slices %}<path d="{{ s.path }}" fill="{{ r.colors[s.name] }}"><title>{{ s.name }} {{ (s.share * 100) | round | int }}%</title></path>{% endfor %}
+    <text x="{{ r.ring.size / 2 }}" y="{{ r.ring.size / 2 + 4 }}" text-anchor="middle" class="macro-ring-total">{{ '{:,}'.format(r.kcal) }}</text>
+  </svg>
+  <ul class="food-legend">
+    {% for item in r.legend %}<li><span class="swatch" style="background: {{ item.color }}"></span> {{ item.name }}: <strong>{{ '{:,}'.format(item.grams) }} g</strong> <span class="muted">({{ item.pct }}%{% if per_day %}, about {{ (item.grams / per_day) | round | int }} g a day{% endif %})</span></li>{% endfor %}
+    <li class="muted small">{{ '{:,}'.format(r.kcal) }} kcal from protein, carbs and fat</li>
+  </ul>
+</div>
+{% endmacro %}

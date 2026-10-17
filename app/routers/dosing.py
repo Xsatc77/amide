@@ -237,6 +237,7 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
         dose_unit=item.dose_unit, route=item.route.value, scheduled_date=scheduled_date,
         scheduled_time_of_day=item.time_of_day, status=status, logged_at=datetime.now(timezone.utc),
         injection_site=site, volume_ml=volume_ml, inventory_units=units_taken, supplies_used=supplies or None,
+        fiber_g=stock.fiber_g_per_dose if stock is not None and vial is None and stock.fiber_g_per_dose else None,
     ))
 
     empty_vial_id = None

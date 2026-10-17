@@ -1553,3 +1553,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .learn-syringe-svg .sy-cap { font-size: 9px; fill: #6b7280; }
 
 .today-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---- macro rings: what was eaten, per day and per range ---- */
+.macro-ring-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.macro-ring { width: 120px; height: 120px; flex: none; }
+.macro-ring-total { font-size: 15px; font-weight: 600; fill: currentColor; }
+.macro-ring-wrap .food-legend { margin: 0; }
+.nutrition-range { margin: 16px 0; }
+.nutrition-range-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.nutrition-range-head .range-field { margin: 0; }
+.col-totals .macro-ring-wrap { margin-top: 10px; }

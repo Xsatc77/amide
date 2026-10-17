@@ -1,3 +1,4 @@
+{% from "measurements/_rings.html" import macro_ring %}
 <section aria-labelledby="food-heading" id="food">
   <div class="food-head">
     <h2 id="food-heading" class="section-title">Food</h2>
@@ -80,7 +81,13 @@
     </div>
     {% endfor %}
   </div>
+  {% if food.fiber_supplements %}<p class="muted small" data-fiber-supplements>Fiber includes {% for name, g in food.fiber_supplements %}{{ g }} g from {{ name }}{{ ', ' if not loop.last }}{% endfor %}, taken as a dose today.</p>{% endif %}
   <div class="food-recommend" data-food-recommend-box hidden aria-live="polite"></div>
+  {% endif %}
+
+  {% if food.eaten_ring %}
+  <h3 class="section-title">What you ate</h3>
+  <div data-eaten-ring>{{ macro_ring(food.eaten_ring, 'Calories eaten from protein, carbs and fat on this day') }}</div>
   {% endif %}
 
   <h3 class="section-title">Log</h3>
