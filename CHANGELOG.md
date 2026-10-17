@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Measurements: the **Nutrition** ring is now a choice in the Overview "Metric" dropdown (it follows the Range dropdown next to it) instead of a separate card.
 - Protocol editor: **"Split a dose" into several times a day now saves.** The editor refused to save the same peptide twice, which is exactly what a split into two or more injections a day makes, so it failed with "Please fix the highlighted fields." The same peptide can now appear again at a different time of day (it is still refused at the same time of day). And the red banner now lists each problem, saying which peptide or step it belongs to, instead of only telling you to fix the highlighted fields.
 - **Learn: a new section, "Break Out Yer 6-Guns, Welcome to the Wild Wild West".** Third in the tutorial: scammers are everywhere, legit vendors do not contact you first, start with vetted vendors and order small batches when you explore, customs clearance on both sides of the ocean, factory holiday closures, embargoes and changing rules, gray versus controlled and illegal, and what to do when a deal is too good to be true or someone is rushing you. Later sections moved down one number.
 - Fiber pills: setting "Fiber in one dose" on an item now also counts the doses you already took from it (ones that have no fiber amount yet), so the Food tab, the Journal and the rings catch up. A dose that already has its amount keeps it if you change the number later.

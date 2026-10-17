@@ -137,3 +137,12 @@ def test_the_range_ring_shows_the_calories_logged_over_the_range(client, db, me)
     eat(db, me, 4, protein=30, carb=60, fat=10)
     seg = client.get("/measurements?tab=measurements&range=7d").text.split("data-range-ring", 1)[1][:2500]
     assert ">900</text>" in seg
+
+
+def test_nutrition_is_a_choice_in_the_overview_metric_dropdown_not_a_separate_card(client, db, me):
+    eat(db, me, 3, protein=30, carb=60, fat=10)
+    page = client.get("/measurements?tab=measurements&range=7d").text
+    assert '<option value="nutrition">' in page
+    assert 'class="overview-chart-panel" data-metric="nutrition" data-range-ring' in page
+    assert 'class="card nutrition-range" data-range-ring' not in page          # the old standalone card is gone
+    assert page.count("data-range-ring") == 1

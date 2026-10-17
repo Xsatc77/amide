@@ -65,7 +65,6 @@
     {% set overview_extra = (charts.extra or []) | selectattr('chart') | list %}
     {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf or overview_extra %}
     <div class="overview-controls-row">
-      {% if has_metrics %}
       <label class="field">
         <span>Metric</span>
         <select id="overview-metric-select">
@@ -75,12 +74,12 @@
           {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
           {% if charts.bf %}<option value="bf">Body Fat %</option>{% endif %}
           {% if overview_extra %}<optgroup label="Worked out from your entries">{% for s in overview_extra %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}</optgroup>{% endif %}
+          <option value="nutrition">Nutrition (protein, carbs, fat, fiber)</option>
         </select>
       </label>
-      {% endif %}
       {{ range_select('measurements', charts.range, 'overview') }}
     </div>
-    {% if has_metrics %}
+    {% if not has_metrics %}<div class="empty"><p class="muted">No measurements in this range yet.</p></div>{% endif %}
     {% set shown = namespace(done=false) %}
     <div id="overview-chart-slot">
       {% for s in overview_metrics %}
@@ -98,11 +97,19 @@
       <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{% if s.kind == 'dual' %}{{ dual_chart(s.chart, s.label, s.a_label, s.b_label) }}{% else %}{{ line_chart(s.chart, s.label) }}{% endif %}</div>
       {% set shown.done = true %}
       {% endfor %}
+      <div class="overview-chart-panel" data-metric="nutrition" data-range-ring{{ '' if not shown.done else ' hidden' }}>
+        <div class="card nutrition-range">
+          <h3>Nutrition over {{ charts.range_labels[charts.range] | lower }}</h3>
+          {% if nutrition_range %}
+          {{ macro_ring(nutrition_range.ring, 'Protein, carbs, fat and fiber eaten over ' ~ (charts.range_labels[charts.range] | lower), nutrition_range.days) }}
+          <p class="muted small">{{ nutrition_range.days_logged }} day{{ '' if nutrition_range.days_logged == 1 else 's' }} with food logged. "A day" is the average over those days.</p>
+          {% else %}
+          <p class="muted">No food logged in this range.</p>
+          {% endif %}
+        </div>
+      </div>
     </div>
     <div id="chart-tooltip" class="chart-tooltip" hidden role="status"></div>
-    {% else %}
-    <div class="empty"><p class="muted">No measurements in this range yet.</p></div>
-    {% endif %}
   </section>
   {% endif %}
 
@@ -122,20 +129,6 @@
   </section>
 </div>
 
-{% if charts %}
-<section class="card nutrition-range" data-range-ring aria-labelledby="nutrition-range-heading">
-  <div class="nutrition-range-head">
-    <h2 id="nutrition-range-heading" class="section-title">Nutrition over {{ charts.range_labels[charts.range] | lower }}</h2>
-    {{ range_select('measurements', charts.range, 'nutrition') }}
-  </div>
-  {% if nutrition_range %}
-  {{ macro_ring(nutrition_range.ring, 'Calories eaten from protein, carbs and fat over ' ~ (charts.range_labels[charts.range] | lower), nutrition_range.days) }}
-  <p class="muted small">{{ nutrition_range.days_logged }} day{{ '' if nutrition_range.days_logged == 1 else 's' }} with food logged. "A day" is the average over those days.</p>
-  {% else %}
-  <p class="muted">No food logged in this range.</p>
-  {% endif %}
-</section>
-{% endif %}
 
 {% if charts %}
 <section aria-labelledby="charts-heading">
