@@ -41,7 +41,6 @@ def day_summary(session: Session, user: User, day: date) -> dict:
     meals = [{"key": key, "label": FOOD_MEAL_LABELS[key], "entries": [r for r in rows if r.meal == key],
               "totals": sum_totals([r for r in rows if r.meal == key])} for key in FOOD_MEALS]
     eaten = sum_totals(rows)
-    food_fiber = eaten.fiber_g
     supplements = session.execute(select(DoseLog.peptide_name, func.sum(DoseLog.fiber_g)).where(
         DoseLog.owner_id == user.id, DoseLog.scheduled_date == day, DoseLog.status != DoseStatus.SKIPPED, DoseLog.fiber_g.is_not(None))
         .group_by(DoseLog.peptide_name).order_by(DoseLog.peptide_name)).all()
@@ -49,7 +48,7 @@ def day_summary(session: Session, user: User, day: date) -> dict:
         eaten = replace(eaten, fiber_g=eaten.fiber_g + sum(g for _, g in supplements))
     summary = {"status": "ok", "day": day, "meals": meals, "eaten": eaten, "entries": rows,
                "fiber_supplements": [(name, round(g, 1)) for name, g in supplements]}
-    summary["eaten_ring"] = macro_ring(summary["eaten"].protein_g, summary["eaten"].carb_g, summary["eaten"].fat_g, fiber_g=food_fiber, extra_fiber_g=eaten.fiber_g - food_fiber)
+    summary["eaten_ring"] = macro_ring(eaten.protein_g, eaten.carb_g, eaten.fat_g, eaten.fiber_g)
 
     labels = (("sex", "sex"), ("birth_date", "birth date"), ("height_in", "height"), ("activity_level", "activity level"))
     missing = [label for attr, label in labels if getattr(user, attr) is None]

@@ -310,7 +310,7 @@ def _nutrition_range(session: Session, uid: int, window_start: date | None, as_o
     from app.food import fiber as pill_fiber
     protein, carb, fat, food_fiber, days = session.execute(query).one()
     pills = sum(pill_fiber.by_day(session, uid, window_start, as_of).values())
-    ring = macro_ring(protein or 0, carb or 0, fat or 0, fiber_g=food_fiber or 0, extra_fiber_g=pills)
+    ring = macro_ring(protein or 0, carb or 0, fat or 0, (food_fiber or 0) + pills)
     return {"ring": ring, "days": days, "days_logged": days} if ring else None
 
 

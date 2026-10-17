@@ -7,6 +7,7 @@ import pytest
 from app import clock
 from app.food import day_overview, rings
 from app.models import FoodLog, JournalEntry, User
+from tests.test_unit_doses import clean as _clean_unit_doses  # noqa: F401  (removes the pill, its protocol and its dose logs)
 
 TODAY = clock.today()
 
@@ -26,10 +27,10 @@ def eat(db, me, days_ago, protein=0.0, carb=0.0, fat=0.0, meal="lunch"):
     db.commit()
 
 
-def test_the_ring_splits_calories_by_macro_at_4_4_and_9_per_gram():
-    r = rings.macro_ring(50, 100, 20)
-    assert [(i["name"], i["grams"], i["pct"]) for i in r["legend"]] == [("Protein", 50, 26), ("Carbs", 100, 51), ("Fat", 20, 23), ("Fiber", 0, 0)]
-    assert r["kcal"] == 780 and len(r["ring"]["slices"]) == 3
+def test_the_ring_is_sized_by_the_grams_logged_with_nothing_converted():
+    r = rings.macro_ring(50, 100, 20, 10)
+    assert [(i["name"], i["grams"], i["pct"]) for i in r["legend"]] == [("Protein", 50, 28), ("Carbs", 100, 56), ("Fat", 20, 11), ("Fiber", 10, 6)]
+    assert r["total_g"] == 180 and [s["name"] for s in r["ring"]["slices"]] == ["Protein", "Carbs", "Fat", "Fiber"]
 
 
 def test_no_macros_means_no_ring():
@@ -45,7 +46,7 @@ def test_a_journal_day_row_carries_that_days_ring(db, me):
     eat(db, me, 2, protein=30, carb=60, fat=10)
     day = TODAY - timedelta(days=2)
     row = day_overview.day_overviews(db, db.get(User, me), [day])[day]
-    assert row["macro_ring"]["kcal"] == 450
+    assert row["macro_ring"]["total_g"] == 100
 
 
 def test_the_journal_page_draws_the_ring_for_a_day_with_food(client, db, me):
@@ -74,25 +75,6 @@ def test_the_measurements_tab_ring_follows_the_chosen_range(client, db, me):
 
 # ---- fiber ------------------------------------------------------------------------------------------------------------------------------
 
-def test_fiber_is_its_own_slice_at_2_kcal_a_gram_and_comes_out_of_the_carbs():
-    r = rings.macro_ring(50, 100, 20, fiber_g=10)               # 100 g of carbs includes 10 g of fiber
-    names = {i["name"]: i for i in r["legend"]}
-    assert names["Carbs"]["grams"] == 90 and names["Fiber"]["grams"] == 10
-    assert r["kcal"] == 200 + 360 + 180 + 20                    # protein + digestible carbs + fat + fiber
-    assert [s["name"] for s in r["ring"]["slices"]] == ["Protein", "Carbs", "Fat", "Fiber"]
-
-
-def test_fiber_from_a_pill_adds_to_the_fiber_slice_without_taking_from_the_carbs():
-    r = rings.macro_ring(0, 40, 0, fiber_g=4, extra_fiber_g=3)
-    names = {i["name"]: i for i in r["legend"]}
-    assert names["Carbs"]["grams"] == 36 and names["Fiber"]["grams"] == 7
-
-
-def test_more_fiber_than_carbs_never_goes_negative():
-    r = rings.macro_ring(0, 5, 0, fiber_g=8)
-    assert {i["name"]: i["grams"] for i in r["legend"]}["Carbs"] == 0
-
-
 def test_the_journal_day_ring_includes_fiber_from_food_and_a_pill(db, me):
     from app.models import DoseLog, DoseStatus, DoseUnit, Peptide, PeptideSource, Protocol, TimeOfDay
     db.add(FoodLog(owner_id=me, eaten_on=TODAY - timedelta(days=2), meal="lunch", name="Beans", serving="1", servings=1, calories=200, protein_g=10, carb_g=30, fat_g=2, fiber_g=8))
@@ -109,7 +91,7 @@ def test_the_journal_day_ring_includes_fiber_from_food_and_a_pill(db, me):
         day = TODAY - timedelta(days=2)
         row = day_overview.day_overviews(db, db.get(User, me), [day])[day]
         grams = {i["name"]: i["grams"] for i in row["macro_ring"]["legend"]}
-        assert grams["Fiber"] == 11 and grams["Carbs"] == 22
+        assert grams["Fiber"] == 11 and grams["Carbs"] == 30         # carbs are shown as logged, not reduced by the fiber
     finally:
         db.query(DoseLog).delete()
         db.query(Protocol).filter(Protocol.name == "Ringfiber Protocol").delete()
@@ -122,3 +104,16 @@ def test_the_range_ring_has_fiber(client, db, me):
     db.commit()
     page = client.get("/measurements?tab=measurements&range=7d").text
     assert "Fiber: <strong>8 g" in page
+
+
+def test_the_food_tab_ring_counts_a_fiber_pill_in_the_fiber_slice(client, db, me):
+    from tests.test_fiber_supplement import make, log, set_fiber
+    from app.models import Medium
+    db.add(FoodLog(owner_id=me, eaten_on=TODAY, meal="lunch", name="Beans", serving="1", servings=1, calories=200, protein_g=10, carb_g=30, fat_g=2, fiber_g=8))
+    db.commit()
+    item_id, pid, piid = make(me, medium=Medium.PILL)
+    set_fiber(item_id, 3)
+    log(client, pid, piid)
+    page = client.get("/measurements?tab=food").text
+    seg = page.split("data-eaten-ring", 1)[1][:2500]
+    assert "Fiber: <strong>11 g" in seg and "Carbs: <strong>30 g" in seg
