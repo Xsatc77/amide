@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
@@ -24,7 +24,7 @@ from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
 from app.models import (
-    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseUnit, InventoryItem, Medium, SupplyType,
+    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseLog, DoseStatus, DoseUnit, InventoryItem, Medium, ProtocolItem, SupplyType,
     Order, OrderItem, PaymentMethodType, PurchasingUnit, Sale, Share, ShareCategory, StorageLocation,
     User, Vendor, VendorContact, VendorPaymentMethod,
 )
@@ -1082,6 +1082,10 @@ async def update_item(item_id: int, request: Request, session: Session = Depends
         if key == "category":
             continue  # never reassigned after creation
         setattr(item, key, value)
+    if item.fiber_g_per_dose:        # doses already taken from this item before its fiber amount was set count too; doses that already have an amount keep it
+        session.execute(update(DoseLog).where(
+            DoseLog.owner_id == uid, DoseLog.fiber_g.is_(None), DoseLog.status != DoseStatus.SKIPPED,
+            DoseLog.protocol_item_id.in_(select(ProtocolItem.id).where(ProtocolItem.inventory_item_id == item.id))).values(fiber_g=item.fiber_g_per_dose))
     session.commit()
     return RedirectResponse("/inventory", status_code=303)
 

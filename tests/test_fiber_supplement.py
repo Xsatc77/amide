@@ -120,3 +120,13 @@ def test_the_food_tab_says_how_much_of_the_fiber_came_from_a_pill(client, me):
             u = s.get(User, me)
             u.sex = u.birth_date = u.height_in = u.activity_level = None
             s.commit()
+
+
+def test_setting_the_fiber_amount_after_a_dose_was_logged_counts_that_dose_too(client, me):
+    item_id, pid, piid = make(me, medium=Medium.PILL)
+    log(client, pid, piid)                                   # taken before any fiber amount was set
+    assert day_fiber(me) == 0
+    assert edit_fiber(client, item_id, "3.5").status_code == 303
+    assert day_fiber(me) == pytest.approx(3.5)
+    edit_fiber(client, item_id, "5")                         # changing it later does not rewrite a dose that already has its amount
+    assert day_fiber(me) == pytest.approx(3.5)
