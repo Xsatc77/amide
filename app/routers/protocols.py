@@ -278,6 +278,35 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
     }
 
 
+_FIELD_LABELS = {"name": "Name", "goal": "Goals", "start_date": "Start date", "end_date": "End date", "weeks": "Length in weeks", "items": "Peptides",
+                 "peptide_id": "Peptide", "new_name": "Peptide name", "dose": "Dose", "dose_unit": "Unit", "frequency": "Frequency", "every_n_days": "Days between doses",
+                 "weekdays": "Days of the week", "time_of_day": "Time of day", "route": "Route", "inventory_item_id": "Inventory item", "notes": "Notes",
+                 "start_week": "Start week", "end_week": "End week", "weeks_off": "Weeks off"}
+
+
+def _error_summary(session: Session, state: dict, errors: dict) -> list[str]:
+    """One plain line per problem, saying which peptide or step it belongs to, for the banner above the form ("Please fix the highlighted fields" alone
+    sends people hunting for what is wrong)."""
+    lines = []
+    for key, message in errors.items():
+        parts = key.split("-")
+        if parts[0] != "items" or len(parts) < 3 or not parts[1].isdigit():
+            lines.append(f"{_FIELD_LABELS.get(key, key.replace('_', ' ').capitalize())}: {message}")
+            continue
+        n = int(parts[1])
+        raw = (state.get("items") or [])[n] if n < len(state.get("items") or []) else {}
+        name = raw.get("new_name") or ""
+        if raw.get("peptide_id", "").isdigit():
+            pep = session.get(Peptide, int(raw["peptide_id"]))
+            name = pep.name if pep else name
+        who = f"Peptide {n + 1}" + (f" ({name})" if name else "")
+        where = f", step {int(parts[3]) + 1}" if len(parts) > 4 and parts[2] == "steps" and parts[3].isdigit() else (
+            f", cycle-off {int(parts[3]) + 1}" if len(parts) > 4 and parts[2] == "cycle_offs" and parts[3].isdigit() else "")
+        field = parts[-1]
+        lines.append(f"{who}{where}, {_FIELD_LABELS.get(field, field.replace('_', ' '))}: {message}")
+    return lines
+
+
 def _render_builder(request: Request, session: Session, state: dict, *, errors: dict | None = None,
                     protocol: Protocol | None = None, repeat_of: Protocol | None = None,
                     today: date, status_code: int = 200,
@@ -289,6 +318,7 @@ def _render_builder(request: Request, session: Session, state: dict, *, errors: 
         {
             "state": state,
             "errors": errors or {},
+            "error_summary": _error_summary(session, state, errors or {}) if errors else [],
             "protocol": protocol,
             "repeat_of": repeat_of,
             "status": protocol_status(protocol, today) if protocol else None,

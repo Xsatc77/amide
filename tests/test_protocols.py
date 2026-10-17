@@ -379,3 +379,48 @@ def test_list_page_course_totals_is_none_without_an_end_date(client, db):
     data = json.loads(m.group(1))
     [(_, totals)] = data.items()
     assert totals is None
+
+
+def test_the_error_banner_says_what_is_wrong_not_just_to_fix_the_highlighted_fields(client):
+    r = client.post("/protocols", data={"name": "", "start_date": "2026-09-01"})
+    assert r.status_code == 422
+    banner = r.text.split('class="alert builder-alert"', 1)[1].split("</div>", 1)[0]
+    assert "Protocol name is required." in banner and "Pick at least one goal." in banner
+
+
+def test_the_banner_names_which_peptide_a_problem_belongs_to(client, db):
+    from app.models import Peptide, PeptideSource
+    pep = Peptide(name="Bannertest Pep", source=PeptideSource.CUSTOM)
+    db.add(pep)
+    db.commit()
+    try:
+        r = client.post("/protocols", data={"name": "P", "start_date": "2026-09-01", "goal": "fat-loss", "items-0-peptide_id": str(pep.id), "items-0-dose": "abc",
+                                            "items-0-dose_unit": "mg", "items-0-frequency": "daily", "items-0-time_of_day": "am", "items-0-route": "subq"})
+        banner = r.text.split('class="alert builder-alert"', 1)[1].split("</div>", 1)[0]
+        assert "Bannertest Pep" in banner and "Dose must be a number." in banner
+    finally:
+        db.rollback()
+        db.delete(pep)
+        db.commit()
+
+
+def test_a_split_dose_protocol_with_one_peptide_at_two_times_saves(client, db):
+    from app import clock
+    from app.models import Peptide, PeptideSource, Protocol
+    pep = Peptide(name="Splittest Pep", source=PeptideSource.CUSTOM)
+    db.add(pep)
+    db.commit()
+    try:
+        data = {"name": "Splittest", "start_date": clock.today().isoformat(), "goal": "fat-loss"}
+        for i, t in enumerate(("am", "pm")):
+            data.update({f"items-{i}-peptide_id": str(pep.id), f"items-{i}-dose": "1300", f"items-{i}-dose_unit": "mg", f"items-{i}-frequency": "daily",
+                         f"items-{i}-time_of_day": t, f"items-{i}-route": "oral"})
+        r = client.post("/protocols", data=data, follow_redirects=False)
+        assert r.status_code == 303, r.text[:300]
+        saved = db.query(Protocol).filter(Protocol.name == "Splittest").one()
+        assert sorted(i.time_of_day.value for i in saved.items) == ["am", "pm"] and {i.peptide_id for i in saved.items} == {pep.id}
+    finally:
+        db.rollback()
+        db.query(Protocol).filter(Protocol.name == "Splittest").delete(synchronize_session=False)
+        db.delete(db.get(Peptide, pep.id))
+        db.commit()

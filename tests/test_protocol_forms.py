@@ -137,3 +137,15 @@ def test_state_round_trip():
     assert s["name"] == "Cut" and s["titration"] is True and s["goals"] == ["fat-loss"]
     assert s["items"][0]["steps"][0]["dose"] == "bad"
     assert s["items"][1]["new_name"] == "Thing" and s["items"][1]["weekdays"] == "MF"
+
+
+def test_the_same_peptide_can_be_dosed_at_two_times_of_day_which_is_what_a_split_dose_makes():
+    _, e = parse_protocol_form(base(items__0__frequency="daily", items__1__peptide_id="1", items__1__dose="2.5", items__1__dose_unit="mg",
+                                   items__1__frequency="daily", items__1__time_of_day="pm", items__1__route="subq"), **IDS)
+    assert e == {}
+
+
+def test_the_same_peptide_at_the_same_time_of_day_twice_is_still_refused_and_says_so():
+    _, e = parse_protocol_form(base(items__1__peptide_id="1", items__1__dose="2.5", items__1__dose_unit="mg", items__1__frequency="weekly",
+                                   items__1__time_of_day="am", items__1__route="subq"), **IDS)
+    assert e["items-1-peptide_id"] == "This peptide is already in the protocol at the same time of day. Give it a different time to dose it more than once a day."

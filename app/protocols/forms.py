@@ -314,7 +314,7 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
 
     titration = state["titration"]
     items: list[ParsedItem] = []
-    seen_peptides: set[int] = set()
+    seen_peptides: set[tuple[int, str]] = set()          # a peptide can appear again at another time of day (a split dose), never at the same one
     for i, raw in enumerate(state["items"]):
         key = f"items-{i}"
         peptide_id = new_name = None
@@ -325,9 +325,9 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
                 peptide_id = -1
             if peptide_id not in peptide_ids:
                 errors[f"{key}-peptide_id"] = "Unknown peptide."
-            elif peptide_id in seen_peptides:
-                errors[f"{key}-peptide_id"] = "This peptide is already in the protocol."
-            seen_peptides.add(peptide_id)
+            elif (peptide_id, raw["time_of_day"] or "any") in seen_peptides:
+                errors[f"{key}-peptide_id"] = "This peptide is already in the protocol at the same time of day. Give it a different time to dose it more than once a day."
+            seen_peptides.add((peptide_id, raw["time_of_day"] or "any"))
         elif raw["new_name"]:
             new_name = raw["new_name"]
             if len(new_name) > 120:

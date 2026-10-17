@@ -82,7 +82,8 @@
 {% endif %}
 
 <form id="builder-form" method="post" action="{{ action }}" novalidate>
-  {% if errors %}<div class="alert builder-alert" role="alert">Please fix the highlighted fields.</div>{% endif %}
+  {% if errors %}<div class="alert builder-alert" role="alert">Please fix {{ 'this' if error_summary | length == 1 else 'these' }}:
+    <ul>{% for line in error_summary %}<li>{{ line }}</li>{% endfor %}</ul></div>{% endif %}
 
   <section class="builder-step">
     <h2 class="section-title"><span class="step-num">1</span> Goals</h2>
