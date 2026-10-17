@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import clock
 from app import water as water_log
+from app.food import fiber as pill_fiber
 from app.food.rings import macro_ring
 from app.food.targets import deficit
 from app.measurements import tdee
@@ -63,8 +64,9 @@ def day_overviews(session: Session, user: User, days) -> dict[date, dict]:
     water = {d: v[0] for d, v in per_day.items() if d in wanted}
     eaten = dict(session.execute(select(FoodLog.eaten_on, func.sum(FoodLog.calories)).where(
         FoodLog.owner_id == user.id, FoodLog.eaten_on.in_(wanted)).group_by(FoodLog.eaten_on)).all())
-    macros = {d: (p, c, f) for d, p, c, f in session.execute(select(FoodLog.eaten_on, func.sum(FoodLog.protein_g), func.sum(FoodLog.carb_g), func.sum(FoodLog.fat_g)).where(
+    macros = {d: (p, c, f, fi) for d, p, c, f, fi in session.execute(select(FoodLog.eaten_on, func.sum(FoodLog.protein_g), func.sum(FoodLog.carb_g), func.sum(FoodLog.fat_g), func.sum(FoodLog.fiber_g)).where(
         FoodLog.owner_id == user.id, FoodLog.eaten_on.in_(wanted)).group_by(FoodLog.eaten_on)).all()}
+    pills = pill_fiber.by_day(session, user.id, min(wanted), max(wanted))
     burn = burn_by_day(session, user.id)
     work = workout_totals(session, user.id)
     base, note = maintenance(session, user)
@@ -74,7 +76,7 @@ def day_overviews(session: Session, user: User, days) -> dict[date, dict]:
         cardio, lifted = work.get(day, {}).get("cardio_min", 0), work.get(day, {}).get("lifted_lb", 0)
         if not (w or e or b or cardio or lifted):
             continue
-        out[day] = {"water_oz": round(w, 1) if w % 1 else int(w), "water_goal_oz": per_day[day][1] if day in per_day else None, "eaten_kcal": round(e), "macro_ring": macro_ring(*macros[day]) if day in macros else None, "burn_kcal": round(b),
+        out[day] = {"water_oz": round(w, 1) if w % 1 else int(w), "water_goal_oz": per_day[day][1] if day in per_day else None, "eaten_kcal": round(e), "macro_ring": macro_ring(*macros[day], extra_fiber_g=pills.get(day, 0)) if day in macros else None, "burn_kcal": round(b),
                     "cardio_min": round(cardio), "lifted_lb": round(lifted),
                     "deficit": deficit(base, b, e) if base is not None and e else None,
                     "deficit_note": note if base is None and e else None}

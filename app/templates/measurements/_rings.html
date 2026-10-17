@@ -7,7 +7,7 @@
   </svg>
   <ul class="food-legend">
     {% for item in r.legend %}<li><span class="swatch" style="background: {{ item.color }}"></span> {{ item.name }}: <strong>{{ '{:,}'.format(item.grams) }} g</strong> <span class="muted">({{ item.pct }}%{% if per_day %}, about {{ (item.grams / per_day) | round | int }} g a day{% endif %})</span></li>{% endfor %}
-    <li class="muted small">{{ '{:,}'.format(r.kcal) }} kcal from protein, carbs and fat</li>
+    <li class="muted small">{{ "{:,}".format(r.kcal) }} kcal. Carbs here leave out fiber, which has its own slice at about 2 kcal a gram.</li>
   </ul>
 </div>
 {% endmacro %}

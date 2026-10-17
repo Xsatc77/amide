@@ -28,7 +28,7 @@ def eat(db, me, days_ago, protein=0.0, carb=0.0, fat=0.0, meal="lunch"):
 
 def test_the_ring_splits_calories_by_macro_at_4_4_and_9_per_gram():
     r = rings.macro_ring(50, 100, 20)
-    assert [(i["name"], i["grams"], i["pct"]) for i in r["legend"]] == [("Protein", 50, 26), ("Carbs", 100, 51), ("Fat", 20, 23)]
+    assert [(i["name"], i["grams"], i["pct"]) for i in r["legend"]] == [("Protein", 50, 26), ("Carbs", 100, 51), ("Fat", 20, 23), ("Fiber", 0, 0)]
     assert r["kcal"] == 780 and len(r["ring"]["slices"]) == 3
 
 
@@ -38,7 +38,7 @@ def test_no_macros_means_no_ring():
 
 def test_a_macro_with_nothing_is_left_out_of_the_ring_but_stays_in_the_legend():
     r = rings.macro_ring(40, 0, 10)
-    assert len(r["ring"]["slices"]) == 2 and [i["name"] for i in r["legend"]] == ["Protein", "Carbs", "Fat"]
+    assert len(r["ring"]["slices"]) == 2 and [i["name"] for i in r["legend"]] == ["Protein", "Carbs", "Fat", "Fiber"]
 
 
 def test_a_journal_day_row_carries_that_days_ring(db, me):
@@ -70,3 +70,55 @@ def test_the_measurements_tab_ring_follows_the_chosen_range(client, db, me):
     assert "data-range-ring" in week and "data-range-ring" in month
     assert "Fat: <strong>100 g" not in week and "Fat: <strong>100 g" in month
     assert "Protein: <strong>100 g" in week
+
+
+# ---- fiber ------------------------------------------------------------------------------------------------------------------------------
+
+def test_fiber_is_its_own_slice_at_2_kcal_a_gram_and_comes_out_of_the_carbs():
+    r = rings.macro_ring(50, 100, 20, fiber_g=10)               # 100 g of carbs includes 10 g of fiber
+    names = {i["name"]: i for i in r["legend"]}
+    assert names["Carbs"]["grams"] == 90 and names["Fiber"]["grams"] == 10
+    assert r["kcal"] == 200 + 360 + 180 + 20                    # protein + digestible carbs + fat + fiber
+    assert [s["name"] for s in r["ring"]["slices"]] == ["Protein", "Carbs", "Fat", "Fiber"]
+
+
+def test_fiber_from_a_pill_adds_to_the_fiber_slice_without_taking_from_the_carbs():
+    r = rings.macro_ring(0, 40, 0, fiber_g=4, extra_fiber_g=3)
+    names = {i["name"]: i for i in r["legend"]}
+    assert names["Carbs"]["grams"] == 36 and names["Fiber"]["grams"] == 7
+
+
+def test_more_fiber_than_carbs_never_goes_negative():
+    r = rings.macro_ring(0, 5, 0, fiber_g=8)
+    assert {i["name"]: i["grams"] for i in r["legend"]}["Carbs"] == 0
+
+
+def test_the_journal_day_ring_includes_fiber_from_food_and_a_pill(db, me):
+    from app.models import DoseLog, DoseStatus, DoseUnit, Peptide, PeptideSource, Protocol, TimeOfDay
+    db.add(FoodLog(owner_id=me, eaten_on=TODAY - timedelta(days=2), meal="lunch", name="Beans", serving="1", servings=1, calories=200, protein_g=10, carb_g=30, fat_g=2, fiber_g=8))
+    pep = Peptide(name="Ringfiber Peptide", source=PeptideSource.CUSTOM)
+    db.add(pep)
+    db.flush()
+    proto = Protocol(name="Ringfiber Protocol", start_date=TODAY - timedelta(days=5), owner_id=me)
+    db.add(proto)
+    db.flush()
+    db.add(DoseLog(owner_id=me, protocol_id=proto.id, peptide_id=pep.id, peptide_name="Ringfiber", dose_value=1, dose_unit=DoseUnit.MG, route="oral",
+                   scheduled_date=TODAY - timedelta(days=2), scheduled_time_of_day=TimeOfDay.AM, status=DoseStatus.ON_TIME, fiber_g=3))
+    db.commit()
+    try:
+        day = TODAY - timedelta(days=2)
+        row = day_overview.day_overviews(db, db.get(User, me), [day])[day]
+        grams = {i["name"]: i["grams"] for i in row["macro_ring"]["legend"]}
+        assert grams["Fiber"] == 11 and grams["Carbs"] == 22
+    finally:
+        db.query(DoseLog).delete()
+        db.query(Protocol).filter(Protocol.name == "Ringfiber Protocol").delete()
+        db.query(Peptide).filter(Peptide.name == "Ringfiber Peptide").delete()
+        db.commit()
+
+
+def test_the_range_ring_has_fiber(client, db, me):
+    db.add(FoodLog(owner_id=me, eaten_on=TODAY - timedelta(days=3), meal="lunch", name="Beans", serving="1", servings=1, calories=200, protein_g=10, carb_g=30, fat_g=2, fiber_g=8))
+    db.commit()
+    page = client.get("/measurements?tab=measurements&range=7d").text
+    assert "Fiber: <strong>8 g" in page
