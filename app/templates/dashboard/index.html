@@ -128,7 +128,7 @@
     </li>
     {% endfor %}
     {% for r in alerts.photos %}
-    <li class="photo-alert"><strong>BODY PHOTO</strong> {{ r.text }} <a href="/measurements?tab=measurements&amp;add_photo=1#body-photos">Add photos</a></li>
+    <li class="photo-alert"><strong>BODY PHOTO</strong> {{ r.text }} <a class="btn btn-small" href="/measurements?tab=measurements&amp;add_photo=1#body-photos">Add photos</a></li>
     {% endfor %}
     {% for a in alerts.groups_gone %}
     <li class="group-gone-alert">{{ a.text }}

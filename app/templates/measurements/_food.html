@@ -31,7 +31,7 @@
   {% if food.status == 'missing_profile' %}
   <div class="empty"><p><strong>Add your body profile to see your calorie limit.</strong></p>
     <p class="muted">We need your {{ food.missing_fields | join(', ') }}. You can still log food below.</p>
-    <p><a href="/settings">Go to Settings</a></p></div>
+    <p><a class="btn" href="/settings">Go to Settings</a></p></div>
   {% elif food.status == 'missing_weight' %}
   <div class="empty"><p><strong>Log a weigh-in to see your calorie limit.</strong></p>
     <p class="muted">Add a weight on the Measurements tab first. You can still log food below.</p></div>

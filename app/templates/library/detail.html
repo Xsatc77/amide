@@ -13,7 +13,7 @@
 {% block content %}
 <div class="page-head lib-head">
   <div>
-    <p class="small"><a href="/library">← Library</a></p>
+    <p class="small"><a class="btn btn-ghost btn-small" href="/library">← Library</a></p>
     <h1>{{ p.name }}</h1>
     {% if not is_sheet and card.subtitle %}<p class="muted">{{ card.subtitle }}</p>{% endif %}
     <div class="tags lib-tags">
@@ -71,7 +71,7 @@
             <tr><td><span class="tier-badge tier-{{ t.level.value | lower }}">{{ t.level.value }}</span></td>
                 <td>{{ t.dose_text or '—' }}</td><td>{{ t.frequency_text or '—' }}</td>
                 <td>{{ t.time_of_day.label if t.time_of_day else '—' }}</td>
-                <td>{% if calc_urls.get(t.level) %}<a href="{{ calc_urls[t.level] }}">Open in calculator</a>{% endif %}</td></tr>
+                <td>{% if calc_urls.get(t.level) %}<a class="btn btn-small" href="{{ calc_urls[t.level] }}">Open in calculator</a>{% endif %}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -261,7 +261,7 @@
 
 <section class="lib-section" id="learning" aria-labelledby="learning-heading">
   <h2 id="learning-heading" class="section-title">My notes and saved articles</h2>
-  <p class="small muted">Private to you. <a href="/library/learning">See all your notes</a>.</p>
+  <p class="small muted">Private to you. <a class="btn btn-small" href="/library/learning">See all your notes</a>.</p>
   {% if my_notes %}
   <ul class="note-list">
     {% for n in my_notes %}

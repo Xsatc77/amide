@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <p class="muted small"><a href="/inventory">&larr; Inventory</a></p>
+    <p class="muted small"><a class="btn btn-ghost btn-small" href="/inventory">&larr; Inventory</a></p>
     <h1>{{ item.name }}</h1>
     {% if request.query_params.get('delete_blocked') %}
     <p class="note" role="alert"><strong>{{ item.name }} was not deleted.</strong> It is on an order that has not arrived yet, and deleting
@@ -227,7 +227,7 @@
         <td>{{ li.order.tax | money or '—' }}</td>
         <td>{{ li.order.shipping | money or '—' }}</td>
         <td>{{ li.total_cost | money or '—' }}</td>
-        <td>{% if li.coa_filename %}<a href="/inventory/{{ item.id }}/orders/{{ li.id }}/coa" target="_blank" rel="noopener">View</a>{% else %}—{% endif %}</td>
+        <td>{% if li.coa_filename %}<a href="/inventory/{{ item.id }}/orders/{{ li.id }}/coa" target="_blank" rel="noopener" class="btn btn-small">View</a>{% else %}—{% endif %}</td>
         {% if is_owner %}
         <td>
           {% if li.order.arrival_date is none %}

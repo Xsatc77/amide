@@ -7,7 +7,7 @@
 {% block content %}
 <div class="page-head builder-head">
   <div>
-    <p class="small"><a href="/protocols">← Protocols</a></p>
+    <p class="small"><a class="btn btn-ghost btn-small" href="/protocols">← Protocols</a></p>
     <h1>
       {% if protocol %}Edit protocol{% elif repeat_of %}Repeat “{{ repeat_of.name }}”{% else %}Build a protocol{% endif %}
       {% if status %}<span class="status status-{{ status.value }}">{{ status.label }}</span>{% endif %}

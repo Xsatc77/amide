@@ -131,7 +131,7 @@
     {% if i.stored_file %}<a class="btn btn-ghost" href="/settings/ingest/items/{{ i.id }}/original">Download original</a>{% endif %}
     {% elif i.status == 'imported' %}
     <p class="small">Imported for {{ i.warehouse | upper }}, dated {{ i.list_date }}.
-      {% if i.vendor_id %}<a href="/vendors/{{ i.vendor_id }}">Open the vendor</a>{% endif %}</p>
+      {% if i.vendor_id %}<a class="btn btn-small" href="/vendors/{{ i.vendor_id }}">Open the vendor</a>{% endif %}</p>
     <form method="post" action="/settings/ingest/items/{{ i.id }}/undo" class="inline-form"><button type="submit" class="btn btn-ghost btn-danger">Undo this import</button></form>
     {% endif %}
   </article>

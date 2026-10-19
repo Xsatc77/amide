@@ -313,7 +313,10 @@ h2 { font-size: 1.2rem; margin: 0; }
 }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn-ghost { border-color: transparent; background: transparent; padding: 6px 10px; }
+/* A secondary button: still bordered, so it reads as a button and not as a text link. Only the close "x" (btn-icon) stays bare. */
+.btn-ghost { padding: 6px 12px; }
+.btn-ghost.btn-icon { border-color: transparent; background: transparent; padding: 4px 10px; }
+.btn-ghost.btn-icon:hover { background: var(--bg); }
 .btn-danger { color: var(--danger); }
 .btn-danger:hover { background: var(--danger-soft); }
 .btn-icon { font-size: 1.4rem; line-height: 1; padding: 4px 10px; }
@@ -636,6 +639,14 @@ section + section { margin-top: 36px; }
 }
 .goal-card[aria-pressed="true"] .goal-check { opacity: 1; }
 a.btn { display: inline-block; text-decoration: none; }
+a.btn:hover { text-decoration: none; }
+summary.btn { display: inline-block; list-style: none; user-select: none; }
+summary.btn::-webkit-details-marker { display: none; }
+/* A row of buttons: even gaps, wraps on a phone, and links, buttons and forms line up. */
+.btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.btn-row > form { margin: 0; display: inline-flex; }
+.btn-row > details[open] { flex-basis: 100%; }
+.page-head > .btn-row { margin: 0; justify-content: flex-end; }
 .btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -1154,7 +1165,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .log-estimate { white-space: nowrap; }
 
 .match-cell { min-width: 14rem; }
-.btn-small { padding: .15rem .5rem; font-size: .8rem; }
+.btn-small, .btn.small { padding: .15rem .5rem; font-size: .8rem; }
 
 /* Workouts: tabs, energy, progress */
 .wk-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin: 0 0 1rem; overflow-x: auto; }
@@ -1585,3 +1596,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .journal-photo-add { margin-top: 6px; }
 .journal-photo-add summary { cursor: pointer; }
 .journal-photo-top { display: inline-block; vertical-align: middle; }
+
+/* A popup's title bar and its button row span the whole popup (the form's own padding and left alignment had them shrink to their contents, which left the
+   close x hugging the title and the Cancel / Save row stranded on the left). */
+.dialog .settings-form > .dialog-head,
+.dialog .settings-form > .dialog-foot,
+.dialog .settings-form > .dialog-submit-row { align-self: stretch; margin-left: -20px; margin-right: -20px; }

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <p class="muted small"><a href="/inventory">&larr; Inventory</a></p>
+    <p class="muted small"><a class="btn btn-ghost btn-small" href="/inventory">&larr; Inventory</a></p>
     <h1>{{ group.name }}</h1>
     <p class="muted">
       <strong>{{ group.total }}</strong> on hand{% if group.sizes %} ({{ group.sizes | join(', ') }}){% endif %}
@@ -48,7 +48,7 @@
   {% if on_the_way %}
   <p class="small muted">On the way:
     {% for it, li in on_the_way %}{{ li.quantity }}{% if it.vial_size_mg %} &times; {{ '%g' % it.vial_size_mg }} {{ it.vial_size_unit.value }}{% endif %}, ordered {{ li.order.order_date | shortdate }}{% if not loop.last %}; {% endif %}{% endfor %}.
-    <a href="/inventory/orders">Track orders</a></p>
+    <a class="btn btn-small" href="/inventory/orders">Track orders</a></p>
   {% endif %}
 </section>
 {% endblock %}

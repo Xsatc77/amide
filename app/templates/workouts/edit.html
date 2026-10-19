@@ -12,7 +12,7 @@
     <input type="hidden" name="exercise_id[{{ idx }}][]" value="{{ ex.id if ex else '' }}">
     <input type="text" name="exercise_name[{{ idx }}][]" value="{{ ex.name if ex else '' }}" aria-label="Exercise">
     <input type="hidden" name="exercise_video[{{ idx }}][]" value="{{ (ex.video_url or '') if ex else '' }}">
-    {% if ex and ex.id %}<a class="small" href="{{ demo_url(ex.name, ex.video_url) }}" target="_blank" rel="noopener noreferrer">{{ 'Watch' if ex.video_url else 'Find a demo' }}</a>{% endif %}
+    {% if ex and ex.id %}<a class="btn btn-small" href="{{ demo_url(ex.name, ex.video_url) }}" target="_blank" rel="noopener noreferrer">{{ 'Watch' if ex.video_url else 'Find a demo' }}</a>{% endif %}
   </td>
   <td><input type="text" name="exercise_sets[{{ idx }}][]" value="{{ (ex.sets_text or '') if ex else '' }}" aria-label="Sets"></td>
   <td><input type="text" name="exercise_reps[{{ idx }}][]" value="{{ (ex.reps_text or '') if ex else '' }}" aria-label="Reps"></td>

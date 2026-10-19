@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <p class="muted small"><a href="/vendors">&larr; Vendors</a></p>
+    <p class="muted small"><a class="btn btn-ghost btn-small" href="/vendors">&larr; Vendors</a></p>
     <h1>{{ vendor.name }}</h1>
   </div>
   <form method="post" action="/vendors/{{ vendor.id }}/{{ 'unfavorite' if is_favorite else 'favorite' }}" class="inline">
@@ -92,8 +92,8 @@
 
   <h3 class="section-title">Price list</h3>
   <p>
-    {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
-    {% elif vendor.price_list_filename %}<a href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>
+    {% if vendor.price_list_url %}<a class="btn btn-small" href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
+    {% elif vendor.price_list_filename %}<a class="btn btn-small" href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>
     {% elif not current_lists %}<span class="muted">No price list on file.</span>{% endif %}
     {% if vendor.price_list_updated_at %}
     <span class="muted small">(Updated {{ vendor.price_list_updated_at | shortdate }}, {{ (today - vendor.price_list_updated_at).days }} day{{ '' if (today - vendor.price_list_updated_at).days == 1 else 's' }} ago)</span>
@@ -162,7 +162,7 @@
       <p class="muted small">
         Currently on file:
         {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">{{ vendor.price_list_url }}</a>
-        {% else %}<a href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>{% endif %}
+        {% else %}<a class="btn btn-small" href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>{% endif %}
       </p>
       {% endif %}
       <div class="grid">
