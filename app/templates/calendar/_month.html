@@ -24,6 +24,7 @@
       {% if d in workout_dates %}<span class="cal-icon" title="Workout scheduled">🏋</span>{% endif %}
       {% if row.overflow.get(d) %}<a class="cal-more" href="{{ url('day', d) }}" title="{{ row.overflow[d] }} more">+{{ row.overflow[d] }}</a>{% endif %}
       {% if d in fitness_test_dates %}<span class="cal-icon cal-icon-end" title="Fitness Test completed">🏆</span>{% endif %}
+      {% if d in photo_marks %}<span class="cal-icon" title="{{ photo_marks[d] | join(' / ') }}">📷</span>{% endif %}
     </div>
     {% endfor %}
   </div>

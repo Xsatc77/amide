@@ -1004,6 +1004,18 @@ class DoseReminder(Base):
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class PhotoReminderSent(Base):
+    """A body-photo reminder already pushed, so each one is sent once a day."""
+    __tablename__ = "photo_reminders_sent"
+    __table_args__ = (UniqueConstraint("user_id", "reminder_key", "for_date", name="uq_photo_reminder_sent"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    reminder_key: Mapped[str] = mapped_column(String(60))
+    for_date: Mapped[date] = mapped_column(Date)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 # ---------------------------------------------------------------- accounts
 
 class User(Base):

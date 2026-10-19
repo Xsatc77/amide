@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app import config
 from app.calendar.ical import SLOT_TIMES
 from app.calendar.schedule import occurrences
-from app.models import DoseLog, DoseReminder, Protocol, ProtocolItem, User
+from app.models import DoseLog, DoseReminder, PhotoReminderSent, Protocol, ProtocolItem, User
 
 GRACE = timedelta(hours=3)          # a reminder is only sent within this long after its time, so starting Amide late never floods the phone
 INTERVAL = 60
@@ -61,6 +61,31 @@ def run_once(session_factory, now_utc: datetime, send=None) -> int:
                     session.add(DoseReminder(user_id=user.id, protocol_item_id=item.protocol_item_id, for_date=today))
                     session.commit()
                     sent += 1
+            sent += _photo_pushes(session, user, local, today, send)
+    return sent
+
+
+PHOTO_HOUR = 9                      # body-photo reminders go out at 09:00 local, within GRACE like the dose ones
+
+
+def _photo_pushes(session, user: User, local: datetime, today, send) -> int:
+    """Push each body-photo reminder that is active today, once a day, from 09:00 on."""
+    from app import photo_reminders
+    due_at = datetime(today.year, today.month, today.day, PHOTO_HOUR, 0, tzinfo=local.tzinfo)
+    if not due_at <= local < due_at + GRACE:
+        return 0
+    already = set(session.scalars(select(PhotoReminderSent.reminder_key).where(PhotoReminderSent.user_id == user.id, PhotoReminderSent.for_date == today)))
+    sent = 0
+    for reminder in photo_reminders.active(session, user.id, today):
+        if reminder.key in already:
+            continue
+        try:
+            send(config.NTFY_SERVER, user.ntfy_topic, "Time for body photos", reminder.text)
+        except Exception:
+            continue
+        session.add(PhotoReminderSent(user_id=user.id, reminder_key=reminder.key, for_date=today))
+        session.commit()
+        sent += 1
     return sent
 
 

@@ -40,7 +40,7 @@ def setup(me):
             pep = Peptide(name=name, source=PeptideSource.CUSTOM)
             s.add(pep)
             s.flush()
-            p = Protocol(name="Reminder Protocol", start_date=DAY - timedelta(days=3), owner_id=me)
+            p = Protocol(name="Reminder Protocol", start_date=DAY - timedelta(days=10), owner_id=me)       # long enough ago that its start-date photo reminder is over
             s.add(p)
             s.flush()
             item = ProtocolItem(protocol_id=p.id, peptide_id=pep.id, dose=250, dose_unit=DoseUnit.MCG, frequency=Frequency.DAILY, time_of_day=slot, route=Route.SUBQ)

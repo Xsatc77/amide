@@ -148,7 +148,7 @@
         <h3 class="small muted">Dose reminders (ntfy)</h3>
         <p class="small muted">Amide can push a message to your phone when a dose is due and not yet logged, at the time of day set on the protocol (Fasting 6:30, Waking 7:00, AM 8:00, Pre-workout 4:30 PM, Post-workout 6:30 PM, PM 8:00 PM, Before bed 9:30 PM, Bedtime 10:00 PM; &ldquo;Any time&rdquo; doses get no reminder), in your own time zone. Install the free <strong>ntfy</strong> app and subscribe to your topic. <strong>This is the one thing Amide sends to the outside on its own</strong>: a short message (peptide and dose) to {{ ntfy_server }}.</p>
         <form method="post" action="/settings/reminders" novalidate>
-          <label class="field check-field"><input type="checkbox" name="ntfy_enabled" value="1" {{ 'checked' if me.ntfy_enabled }}><span>Send me dose reminders</span></label>
+          <label class="field check-field"><input type="checkbox" name="ntfy_enabled" value="1" {{ 'checked' if me.ntfy_enabled }}><span>Send me dose reminders and body-photo reminders (9:00 AM)</span></label>
           <label class="field {{ 'has-error' if errors.ntfy_topic }}"><span>Topic (leave empty and one is made for you)</span>
             <input name="ntfy_topic" maxlength="64" value="{{ me.ntfy_topic or '' }}" autocomplete="off">{{ err('ntfy_topic') }}</label>
           <button type="submit" class="btn btn-primary">Save</button>

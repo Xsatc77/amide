@@ -180,6 +180,8 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     from app.routers.workouts import scheduled_workout_dates  # deferred imports, same reasoning
     ctx["workout_dates"] = scheduled_workout_dates(session, uid, first, last)
     ctx["fitness_test_dates"] = fitness_test_logged_dates(session, uid, first, last)
+    from app import photo_reminders
+    ctx["photo_marks"] = photo_reminders.calendar_dates(session, uid, first, last)
 
     if view == "month":
         ctx["rows"] = month_rows(weeks, occs, colors)

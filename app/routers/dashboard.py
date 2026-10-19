@@ -14,6 +14,7 @@ from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
 from app.inventory import calibrate
 from app.inventory.runout import ALERT_DAYS as RUNOUT_ALERT_DAYS, runs_out
+from app import photo_reminders
 from app.library.price_lists.analysis import new_peptides
 from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
@@ -275,6 +276,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             "new_peptides": new_peptides(session),
             "new_lists": new_list_alerts(session, uid, naive_utcnow()),
             "groups_gone": group_gone_alerts(session, session.get(User, uid)),
+            "photos": photo_reminders.active(session, uid, today) if effective_uid == uid else [],          # your own reminders, never someone else's
         }
         in_transit_groups = _in_transit_groups(session, effective_uid)
         # Cost snapshot enumerates the viewer's *active protocols* (which peptides they're

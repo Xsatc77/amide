@@ -1,7 +1,8 @@
 {# Day: a card per protocol in each time-of-day section. #}
 <div class="cal-day">
-  {% if anchor in workout_dates or anchor in fitness_test_dates %}
+  {% if anchor in workout_dates or anchor in fitness_test_dates or anchor in photo_marks %}
   <div class="cal-day-extras">
+    {% for text in photo_marks.get(anchor, []) %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">📷</span> {{ text }}</span>{% endfor %}
     {% if anchor in workout_dates %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">🏋</span> Workout scheduled</span>{% endif %}
     {% if anchor in fitness_test_dates %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">🏆</span> Fitness Test completed</span>{% endif %}
   </div>

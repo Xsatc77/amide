@@ -17,6 +17,17 @@ def set_zone(name: str | None) -> None:
         _zone.set(None)
 
 
+def local_date(moment: datetime, zone_name: str | None) -> date:
+    """The calendar day a stored moment (naive means UTC) falls on in a person's own time zone."""
+    from datetime import timezone
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    try:
+        return moment.astimezone(ZoneInfo(zone_name)).date() if zone_name else moment.astimezone(timezone.utc).date()
+    except Exception:
+        return moment.astimezone(timezone.utc).date()
+
+
 def today() -> date:
     zone = _zone.get()
     return datetime.now(zone).date() if zone else date.today()
