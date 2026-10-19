@@ -148,6 +148,7 @@
       <div class="scale-cell"><dt>{{ r.label }}</dt><dd><strong>{{ r.value }}</strong> {{ r.unit }}{% if r.delta %} <span class="muted small">({{ '+' if r.delta > 0 }}{{ r.delta }})</span>{% endif %}</dd></div>
       {% endfor %}
     </dl>
+    <form method="post" action="/measurements/{{ scale_latest.id }}/delete" class="inline" data-confirm="Delete this scale reading from {{ scale_latest.date | shortdate }}? The whole entry is removed, weight included. This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small">Delete this reading</button></form>
     {% if scale_latest.scale_fat is not none and scale_latest.tape_fat is not none %}
     <p class="muted small">Body fat: {{ scale_latest.scale_fat }}% from the scale, {{ scale_latest.tape_fat }}% from your tape measurements (Navy method). Both are estimates and can differ by several points; watch each one's trend rather than comparing them.</p>
     {% endif %}
@@ -256,6 +257,20 @@
       {{ mini_input('calf_r_in', silhouette_shape.points.calf.r, 'Calf R') }}
     </div>
 
+    <details class="scale-entry"{{ ' open' if scale_entry_open }}>
+      <summary>Numbers from a body-composition scale (optional)</summary>
+      <p class="muted small">Type what your scale or its app shows for this weigh-in. Leave out anything it did not report.</p>
+      <div class="scale-entry-grid">
+        {% for s in charts.scale %}
+        <label class="field {{ 'has-error' if errors[s.key] }}">
+          <span>{{ s.label | replace('Scale: ', '') }}</span>
+          <input name="{{ s.key }}" type="number" step="any" min="0" inputmode="decimal" value="{{ form[s.key] or '' }}">
+          {{ err(s.key) }}
+        </label>
+        {% endfor %}
+      </div>
+    </details>
+
     <div class="dialog-submit-row">
       <button type="submit" class="btn btn-primary">Log A Measurement</button>
     </div>
@@ -277,6 +292,7 @@
           <th>Date</th>
           <th>Weight ({{ u.weight_label }})</th>
           <th>Waist ({{ u.length_label }})</th>
+          <th>Scale</th>
           <th><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -286,6 +302,7 @@
           <td data-label="Date">{{ m.measured_at | shortdate }}</td>
           <td data-label="Weight ({{ u.weight_label }})">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
           <td data-label="Waist ({{ u.length_label }})">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
+          <td data-label="Scale" class="small">{{ scale_summary(m) or '—' }}</td>
           <td class="actions"><form method="post" action="/measurements/{{ m.id }}/delete" class="inline" data-confirm="Delete the {{ m.measured_at | shortdate }} entry? This cannot be undone. Your water goal and calorie targets are worked out from your latest weight, so deleting your only weigh-in removes them until you log a new one."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ m.measured_at | shortdate }} entry">Delete</button></form></td>
         </tr>
         {% endfor %}

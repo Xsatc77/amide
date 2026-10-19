@@ -25,6 +25,17 @@ SCALE_FIELDS = (
     ("scale_whr", "Scale: waist-to-hip ratio", ""),
 )
 MASS_FIELDS = tuple(field for field, _, kind in SCALE_FIELDS if kind == "mass")
+PERCENT_FIELDS = tuple(field for field, _, kind in SCALE_FIELDS if kind == "%")
+
+
+def summary(entry) -> str:
+    """A short line for the entries table: the scale's body fat and muscle mass when it gave them."""
+    parts = []
+    if entry.scale_body_fat_pct is not None:
+        parts.append(f"{entry.scale_body_fat_pct:g}% body fat")
+    if entry.scale_muscle_mass_lb is not None:
+        parts.append(f"{entry.scale_muscle_mass_lb:g} muscle")
+    return " · ".join(parts)
 
 
 def latest_card(entries, shown, u, user) -> dict | None:
@@ -52,4 +63,4 @@ def latest_card(entries, shown, u, user) -> dict | None:
         if row is not None:
             tape = body_fat_pct(user.sex, user.height_in, row.neck_in, row.waist_in, row.hips_in)
             tape = None if tape is None else round(tape, 1)
-    return {"date": newest.measured_at, "rows": rows, "tape_fat": tape, "scale_fat": scale_fat}
+    return {"id": entries[indexes[0]].id, "date": newest.measured_at, "rows": rows, "tape_fat": tape, "scale_fat": scale_fat}

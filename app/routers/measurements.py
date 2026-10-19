@@ -551,6 +551,8 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
         "water": water,
         "charts": _charts_context(own_windowed, me_user, range_key, u),
+        "scale_summary": scale_view.summary,
+        "scale_entry_open": any(f in (errors or {}) for f, _, _ in scale_view.SCALE_FIELDS),
         "as_of": as_of.isoformat(),
     }
     if tab == "measurements" and me_user:
@@ -683,6 +685,12 @@ async def create_measurement(request: Request, session: Session = Depends(get_se
         if values[field] is not None:
             values[field] = u.weight_in(values[field]) if field == "weight_lbs" else u.length_in(values[field])
     values.update({field: _parse_int(field) for field in INT_FIELDS})
+    for field, _, kind in scale_view.SCALE_FIELDS:                      # what a body-composition scale reported, typed from its screen or app
+        value = _parse_float(field)
+        if value is not None and kind == "%" and value > 100:
+            errors[field] = "A percentage cannot be more than 100."
+            value = None
+        values[field] = u.weight_in(value) if kind == "mass" else value
 
     if errors:
         return _render(request, session, uid, form=form_values, errors=errors, status_code=422)

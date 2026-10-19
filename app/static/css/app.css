@@ -1574,3 +1574,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .scale-cell dt { font-size: .8rem; color: var(--muted); }
 .scale-cell dd { margin: 0; }
 .scale-import { margin-top: 12px; }
+.scale-entry { margin: 12px 0; }
+.scale-entry summary { cursor: pointer; font-weight: 600; }
+.scale-entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; margin-top: 8px; }
