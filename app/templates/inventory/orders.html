@@ -51,7 +51,19 @@
 
   <ul class="order-lines">
     {% for item, li in card.lines %}
-    <li><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}{% if li.received_quantity is not none %} <span class="muted small">(received {{ li.received_quantity }})</span>{% endif %}</li>
+    <li><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}{% if li.received_quantity is not none %} <span class="muted small">(received {{ li.received_quantity }})</span>{% endif %}
+      {% if card.can_remove %}
+      <details class="order-remove">
+        <summary class="btn btn-ghost btn-small">Remove from order</summary>
+        <form method="post" action="/inventory/orders/{{ o.id }}/lines/{{ li.id }}/remove" class="inline-form" data-confirm="Remove {{ item.name }} from this order? The other items stay.">
+          <p class="small muted">Use this when the vendor cannot send {{ item.name }}. Shipping stays what it is and is shared between the {{ card.lines | length - 1 }} item{{ '' if card.lines | length == 2 else 's' }} left. Tax{% if o.tax_cents is not none %} was ${{ '%.2f' | format(o.tax_cents / 100) }} for the whole order; this item's share (${{ '%.2f' | format(li.allocated_tax_cents / 100) }}) comes off{% else %} is left blank{% endif %}. Change either if the vendor charged you differently.</p>
+          <label class="field"><span>Tax after removing</span><input name="tax" value="{{ '%.2f' | format((o.tax_cents - li.allocated_tax_cents) / 100) if o.tax_cents is not none else '' }}" inputmode="decimal"></label>
+          <label class="field"><span>Shipping after removing</span><input name="shipping" value="{{ '%.2f' | format(o.shipping_cents / 100) if o.shipping_cents is not none else '' }}" inputmode="decimal"></label>
+          <button type="submit" class="btn btn-ghost btn-danger btn-small">Remove</button>
+        </form>
+      </details>
+      {% endif %}
+    </li>
     {% endfor %}
   </ul>
 

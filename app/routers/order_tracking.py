@@ -11,6 +11,7 @@ from app import clock
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.inventory.tracking import DEFAULT_DELAY_DAYS, STATUS_LABELS, build_timeline, tracking_link
+from app import uploads
 from app.models import InventoryItem, Order, OrderItem, User
 from app.templating import templates
 
@@ -43,7 +44,7 @@ def _cards(session: Session, uid: int, status: str) -> list[dict]:
         order = entry["order"]
         timeline = build_timeline(order, today, delay)
         if status == "all" or (status == "" and timeline["status"] != "checked_in") or status == timeline["status"]:
-            cards.append({**entry, "timeline": timeline, "link": tracking_link(order.tracking_site, order.tracking_number)})
+            cards.append({**entry, "timeline": timeline, "link": tracking_link(order.tracking_site, order.tracking_number), "can_remove": can_remove_lines(order)})
     return cards
 
 
@@ -81,6 +82,36 @@ def _date_field(raw, key: str, errors: dict, order: Order, earliest: date | None
 @router.get("/inventory/orders")
 def orders_page(request: Request, status: str = "", session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     return _page(request, session, uid, status)
+
+
+def can_remove_lines(order: Order) -> bool:
+    """Only before it ships, and only while another item stays in it."""
+    return order.shipped_date is None and order.delivered_date is None and order.arrival_date is None and len(order.items) > 1
+
+
+@router.post("/inventory/orders/{order_id}/lines/{line_id}/remove")
+async def remove_line(order_id: int, line_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Take one item out of an order that has not shipped (a vendor cannot send it). The rest stay; the order's shipping and tax are set from the form, so the
+    shipping is shared between fewer items and the tax drops by the removed item's share."""
+    from app.routers.inventory import _parse_money        # deferred: the inventory router imports this package's helpers at load time
+    order = _own_order(session, order_id, uid)
+    line = next((li for li in order.items if li.id == line_id), None)
+    if line is None:
+        raise HTTPException(404, "Order item not found")
+    form = await request.form()
+    errors: dict[str, str] = {}
+    if not can_remove_lines(order):
+        errors["order"] = ("An item can only be removed from an order that has not shipped yet." if len(order.items) > 1
+                           else "This is the only item in the order, so there is nothing to keep. Delete the item instead.")
+    tax = _parse_money(str(form.get("tax") or "").strip(), "tax", "Tax", errors)
+    shipping = _parse_money(str(form.get("shipping") or "").strip(), "shipping", "Shipping", errors)
+    if errors:
+        return _page(request, session, uid, "", errors={order_id: errors}, code=422)
+    uploads.delete_coa(line.coa_filename)
+    order.items.remove(line)
+    order.tax_cents, order.shipping_cents = tax, shipping
+    session.commit()
+    return RedirectResponse(f"/inventory/orders#order-{order_id}", status_code=303)
 
 
 @router.post("/inventory/orders/{order_id}/tracking")

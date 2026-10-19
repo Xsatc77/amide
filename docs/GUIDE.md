@@ -107,6 +107,8 @@ An item's page shows its orders (quantity, received, dates, tracking, lot, cost,
 
 Record a purchase with **New order**: who it is from, cost, tax, shipping, lot number, expiration date and a lab report (COA). Add a tracking number and Amide shows the order like a parcel on the **Orders and tracking** page.
 
+If the vendor cannot send one of the items and the order has not shipped yet, open the order on the **Orders** page and use **Remove from order** next to that item. The other items stay, the shipping is then shared between fewer items, and the tax drops by the removed item's share (both can be changed in the form). Once an order has shipped it cannot be changed this way.
+
 ![Orders and tracking](guide/img/20-orders.png)
 
 ### When a package arrives: Check in

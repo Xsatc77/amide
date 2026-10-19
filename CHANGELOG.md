@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Orders: **remove an item from an order that has not shipped yet.** On the Orders page each item of a waiting order has "Remove from order" (for when the vendor cannot send it). The other items stay. The form is pre-filled with the shipping unchanged (now shared between fewer items) and the tax reduced by the removed item's share; change either if the vendor charged differently. Once an order has shipped, or if it has only one item, it cannot be changed this way.
 - Dashboard: the **Water Goal card's fill changes color with progress**: blue below half the day's goal, yellow from half, green once the goal is reached.
 - Learn, "How to read a COA": a new **Consistency in mass is fundamental** part (a vial that is 150% over, 70% over or 10% under its label from lot to lot cannot be dosed to the microgram, and a big overfill is a quality-control red flag, not a bonus), a matching red flag, and an "Overfill" glossary entry.
 - Measurements: **changing the Range no longer resets the Overview metric.** The chosen metric now stays put whichever dropdown you change first (it travels in the address, so a reload or a shared link keeps it too).
