@@ -374,6 +374,17 @@
 <section aria-labelledby="journal-heading">
   <h2 id="journal-heading" class="section-title">Journal</h2>
   <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
+  <details class="journal-photo-add journal-photo-top">
+    <summary class="btn btn-ghost">Add a photo</summary>
+    <form method="post" action="/journal/photos" enctype="multipart/form-data" class="inline-form">
+      <p class="muted small">A picture to keep with a day: something that caught your attention, a motivating photo, a scale report. Private to you; location and camera data are removed.</p>
+      <label class="field"><span>Day</span><input type="date" name="entry_date" value="{{ today_iso }}" max="{{ today_iso }}"></label>
+      <label class="field"><span>Photos</span><input type="file" name="file" accept="image/*" multiple required></label>
+      <label class="field"><span>Caption (optional)</span><input name="caption" maxlength="200"></label>
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+  </details>
+  {% if journal_photo_error %}<div class="alert" role="alert">{{ journal_photo_error }}</div>{% endif %}
   <button type="button" class="btn" data-action="open-workout-log">Log Workout</button>
   <button type="button" class="btn btn-primary" data-quick-open>Quick activity</button>
   <a class="btn btn-ghost" href="/workouts/free/log">Log a workout that is not in a plan</a>
@@ -579,6 +590,28 @@
               <li><span class="muted">{{ qn.time_display }}</span> {{ qn.text }}</li>
               {% endfor %}
             </ul>
+            {% endif %}
+            {% if not e.owner_name %}
+            {% if e.photos %}
+            <ul class="journal-photos">
+              {% for ph in e.photos %}
+              <li>
+                <a href="/journal/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/journal/photos/{{ ph.id }}/thumb" alt="{{ ph.caption or 'Photo from ' ~ (e.date | shortdate) }}" loading="lazy" width="96" height="96"></a>
+                {% if ph.caption %}<span class="small muted">{{ ph.caption }}</span>{% endif %}
+                <form method="post" action="/journal/photos/{{ ph.id }}/delete" class="inline" data-confirm="Delete this photo from the {{ e.date | shortdate }} entry? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete this photo">Delete</button></form>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            <details class="journal-photo-add">
+              <summary class="small">Add photo</summary>
+              <form method="post" action="/journal/photos" enctype="multipart/form-data" class="inline-form">
+                <input type="hidden" name="entry_date" value="{{ e.date.isoformat() }}">
+                <input type="file" name="file" accept="image/*" multiple required aria-label="Photos for {{ e.date | shortdate }}">
+                <input name="caption" maxlength="200" placeholder="Caption (optional)" aria-label="Caption">
+                <button type="submit" class="btn btn-primary small">Upload</button>
+              </form>
+            </details>
             {% endif %}
           </td>
           <td data-label="That day's doses">

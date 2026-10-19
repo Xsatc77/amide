@@ -83,6 +83,8 @@ def clean(client):
         f.unlink()
     for f in config.BODY_PHOTO_DIR.glob("*"):
         f.unlink()
+    for f in config.JOURNAL_PHOTO_DIR.glob("*"):
+        f.unlink()
     for f in config.INGEST_DIR.glob("*"):
         f.unlink()
 

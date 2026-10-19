@@ -2,15 +2,16 @@ import zoneinfo
 from datetime import date, datetime, timezone as dt_timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from starlette.datastructures import UploadFile
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app import clock
+from app import clock, config, journal_photos
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.models import (
-    DoseLog, JournalCustomEffect, JournalEntry, JournalEntryCustomEffect, JournalEntrySideEffect, JournalQuickNote, JournalSideEffect, Share, ShareCategory,
+    DoseLog, JournalCustomEffect, JournalEntry, JournalEntryCustomEffect, JournalEntrySideEffect, JournalPhoto, JournalQuickNote, JournalSideEffect, Share, ShareCategory,
     User,
 )
 
@@ -22,7 +23,7 @@ RATING_FIELDS = ("mood", "energy", "sleep_quality", "appetite")
 def _journal_query(uid: int):
     """This user's journal entries (others' are never visible)."""
     return select(JournalEntry).where(JournalEntry.owner_id == uid).options(
-        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes))
+        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes), selectinload(JournalEntry.photos))
 
 
 def _shared_journal_query(uid: int):
@@ -30,7 +31,7 @@ def _shared_journal_query(uid: int):
     shared_owner_ids = select(Share.owner_id).where(
         Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
     return select(JournalEntry).where(JournalEntry.owner_id.in_(shared_owner_ids)).options(
-        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes))
+        selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes), selectinload(JournalEntry.photos))
 
 
 def get_or_create_entry(session: Session, owner_id: int, entry_date: date) -> JournalEntry:
@@ -145,6 +146,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
         ],
         "doses": doses,
         "workouts": workouts,
+        "photos": [] if owner_name else [{"id": ph.id, "caption": ph.caption} for ph in entry.photos],      # photos are never shown to someone the journal is shared with
         "has_entry": True,
     }
 
@@ -327,8 +329,11 @@ def delete_journal_entry(entry_date: date, session: Session = Depends(get_sessio
     entry = session.scalar(select(JournalEntry).where(JournalEntry.owner_id == uid, JournalEntry.entry_date == entry_date))
     if entry is None:
         raise HTTPException(404, "Journal entry not found")
+    files = [ph.filename for ph in entry.photos]
     session.delete(entry)
     session.commit()
+    for name in files:
+        journal_photos.delete_file(name)
     return RedirectResponse("/measurements?tab=journal", status_code=303)
 
 
@@ -357,3 +362,96 @@ async def add_quick_note(request: Request, session: Session = Depends(get_sessio
     session.add(JournalQuickNote(entry_id=entry.id, text=text))
     session.commit()
     return RedirectResponse("/dashboard", status_code=303)
+
+
+# ---- photos kept with a journal day -----------------------------------------------------------------------------------------------------------
+
+def _own_photo(session: Session, photo_id: int, uid: int) -> JournalPhoto:
+    photo = session.get(JournalPhoto, photo_id)
+    if photo is None or photo.entry.owner_id != uid:
+        raise HTTPException(404, "Not found")          # never 403: that would confirm someone else's photo exists
+    return photo
+
+
+def _photo_file(photo: JournalPhoto):
+    try:
+        path = journal_photos.photo_path(photo.filename)
+    except ValueError:
+        raise HTTPException(404, "Not found") from None
+    if not path.is_file():
+        raise HTTPException(404, "Not found")
+    return path
+
+
+_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+@router.get("/journal/photos/{photo_id}")
+def photo_full(photo_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    path = _photo_file(_own_photo(session, photo_id, uid))
+    return Response(path.read_bytes(), media_type="image/jpeg", headers=_NO_STORE)
+
+
+@router.get("/journal/photos/{photo_id}/thumb")
+def photo_thumb(photo_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    path = _photo_file(_own_photo(session, photo_id, uid))
+    try:
+        return Response(journal_photos.thumbnail_jpeg(path), media_type="image/jpeg", headers=_NO_STORE)
+    except journal_photos.PhotoError:
+        raise HTTPException(404, "Not found") from None
+
+
+@router.post("/journal/photos")
+async def add_photos(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Add one or more photos to a journal day (today unless a date is given), creating the day's entry if there is none yet."""
+    from app.routers import measurements          # imported here: measurements imports this module
+    form = await request.form()
+    caption = str(form.get("caption", "")).strip()
+    errors: list[str] = []
+    try:
+        day = parse_entry_date(str(form.get("entry_date", "")) or clock.today().isoformat())
+    except ValueError as exc:
+        day = None
+        errors.append(str(exc))
+    if len(caption) > 200:
+        errors.append("The caption is 200 characters at most.")
+    uploads = [f for f in form.getlist("file") if isinstance(f, UploadFile) and f.filename]
+    if not uploads:
+        errors.append("Choose a photo to upload.")
+    existing = 0
+    if day is not None:
+        entry = session.scalar(_journal_query(uid).where(JournalEntry.entry_date == day))
+        existing = len(entry.photos) if entry is not None else 0
+        if existing + len(uploads) > journal_photos.MAX_PER_DAY:
+            errors.append(f"A day can hold at most {journal_photos.MAX_PER_DAY} photos.")
+    cleaned: list[bytes] = []
+    if not errors:
+        for upload in uploads:
+            try:
+                cleaned.append(journal_photos.process_upload(await upload.read(config.MAX_UPLOAD_BYTES + 1)))
+            except journal_photos.PhotoError as exc:
+                errors.append(f"{upload.filename}: {exc}")
+    if errors:
+        return measurements._render(request, session, uid, tab="journal", status_code=422, extra={"journal_photo_error": " ".join(errors)})
+    entry = get_or_create_entry(session, uid, day)
+    names = [journal_photos.store(jpeg) for jpeg in cleaned]
+    for name in names:
+        session.add(JournalPhoto(entry_id=entry.id, filename=name, caption=caption or None))
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        for name in names:
+            journal_photos.delete_file(name)
+        raise
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
+@router.post("/journal/photos/{photo_id}/delete")
+def delete_photo(photo_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    photo = _own_photo(session, photo_id, uid)
+    name = photo.filename
+    session.delete(photo)
+    session.commit()
+    journal_photos.delete_file(name)
+    return RedirectResponse("/measurements?tab=journal", status_code=303)

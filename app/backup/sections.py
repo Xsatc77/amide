@@ -24,7 +24,7 @@ NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dism
 # File directories attached to rows (and the library's own files), by key.
 FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "LAB_REPORT_DIR",
              "workout_pdfs": "WORKOUT_PDF_DIR", "wallet_qr": "WALLET_QR_DIR",
-             "body_photos": "BODY_PHOTO_DIR", "ingest": "INGEST_DIR"}
+             "body_photos": "BODY_PHOTO_DIR", "journal_photos": "JOURNAL_PHOTO_DIR", "ingest": "INGEST_DIR"}
 
 PROFILE_COLUMNS = ("sex", "birth_date", "height_in", "activity_level", "macro_goal", "diet_preset", "life_stage",
                    "custom_protein_pct", "custom_carb_pct", "custom_fat_pct", "water_goal_oz", "timezone", "colorway",
@@ -106,7 +106,9 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("journal_entry_side_effects", f"entry_id IN ({_ENTRIES})"),
         Tbl("journal_custom_effects", "owner_id = :uid"),
         Tbl("journal_entry_custom_effects", f"entry_id IN ({_ENTRIES})"),
-        Tbl("journal_quick_notes", f"entry_id IN ({_ENTRIES})")), help="Daily entries, side effects and quick notes."),
+        Tbl("journal_quick_notes", f"entry_id IN ({_ENTRIES})"),
+        Tbl("journal_photos", f"entry_id IN ({_ENTRIES})", file=("filename", "journal_photos"), file_required=True, share_drop=True)),
+        help="Daily entries, side effects, quick notes and the photos kept with a day. Photos are never offered in a Share file."),
     Section("labs", "Labs", PERSON, (
         Tbl("lab_panels", "owner_id = :uid", file=("report_filename", "lab_reports")),
         Tbl("lab_results", "panel_id IN (SELECT id FROM lab_panels WHERE owner_id = :uid)")),
@@ -177,7 +179,7 @@ _PHOTO_NAME = re.compile(r"[0-9a-f]{32}[.]jpg")
 
 def name_ok(dirkey: str, name) -> bool:
     """Whether a stored file name is one this app can serve from that directory (photos have a fixed name shape)."""
-    return _PHOTO_NAME.fullmatch(name) is not None if dirkey == "body_photos" else True
+    return _PHOTO_NAME.fullmatch(name) is not None if dirkey in ("body_photos", "journal_photos") else True
 
 
 def file_dir(key: str):

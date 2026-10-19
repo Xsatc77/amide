@@ -1265,6 +1265,8 @@ class JournalEntry(Base):
         back_populates="entry", cascade="all, delete-orphan")
     quick_notes: Mapped[list["JournalQuickNote"]] = relationship(
         back_populates="entry", cascade="all, delete-orphan", order_by="JournalQuickNote.noted_at")
+    photos: Mapped[list["JournalPhoto"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan", order_by="JournalPhoto.id")
 
 
 class JournalCustomEffect(Base):
@@ -1302,6 +1304,18 @@ class UserMedicine(Base):
     name: Mapped[str] = mapped_column(String(80))
     notes: Mapped[str | None] = mapped_column(String(200))
     dose_text: Mapped[str | None] = mapped_column(String(80))      # optional, quoted back in alerts, never parsed
+
+
+class JournalPhoto(Base):
+    """A picture kept with a journal day (a motivating photo, a scale report). Owner-only; `filename` is a random name of a cleaned JPEG in config.JOURNAL_PHOTO_DIR."""
+    __tablename__ = "journal_photos"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("journal_entries.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(64))
+    caption: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    entry: Mapped["JournalEntry"] = relationship(back_populates="photos")
 
 
 class JournalEntryCustomEffect(Base):

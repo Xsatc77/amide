@@ -233,6 +233,8 @@ Type each measurement on the body diagram where it belongs. Switch between US an
 
 Daily mood, energy and sleep, side effects (including ones you add to your own list) and notes. Add or edit any past day. Trend charts show the pattern.
 
+You can keep **photos** with a day (something that caught your attention, a motivating picture, a scale report): use **Add a photo** at the top of the tab or **Add photo** on a day's row. They are private to you, stripped of location and camera data, and included in your backups.
+
 ![The journal](guide/img/11-journal.png)
 
 ### Labs

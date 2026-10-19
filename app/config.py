@@ -16,6 +16,7 @@ LAB_REPORT_DIR = UPLOAD_DIR / "lab_reports"
 WORKOUT_PDF_DIR = UPLOAD_DIR / "workout_pdfs"
 WALLET_QR_DIR = UPLOAD_DIR / "wallet_qr"
 BODY_PHOTO_DIR = UPLOAD_DIR / "body_photos"
+JOURNAL_PHOTO_DIR = UPLOAD_DIR / "journal_photos"
 PHOTO_UNLOCK_MINUTES = 10
 PHOTO_MAX_SIDE = 2000
 PHOTO_MAX_PIXELS = 50_000_000
@@ -64,4 +65,5 @@ def ensure_dirs() -> None:
     WORKOUT_PDF_DIR.mkdir(parents=True, exist_ok=True)
     WALLET_QR_DIR.mkdir(parents=True, exist_ok=True)
     BODY_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+    JOURNAL_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
     INGEST_DIR.mkdir(parents=True, exist_ok=True)

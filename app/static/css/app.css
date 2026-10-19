@@ -1577,3 +1577,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .scale-entry { margin: 12px 0; }
 .scale-entry summary { cursor: pointer; font-weight: 600; }
 .scale-entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+
+/* ---- journal photos ---- */
+.journal-photos { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.journal-photos li { display: flex; flex-direction: column; gap: 2px; max-width: 110px; }
+.journal-photos img { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: block; }
+.journal-photo-add { margin-top: 6px; }
+.journal-photo-add summary { cursor: pointer; }
+.journal-photo-top { display: inline-block; vertical-align: middle; }
