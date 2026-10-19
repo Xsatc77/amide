@@ -631,7 +631,7 @@
             <ul class="dose-list">
               {% for w in e.workouts %}
               <li>{{ w.label }} — {{ w.completed_count }}/{{ w.total_count }} exercises completed{% if w.net_kcal %}, about {{ w.net_kcal }} kcal (net, estimated){% endif %}
-                {% if not e.owner_name %}<form method="post" action="/workouts/log/{{ w.id }}/delete" class="inline" data-confirm="Delete this logged workout ({{ w.label }}, {{ e.date | shortdate }})? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ w.label }} workout from {{ e.date | shortdate }}">Delete</button></form>{% endif %}</li>
+                {% if not e.owner_name %}<a class="btn btn-small" href="{{ w.edit_url }}">Edit</a> <form method="post" action="/workouts/log/{{ w.id }}/delete" class="inline" data-confirm="Delete this logged workout ({{ w.label }}, {{ e.date | shortdate }})? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ w.label }} workout from {{ e.date | shortdate }}">Delete</button></form>{% endif %}</li>
               {% endfor %}
             </ul>
             {% endif %}

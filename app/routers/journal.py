@@ -75,6 +75,8 @@ def _workout_dict(r) -> dict:
     gross = sum(el.gross_kcal for el in r.exercise_logs if el.gross_kcal)
     return {
         "id": r.id,
+        "edit_url": (f"/workouts/day/{r.plan_day_id}/log?log_date={r.log_date.isoformat()}&return_to=journal" if r.plan_day_id is not None
+                     else f"/workouts/free/{r.id}/log?return_to=journal"),           # a plan day that is gone leaves a free-form log, which has its own editor
         "label": r.day_label or (r.plan_day.label if r.plan_day else "Workout"),
         "completed_count": sum(1 for el in r.exercise_logs if el.completed),
         "total_count": len(r.exercise_logs),

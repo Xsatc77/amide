@@ -442,7 +442,7 @@ def workouts_log_picker(plan_day_id: int, log_date: date_type | None = None, ses
 
 
 @router.get("/workouts/day/{plan_day_id}/log")
-def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | None = None,
+def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | None = None, return_to: str = "",
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     day = _get_own_day(session, plan_day_id, uid)
     log_date = log_date or clock.today()
@@ -457,7 +457,7 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
     net = sum(el.net_kcal for el in saved if el.net_kcal)
     gross = sum(el.gross_kcal for el in saved if el.gross_kcal)
     return templates.TemplateResponse(request, "workouts/log.html", {
-        "day": day, "log_date": log_date, "units": list(WeightUnit), "rows": rows,
+        "day": day, "log_date": log_date, "units": list(WeightUnit), "rows": rows, "return_to": "journal" if return_to == "journal" else "",
         "extras": [el for el in saved if el.exercise_id is None], "body_weight": body_weight,
         "categories": exercise_db.categories(), "category_codes": {c.code for c in exercise_db.categories()},
         "exercise_names": [e.name for e in exercise_db.all_exercises()],
@@ -465,12 +465,13 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
     })
 
 
-def _free_form_page(request: Request, session: Session, uid: int, log: WorkoutLog | None, log_date: date_type):
+def _free_form_page(request: Request, session: Session, uid: int, log: WorkoutLog | None, log_date: date_type, return_to: str = ""):
     saved = log.exercise_logs if log else []
     body_weight = next((el.body_weight_lb for el in saved if el.body_weight_lb), None) or workout_logging.latest_body_weight(session, uid)
     net = sum(el.net_kcal for el in saved if el.net_kcal)
     gross = sum(el.gross_kcal for el in saved if el.gross_kcal)
     return templates.TemplateResponse(request, "workouts/log.html", {
+        "return_to": "journal" if return_to == "journal" else "",
         "day": None, "free": True, "free_label": log.day_label if log else "", "log_date": log_date, "units": list(WeightUnit), "rows": [],
         "form_action": f"/workouts/free/{log.id}/log" if log else "/workouts/free/log", "extras": list(saved), "body_weight": body_weight,
         "categories": exercise_db.categories(), "category_codes": {c.code for c in exercise_db.categories()},
@@ -516,9 +517,9 @@ async def workouts_free_create(request: Request, session: Session = Depends(get_
 
 
 @router.get("/workouts/free/{log_id}/log")
-def workouts_free_edit(log_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+def workouts_free_edit(log_id: int, request: Request, return_to: str = "", session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     log = _own_free_log(session, log_id, uid)
-    return _free_form_page(request, session, uid, log, log.log_date)
+    return _free_form_page(request, session, uid, log, log.log_date, return_to)
 
 
 @router.post("/workouts/free/{log_id}/log")
@@ -550,4 +551,4 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
                      log_date=parsed.log_date, exercise_logs=exercise_logs)
     session.add(log)
     session.commit()
-    return RedirectResponse("/today", status_code=303)
+    return RedirectResponse("/measurements?tab=journal" if raw.get("return_to") == "journal" else "/today", status_code=303)       # only the Journal may be asked for

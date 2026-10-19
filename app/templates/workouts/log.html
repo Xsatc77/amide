@@ -38,8 +38,9 @@
 <div class="page-head"><div><h1>{{ day.label if day else (free_label or 'Free workout') }}</h1><p class="muted">{{ log_date | shortdate }}{% if free %} · not part of a plan{% endif %}</p></div></div>
 <p class="muted small" data-keep-awake-note></p>
 
-<form method="post" action="{{ form_action if free else '/workouts/day/' ~ day.id ~ '/log' }}" id="workout-log-form">
+<form method="post" action="{{ form_action if free else '/workouts/day/' ~ day.id ~ '/log' }}" id="workout-log-form" data-confirm-incomplete>
   <input type="hidden" name="log_date" value="{{ log_date }}">
+  {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
   {% if free %}
   <label class="field"><span>Workout name</span><input name="label" maxlength="200" required value="{{ free_label }}" placeholder="e.g. Park run, Hotel gym"></label>
   {% endif %}
