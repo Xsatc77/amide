@@ -1131,6 +1131,27 @@ class BodyMeasurement(Base):
     quad_r_in: Mapped[float | None] = mapped_column(Float)
     calf_l_in: Mapped[float | None] = mapped_column(Float)
     calf_r_in: Mapped[float | None] = mapped_column(Float)
+    # What a body-composition scale reported (imported from its export; see app/measurements/renpho.py). All optional; masses in pounds like every stored weight.
+    scale_stamp: Mapped[str | None] = mapped_column(String(30), index=True)     # the scale's own date and time for the reading, so importing a file twice adds nothing
+    scale_bmi: Mapped[float | None] = mapped_column(Float)
+    scale_body_fat_pct: Mapped[float | None] = mapped_column(Float)
+    scale_fat_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_muscle_pct: Mapped[float | None] = mapped_column(Float)
+    scale_muscle_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_skeletal_muscle_pct: Mapped[float | None] = mapped_column(Float)
+    scale_skeletal_muscle_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_bone_pct: Mapped[float | None] = mapped_column(Float)
+    scale_bone_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_protein_pct: Mapped[float | None] = mapped_column(Float)
+    scale_protein_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_water_pct: Mapped[float | None] = mapped_column(Float)
+    scale_water_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_fat_free_mass_lb: Mapped[float | None] = mapped_column(Float)
+    scale_subcutaneous_fat_pct: Mapped[float | None] = mapped_column(Float)
+    scale_visceral_fat: Mapped[float | None] = mapped_column(Float)
+    scale_bmr_kcal: Mapped[float | None] = mapped_column(Float)
+    scale_metabolic_age: Mapped[float | None] = mapped_column(Float)
+    scale_whr: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

@@ -64,7 +64,8 @@
     {% set overview_metrics = charts.series | selectattr('chart') | list %}
     {% set overview_avgs = charts.bilateral_avg | selectattr('chart') | list %}
     {% set overview_extra = (charts.extra or []) | selectattr('chart') | list %}
-    {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf or overview_extra %}
+    {% set overview_scale = (charts.scale or []) | selectattr('chart') | list %}
+    {% set has_metrics = overview_metrics or overview_avgs or charts.bp or charts.bmi or charts.bf or overview_extra or overview_scale %}
     <div class="overview-controls-row">
       <label class="field">
         <span>Metric</span>
@@ -74,6 +75,7 @@
           {% if charts.bp %}<option value="bp">Blood Pressure</option>{% endif %}
           {% if charts.bmi %}<option value="bmi">BMI</option>{% endif %}
           {% if charts.bf %}<option value="bf">Body Fat %</option>{% endif %}
+          {% if overview_scale %}<optgroup label="From your scale">{% for s in overview_scale %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}</optgroup>{% endif %}
           {% if overview_extra %}<optgroup label="Worked out from your entries">{% for s in overview_extra %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}</optgroup>{% endif %}
           <option value="nutrition">Nutrition (protein, carbs, fat, fiber)</option>
         </select>
@@ -96,6 +98,10 @@
       {% if charts.bf %}<div class="overview-chart-panel" data-metric="bf"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(charts.bf, 'Body Fat %') }}</div>{% set shown.done = true %}{% endif %}
       {% for s in overview_extra %}
       <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{% if s.kind == 'dual' %}{{ dual_chart(s.chart, s.label, s.a_label, s.b_label) }}{% else %}{{ line_chart(s.chart, s.label) }}{% endif %}</div>
+      {% set shown.done = true %}
+      {% endfor %}
+      {% for s in overview_scale %}
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label) }}</div>
       {% set shown.done = true %}
       {% endfor %}
       <div class="overview-chart-panel" data-metric="nutrition" data-range-ring{{ '' if not shown.done else ' hidden' }}>
@@ -129,6 +135,35 @@
     </div>
   </section>
 </div>
+
+<section class="card scale-section" id="scale-section" aria-labelledby="scale-heading">
+  <h2 id="scale-heading" class="section-title">Body composition from your scale</h2>
+  {% if scale_import %}<div class="alert alert-ok" role="status">{{ scale_import.imported or 0 }} reading{{ '' if scale_import.imported == 1 else 's' }} imported{% if scale_import.skipped %}, {{ scale_import.skipped }} already there{% endif %}{% if scale_import.unread %}, {{ scale_import.unread }} row{{ '' if scale_import.unread == 1 else 's' }} could not be read{% endif %}.</div>{% endif %}
+  {% if errors.scale_import %}<div class="alert" role="alert">{{ errors.scale_import }}</div>{% endif %}
+  {% if scale_latest %}
+  <div id="scale-latest">
+    <p class="muted small">Your latest scale reading, {{ scale_latest.date | shortdate }}. Pick any of these in the Overview's Metric list to chart it.</p>
+    <dl class="scale-grid">
+      {% for r in scale_latest.rows %}
+      <div class="scale-cell"><dt>{{ r.label }}</dt><dd><strong>{{ r.value }}</strong> {{ r.unit }}{% if r.delta %} <span class="muted small">({{ '+' if r.delta > 0 }}{{ r.delta }})</span>{% endif %}</dd></div>
+      {% endfor %}
+    </dl>
+    {% if scale_latest.scale_fat is not none and scale_latest.tape_fat is not none %}
+    <p class="muted small">Body fat: {{ scale_latest.scale_fat }}% from the scale, {{ scale_latest.tape_fat }}% from your tape measurements (Navy method). Both are estimates and can differ by several points; watch each one's trend rather than comparing them.</p>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="muted">No scale readings yet. Import the CSV your scale's app exports (Renpho: the app's export-data option) and every weigh-in is added.</p>
+  {% endif %}
+  <details class="scale-import">
+    <summary class="btn btn-ghost">Import from a scale (Renpho CSV)</summary>
+    <form method="post" action="/measurements/import-scale" enctype="multipart/form-data" class="inline-form">
+      <label class="field"><span>Export file (.csv)</span><input type="file" name="file" accept=".csv,text/csv" required></label>
+      <button type="submit" class="btn btn-primary">Import</button>
+      <p class="muted small">Each weigh-in becomes a measurement on its date. A reading that is already in Amide is skipped, so importing the same file again is safe. Percentages and masses are the scale's own estimates, kept separate from anything Amide works out.</p>
+    </form>
+  </details>
+</section>
 
 
 {% if charts %}

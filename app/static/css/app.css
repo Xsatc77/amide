@@ -1567,3 +1567,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .nutrition-range-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .nutrition-range-head .range-field { margin: 0; }
 .col-totals .macro-ring-wrap { margin-top: 10px; }
+
+/* ---- scale readings ---- */
+.scale-section { margin: 16px 0; }
+.scale-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; margin: 8px 0; }
+.scale-cell dt { font-size: .8rem; color: var(--muted); }
+.scale-cell dd { margin: 0; }
+.scale-import { margin-top: 12px; }

@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from app.auth import sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app import units
+from app.measurements import scale_view
 from app.measurements.calculations import bmi, body_fat_pct, water_goal_oz, water_pace
 from app.food import usda
 from app.models import FoodLog, WaterLog, BodyMeasurement, DietPreset, Food, LoginSession, MacroGoal, Share, ShareCategory, User
@@ -86,6 +87,10 @@ def display_entries(entries, u):
             value = getattr(view, field)
             if value is not None:
                 setattr(view, field, u.weight(value) if field == "weight_lbs" else u.length(value))
+        for field in scale_view.MASS_FIELDS:
+            value = getattr(view, field)
+            if value is not None:
+                setattr(view, field, u.weight(value))
         out.append(view)
     return out
 
@@ -447,6 +452,10 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
         for key, left_field, right_field, label in BILATERAL_LOCATIONS
     ]
 
+    scale = [{"key": field, "label": unit_label(label, u),
+              "chart": _chart([(r.measured_at, getattr(r, field)) for r in shown if getattr(r, field) is not None])}
+             for field, label, _ in scale_view.SCALE_FIELDS]
+
     bp_a = [(r.measured_at, r.systolic) for r in own_windowed if r.systolic is not None]
     bp_b = [(r.measured_at, r.diastolic) for r in own_windowed if r.diastolic is not None]
     bp_chart = _dual_chart(bp_a, bp_b)
@@ -480,7 +489,7 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
                 bf_status = "insufficient"
 
     return {"range": range_key, "range_options": RANGES, "range_labels": RANGE_LABELS,
-           "series": series, "bilateral_avg": bilateral_avg, "bp": bp_chart, "bmi": bmi_chart,
+           "series": series, "bilateral_avg": bilateral_avg, "scale": scale, "bp": bp_chart, "bmi": bmi_chart,
            "bf": bf_chart, "bf_status": bf_status}
 
 
@@ -488,7 +497,7 @@ def _add_derived_charts(session: Session, user: User, own_entries: list, window_
     """The charts worked out from other entries (see app/measurements/extra_charts.py), and the dose-change markers on the body charts."""
     from app.measurements import extra_charts
     markers = extra_charts.dose_markers_for(session, user.id)
-    for s in (*charts["series"], *charts["bilateral_avg"]):
+    for s in (*charts["series"], *charts["bilateral_avg"], *charts["scale"]):
         extra_charts.attach_markers(s["chart"], markers)
     extra_charts.attach_markers(charts["bmi"], markers)
     extra_charts.attach_markers(charts["bf"], markers)
@@ -547,6 +556,9 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     if tab == "measurements" and me_user:
         _add_derived_charts(session, me_user, own_entries, window_start, u, context["charts"])
         context["nutrition_range"] = _nutrition_range(session, uid, window_start, as_of)
+        context["scale_latest"] = scale_view.latest_card(own_entries, display_entries(own_entries, u), u, me_user)
+        q = request.query_params
+        context["scale_import"] = {k: int(q[k]) for k in ("imported", "skipped", "unread") if q.get(k, "").isdigit()} or None
     if tab == "journal":
         edit_raw = (extra or {}).get("journal_edit") or request.query_params.get("edit")
         try:
@@ -599,6 +611,22 @@ def delete_measurement(measurement_id: int, session: Session = Depends(get_sessi
     session.delete(row)
     session.commit()
     return RedirectResponse("/measurements?tab=measurements", status_code=303)
+
+
+@router.post("/measurements/import-scale")
+async def import_scale(request: Request, file: UploadFile = File(...), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Load a body-composition scale's export (Renpho CSV): one measurement per reading, the scale's numbers kept in their own fields."""
+    from app.measurements import renpho
+    try:
+        text = (await file.read(renpho._MAX_BYTES + 1)).decode("utf-8-sig", errors="replace")
+        parsed = renpho.parse(text)
+    except renpho.ImportError_ as exc:
+        return _render(request, session, uid, tab="measurements", errors={"scale_import": str(exc)}, status_code=422)
+    if not parsed.readings:
+        return _render(request, session, uid, tab="measurements", errors={"scale_import": "No weigh-ins could be read from that file." + (" " + parsed.errors[0] if parsed.errors else "")}, status_code=422)
+    result = renpho.import_readings(session, uid, parsed)
+    session.commit()
+    return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&skipped={result.skipped}&unread={len(result.errors)}", status_code=303)
 
 
 @router.post("/measurements")

@@ -317,6 +317,10 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 
 ---
 
+## 4b. Importing a scale
+
+On the **Measurements** tab, open **Import from a scale (Renpho CSV)**, choose the file the Renpho app exported, and click Import. Every weigh-in is added on its date with the scale's body-composition numbers. They are estimates (from a tiny electrical current through your feet), so watch their trends rather than any single reading. Pick one in the Overview **Metric** list to chart it. Importing the same file twice is safe.
+
 ## 12a. Learn
 
 The account menu has a **Learn** page: a tutorial for newcomers to gray-market peptides, with a glossary and a section on scams, customs and spotting a bad deal. Underlined words show a short definition when you hover (or tap) them, with a link to the full glossary entry. The vendor scorecard in section 4 remembers your ticks on this device only. The syringe teaching aid uses made-up numbers; none of them is a dose suggestion. The page says when it was last updated and what still needs expert review.
