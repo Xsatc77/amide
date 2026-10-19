@@ -15,10 +15,11 @@ import pdfplumber
 
 from app.library.price_lists import ocr
 from app.library.price_lists.rows import (
-    ParsedRow, Spec, check_code_size, check_pack_size, code_number, parse_price, parse_spec,
+    ParsedRow, Spec, check_code_size, check_pack_size, code_number, parse_price, parse_spec, with_form,
 )
 
-_SPEC_CELL = re.compile(r"\d\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?\s*[*x×]\s*\d", re.IGNORECASE)
+_DUAL_AFTER = r"\s+dual[\s-]*chamber"          # "10mg Dual Chamber Cartridge": a size with no pack count, but a size all the same
+_SPEC_CELL = re.compile(r"\d\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?(?:\s*[*x×]\s*\d|" + _DUAL_AFTER + ")", re.IGNORECASE)
 _BARE_SPEC_CELL = re.compile(r"^\s*\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)\s*$", re.IGNORECASE)  # "5mg": the pack is stated in the heading
 _PER_KIT = re.compile(r"\bkit\b", re.IGNORECASE)
 _PRICE_CELL = re.compile(
@@ -26,7 +27,7 @@ _PRICE_CELL = re.compile(
 _CODE_CELL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/() ]{0,17}$")
 _NAME_CODE = re.compile(r"^([A-Za-z0-9\-]{2,12})\s*\(")
 _LINE_SPEC = re.compile(
-    r"\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?\s*[*x×]\s*\d+(?:\s*v[a-z]*)?", re.IGNORECASE)
+    r"\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)[a-z]*(?:\s*/\s*ml)?(?:\s*[*x×]\s*\d+(?:\s*v[a-z]*)?|" + _DUAL_AFTER + r"(?:\s+cartridges?)?)", re.IGNORECASE)
 _LINE_CODE = re.compile(  # 5AM, 10AM, 2S10, SM10, SX5-XA5; never a name such as CJC-1295 or 5-amino-1MQ
     r"^(?:\d{1,3}[A-Za-z]{1,6}\d{0,5}|[A-Za-z]{1,6}\d{1,5})(?:-[A-Za-z]{1,6}\d{1,5})?(?:\([^)]*\))?$")
 _SHIPPING = re.compile(r"ship|freight|customs|postage", re.IGNORECASE)
@@ -138,6 +139,7 @@ def rows_from_table(table, page: int = 0) -> list[ParsedRow]:
         if per_kit and spec.pack_size is None:
             spec = replace(spec, pack_size=_KIT_VIALS)
         name = cell(roles.name) or None
+        spec = with_form(spec, name)
         code = cell(roles.code)
         code = code if re.search(r"[A-Za-z0-9]", code) else None
         if code is None and name:
@@ -175,6 +177,7 @@ def rows_from_lines(lines, page: int = 0) -> list[ParsedRow]:
         spec = parse_spec(m.group(0))
         if spec is None:
             continue
+        spec = with_form(spec, line)
         before = line[:m.start()].split()
         shaped = [i for i, tok in enumerate(before) if _LINE_CODE.match(tok)]
         matching_dose = [i for i in shaped if code_number(before[i]) == spec.amount]

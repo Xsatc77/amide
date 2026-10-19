@@ -126,7 +126,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("vendor_favorites", share_drop=True)),
         shareable=True, help="Vendors with contacts, accepted payment methods, wallets and attached price-list files."),
     Section("price_lists", "Price lists", INSTALLATION, (
-        Tbl("price_lists"), Tbl("price_list_items"), Tbl("price_alert_ignores", share_drop=True)),
+        Tbl("price_lists"), Tbl("price_list_items"), Tbl("price_alert_ignores", share_drop=True), Tbl("price_corrections", share_drop=True)),
         shareable=True, help="Imported vendor price lists and their items."),
     Section("ingest", "Price list inbox", INSTALLATION, (
         Tbl("ingest_sources"), Tbl("ingest_topics"), Tbl("ingest_items", file=("stored_file", "ingest"))),
@@ -158,6 +158,7 @@ REFS = {
     ("ingest_sources", "vendor_id"): ("vendors", ("name",)),
     ("ingest_items", "vendor_id"): ("vendors", ("name",)),
     ("price_list_items", "peptide_id"): ("peptides", ("name",)),
+    ("price_corrections", "peptide_id"): ("peptides", ("name",)),
 }
 # Shared tables merged by name when an administrator adds a shared section (an existing match is skipped).
 MERGE_KEYS = {

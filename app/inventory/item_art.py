@@ -32,7 +32,7 @@ _TILES = {
 
 # Words that name the form, not the medicine: "B-12 drops" is B-12.
 _FORM_WORDS = {"drops", "drop", "pills", "pill", "capsules", "capsule", "tablets", "tablet", "softgels", "softgel", "spray", "cream", "salve", "ointment", "gel",
-               "liquid", "oral", "tincture", "injector", "autoinjector", "pen", "inhaler"}
+               "liquid", "oral", "tincture", "injector", "autoinjector", "pen", "inhaler", "cartridge", "dual", "chamber"}
 
 
 def tile_spec(medium: Medium | None) -> tuple[float, float, int, int]:

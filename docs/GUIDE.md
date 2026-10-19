@@ -321,6 +321,10 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 
 The account menu has a **Learn** page: a tutorial for newcomers to gray-market peptides, with a glossary and a section on scams, customs and spotting a bad deal. Underlined words show a short definition when you hover (or tap) them, with a link to the full glossary entry. The vendor scorecard in section 4 remembers your ticks on this device only. The syringe teaching aid uses made-up numbers; none of them is a dose suggestion. The page says when it was last updated and what still needs expert review.
 
+## 12a-2. Price correction
+
+Administrators: **Settings → Admin → Price correction** lists every product on the current price lists, with each vendor's prices on the left and what it is matched to on the right. If a match is wrong, pick the right peptide in the dropdown. **Add as a new peptide** marks a product the library does not have. **Save corrections** commits the whole list at once; a list of the missing peptides is then shown so you can add them (you can edit the name first). Corrections are remembered when you import new lists.
+
 ## 12b. Links
 
 The **Links** page keeps the sites you use, grouped under their type (Vendor, Supplies, Community, Research, Blog/Vlog, Calculator, Workouts, Nutrition, Other) and sorted A to Z by site name. Only types you have links for get a section.

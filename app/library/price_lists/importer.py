@@ -18,7 +18,7 @@ from app.library.price_lists.reader import PriceListData, read_pdf
 from app.library.price_lists.rows import code_prefix, pack_type
 from app.library.price_lists.specs import format_spec, merge_specs
 from app.models import (
-    Peptide, PeptideSource, PriceList, PriceListItem, Vendor, Warehouse, WarehouseSource,
+    Peptide, PeptideSource, PriceCorrection, PriceList, PriceListItem, Vendor, Warehouse, WarehouseSource,
 )
 
 _GENERIC_VENDOR_WORDS = {"peptide", "peptides"}
@@ -119,15 +119,26 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
 
     sizes: dict[int, tuple[Peptide, list[str]]] = {}
     unmatched: dict[str, None] = {}
+    fixed = {c.product_key: c.peptide_id for c in session.scalars(select(PriceCorrection))}         # what the administrator said a name is beats the automatic match
+    by_id = {c.id: c for c in cards}
     for row in rows:
-        match = match_name(row.name, cards) if row.name else None
+        key = name_key(row.name) if row.name else ""
+        match = match_name(row.name, cards) if row.name and key not in fixed else None
         peptide = None
-        if match is not None:
+        if key in fixed:
+            peptide = by_id.get(fixed[key])
+            if peptide is not None:
+                report.matched += 1
+                if row.spec.unit in _SPEC_UNITS:
+                    sizes.setdefault(peptide.id, (peptide, []))[1].append(format_spec(row.spec.amount, row.spec.unit, row.spec.form))
+            elif row.name:
+                unmatched[row.name] = None
+        elif match is not None:
             peptide = min(match.cards, key=lambda c: (_SOURCE_RANK.get(c.source, 9), c.id))
             report.matched += 1
             if row.spec.unit in _SPEC_UNITS:
                 for card in match.cards:
-                    sizes.setdefault(card.id, (card, []))[1].append(format_spec(row.spec.amount, row.spec.unit))
+                    sizes.setdefault(card.id, (card, []))[1].append(format_spec(row.spec.amount, row.spec.unit, row.spec.form))
         elif row.name:
             unmatched[row.name] = None
         if not row.name:
@@ -137,7 +148,7 @@ def store_price_list(session: Session, filename: str, data: PriceListData, *,
         plist.items.append(PriceListItem(
             code=row.code[:30] if row.code else None, product_name=row.name[:300] if row.name else None,
             peptide_id=peptide.id if peptide else None, vial_amount=row.spec.amount, vial_unit=row.spec.unit,
-            pack_size=row.spec.pack_size, pack_price=row.pack_price, pack_type=pack_type(row.spec.pack_size),
+            pack_size=row.spec.pack_size, pack_price=row.pack_price, pack_type=pack_type(row.spec.pack_size), form=row.spec.form,
             extra_prices=row.extra_prices or None, flags=row.flags or None))
     report.unmatched = list(unmatched)
 

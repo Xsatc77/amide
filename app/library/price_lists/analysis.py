@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.library.matching import match_name, name_key
 from app.library.price_lists.importer import _SOURCE_RANK, vendor_key
-from app.models import Peptide, PriceAlertIgnore, PriceList, PriceListItem, Vendor
+from app.models import Peptide, PriceAlertIgnore, PriceCorrection, PriceList, PriceListItem, Vendor
 
 SIZE_UNITS = ("mg", "mcg", "IU")
 
@@ -42,7 +42,7 @@ def price_range(session: Session, peptide_id: int) -> PriceRange | None:
     never mixed). Only mg / mcg / IU packs with a stated pack size and a price count."""
     current = [p.id for p in current_lists(session)]
     items = session.scalars(select(PriceListItem).where(
-        PriceListItem.peptide_id == peptide_id, PriceListItem.price_list_id.in_(current),
+        PriceListItem.peptide_id == peptide_id, PriceListItem.price_list_id.in_(current), PriceListItem.form.is_(None),     # cartridges are priced apart from vials
         PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price > 0,
         PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)).all()
     by_size: dict[tuple[float, str], list[PriceListItem]] = defaultdict(list)
@@ -74,6 +74,7 @@ class VendorPrice:
 class SizeOption:
     amount: float
     unit: str
+    form: str | None
     vendors: list[VendorPrice]  # best first, one per vendor
 
 
@@ -91,18 +92,18 @@ def best_prices(session: Session, peptide_id: int, limit: int = 5) -> list[SizeO
         PriceListItem.peptide_id == peptide_id, PriceListItem.price_list_id.in_(list(current)),
         PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price > 0,
         PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)).all()
-    best: dict[tuple[float, str], dict] = defaultdict(dict)
+    best: dict[tuple[float, str, str | None], dict] = defaultdict(dict)
     for it in items:
         plist = current[it.price_list_id]
         price = VendorPrice(plist.vendor_id, plist.vendor_name, plist.warehouse.value, it.pack_price / it.pack_size,
                             it.pack_price, it.pack_size, it.pack_type, plist.list_date)
         vendor = plist.vendor_id if plist.vendor_id is not None else vendor_key(plist.vendor_name)
-        held = best[(it.vial_amount, it.vial_unit)].get(vendor)
+        held = best[(it.vial_amount, it.vial_unit, it.form)].get(vendor)
         if held is None or _rank(price) < _rank(held):
-            best[(it.vial_amount, it.vial_unit)][vendor] = price
-    options = [SizeOption(amount, unit, sorted(by_vendor.values(), key=_rank)[:limit])
-               for (amount, unit), by_vendor in best.items()]
-    return sorted(options, key=lambda o: (SIZE_UNITS.index(o.unit), o.amount))
+            best[(it.vial_amount, it.vial_unit, it.form)][vendor] = price
+    options = [SizeOption(amount, unit, form, sorted(by_vendor.values(), key=_rank)[:limit])
+               for (amount, unit, form), by_vendor in best.items()]
+    return sorted(options, key=lambda o: (SIZE_UNITS.index(o.unit), o.amount, o.form or ""))
 
 
 # ---------------------------------------------------------------- a vendor's price history
@@ -206,7 +207,10 @@ def rematch_items(session: Session) -> int:
         PriceListItem.peptide_id.is_(None), PriceListItem.product_name.is_not(None))).all()
     linked = 0
     resolved: dict[str, int | None] = {}
+    corrected = set(session.scalars(select(PriceCorrection.product_key)))         # a name the administrator corrected is never matched automatically
     for it in items:
+        if name_key(it.product_name) in corrected:
+            continue
         if it.product_name not in resolved:
             match = match_name(it.product_name, cards)
             resolved[it.product_name] = (

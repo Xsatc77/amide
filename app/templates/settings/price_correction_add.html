@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% set active_nav = "" %}
+{% block title %}Add peptides{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Add to the library</h1>
+    <p class="muted">{% if saved %}{{ saved }} correction{{ '' if saved == 1 else 's' }} saved. {% endif %}These products match no peptide in the library. Tick the ones to add; each is added as a new library card with the name you give it, and every price line with that name is linked to it. If the name already has a card, the lines are linked to that card instead.</p>
+  </div>
+  <a class="btn btn-ghost" href="/settings/price-correction">Skip, back to Price correction</a>
+</div>
+
+{% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+
+{% if not candidates %}
+<div class="empty"><p><strong>Nothing needs adding.</strong></p></div>
+{% else %}
+<form method="post" action="/settings/price-correction/add" novalidate>
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Add</th><th>Name for the new card</th><th>Listed by</th></tr></thead>
+      <tbody>
+        {% for c in candidates %}
+        <tr>
+          <td><input type="checkbox" name="add__{{ c.key }}" value="1"{{ ' checked' if c.marked }} aria-label="Add {{ c.name }}"></td>
+          <td><input name="name__{{ c.key }}" value="{{ c.name }}" maxlength="120" aria-label="Name for {{ c.name }}"></td>
+          <td class="small muted">{{ c.vendors | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="form-actions"><button type="submit" class="btn btn-primary">Add the ticked products</button></div>
+</form>
+{% endif %}
+{% endblock %}

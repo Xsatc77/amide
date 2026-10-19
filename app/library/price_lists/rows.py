@@ -2,7 +2,7 @@
 """Plain row objects and the small pure parsers behind the price-list reader."""
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 _SPEC = re.compile(
     # a number right after "*" is a vial count unless a unit follows it ("10ml*600mg/ml": 600mg/ml is a concentration)
@@ -12,6 +12,8 @@ _SPEC = re.compile(
 )
 _PRICE = re.compile(
     r"(?:US\$|\$|USD)?\s*(?P<price>\d+(?:\.\d+)?)\s*(?:USD)?\s*(?:/\s*(?P<per>\d*)\s*vials?)?", re.IGNORECASE)
+_DUAL_CHAMBER = re.compile(r"dual[\s-]*chamber", re.IGNORECASE)
+DUAL_CHAMBER = "dual_chamber"
 _CODE_PREFIX = re.compile(r"\d*([A-Za-z]+)")
 _CHECKED_UNITS = {"mg", "mcg", "IU"}
 _KIT_VIALS = 10
@@ -22,6 +24,7 @@ class Spec:
     amount: float
     unit: str  # "mg" | "mcg" | "IU" | "ml" | "mg/ml"
     pack_size: int | None
+    form: str | None = None  # None for a plain vial; "dual_chamber" for a dual chamber cartridge
 
 
 @dataclass
@@ -45,7 +48,14 @@ def parse_spec(text: str) -> Spec | None:
     if m.group("conc"):
         unit += "/ml"
     size = int(m.group("size")) if m.group("size") else None
-    return Spec(float(m.group("amt")), unit, size)
+    return Spec(float(m.group("amt")), unit, size, DUAL_CHAMBER if _DUAL_CHAMBER.search(text) else None)
+
+
+def with_form(spec: Spec, *texts: str | None) -> Spec:
+    """The spec, marked as a dual chamber cartridge when any of the texts (the spec cell, the name, the line) says so."""
+    if spec.form is None and any(_DUAL_CHAMBER.search(t or "") for t in texts):
+        return replace(spec, form=DUAL_CHAMBER)
+    return spec
 
 
 def parse_price(text: str) -> tuple[float | None, int | None]:

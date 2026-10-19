@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set active_nav = "" %}
+{% block title %}Price correction{% endblock %}
+
+{% block content %}
+{% set names = {} %}{% for p in peptides %}{% set _ = names.update({p.id: p.name}) %}{% endfor %}
+<div class="page-head">
+  <div>
+    <h1>Price correction</h1>
+    <p class="muted">Every product on the current price lists, with what it is matched to. If a match is wrong, pick the right peptide. Choose <strong>Add as a new peptide</strong> for a product the library does not have yet.</p>
+  </div>
+  <a class="btn btn-ghost" href="/settings#admin">Back to Settings</a>
+</div>
+
+{% if saved is not none %}<div class="alert alert-ok" role="status">{{ saved }} correction{{ '' if saved == 1 else 's' }} saved.</div>{% endif %}
+{% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+
+{% if not groups %}
+<div class="empty"><p><strong>No price lists yet.</strong></p><p class="muted">Import a vendor's price list (on the vendor's page, or from the price list inbox) and its products appear here.</p></div>
+{% else %}
+<div class="price-correction-tools">
+  <label class="field"><span>Find a product</span><input type="search" id="pc-filter" placeholder="Type part of a name" autocomplete="off"></label>
+  <label class="check-field"><input type="checkbox" id="pc-unmatched"> <span>Only products with no match ({{ unmatched }})</span></label>
+  <span class="muted small" id="pc-changed" role="status"></span>
+</div>
+
+<form method="post" action="/settings/price-correction" id="pc-form" novalidate>
+  <div class="table-wrap">
+    <table class="inv-table price-correction">
+      <thead><tr><th>On the price lists</th><th>Matched to</th></tr></thead>
+      <tbody>
+        {% for g in groups %}
+        <tr data-pc-row data-name="{{ g.name | lower }}" data-matched="{{ '1' if g.peptide_id else '' }}">
+          <td>
+            <strong>{{ g.name }}</strong>
+            <ul class="plain-list small muted">
+              {% for line in g.lines %}<li>{{ line.vendor }} ({{ line.warehouse }}) &middot; {{ line.size }} &middot; {{ line.price }}</li>{% endfor %}
+            </ul>
+          </td>
+          <td>
+            <select name="match__{{ g.key }}" data-pc-select data-original="{{ ('p' ~ g.peptide_id) if g.peptide_id else 'none' }}" aria-label="Matched to, for {{ g.name }}">
+              {% if g.peptide_id %}<option value="p{{ g.peptide_id }}" selected>{{ names[g.peptide_id] }}</option>{% endif %}
+              <option value="none"{{ '' if g.peptide_id else ' selected' }}>No match</option>
+              <option value="new">+ Add as a new peptide</option>
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <noscript><p class="muted small">Your browser needs JavaScript on to list every peptide in these dropdowns.</p></noscript>
+  <div class="form-actions"><button type="submit" class="btn btn-primary">Save corrections</button></div>
+</form>
+<script type="application/json" id="pc-peptides">{{ peptides | tojson }}</script>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/price-correction.js') }}" defer></script>
+{% endblock %}

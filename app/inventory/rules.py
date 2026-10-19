@@ -14,6 +14,7 @@ REQUIRED_FIELDS: dict[Medium, set[str]] = {
     Medium.PILL: {"vial_size_mg", "units_per_package"},
     Medium.DROPS: {"vial_size_mg"},
     Medium.SALVE: {"vial_size_mg"},
+    Medium.DUAL_CHAMBER: {"vial_size_mg"},
 }
 
 # Shown next to the field, and used in "X is required for <medium>" error messages.
@@ -28,6 +29,7 @@ FIELD_LABELS: dict[str, str] = {
 FIELD_LABEL_OVERRIDES: dict[Medium, dict[str, str]] = {
     Medium.AUTOINJECTOR: {"units_per_package": "Doses per pen"},
     Medium.PILL: {"vial_size_mg": "Amount per pill", "units_per_package": "Pills per bottle"},
+    Medium.DUAL_CHAMBER: {"vial_size_mg": "Amount per cartridge"},
 }
 
 

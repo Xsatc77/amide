@@ -19,7 +19,7 @@ from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
-    BodyMeasurement, BodyPhoto, DashboardDismissal, FitnessTestResult, IngestItem, IngestSource, IngestToken, IngestTopic, Food, FoodLog, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
+    BodyMeasurement, BodyPhoto, DashboardDismissal, FitnessTestResult, IngestItem, IngestSource, IngestToken, IngestTopic, Food, FoodLog, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceCorrection, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
 )
 from sqlalchemy import select, update  # noqa: E402
 
@@ -54,6 +54,7 @@ def clean(client):
     with SessionLocal() as s:
         s.query(User).update({User.timezone: None})      # a test that picks a time zone must not move every later test's "today"
         s.query(PriceAlertIgnore).delete()
+        s.query(PriceCorrection).delete()
         s.query(PriceList).delete()
         s.query(Vendor).delete()
         s.query(Protocol).delete()

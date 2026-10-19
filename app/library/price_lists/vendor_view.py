@@ -3,6 +3,7 @@
 from sqlalchemy.orm import Session
 
 from app.library.price_lists.analysis import PricePoint, best_prices, current_lists, vendor_price_history
+from app.library.price_lists.specs import FORM_LABELS
 from app.library.price_lists.chart import multi_series_chart
 
 # Mid-saturation colors that read on both the light and the dark theme.
@@ -78,9 +79,9 @@ def build_price_compare(session: Session, peptide_id: int, shown_range) -> dict 
                 pack = f"Pack of {v.pack_size} = ${v.pack_price:,.2f}"
             vendors.append({"name": v.vendor_name, "id": v.vendor_id, "warehouse": _WAREHOUSE_LABEL.get(v.warehouse, v.warehouse),
                             "per_vial": f"{v.per_vial:,.2f}", "pack": pack, "date": f"{v.list_date:%m/%d/%Y}"})
-        sizes.append({"label": _size(option.amount, option.unit), "vendors": vendors})
+        sizes.append({"label": _size(option.amount, option.unit) + (" " + FORM_LABELS[option.form].lower() if option.form in FORM_LABELS else ""), "vendors": vendors})
     default = next((i for i, o in enumerate(options)
-                    if shown_range is not None and (o.amount, o.unit) == (shown_range.amount, shown_range.unit)), 0)
+                    if shown_range is not None and o.form is None and (o.amount, o.unit) == (shown_range.amount, shown_range.unit)), 0)
     return {"sizes": sizes, "default": default}
 
 

@@ -76,6 +76,7 @@ class Medium(str, enum.Enum):
     PILL = "Pill"
     DROPS = "Drops"
     SALVE = "Salve"
+    DUAL_CHAMBER = "Dual Chamber Cartridge"     # dry drug and its diluent in separate chambers of one cartridge; mixed by the cartridge itself
 
 
 class Category(str, enum.Enum):
@@ -344,6 +345,7 @@ class PriceListItem(Base):
     pack_size: Mapped[int | None] = mapped_column(Integer)  # vials in the pack the price buys
     pack_price: Mapped[float | None] = mapped_column(Float)
     pack_type: Mapped[str | None] = mapped_column(String(10))  # "kit" (exactly 10 vials) | "box" (fewer) | None
+    form: Mapped[str | None] = mapped_column(String(20))  # None for a plain vial; "dual_chamber" for a dual chamber cartridge
     extra_prices: Mapped[dict | None] = mapped_column(JSON)  # other price columns by header, e.g. {"10kits+": 173}
     flags: Mapped[list | None] = mapped_column(JSON)
 
@@ -360,6 +362,20 @@ class PriceAlertIgnore(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     product_key: Mapped[str] = mapped_column(String(300))  # the matcher's name_key of the product
     product_name: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PriceCorrection(Base):
+    """What the administrator said a vendor's product name is: a library card, or "no match" (peptide_id empty). A correction beats the automatic match,
+    on the lists already stored and on every list imported later. Shared, like the price data itself."""
+
+    __tablename__ = "price_corrections"
+    __table_args__ = (UniqueConstraint("product_key", name="uq_price_correction_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    product_key: Mapped[str] = mapped_column(String(300))  # the matcher's name_key of the product
+    product_name: Mapped[str] = mapped_column(String(300))
+    peptide_id: Mapped[int | None] = mapped_column(ForeignKey("peptides.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -391,7 +407,7 @@ class InventoryItem(Base):
     # an as-needed protocol item's flat course-total quantity (1 vial vs. a 10-vial kit).
     purchasing_unit: Mapped["PurchasingUnit"] = mapped_column(_enum_column(PurchasingUnit), default=PurchasingUnit.INDIVIDUAL)
     medium: Mapped[Medium | None] = mapped_column(
-        Enum(Medium, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
+        Enum(Medium, native_enum=False, length=30, values_callable=lambda e: [m.value for m in e])
     )
     # Liquid: how much liquid is in the container (concentration = vial_size_mg / volume_ml when the unit is mg).
     volume_ml: Mapped[float | None] = mapped_column(Float)
