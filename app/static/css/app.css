@@ -551,6 +551,9 @@ section + section { margin-top: 36px; }
   background: color-mix(in srgb, var(--panel-accent, var(--info)) 22%, transparent);
   transition: height 0.4s ease; z-index: 0;
 }
+/* Blue below half the goal, yellow from half, green once the goal is reached. */
+.water-panel[data-water-level="half"] .water-fill { background: color-mix(in srgb, var(--goal-wellness) 28%, transparent); }
+.water-panel[data-water-level="full"] .water-fill { background: color-mix(in srgb, var(--goal-muscle-recovery) 28%, transparent); }
 .water-panel-content { position: relative; z-index: 1; }
 .water-quick-picks { display: flex; gap: 8px; margin-bottom: 12px; }
 

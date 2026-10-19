@@ -205,9 +205,10 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             goal_oz = water_goal_oz(latest_weight, viewer.water_goal_oz if viewer else None)
             water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": weight_as_of,
                     "consumed_oz": consumed_oz,
-                    "pct": min(100, round(100 * consumed_oz / goal_oz)) if goal_oz else 0}
+                    "pct": min(100, round(100 * consumed_oz / goal_oz)) if goal_oz else 0,
+                    "level": "full" if goal_oz and consumed_oz >= goal_oz else "half" if goal_oz and consumed_oz * 2 >= goal_oz else "low"}
         else:                                  # no weigh-in yet (or it was deleted): still track water, there is just no daily goal to compare with
-            water = {"goal_oz": None, "pace": None, "weight_as_of": None, "consumed_oz": consumed_oz, "pct": 0}
+            water = {"goal_oz": None, "pace": None, "weight_as_of": None, "consumed_oz": consumed_oz, "pct": 0, "level": "low"}
 
         # Always rendered (like Schedule/Alerts' own "nothing yet" states) rather than hidden
         # outright with no data -- fixed to the Overview's own default range/metric (Weight),

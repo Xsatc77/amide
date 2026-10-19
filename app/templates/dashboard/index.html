@@ -209,7 +209,7 @@
 {% endif %}
 
 {% if water %}
-<section class="card dash-panel water-panel dash-area-water" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info); --water-pct: {{ water.pct }}%;">
+<section class="card dash-panel water-panel dash-area-water" data-water-level="{{ water.level }}" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info); --water-pct: {{ water.pct }}%;">
   <div class="water-fill"></div>
   <div class="water-panel-content">
     <div class="panel-head">
