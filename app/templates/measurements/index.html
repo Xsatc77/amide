@@ -358,6 +358,29 @@
 </section>
 {% endif %}
 
+{% if water_history %}
+<section aria-labelledby="water-history-heading">
+  <h2 id="water-history-heading" class="section-title">Water against your goal, last 14 days</h2>
+  <p class="muted small">A day is compliant at 90% or more of that day's goal. Today is still open, so it is not counted yet. <strong>{{ water_summary.compliant }} of {{ water_summary.days }}</strong> finished days were compliant.</p>
+  <div class="table-wrap">
+    <table class="inv-table water-history">
+      <thead><tr><th>Day</th><th>Drank ({{ u.volume_label }})</th><th>Goal ({{ u.volume_label }})</th><th>Of goal</th><th>Result</th></tr></thead>
+      <tbody>
+        {% for d in water_history | reverse %}
+        <tr class="water-{{ d.status }}">
+          <td data-label="Day">{{ d.day | shortdate }}</td>
+          <td data-label="Drank">{{ '%g' | format(u.volume(d.oz)) }}</td>
+          <td data-label="Goal">{{ '%g' | format(u.volume(d.goal)) if d.goal else '—' }}</td>
+          <td data-label="Of goal">{{ d.pct ~ '%' if d.pct is not none else '—' }}</td>
+          <td data-label="Result">{{ {'compliant': 'Compliant', 'short': 'Short of 90%', 'none': 'Nothing logged', 'today': 'Today so far', 'nogoal': 'No goal set'}[d.status] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 {% if water_entries %}
 <section aria-labelledby="water-log-heading">
   <h2 id="water-log-heading" class="section-title">Water log, last 30 days</h2>

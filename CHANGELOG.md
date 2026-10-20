@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Food tab: **Water against your goal, last 14 days.** A table of each day's intake, that day's goal, the share of it and whether it met the 90% rule (today is shown but not counted), with a summary of how many finished days were compliant.
 - Dashboard: the Water Goal fill now turns green from **90%** of the day's goal (it was 100%), matching the 90% the H2O compliance bar counts as a good day; yellow still starts at half.
 - **Library: FST-344 (follistatin-344) card.** A full card in the library template, researched from the primary papers (the 2015 and 2017 follistatin gene therapy trials, a mouse study, a 2020 case series linking injected follistatin-344 to a retinal condition, the ACE-031 trial, FDA letters) with "Not established" wherever a value could not be verified. It is the same compound as the older Follistatin-344 entry, so that entry is renamed and filled (protocols and prices keep pointing at it) and the names Follistatin, Follistatin 344, FS-344, FS344 and FST344 all match it. When the base library adds a card, price lines that matched nothing are now linked to it.
 - **Edit a logged workout, past ones too.** Every workout shown on a Journal day now has an **Edit** button: plan workouts reopen with what you logged (saving replaces it and takes you back to the Journal), and quick or free workouts reopen in their own editor. And when you submit a workout with exercises not ticked Done, Amide lists them and asks whether you are sure before saving.
