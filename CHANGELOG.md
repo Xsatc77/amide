@@ -4,7 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
-- **Weight chart: change between weigh-ins.** On the Dashboard's weight card and the Measurements weight chart, each point is labeled with what was lost (green, −) or gained (amber, +) since the weigh-in before it, in your units. The first point has nothing before it, and on a long chart only the latest 14 are labeled so it stays readable.
+- **Weight chart: change between weigh-ins.** On the Dashboard's weight card and the Measurements weight chart, each day's weigh-in is labeled with what was lost (green, −) or gained (amber, +) since the day before, in your units and in numbers big enough to read on a phone. Several weigh-ins on one day (a smart scale gives a few) count once, by the last one, so the labels never stack as "0.0". The first point has nothing before it, and only the latest 8 days are labeled.
 - Food tab water table: the percentage rounds down (a day at 89.6% no longer reads "90%" beside "Short of 90%"), and a note appears when no time zone is set, since each day then follows the server's clock and evening water can land on the next day.
 - Food tab: **Water against your goal, last 14 days.** A table of each day's intake, that day's goal, the share of it and whether it met the 90% rule (today is shown but not counted), with a summary of how many finished days were compliant.
 - Dashboard: the Water Goal fill now turns green from **90%** of the day's goal (it was 100%), matching the 90% the H2O compliance bar counts as a good day; yellow still starts at half.

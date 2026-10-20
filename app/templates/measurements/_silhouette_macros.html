@@ -16,7 +16,7 @@
     {% for cx, cy in chart.points %}{% set d, v = chart.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}" class="chart-point"
       data-date="{{ d | shortdate }}" data-value="{{ v }}"></circle>{% endfor %}
     {% for m in chart.markers or () %}<circle cx="{{ m.x }}" cy="12" r="4" class="chart-point dose-dot" data-date="{{ m.date | shortdate }}" data-value="{{ m.label }}"></circle>{% endfor %}
-    {% if change %}{% set n = chart.raw | length %}{% for cx, cy in chart.points %}{% if loop.index0 >= 1 and loop.index0 >= n - 14 %}{% set d = chart.raw[loop.index0][1] - chart.raw[loop.index0 - 1][1] %}<text class="chart-delta {{ 'down' if d < -0.049 else 'up' if d > 0.049 else 'flat' }}" x="{{ cx }}" y="{{ cy - 9 if cy > 24 else cy + 20 }}" text-anchor="middle">{{ ('%+.1f' | format(d)) | replace('-', '−') }}</text>{% endif %}{% endfor %}{% endif %}
+    {% if change %}{% for c in chart.changes or () %}<text class="chart-delta {{ c.cls }}" x="{{ c.x + 14 if c.x > 500 else c.x }}" y="{{ c.y - 12 if c.y > 34 else c.y + 28 }}" text-anchor="{{ 'end' if c.x > 500 else 'middle' }}">{{ c.text }}</text>{% endfor %}{% endif %}
   </svg>
   <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · range {{ chart.min_v }}–{{ chart.max_v }}{% if chart.markers %} · <span class="dose-key">&#9679;</span> dose start or change{% endif %}</p>
 </div>

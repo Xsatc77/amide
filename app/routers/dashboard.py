@@ -190,7 +190,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # (measurements.py imports this module's own helpers at load time, so importing the other
         # direction up top would be circular) rather than duplicating that logic a second time.
         from app.routers.measurements import (
-            DEFAULT_RANGE, RANGE_DAYS, _chart, _field_current_and_delta, _silhouette_points,
+            DEFAULT_RANGE, RANGE_DAYS, _chart, _field_current_and_delta, _silhouette_points, weight_changes,
             _silhouette_shape, display_entries,
         )
         from app.measurements.calculations import water_goal_oz, water_pace
@@ -219,8 +219,10 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         windowed = [e for e in entries if e.measured_at >= cutoff]
         u = units.for_user(request.state.user)
         shown_windowed = display_entries(windowed, u)
+        weight_chart = _chart([(e.measured_at, e.weight_lbs) for e in shown_windowed if e.weight_lbs is not None])
+        weight_changes(weight_chart, shown_windowed)
         body_panel = {
-            "chart": _chart([(e.measured_at, e.weight_lbs) for e in shown_windowed if e.weight_lbs is not None]),
+            "chart": weight_chart,
             "silhouette": _silhouette_points(display_entries(entries, u), u.length_label) if entries else None,
             "silhouette_shape": _silhouette_shape(viewer.sex.value if viewer and viewer.sex else None),
         }

@@ -406,6 +406,31 @@ def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 
     return result
 
 
+WEIGHT_CHANGE_LABELS = 8          # the newest this many days are labeled, so the numbers can be drawn big enough to read on a phone
+
+
+def weight_changes(chart: dict | None, entries, limit: int = WEIGHT_CHANGE_LABELS) -> None:
+    """Add to a weight `chart` the change from each day's weigh-in to the day before: `chart["changes"]` is a list of {x, y, text, cls} placed at the day's
+    point. Several weigh-ins on one day (a smart scale gives a few in a row) count as one, by the last one recorded, so the labels never pile up on one spot."""
+    if not chart:
+        return
+    by_day: dict[date, float] = {}
+    for e in sorted(entries, key=lambda e: (e.measured_at, e.id)):
+        if e.weight_lbs is not None:
+            by_day[e.measured_at] = e.weight_lbs
+    days = sorted(by_day)
+    out = []
+    for previous, day in zip(days, days[1:]):
+        delta = round(by_day[day] - by_day[previous], 1)
+        index = next((i for i, (d, v) in enumerate(chart["raw"]) if d == day and v == by_day[day]), None)
+        if index is None:
+            continue
+        x, y = chart["points"][index]
+        text = f"{delta:+.1f}".replace("-", "−") if delta else "0.0"
+        out.append({"x": x, "y": y, "text": text, "cls": "down" if delta < 0 else "up" if delta > 0 else "flat"})
+    chart["changes"] = out[-limit:]
+
+
 def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, float]], *,
                 width: int = 560, height: int = 160, pad_x: int = 28, pad_y: int = 16) -> dict | None:
     """Two series (e.g. systolic/diastolic) sharing one date/value scale so they're comparable on
@@ -453,6 +478,9 @@ def _charts_context(own_windowed: list[BodyMeasurement], user: User | None, rang
         for key, left_field, right_field, label in BILATERAL_LOCATIONS
     ]
 
+    for s in series:
+        if s["key"] == "weight_lbs":
+            weight_changes(s["chart"], shown)
     scale = [{"key": field, "label": unit_label(label, u),
               "chart": _chart([(r.measured_at, getattr(r, field)) for r in shown if getattr(r, field) is not None])}
              for field, label, _ in scale_view.SCALE_FIELDS]

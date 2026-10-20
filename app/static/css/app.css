@@ -578,7 +578,7 @@ section + section { margin-top: 36px; }
 .measurement-chart .grid { stroke: var(--border); stroke-width: 1; }
 .measurement-chart .axis-label { fill: var(--muted); font-size: 15px; }
 /* What was lost (green) or gained (amber) since the weigh-in before, above each point; a flat week is muted. */
-.measurement-chart .chart-delta { font-size: 14px; font-weight: 700; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.measurement-chart .chart-delta { font-size: 24px; font-weight: 700; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
 .measurement-chart .chart-delta.down { fill: #16a34a; }
 .measurement-chart .chart-delta.up { fill: #d97706; }
 .measurement-chart .chart-delta.flat { fill: var(--muted); }

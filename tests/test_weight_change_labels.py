@@ -1,6 +1,7 @@
-"""The weight chart labels each weigh-in with what was lost or gained since the one before."""
+"""The weight chart labels each day's weigh-in with what was lost or gained since the day before."""
 
-from datetime import date, timedelta
+import re
+from datetime import timedelta
 
 import pytest
 
@@ -25,7 +26,6 @@ def weigh(db, me, days_ago, lbs, waist=None):
 
 
 def deltas(page):
-    import re
     return re.findall(r'<text class="chart-delta (\w+)"[^>]*>([^<]*)</text>', page)
 
 
@@ -33,8 +33,15 @@ def test_the_dashboard_weight_chart_shows_each_change_between_weigh_ins(client, 
     weigh(db, me, 14, 290.0)
     weigh(db, me, 7, 284.8)
     weigh(db, me, 0, 285.9)
-    found = deltas(client.get("/dashboard").text)
-    assert found == [("down", "−5.2"), ("up", "+1.1")]            # the first weigh-in has nothing before it
+    assert deltas(client.get("/dashboard").text) == [("down", "−5.2"), ("up", "+1.1")]            # the first weigh-in has nothing before it
+
+
+def test_several_weigh_ins_on_one_day_count_once_by_the_last_one(client, db, me):
+    weigh(db, me, 7, 284.8)
+    weigh(db, me, 0, 279.8)             # three readings the same morning, as a smart scale gives
+    weigh(db, me, 0, 280.0)
+    weigh(db, me, 0, 279.8)
+    assert deltas(client.get("/dashboard").text) == [("down", "−5.0")]                              # not 0.0 and +0.2 stacked on one spot
 
 
 def test_a_single_weigh_in_has_no_change_to_show(client, db, me):
@@ -45,13 +52,14 @@ def test_a_single_weigh_in_has_no_change_to_show(client, db, me):
 def test_an_unchanged_weight_reads_zero_in_a_neutral_color(client, db, me):
     weigh(db, me, 5, 200.0)
     weigh(db, me, 0, 200.0)
-    assert deltas(client.get("/dashboard").text) == [("flat", "+0.0")]
+    assert deltas(client.get("/dashboard").text) == [("flat", "0.0")]
 
 
-def test_only_the_latest_fourteen_changes_are_labeled_so_a_long_chart_stays_readable(client, db, me):
+def test_only_the_latest_eight_changes_are_labeled_so_the_numbers_can_be_big_enough_to_read(client, db, me):
     for n in range(20):
         weigh(db, me, 19 - n, 200.0 - n)
-    assert len(deltas(client.get("/dashboard").text)) == 14
+    found = deltas(client.get("/dashboard").text)
+    assert len(found) == 8 and all(c == "down" and t == "−1.0" for c, t in found)
 
 
 def test_a_metric_user_sees_the_change_in_kilograms(client, db, me):
@@ -69,3 +77,9 @@ def test_the_measurements_page_weight_chart_has_them_and_other_charts_do_not(cli
     weight_panel = page.split('data-metric="weight_lbs"', 1)[1].split("overview-chart-panel", 1)[0]
     waist_panel = page.split('data-metric="waist_in"', 1)[1].split("overview-chart-panel", 1)[0]
     assert deltas(weight_panel) == [("down", "−2.0")] and deltas(waist_panel) == []
+
+
+def test_the_numbers_are_big_enough_to_read_on_a_phone():
+    css = open("app/static/css/app.css", encoding="utf-8").read()
+    size = int(re.search(r"\.chart-delta \{[^}]*font-size: (\d+)px", css).group(1))
+    assert size >= 22              # the chart is drawn 560 wide and shown about half that on a phone
