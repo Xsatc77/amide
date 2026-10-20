@@ -78,3 +78,27 @@ def test_the_food_tab_shows_the_table_with_a_summary(client, db, me):
     finally:
         db.query(BodyMeasurement).delete()
         db.commit()
+
+
+def test_the_percentage_never_rounds_up_into_a_compliance_it_did_not_earn(db, me):
+    add(db, me, 3, 89.6, goal=100)            # 89.6% is short: it must not read "90%" next to "Short of 90%"
+    day = TODAY - timedelta(days=3)
+    row = next(r for r in rows(db, me) if r.day == day)
+    assert row.status == "short" and row.pct == 89
+
+
+def test_the_table_says_when_no_time_zone_is_set_because_days_then_follow_the_server(client, db, me):
+    from app.models import BodyMeasurement
+    from datetime import datetime
+    db.add(BodyMeasurement(owner_id=me, measured_at=datetime(2026, 9, 1), weight_lbs=200))
+    db.get(User, me).timezone = None
+    db.commit()
+    try:
+        assert "time zone" in client.get("/measurements?tab=food").text.split('id="water-history-heading"', 1)[1][:1500].lower()
+        db.get(User, me).timezone = "America/Chicago"
+        db.commit()
+        assert "no time zone is set" not in client.get("/measurements?tab=food").text.lower()
+    finally:
+        db.get(User, me).timezone = None
+        db.query(BodyMeasurement).delete()
+        db.commit()

@@ -361,6 +361,7 @@
 {% if water_history %}
 <section aria-labelledby="water-history-heading">
   <h2 id="water-history-heading" class="section-title">Water against your goal, last 14 days</h2>
+  {% if not me.timezone %}<p class="alert" role="note">No time zone is set, so each day follows the server's clock, not yours. Water logged in the evening can land on the next day. Set your time zone in <a href="/settings">Settings</a>.</p>{% endif %}
   <p class="muted small">A day is compliant at 90% or more of that day's goal. Today is still open, so it is not counted yet. <strong>{{ water_summary.compliant }} of {{ water_summary.days }}</strong> finished days were compliant.</p>
   <div class="table-wrap">
     <table class="inv-table water-history">

@@ -53,7 +53,7 @@ def history(session: Session, user: User, today: date, days: int = 14) -> list[D
         day = first + timedelta(days=n)
         oz, goal = logged.get(day, (0.0, None))
         goal = goal if goal is not None else current
-        pct = round(100 * oz / goal) if goal else None
+        pct = int(100 * oz / goal) if goal else None          # rounded down, so a day that is 89.6% never reads "90%" beside "short"
         if day == today:
             status = "today"
         elif not goal:
