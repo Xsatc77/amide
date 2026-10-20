@@ -1,4 +1,4 @@
-"""The Water Goal card's fill goes blue, then yellow from half the goal, then green once the goal is reached."""
+"""The Water Goal card's fill goes blue, then yellow from half the goal, then green from 90% of it (the same 90% the H2O compliance bar counts as a good day)."""
 
 import pytest
 
@@ -29,7 +29,7 @@ def level(client, db, me, oz, goal=100):
     return page.split('data-water-level="', 1)[1].split('"', 1)[0]
 
 
-@pytest.mark.parametrize("oz,expected", [(0, "low"), (49, "low"), (49.9, "low"), (50, "half"), (80, "half"), (99.4, "half"), (100, "full"), (130, "full")])
+@pytest.mark.parametrize("oz,expected", [(0, "low"), (49, "low"), (49.9, "low"), (50, "half"), (80, "half"), (89.9, "half"), (90, "full"), (97, "full"), (100, "full"), (130, "full")])
 def test_the_fill_level_follows_the_share_of_the_goal(client, db, me, oz, expected):
     assert level(client, db, me, oz) == expected
 
