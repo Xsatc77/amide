@@ -3152,6 +3152,95 @@
   "cost_estimate_text": null
  },
  {
+  "name": "FST-344",
+  "aliases": [
+   "Follistatin",
+   "Follistatin 344",
+   "Follistatin-344",
+   "FS-344",
+   "FS344",
+   "FST344",
+   "FST 344"
+  ],
+  "half_life_text": null,
+  "bioavailability_text": "Not established",
+  "tmax_text": "Not established",
+  "route_summary": "Injection (research)",
+  "storage_before_text": "Not established",
+  "storage_after_text": "Not established",
+  "storage_temperature_text": "Not established",
+  "legal_status_text": "FST-344 (follistatin) is not an approved drug in the United States. In a 2020 warning letter FDA listed follistatin among bulk substances not eligible for pharmacy compounding under section 503A, and in 2025 FDA restated that a 'research use only' label does not change how a product intended for human use is treated. Follistatin and other blockers of activin receptor signaling are prohibited in sport; the exact wording on the current WADA list was not read for this sheet. Checked October 2026.",
+  "tags": [
+   "Myostatin Inhibitor",
+   "Activin Inhibitor",
+   "Muscle Growth",
+   "Follistatin",
+   "Research Only",
+   "Not Approved",
+   "Gene Therapy Studied"
+  ],
+  "summary": "FST-344 (follistatin-344, FS344) is a form of follistatin, a natural protein that binds myostatin and activin, two proteins that limit muscle growth. The human evidence comes from small gene therapy trials in muscle disease that used a virus to deliver the gene, not from the injectable peptide sold online, which has no approved use, no established dose, and a case series linking it to eye problems.",
+  "usage_tips": [],
+  "sheet_sections": {
+   "what_is": "Follistatin is a protein the body makes in many tissues. It works by grabbing other signaling proteins, mainly activin and myostatin, and keeping them from doing their jobs. Myostatin is a brake on muscle growth.\nFS344 is a specific form of follistatin that the Becker muscular dystrophy and inclusion body myositis gene therapy trials used. In those trials a virus (an adeno-associated virus, AAV) carried the follistatin gene into the thigh muscle, so the body made the protein itself.\nFST-344 and Follistatin 344 are also the names under which injectable products are sold for research. Whether those products match the form used in the trials, or how pure they are, has not been established. FS288 and FS315 are other follistatin forms that differ in how they bind heparin (a 2007 structural study).",
+   "how_it_works": "Activin and myostatin both belong to the same family of signaling proteins. Follistatin binds activin and stops it from reaching its receptor.\nIn mice, making follistatin in the muscles led to a large increase in muscle mass, similar to mice that lack myostatin (2001 study). Researchers have used this to explain why follistatin was tried in muscle-wasting diseases.\nBecause follistatin also blocks activin outside muscle, its effects are not limited to muscle. How a follistatin injection behaves in the human body is not established.",
+   "benefits": "Human trial (gene therapy, 2015, 6 men with Becker muscular dystrophy): the 6-minute walk distance rose by 58, 125, 108 and 29 m in four men and did not change in two. Biopsies showed less scar tissue and larger muscle fibers. There was no control group, and this was a gene therapy, not an injection of the peptide.\nHuman trial (gene therapy, 2017, 6 men with sporadic inclusion body myositis): the 6-minute walk changed by a median of +56.0 m in one year, versus -25.8 m in 8 untreated matched people (p = 0.01). The comparison group was not randomized.\nAnimal study only (2001, mice): mice made to produce follistatin in their muscles had a large increase in muscle mass, similar to mice without myostatin.\nNo controlled human trial of injected FST-344 was found in the sources read, so a benefit from the injectable product is not established.",
+   "side_effects": "Human case series (2020, 11 male bodybuilders who injected 1 mg vials of follistatin-344 under the skin): all 11 developed central serous chorioretinopathy, fluid under the retina that blurs vision. 10 had one eye affected and 1 had both.\nHuman case series (2020): in the 8 who injected once the fluid cleared after about 2.3 months on average, and it came back in the 3 who injected more than once. The authors suggest follistatin-344 may be a risk factor for this eye problem.\nHuman trial (gene therapy, 2015): the abstract reports no adverse effects in 6 patients. The 2017 abstract gives no adverse event numbers. These used a viral vector in muscle, not injected peptide.\nA related drug that blocks the same pathway (ACE-031, a receptor decoy) was stopped early in a trial in boys with Duchenne muscular dystrophy because of nosebleeds and widened small blood vessels (2017). Whether FST-344 does the same is not established.\nFollistatin blocks activin, which helps control hormone signaling in the ovary in lab studies (1993 review). Effects of injected follistatin on hormones or fertility in people are not established.\nLong-term safety of injected follistatin in people is not established.",
+   "contraindications": "There is no approved use, so there is no official contraindication list.\nAnyone who has had central serous chorioretinopathy has a reason to be cautious, because the 2020 case series saw it recur after repeat injections.\nPregnancy, breastfeeding and children: no safety data were found.\nTested athletes: follistatin is on the anti-doping prohibited list (see Is FST-344 Legal?).",
+   "drug_interactions": "Not established in the sources read.",
+   "product_quality": "There is no approved FST-344 medicine. Vials sold for research have no verified purity, amount or form, and no label review by a regulator.\nFDA treats products sold for human use as unapproved drugs whatever the label says, so a 'research use only' label is not a quality mark.\nThe names Follistatin, Follistatin 344, FS344 and FST-344 are used loosely. A vial may or may not be the form used in the trials, and a result for one form says nothing certain about another.\nA lab report (certificate of analysis) is only as good as who made it and what it tested; see the Learn page for how to read one.",
+   "legal": "FST-344 (follistatin) is not an approved drug in the United States. In a 2020 warning letter FDA listed follistatin among bulk substances not eligible for pharmacy compounding under section 503A, and in 2025 FDA restated that a 'research use only' label does not change how a product intended for human use is treated. Follistatin and other blockers of activin receptor signaling are prohibited in sport; the exact wording on the current WADA list was not read for this sheet. Checked October 2026.",
+   "who_should_consider": "Readers who want to understand myostatin and activin research in muscle disease.\nPeople comparing what is known about injectable follistatin with what the gene therapy trials showed.\nNot a recommended product: any decision belongs with a prescriber.",
+   "related_peptides": "ACE-031\nMyostatin (GDF-8)",
+   "citations": "Mendell JR, et al. A phase 1/2a follistatin gene therapy trial for Becker muscular dystrophy. Molecular Therapy. 2015. https://pubmed.ncbi.nlm.nih.gov/25322757/\nMendell JR, Sahenk Z, Al-Zaidy S, et al. Follistatin gene therapy for sporadic inclusion body myositis improves functional outcomes. Molecular Therapy. 2017. https://pubmed.ncbi.nlm.nih.gov/28279643/\nLee SJ, McPherron AC. Regulation of myostatin activity and muscle growth. Proceedings of the National Academy of Sciences. 2001. https://pubmed.ncbi.nlm.nih.gov/11459935/\nDag U, Caglayan M, Oncul H, Alakus MF. Central serous chorioretinopathy associated with high-dose follistatin-344: a retrospective case series. International Ophthalmology. 2020. https://pubmed.ncbi.nlm.nih.gov/32671599/\nCampbell C, McMillan HJ, Mah JK, et al. Myostatin inhibitor ACE-031 treatment of ambulatory boys with Duchenne muscular dystrophy. Muscle and Nerve. 2017. https://pubmed.ncbi.nlm.nih.gov/27462804/\nLerch TF, Shimasaki S, Woodruff TK, Jardetzky TS. Structural and biophysical coupling of heparin and activin binding to follistatin isoform functions. Journal of Biological Chemistry. 2007. https://pubmed.ncbi.nlm.nih.gov/17409095/\nFindlay JK. An update on the roles of inhibin, activin, and follistatin as local regulators of folliculogenesis. Biology of Reproduction. 1993. https://pubmed.ncbi.nlm.nih.gov/8418903/\nUS Food and Drug Administration. Warning letter to Tailor Made Compounding LLC. 2020. https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/tailor-made-compounding-llc-594743-04012020\nUS Food and Drug Administration. Warning letter to USApeptide.com. 2025. https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/usapeptidecom-696885-02262025\nSakellariou P, Walpurgis K, Thomas A, et al. Combined detection of inhibitors of the activin receptor signaling pathways (IASPs) by means of LC-HRMS/MS for human doping control. Scientific Reports. 2025. https://pmc.ncbi.nlm.nih.gov/articles/PMC12144231/"
+  },
+  "sheet_sections_simple": {
+   "what_is": "Follistatin is a protein the body makes in many tissues. It works by grabbing other signaling proteins, mainly activin and myostatin, and keeping them from doing their jobs. Myostatin is a brake on muscle growth. FS344 is a specific form of follistatin that the Becker muscular dystrophy and inclusion body myositis gene therapy trials used. In those trials a virus (an adeno-associated virus, AAV) carried the follistatin gene into the thigh muscle, so the body made the protein itself. FST-344 and Follistatin 344 are also the names under which injectable products are sold for research. Whether those products match the form used in the trials, or how pure they are, has not been established. FS288 and FS315 are other follistatin forms that differ in how they bind heparin (a 2007 structural study).",
+   "how_it_works": "Activin and myostatin both belong to the same family of signaling proteins. Follistatin binds activin and stops it from reaching its receptor. In mice, making follistatin in the muscles led to a large increase in muscle mass, similar to mice that lack myostatin (2001 study). Researchers have used this to explain why follistatin was tried in muscle-wasting diseases. Because follistatin also blocks activin outside muscle, its effects are not limited to muscle. How a follistatin injection behaves in the human body is not established.",
+   "legal": "FST-344 (follistatin) is not an approved drug in the United States. In a 2020 warning letter FDA listed follistatin among bulk substances not eligible for pharmacy compounding under section 503A, and in 2025 FDA restated that a 'research use only' label does not change how a product intended for human use is treated. Follistatin and other blockers of activin receptor signaling are prohibited in sport; the exact wording on the current WADA list was not read for this sheet. Checked October 2026.",
+   "benefits": "Human trial (gene therapy, 2015, 6 men with Becker muscular dystrophy): the 6-minute walk distance rose by 58, 125, 108 and 29 m in four men and did not change in two. Biopsies showed less scar tissue and larger muscle fibers. There was no control group, and this was a gene therapy, not an injection of the peptide.\nHuman trial (gene therapy, 2017, 6 men with sporadic inclusion body myositis): the 6-minute walk changed by a median of +56.0 m in one year, versus -25.8 m in 8 untreated matched people (p = 0.01). The comparison group was not randomized.\nAnimal study only (2001, mice): mice made to produce follistatin in their muscles had a large increase in muscle mass, similar to mice without myostatin.\nNo controlled human trial of injected FST-344 was found in the sources read, so a benefit from the injectable product is not established.",
+   "side_effects": "Human case series (2020, 11 male bodybuilders who injected 1 mg vials of follistatin-344 under the skin): all 11 developed central serous chorioretinopathy, fluid under the retina that blurs vision. 10 had one eye affected and 1 had both.\nHuman case series (2020): in the 8 who injected once the fluid cleared after about 2.3 months on average, and it came back in the 3 who injected more than once. The authors suggest follistatin-344 may be a risk factor for this eye problem.\nHuman trial (gene therapy, 2015): the abstract reports no adverse effects in 6 patients. The 2017 abstract gives no adverse event numbers. These used a viral vector in muscle, not injected peptide.\nA related drug that blocks the same pathway (ACE-031, a receptor decoy) was stopped early in a trial in boys with Duchenne muscular dystrophy because of nosebleeds and widened small blood vessels (2017). Whether FST-344 does the same is not established.\nFollistatin blocks activin, which helps control hormone signaling in the ovary in lab studies (1993 review). Effects of injected follistatin on hormones or fertility in people are not established.\nLong-term safety of injected follistatin in people is not established.",
+   "contraindications": "There is no approved use, so there is no official contraindication list.\nAnyone who has had central serous chorioretinopathy has a reason to be cautious, because the 2020 case series saw it recur after repeat injections.\nPregnancy, breastfeeding and children: no safety data were found.\nTested athletes: follistatin is on the anti-doping prohibited list (see Is FST-344 Legal?).",
+   "drug_interactions": "Not established in the sources read.",
+   "who_should_consider": "Readers who want to understand myostatin and activin research in muscle disease.\nPeople comparing what is known about injectable follistatin with what the gene therapy trials showed.\nNot a recommended product: any decision belongs with a prescriber.",
+   "product_quality": "There is no approved FST-344 medicine. Vials sold for research have no verified purity, amount or form, and no label review by a regulator.\nFDA treats products sold for human use as unapproved drugs whatever the label says, so a 'research use only' label is not a quality mark.\nThe names Follistatin, Follistatin 344, FS344 and FST-344 are used loosely. A vial may or may not be the form used in the trials, and a result for one form says nothing certain about another.\nA lab report (certificate of analysis) is only as good as who made it and what it tested; see the Learn page for how to read one."
+  },
+  "dosing_tiers": [
+   {
+    "level": "Beginner",
+    "dose_text": "Not established",
+    "frequency_text": "Not established",
+    "time_of_day": null
+   },
+   {
+    "level": "Intermediate",
+    "dose_text": "Not established",
+    "frequency_text": "Not established",
+    "time_of_day": null
+   },
+   {
+    "level": "Advanced",
+    "dose_text": "Not established",
+    "frequency_text": "Not established",
+    "time_of_day": null
+   }
+  ],
+  "cycle": null,
+  "stack_relations": [],
+  "monitoring_tests": [
+   {
+    "test_name": "Eye exam with retinal imaging (OCT)",
+    "when_text": "Not established; in the case series it was done after vision loss",
+    "why_text": "Central serous chorioretinopathy followed injection in all 11 men",
+    "target_text": "No fluid under the retina"
+   }
+  ],
+  "cost_estimate_text": null,
+  "renames": [
+   "Follistatin-344"
+  ]
+ },
+ {
   "name": "GHK-Cu",
   "aliases": [
    "GHK:Cu",
