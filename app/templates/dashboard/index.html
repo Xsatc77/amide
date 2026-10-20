@@ -304,7 +304,7 @@
 {% if body_panel %}
 <section class="dash-chart-slot dash-area-weight" aria-labelledby="weight-chart-heading">
   {% if body_panel.chart %}
-  {{ line_chart(body_panel.chart, 'Weight (' ~ u.weight_label ~ ')') }}
+  {{ line_chart(body_panel.chart, 'Weight (' ~ u.weight_label ~ ')', 'currentColor', true) }}
   {% else %}
   <div class="card"><h3 id="weight-chart-heading">Weight ({{ u.weight_label }})</h3><p class="muted">No weight logged yet.</p></div>
   {% endif %}

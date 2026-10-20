@@ -86,7 +86,7 @@
     {% set shown = namespace(done=false) %}
     <div id="overview-chart-slot">
       {% for s in overview_metrics %}
-      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label) }}</div>
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label, 'currentColor', s.key == 'weight_lbs') }}</div>
       {% set shown.done = true %}
       {% endfor %}
       {% for s in overview_avgs %}
@@ -172,7 +172,7 @@
   <h2 id="charts-heading" class="section-title">All Measurements</h2>
   <div class="dashboard-placeholders">
     {% for s in charts.series %}
-      {{ line_chart(s.chart, s.label) }}
+      {{ line_chart(s.chart, s.label, 'currentColor', s.key == 'weight_lbs') }}
     {% endfor %}
     {{ bp_chart(charts.bp) }}
     {{ line_chart(charts.bmi, 'BMI') }}
