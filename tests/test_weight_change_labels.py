@@ -55,11 +55,13 @@ def test_an_unchanged_weight_reads_zero_in_a_neutral_color(client, db, me):
     assert deltas(client.get("/dashboard").text) == [("flat", "0.0")]
 
 
-def test_only_the_latest_eight_changes_are_labeled_so_the_numbers_can_be_big_enough_to_read(client, db, me):
+def test_labels_never_sit_on_top_of_each_other_and_the_newest_day_is_always_labeled(client, db, me):
     for n in range(20):
         weigh(db, me, 19 - n, 200.0 - n)
-    found = deltas(client.get("/dashboard").text)
-    assert len(found) == 8 and all(c == "down" and t == "−1.0" for c, t in found)
+    page = client.get("/dashboard").text
+    xs = [float(x) for x in re.findall(r'<text class="chart-delta \w+" x="([\d.]+)"', page)]
+    assert 2 <= len(xs) <= 8 and xs == sorted(xs) and all(b - a >= 60 for a, b in zip(xs, xs[1:]))
+    assert xs[-1] > 500                                       # the latest weigh-in has its label
 
 
 def test_a_metric_user_sees_the_change_in_kilograms(client, db, me):

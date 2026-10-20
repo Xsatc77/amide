@@ -406,7 +406,8 @@ def _chart(points: list[tuple[date, float]], *, width: int = 560, height: int = 
     return result
 
 
-WEIGHT_CHANGE_LABELS = 8          # the newest this many days are labeled, so the numbers can be drawn big enough to read on a phone
+WEIGHT_CHANGE_LABELS = 8          # at most this many days are labeled, newest first, so the numbers can be drawn big enough to read on a phone
+WEIGHT_LABEL_GAP = 64             # chart units between two labels: a label is skipped rather than drawn on top of its neighbor
 
 
 def weight_changes(chart: dict | None, entries, limit: int = WEIGHT_CHANGE_LABELS) -> None:
@@ -428,7 +429,11 @@ def weight_changes(chart: dict | None, entries, limit: int = WEIGHT_CHANGE_LABEL
         x, y = chart["points"][index]
         text = f"{delta:+.1f}".replace("-", "−") if delta else "0.0"
         out.append({"x": x, "y": y, "text": text, "cls": "down" if delta < 0 else "up" if delta > 0 else "flat"})
-    chart["changes"] = out[-limit:]
+    kept: list[dict] = []
+    for label in reversed(out):                      # newest first; skip one that would sit on top of the one after it
+        if len(kept) < limit and (not kept or kept[-1]["x"] - label["x"] >= WEIGHT_LABEL_GAP):
+            kept.append(label)
+    chart["changes"] = kept[::-1]
 
 
 def _dual_chart(points_a: list[tuple[date, float]], points_b: list[tuple[date, float]], *,
