@@ -153,6 +153,7 @@ def test_journal_tab_shows_entries_and_respects_personal_data_sharing(client, db
         t_after = _text(client.get("/measurements?tab=journal"))
         assert "partner's private note" in t_after
         assert "JournalSharePartner" in t_after
+        assert "Shared by" in t_after                      # the column is there once someone's entries are in the list
     finally:
         with SessionLocal() as s:
             s.query(Share).filter_by(owner_id=other_id, grantee_id=me,

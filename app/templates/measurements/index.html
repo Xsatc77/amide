@@ -2,7 +2,7 @@
 {% set active_nav = "nutrition" if active_tab == "food" else "measurements" %}
 {% block title %}Weight & Measurements{% endblock %}
 
-{% from "measurements/_silhouette_macros.html" import line_chart, dual_chart, y_grid, silhouette_point %}
+{% from "measurements/_silhouette_macros.html" import line_chart, rating_chart, dual_chart, y_grid, silhouette_point %}
 {% from "measurements/_rings.html" import macro_ring %}
 
 {% macro err(field) %}{% if errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
@@ -572,12 +572,10 @@
   </form>
 </dialog>
 
-{% if journal_charts %}
+{% if journal_trend %}
 <section aria-labelledby="journal-trends-heading">
   <h2 id="journal-trends-heading" class="section-title">Trends</h2>
-  <div class="dashboard-placeholders">
-    {% for c in journal_charts %}{{ line_chart(c.chart, c.label) }}{% endfor %}
-  </div>
+  {{ rating_chart(journal_trend) }}
 </section>
 {% endif %}
 
@@ -602,7 +600,7 @@
           <th>Notes</th>
           <th>That day's doses</th>
           <th>Day totals</th>
-          <th>Shared by</th>
+          {% if journal_any_shared %}<th>Shared by</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -684,7 +682,7 @@
             {% if t.macro_ring %}{{ macro_ring(t.macro_ring, "Where the day's calories came from") }}{% endif %}
             {%- else -%}—{%- endif -%}
           </td>
-          <td data-label="Shared by">{{ e.owner_name or '—' }}</td>
+          {% if journal_any_shared %}<td data-label="Shared by">{{ e.owner_name or '—' }}</td>{% endif %}
         </tr>
         {% endfor %}
       </tbody>

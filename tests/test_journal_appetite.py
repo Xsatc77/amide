@@ -66,7 +66,7 @@ def test_the_table_shows_an_appetite_badge_and_the_trend_chart_appears(client, d
     assert 'num-icon n1" role="img" aria-label="Appetite 5 of 5"' in page      # lower appetite is better: 5 is red, 1 is green
     assert 'num-icon n5" role="img" aria-label="Appetite 1 of 5"' in page
     assert 'num-icon n3" role="img" aria-label="Appetite 3 of 5"' in page
-    assert '<h3>Appetite</h3>' in page
+    assert "Appetite (lower is better)" in page.split("chart-legend")[1].split("</ul>")[0]
 
 
 def test_migration_0063_adds_the_column_and_keeps_entries(tmp_path):

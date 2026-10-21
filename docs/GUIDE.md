@@ -256,7 +256,7 @@ Many smart scales report more than weight. **Log a measurement** has an optional
 
 ### Journal
 
-Daily mood, energy and sleep, side effects (including ones you add to your own list) and notes. Add or edit any past day. Trend charts show the pattern.
+Daily mood, energy and sleep, side effects (including ones you add to your own list) and notes. Add or edit any past day. One **Trends** chart draws mood, energy, sleep quality and appetite together, each as a dotted line in its own colour on a 1 to 5 scale; where lines would sit on the same spot they are nudged apart so each stays visible. (Appetite is the one where lower is better.) The entries table shows a **Shared by** column only when someone has shared their journal with you.
 
 You can keep **photos** with a day (something that caught your attention, a motivating picture, a scale report): use **Add a photo** at the top of the tab or **Add photo** on a day's row. Pick the day, one or several photos and an optional caption. They are private to you, stripped of location and camera data, and included in your backups.
 

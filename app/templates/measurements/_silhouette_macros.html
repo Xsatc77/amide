@@ -26,6 +26,25 @@
 {% endif %}
 {% endmacro %}
 
+{# The Journal's one trend chart: a dotted line per rating, each in its own colour, with a legend; each point carries its date and rating as hover text #}
+{% macro rating_chart(chart) %}
+{% if chart %}
+<div class="card rating-chart">
+  <ul class="chart-legend">
+    {% for s in chart.series %}<li><svg width="34" height="10" aria-hidden="true"><line x1="3" x2="31" y1="5" y2="5" stroke="{{ s.color }}" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ s.dash }}"></line></svg> {{ s.label }}</li>{% endfor %}
+  </ul>
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="Mood, energy, sleep quality and appetite over time">
+    {{ y_grid(chart.y_axis) }}
+    {% for s in chart.series %}
+    <polyline points="{{ s.poly }}" fill="none" stroke="{{ s.color }}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="{{ s.dash }}"></polyline>
+    {% for cx, cy in s.points %}{% set d, v = s.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="3" fill="{{ s.color }}" class="chart-point"><title>{{ s.label }}, {{ d | shortdate }}: {{ v|int }}</title></circle>{% endfor %}
+    {% endfor %}
+  </svg>
+  <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · 1 is lowest, 5 is highest · lines that share a spot are nudged apart so each stays visible</p>
+</div>
+{% endif %}
+{% endmacro %}
+
 {% macro dual_chart(chart, label, a_label, b_label) %}
 {% if chart %}
 <div class="card">

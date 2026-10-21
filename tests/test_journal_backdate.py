@@ -79,9 +79,10 @@ def test_mood_energy_and_sleep_get_trend_charts_once_there_are_two_days(client, 
         client.post("/journal/entries", data={"entry_date": (TODAY - timedelta(days=n + 1)).isoformat(), "mood": str(mood), "energy": str(energy), "sleep_quality": str(sleep)})
     page = html.unescape(client.get("/measurements", params={"tab": "journal"}).text)
     section = page.split('id="journal-trends-heading"')[1].split("</section>")[0]
+    legend = section.split("chart-legend")[1].split("</ul>")[0]
     for label in ("Mood", "Energy", "Sleep quality"):
-        assert f"<h3>{label}</h3>" in section
-    assert section.count("<polyline") == 3
+        assert label in legend
+    assert section.count("<polyline") == 3                  # one dotted line each, in a single chart
 
 
 def test_one_day_is_not_a_trend_and_a_metric_never_rated_has_no_chart(client, db, me):
@@ -89,4 +90,5 @@ def test_one_day_is_not_a_trend_and_a_metric_never_rated_has_no_chart(client, db
     assert "journal-trends-heading" not in client.get("/measurements", params={"tab": "journal"}).text
     client.post("/journal/entries", data={"entry_date": (PAST + timedelta(days=1)).isoformat(), "mood": "4"})
     section = html.unescape(client.get("/measurements", params={"tab": "journal"}).text).split('id="journal-trends-heading"')[1].split("</section>")[0]
-    assert "<h3>Mood</h3>" in section and "<h3>Energy</h3>" not in section and "<h3>Sleep quality</h3>" not in section
+    legend = section.split("chart-legend")[1].split("</ul>")[0]
+    assert "Mood" in legend and "Energy" not in legend and "Sleep quality" not in legend

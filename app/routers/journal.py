@@ -19,6 +19,45 @@ router = APIRouter()
 
 RATING_FIELDS = ("mood", "energy", "sleep_quality", "appetite")
 
+# The Trends chart: one dotted line per rating, each in its own colour (chosen to read on both the light and the dark colourways).
+RATING_SERIES = (
+    {"key": "mood", "label": "Mood", "color": "#3b82f6"},
+    {"key": "energy", "label": "Energy", "color": "#f59e0b"},
+    {"key": "sleep_quality", "label": "Sleep quality", "color": "#a855f7"},
+    {"key": "appetite", "label": "Appetite (lower is better)", "color": "#ec4899"},
+)
+TREND_WIDTH, TREND_HEIGHT, TREND_PAD_X, TREND_PAD_Y = 1100, 300, 28, 26
+TREND_NUDGE = 7            # chart units between two lines that share a spot; the pair stays centred on the true height
+
+
+def rating_chart(series: list[dict]) -> dict | None:
+    """The geometry of the Journal's one trend chart. `series` is [{"key", "points": [(date, rating)]}] in RATING_SERIES order; every rating is 1 to 5, so
+    all lines share one fixed 1-5 axis and read against each other. Lines whose points land on the same day and rating are moved a little up or down
+    (centred on the true height) so none is hidden behind another; a point nobody shares stays exactly where it belongs."""
+    from app.routers.measurements import PAD_LEFT, _scaled_points          # deferred: measurements imports this module at load time
+    if not series:
+        return None
+    dates = [d for s in series for d, _ in s["points"]]
+    min_d, max_d = min(dates), max(dates)
+    info = {item["key"]: item for item in RATING_SERIES}
+    placed = {}                                          # (day, rating) -> the keys of the lines that have a point there
+    for s in series:
+        for d, v in s["points"]:
+            placed.setdefault((d, v), []).append(s["key"])
+    lines = []
+    for s in series:
+        points = sorted(s["points"])
+        coords = _scaled_points(points, min_d, max_d, 1.0, 5.0, TREND_WIDTH, TREND_HEIGHT, TREND_PAD_X, TREND_PAD_Y, PAD_LEFT)
+        shifted = []
+        for (d, v), (x, y) in zip(points, coords):
+            sharing = placed[(d, v)]
+            shifted.append((x, round(y + (sharing.index(s["key"]) - (len(sharing) - 1) / 2) * TREND_NUDGE, 1)))
+        lines.append({"key": s["key"], "label": info[s["key"]]["label"], "color": info[s["key"]]["color"], "dash": "1 7",
+                      "points": shifted, "raw": points, "poly": " ".join(f"{x},{y}" for x, y in shifted)})
+    ticks = [{"value": str(v), "y": round(TREND_HEIGHT - TREND_PAD_Y - (v - 1) / 4 * (TREND_HEIGHT - 2 * TREND_PAD_Y), 1)} for v in (5, 4, 3, 2, 1)]
+    return {"width": TREND_WIDTH, "height": TREND_HEIGHT, "series": lines, "min_d": min_d, "max_d": max_d,
+            "y_axis": {"ticks": ticks, "left": PAD_LEFT, "right": TREND_WIDTH - TREND_PAD_X}}
+
 
 def _journal_query(uid: int):
     """This user's journal entries (others' are never visible)."""
@@ -214,16 +253,16 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
         if today_row is not None else None
     )
 
-    from app.routers.measurements import _chart          # deferred: measurements imports this module at load time
-    journal_charts = []
-    for label, field in (("Mood", "mood"), ("Energy", "energy"), ("Sleep quality", "sleep_quality"), ("Appetite", "appetite")):
-        points = [(e.entry_date, float(getattr(e, field))) for e in own_entries if getattr(e, field) is not None]
-        chart = _chart(points) if len(points) >= 2 else None                  # one day is not a trend
-        if chart is not None:
-            journal_charts.append({"label": label, "chart": chart})
+    plotted = []
+    for item in RATING_SERIES:
+        points = [(e.entry_date, float(getattr(e, item["key"]))) for e in own_entries if getattr(e, item["key"]) is not None]
+        if len(points) >= 2:                                                   # one day is not a trend
+            plotted.append({"key": item["key"], "points": points})
+    journal_trend = rating_chart(plotted) if plotted else None
 
     return {
-        "journal_charts": journal_charts,
+        "journal_trend": journal_trend,
+        "journal_any_shared": any(v.get("owner_name") for v in views),            # the "Shared by" column is only worth its width when someone's entries are in the list
         "journal_entries": views,
         "today_entry": today_entry,
         "journal_form_date": target,
