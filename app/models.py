@@ -1643,6 +1643,7 @@ class HealthRaw(Base):
     automation_name: Mapped[str | None] = mapped_column(String(120))
     readings_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     headers: Mapped[dict | None] = mapped_column(JSON)      # the automation-* and session-id request headers (lowercase keys), read by the parser
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")      # reads started; one that keeps failing is given up on
 
 
 class HealthReading(Base):

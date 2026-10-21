@@ -32,6 +32,13 @@ def test_upgrade_creates_the_health_tables_and_scope_column(tmp_path):
         assert "scope" in {r[1] for r in c.execute("pragma table_info(ingest_tokens)")}
         assert c.execute("select scope from ingest_tokens").fetchone()[0] == "watcher"
         assert [r[3] for r in c.execute("pragma table_info(health_metric_choices)") if r[1] == "decided_at"] == [0]      # 0078: pending rows have none
+        c.execute("insert into health_raw (owner_id, received_at, sha256, size_bytes, file_name, status, readings_count) "
+                  "values (1, '2026-01-01', 's', 1, '', 'stored', 0)")
+        assert c.execute("select attempts from health_raw").fetchone()[0] == 0      # 0079: the read counter starts at nought
+    command.downgrade(cfg, "0078")
+    with sqlite3.connect(db) as c:
+        assert "attempts" not in {r[1] for r in c.execute("pragma table_info(health_raw)")}
+        c.execute("delete from health_raw")
     with sqlite3.connect(db) as c:
         c.execute("insert into ingest_tokens (owner_id, label, prefix, token_hash, created_at, scope) values (1, 'phone', 'q', 'h2', '2026-01-01', 'health')")
         c.execute("insert into health_metric_choices (owner_id, metric, enabled, decided_at) values (1, 'step_count', 0, null)")      # pending

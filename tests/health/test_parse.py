@@ -318,3 +318,38 @@ def test_without_the_header_date_only_values_are_days_and_timed_values_points(db
     assert sorted(r.value for r in db.query(HealthReading).all()) == [12, 8100]       # the day re-sent updates its row
     parse.import_raw(db, make_raw(db, me, steps(("2024-02-07", 5)), {"automation-aggregation": "hours"}))
     assert db.query(HealthReading).filter_by(value=5).one().grain == "hour"           # a header still decides when it is there
+
+
+def test_a_twin_import_that_fails_never_turns_a_finished_row_into_failed(db, me, monkeypatch):
+    from app.db import SessionLocal
+    raw = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+
+    def twin_finishes_then_this_one_fails(*args, **kwargs):
+        with SessionLocal() as other:                          # the concurrent duplicate post completes the same export first
+            row = other.get(HealthRaw, raw.id)
+            row.status, row.readings_count, row.note = "parsed", 1, None
+            other.commit()
+        raise RuntimeError("database is locked")
+    monkeypatch.setattr(parse, "_import_readings", twin_finishes_then_this_one_fails)
+    assert parse.import_raw(db, raw) == 1
+    db.expire_all()
+    row = db.get(HealthRaw, raw.id)
+    assert (row.status, row.readings_count, row.note) == ("parsed", 1, None)
+
+
+def test_reprocess_picks_up_exports_a_crash_left_stored_for_over_an_hour(db, me):
+    from datetime import timedelta
+    from app.models import naive_utcnow
+    old = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+    young = make_raw(db, me, steps(("2024-02-07 10:00:00 +0000", 5)))
+    stuck = make_raw(db, me, steps(("2024-02-08 10:00:00 +0000", 6)))
+    old.received_at = stuck.received_at = naive_utcnow() - timedelta(hours=2)
+    young.received_at = naive_utcnow() - timedelta(minutes=10)            # may still be importing right now
+    stuck.attempts = 5                                                      # crashed the process five times
+    db.commit()
+    assert parse.reprocess_flagged(db) == 1
+    db.expire_all()
+    assert db.get(HealthRaw, old.id).status == "parsed" and db.get(HealthRaw, young.id).status == "stored"
+    gave_up = db.get(HealthRaw, stuck.id)
+    assert gave_up.status == "flagged" and "gave up after 5 tries" in gave_up.note.lower()
+    assert db.query(HealthReading).count() == 1

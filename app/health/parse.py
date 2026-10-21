@@ -7,17 +7,20 @@ import logging
 import math
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app import config
 from app.health import choices
-from app.models import HealthEvent, HealthRaw, HealthReading
+from app.models import HealthEvent, HealthRaw, HealthReading, naive_utcnow
 
 log = logging.getLogger(__name__)
 
 CHUNK = 5000                       # readings upserted per transaction
 FAILED = "Import failed"           # how a note starts when the read failed on our side (see import_failed)
+MAX_ATTEMPTS = 5                   # reads of one export before a failure on our side is given up on (see _failed)
+GAVE_UP = f"Gave up after {MAX_ATTEMPTS} tries; fix needed"
+STALE = timedelta(hours=1)         # a "stored" export this old is no longer being read: a crash stopped it (see reprocess_flagged)
 
 GRAIN_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
 # Not established: the exact values of the app's automation-aggregation header; matched case-insensitively, anything else is "point"
@@ -238,14 +241,19 @@ def import_failed(raw: HealthRaw) -> bool:
 
 def import_raw(session: Session, raw: HealthRaw) -> int:
     """Reads the stored file into readings and events, committing a chunk at a time (see _import_readings); returns the readings
-    written. Never raises: bad content is flagged with a note, and an unexpected error is flagged with a note starting FAILED."""
+    written. Never raises: bad content is flagged with a note, and an unexpected error is flagged with a note starting FAILED
+    (GAVE_UP once it has failed MAX_ATTEMPTS times, see _failed)."""
     if not raw.file_name:                                            # no copy was kept (not JSON, or removed for the quota): nothing to read
         return raw.readings_count or 0
+    if raw not in session:
+        raw = session.merge(raw)
+    raw.attempts = (raw.attempts or 0) + 1                           # counted before the read, so a crash part way counts too
+    session.commit()
     try:
         try:
             payload = _load(raw)
         except OSError as exc:                                       # the stored copy cannot be opened: a fault here, not in the export
-            return _finish(session, raw, 0, "flagged", f"{FAILED}: could not open the stored file ({type(exc).__name__})")
+            return _failed(session, raw, f"could not open the stored file ({type(exc).__name__})")
         except (EOFError, ValueError) as exc:                        # bad gzip, bad UTF-8, bad JSON
             return _finish(session, raw, 0, "flagged", f"Could not read the file: {type(exc).__name__}")
         if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
@@ -265,7 +273,19 @@ def import_raw(session: Session, raw: HealthRaw) -> int:
     except Exception as exc:                                             # anything unforeseen: undo the unfinished chunk, keep it flagged for a retry
         log.exception("health import failed for raw %s", raw.id)
         session.rollback()
-        return _finish(session, raw, 0, "flagged", f"{FAILED}: {type(exc).__name__}")
+        return _failed(session, raw, type(exc).__name__)
+
+
+def _failed(session: Session, raw: HealthRaw, detail: str) -> int:
+    """Records a failure on our side. A concurrent twin import of the same export may have finished meanwhile: its "parsed" row is never
+    written over. After MAX_ATTEMPTS reads the note says it was given up on (no longer FAILED), so the phone gets a 200 and moves on and
+    the daily pass stops; a manual resend of the same export still tries again."""
+    if session.scalar(select(HealthRaw.status).where(HealthRaw.id == raw.id)) == "parsed":
+        session.refresh(raw)
+        return raw.readings_count or 0
+    if (raw.attempts or 0) >= MAX_ATTEMPTS:
+        return _finish(session, raw, 0, "flagged", f"{GAVE_UP} ({detail})")
+    return _finish(session, raw, 0, "flagged", f"{FAILED}: {detail}")
 
 
 def _finish(session: Session, raw: HealthRaw, count: int, status: str, note: str | None) -> int:
@@ -276,17 +296,24 @@ def _finish(session: Session, raw: HealthRaw, count: int, status: str, note: str
 
 
 def reprocess_flagged(session: Session, limit: int = 20) -> int:
-    """Re-reads up to `limit` exports whose last read failed on our side (not those that merely had items skipped) and whose stored copy
-    is still on disk; returns how many were re-read. Run by the daily loop, so a passing fault does not leave an export half read."""
-    rows = session.scalars(select(HealthRaw).where(HealthRaw.status == "flagged", HealthRaw.file_name != "", HealthRaw.note.startswith(FAILED))
-                           .order_by(HealthRaw.id)).all()
+    """Re-reads up to `limit` exports whose stored copy is still on disk and whose last read failed on our side (not those that merely had
+    items skipped), or that a crash left "stored" for over STALE; returns how many were re-read. Run by the daily loop, so a passing fault
+    does not leave an export half read."""
+    stale = naive_utcnow() - STALE
+    rows = session.scalars(select(HealthRaw).where(HealthRaw.file_name != "", or_(
+        and_(HealthRaw.status == "flagged", HealthRaw.note.startswith(FAILED)),
+        and_(HealthRaw.status == "stored", HealthRaw.received_at < stale))).order_by(HealthRaw.id)).all()
     done = 0
     for raw in rows:
         if done >= limit:
             break
-        if (config.HEALTH_RAW_DIR / raw.file_name).exists():      # one whose copy is lost is passed over, so it cannot use up the day's turns
-            import_raw(session, raw)
-            done += 1
+        if not (config.HEALTH_RAW_DIR / raw.file_name).exists():      # one whose copy is lost is passed over, so it cannot use up the day's turns
+            continue
+        if raw.status == "stored" and (raw.attempts or 0) >= MAX_ATTEMPTS:      # its reads keep stopping the process: not tried again by itself
+            _finish(session, raw, raw.readings_count or 0, "flagged", f"{GAVE_UP} (the read never finished)")
+            continue
+        import_raw(session, raw)
+        done += 1
     return done
 
 

@@ -13,7 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import config
-from app.models import HealthRaw
+from app.health import parse
+from app.models import HealthRaw, naive_utcnow
 
 KEPT_HEADERS = ("automation-name", "automation-id", "automation-aggregation", "automation-period", "session-id")
 
@@ -38,23 +39,31 @@ QUOTA_NOTE = "raw copy removed to stay within the storage limit"
 NOT_JSON_NOTE = "The body does not look like JSON; it was not kept"
 
 
-def _make_room(session: Session, owner_id: int, size: int) -> bool:
+def _make_room(session: Session, owner_id: int, size: int, sha: str | None = None) -> bool:
     """Keeps the owner's stored raw copies (uncompressed sizes) within HEALTH_RAW_QUOTA_BYTES with `size` more to come, by dropping the
-    oldest copies already read in full ("parsed"; their readings stay). False, with nothing removed, when even that would not be enough."""
+    oldest copies already read in full ("parsed"; their readings stay) and then the oldest that will not be read by themselves: flagged
+    ones, and "stored" ones a crash left unread for over parse.STALE (a younger one may be being read right now). The copy of the body
+    being stored (`sha`) is never one of them. False, with nothing removed, when even that would not be enough."""
     quota = config.HEALTH_RAW_QUOTA_BYTES
     kept = session.scalars(select(HealthRaw).where(HealthRaw.owner_id == owner_id, HealthRaw.file_name != "")
                            .order_by(HealthRaw.received_at, HealthRaw.id)).all()
     used = sum(r.size_bytes for r in kept)
     if used + size <= quota:
         return True
-    parsed = [r for r in kept if r.status == "parsed"]           # a copy not yet read in full may still be needed
-    if used - sum(r.size_bytes for r in parsed) + size > quota:
+    stale = naive_utcnow() - parse.STALE
+    spare = [r for r in kept if r.sha256 != sha and r.status == "parsed"]
+    spare += [r for r in kept if r.sha256 != sha and (r.status == "flagged" or (r.status == "stored" and r.received_at < stale))]
+    if used - sum(r.size_bytes for r in spare) + size > quota:
         return False
-    for raw in parsed:
+    for raw in spare:
         if used + size <= quota:
             break
         _unlink(config.HEALTH_RAW_DIR / raw.file_name)
-        raw.file_name, raw.note, used = "", QUOTA_NOTE, used - raw.size_bytes
+        if raw.status != "parsed":                              # not read in full: say so on the Settings card
+            raw.status, raw.note = "flagged", f"{QUOTA_NOTE} before it was read in full{f' ({raw.note})' if raw.note else ''}"[:300]
+        else:
+            raw.note = QUOTA_NOTE
+        raw.file_name, used = "", used - raw.size_bytes
     session.commit()
     return True
 
@@ -84,7 +93,7 @@ async def store_body(request: Request, owner_id: int, session: Session) -> tuple
                 digest.update(chunk)
                 out.write(chunk)
         sha = digest.hexdigest()
-        existing = _find(session, owner_id, sha)
+        existing = await run_in_threadpool(_find, session, owner_id, sha)      # database work off the event loop, like the writes
         if existing is not None:
             if existing.file_name and existing.status != "parsed" and not (directory / existing.file_name).exists():
                 await run_in_threadpool(_gzip_file, str(tmp), str(directory / existing.file_name))     # the same bytes again: restore the lost copy
@@ -94,17 +103,17 @@ async def store_body(request: Request, owner_id: int, session: Session) -> tuple
                         note=None if looks_json else NOT_JSON_NOTE, headers=headers or None,
                         automation_name=headers.get("automation-name", "")[:120] or None)
         if looks_json:
-            if not _make_room(session, owner_id, size):
+            if not await run_in_threadpool(_make_room, session, owner_id, size, sha):
                 raise HTTPException(507, "Over the storage limit for raw Apple Health copies")
             final = directory / f"{sha}-{secrets.token_hex(4)}.json.gz"
             await run_in_threadpool(_gzip_file, str(tmp), str(final))
             raw.file_name = final.name
         session.add(raw)
         try:
-            session.commit()
+            await run_in_threadpool(session.commit)
         except IntegrityError:                                  # a twin of this post won the race: its row stands
             session.rollback()
-            existing = _find(session, owner_id, sha)
+            existing = await run_in_threadpool(_find, session, owner_id, sha)
             if existing is None:
                 raise
             return existing, True

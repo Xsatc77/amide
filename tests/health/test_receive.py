@@ -199,3 +199,74 @@ def test_a_resend_restores_a_stored_copy_that_went_missing(client, db, auth, mon
     assert r.status_code == 200 and r.json()["readings"] == 1
     db.expire_all()
     assert gzip.decompress((config.HEALTH_RAW_DIR / db.query(HealthRaw).one().file_name).read_bytes()) == body
+
+
+def test_an_import_that_always_fails_gives_up_with_200_after_five_tries(client, db, auth, monkeypatch):
+    from app.health import parse
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("always")
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    body = _steps_body(9)
+    codes = []
+    for _ in range(5):
+        health_api.limiter._hits.clear()
+        codes.append(client.post("/api/ingest/health", content=body, headers=auth).status_code)
+    assert codes == [503, 503, 503, 503, 200]                  # the fifth answer lets the phone move on
+    db.expire_all()
+    row = db.query(HealthRaw).one()
+    assert row.status == "flagged" and row.attempts == 5 and "gave up after 5 tries; fix needed" in row.note.lower()
+    assert not parse.import_failed(row) and parse.reprocess_flagged(db) == 0       # the daily pass stops retrying it
+    health_api.limiter._hits.clear()
+    assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 200     # a manual resend still tries, and still 200
+    db.expire_all()
+    assert db.query(HealthRaw).one().attempts == 6
+    monkeypatch.undo()                                         # the fix is in: a resend reads it
+    health_api.limiter._hits.clear()
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.status_code == 200 and r.json()["readings"] == 1
+    db.expire_all()
+    assert db.query(HealthRaw).one().status == "parsed"
+
+
+def test_over_the_quota_failed_and_stranded_copies_go_after_parsed_ones(client, db, auth, me, monkeypatch):
+    from datetime import timedelta
+    from app.health import receive
+    from app.models import naive_utcnow
+    body = _steps_body(4)
+    config.HEALTH_RAW_DIR.mkdir(parents=True, exist_ok=True)
+
+    def kept(name, status, note, hours_ago):
+        (config.HEALTH_RAW_DIR / name).write_bytes(gzip.compress(b"{}"))
+        row = HealthRaw(owner_id=me, sha256=name.ljust(64, "0"), size_bytes=len(body), file_name=name, status=status, note=note,
+                        received_at=naive_utcnow() - timedelta(hours=hours_ago))
+        db.add(row)
+        db.commit()
+        return row
+    failed = kept("failed.json.gz", "flagged", "Import failed: OperationalError", 5)
+    stranded = kept("stranded.json.gz", "stored", None, 3)              # a crash left it unread for hours
+    young = kept("young.json.gz", "stored", None, 0)                    # may be being read right now: never removed
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", len(body) * 2)
+    assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 200
+    db.expire_all()
+    for row, name in ((failed, "failed.json.gz"), (stranded, "stranded.json.gz")):
+        row = db.get(HealthRaw, row.id)
+        assert row.file_name == "" and row.note.startswith(receive.QUOTA_NOTE) and row.status == "flagged"      # the row stays, with a note
+        assert not (config.HEALTH_RAW_DIR / name).exists()
+    assert db.get(HealthRaw, young.id).file_name == "young.json.gz" and (config.HEALTH_RAW_DIR / "young.json.gz").exists()
+    newest = db.query(HealthRaw).order_by(HealthRaw.id.desc()).first()
+    assert newest.file_name and (config.HEALTH_RAW_DIR / newest.file_name).exists()
+
+
+def test_the_copy_of_the_body_being_stored_is_never_removed_for_room(db, me, monkeypatch):
+    from datetime import timedelta
+    from app.health import receive
+    from app.models import naive_utcnow
+    config.HEALTH_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    (config.HEALTH_RAW_DIR / "same.json.gz").write_bytes(b"x")
+    db.add(HealthRaw(owner_id=me, sha256="s" * 64, size_bytes=100, file_name="same.json.gz", status="flagged", note="Import failed: x",
+                     received_at=naive_utcnow() - timedelta(hours=5)))
+    db.commit()
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", 150)
+    assert receive._make_room(db, me, 100, "s" * 64) is False
+    assert (config.HEALTH_RAW_DIR / "same.json.gz").exists()
