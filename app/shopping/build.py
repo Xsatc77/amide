@@ -109,17 +109,21 @@ def _needs(protocol, totals, inventory_by_id, peptides_by_id, no_bac_ids=frozens
     return needs, notes, bac_ml, factors
 
 
-def _offers(session: Session, needs: list[Need], factors: dict[int, float | None], sizes: dict | None = None) -> tuple[list[Offer], list[dict]]:
-    """(the offers, and the concentration-only products that cannot be priced until the person says how big a vial is).
-    `sizes` maps a peptide id to (mL per vial, vials per box) for those products."""
+def _offers(session: Session, needs: list[Need], factors: dict[int, float | None], sizes: dict | None = None,
+            strengths: dict | None = None) -> tuple[list[Offer], list[dict], list[dict]]:
+    """(the offers, the concentration-only products that cannot be priced until the person says how big a vial is, and the liquids listed by volume
+    only that cannot be priced until the person says their strength). `sizes` maps a peptide id to (mL per vial, vials per box) for the first kind;
+    `strengths` maps a peptide id to mg per mL for the second."""
     sizes = sizes or {}
+    strengths = strengths or {}
     ids = [int(n.key) for n in needs]
     lists = {p.id: p for p in current_lists(session)}
     if not ids or not lists:
-        return [], []
+        return [], [], []
     by_key = {n.key: n for n in needs}
     out: list[Offer] = []
     ask: dict[int, dict] = {}
+    ask_strength: dict[int, dict] = {}
     for row in session.scalars(select(PriceListItem).where(
             PriceListItem.peptide_id.in_(ids), PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit == CONCENTRATION_UNIT,
             PriceListItem.pack_price > 0, PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)):
@@ -150,15 +154,23 @@ def _offers(session: Session, needs: list[Need], factors: dict[int, float | None
     for row in session.scalars(select(PriceListItem).where(
             PriceListItem.peptide_id.in_(ids), PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit == "ml",
             PriceListItem.pack_price > 0, PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)):
-        mg = vial_mg(row)
         need = by_key[str(row.peptide_id)]
-        if mg is None or need.unit != "mg":                           # a liquid with no stated strength cannot be turned into a dose
+        if need.unit != "mg" or is_bac_water(row.product_name or ""):
+            continue
+        mg = vial_mg(row)
+        if mg is not None:                                            # the list states the strength: ready to use, priced by what is in a vial
+            label = f"{row.vial_amount:g} mL premixed ({strength_mg_per_ml(row.product_name):g} mg/mL)"
+        elif row.peptide_id in strengths:                             # the person told us the strength
+            mg, label = row.vial_amount * strengths[row.peptide_id], f"{row.vial_amount:g} mL × {strengths[row.peptide_id]:g} mg/mL"
+        else:                                                         # a volume and no strength: ask, never guess
+            ask_strength.setdefault(row.peptide_id, {"peptide_id": row.peptide_id, "name": need.name, "volume_ml": row.vial_amount,
+                                                      "pack_type": row.pack_type or "pack", "pack_size": row.pack_size, "pack_price": row.pack_price})
             continue
         plist = lists[row.price_list_id]
         out.append(Offer(vendor_id=plist.vendor_id, vendor_name=plist.vendor_name, warehouse=plist.warehouse.value, list_date=plist.list_date,
-                         need_key=need.key, size=mg, size_label=f"{row.vial_amount:g} mL premixed ({strength_mg_per_ml(row.product_name):g} mg/mL)",
-                         pack_size=row.pack_size, pack_price=row.pack_price, pack_type=row.pack_type, premixed=True))
-    return out, list(ask.values())
+                         need_key=need.key, size=mg, size_label=label, pack_size=row.pack_size, pack_price=row.pack_price,
+                         pack_type=row.pack_type, premixed=True))
+    return out, list(ask.values()), list(ask_strength.values())
 
 
 def _plan_json(plan: Plan, chosen_total: float | None = None) -> dict:
@@ -197,7 +209,7 @@ def _bac_buy(session: Session, uid: int, bac_ml: float, plan: Plan | None, shipp
     return plan_bac(bac_ml, offers, [(s.vendor_id, s.warehouse) for s in plan.sources] if plan else [], shipping, min_units)
 
 
-def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, sizes: dict | None = None) -> dict:
+def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, sizes: dict | None = None, strengths: dict | None = None) -> dict:
     """The JSON the Shopping plan dialog shows. `sizes` is {peptide id: (mL per vial, vials per box)} for oil products the lists
     sell by strength only; without it those are returned under `needs_volume` for the dialog to ask about."""
     if protocol.end_date is None:
@@ -212,17 +224,19 @@ def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, size
             "bac": {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units)} if bac_ml > 0 else None}
     if not needs and not notes:
         return base | {"status": "nothing_to_buy", "plan": None, "alternatives": [], "unshoppable": []}
-    offers, needs_volume = _offers(session, needs, factors, sizes)
+    offers, needs_volume, needs_strength = _offers(session, needs, factors, sizes, strengths)
     result = plan_protocol(needs, offers, shipping)
     bought_premixed = {int(l.need.key) for s in result.plan.sources for l in s.lines if l.offer.premixed} if result.plan else set()
     if bought_premixed:                                              # ready to use: those items need no BAC water
         bac_ml = sum(t.bac_water_ml or 0.0 for it, t in zip(protocol.items, totals)
                      if it.peptide_id not in bought_premixed and it.peptide_id not in no_bac and not _OIL.search((peptides_by_id.get(it.peptide_id) or it.peptide).name))
         base["bac"] = {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units)} if bac_ml > 0 else None
-    asking = {a["name"] for a in needs_volume}
+    asking = {a["name"] for a in needs_volume + needs_strength}
     unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable
                            if n.name not in asking]
     base["needs_volume"] = needs_volume
+    base["needs_strength"] = needs_strength
+    base["strengths"] = {str(k): v for k, v in (strengths or {}).items()}
     base["sizes"] = {str(k): {"ml": v[0], "per_box": v[1]} for k, v in (sizes or {}).items()}
     if base["bac"]:
         base["bac"]["buy"] = _bac_buy(session, uid, bac_ml, result.plan, shipping, bac_min_units)

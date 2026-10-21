@@ -15,6 +15,7 @@
   const MAILTO_LIMIT = 1800;
   let protocolId = null;
   let timer = null;
+  let strengths = {};                  // peptide id -> mg per mL typed for a liquid the price lists give only a volume for
   let sizes = {};                       // peptide id -> {ml, per_box}: vial sizes typed for oils the price lists sell by strength only
 
   const money = (n) => `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -83,6 +84,26 @@
     return box;
   }
 
+  function strengthQuestions(items) {
+    const box = el("section", "shop-plan shop-sizes");
+    box.append(el("h3", "shop-plan-title", "Also sold by volume"));
+    box.append(el("p", "small muted", "These liquids are listed by volume only, so Amide cannot tell how much is in a vial. If you know the strength, enter it to include them in the plan."));
+    for (const a of items) {
+      const row = el("div", "shop-size-row");
+      row.append(el("p", "", `${a.name}: ${a.volume_ml} mL vials, sold as ${a.pack_size} ${a.pack_type} for ${money(a.pack_price)}.`));
+      const mg = el("input"); mg.type = "number"; mg.min = "0.001"; mg.max = "1000"; mg.step = "any"; mg.setAttribute("aria-label", `${a.name}: mg per mL`); mg.placeholder = "mg per mL";
+      const go = el("button", "btn btn-primary", "Include it"); go.type = "button";
+      go.addEventListener("click", () => {
+        if (!(Number(mg.value) > 0)) { mg.focus(); return; }
+        strengths[a.peptide_id] = mg.value;
+        load(true);
+      });
+      row.append(mg, go);
+      box.append(row);
+    }
+    return box;
+  }
+
   function render(data) {
     body.replaceChildren();
     if (data.status === "no_end_date") {
@@ -90,7 +111,7 @@
       return;
     }
     if (data.status === "nothing_to_buy" || !data.plan) {
-      if (!(data.needs_volume && data.needs_volume.length)) {
+      if (!(data.needs_volume && data.needs_volume.length) && !(data.needs_strength && data.needs_strength.length)) {
         body.append(el("p", "calc-note", data.unshoppable.length ? "Nothing on this protocol could be found on the current price lists." : "There is nothing to buy for this protocol."));
       }
     } else {
@@ -107,6 +128,7 @@
       }
     }
     if (data.needs_volume && data.needs_volume.length) body.append(sizeQuestions(data.needs_volume));
+    if (data.needs_strength && data.needs_strength.length) body.append(strengthQuestions(data.needs_strength));
     if (data.unshoppable.length) {
       const box = el("div", "shop-unavailable");
       box.append(el("strong", "", "Not available on the current price lists"));
@@ -136,6 +158,7 @@
     if (china.value !== "") params.set("china", china.value);
     if (us.value !== "") params.set("us", us.value);
     for (const [id, s] of Object.entries(sizes)) { params.set(`vial_ml_${id}`, s.ml); params.set(`box_vials_${id}`, s.per_box); }
+    for (const [id, mg] of Object.entries(strengths)) params.set(`strength_${id}`, mg);
     return params;
   }
 
@@ -167,6 +190,7 @@
     if (!btn) return;
     protocolId = btn.dataset.protocolId;
     sizes = {};
+    strengths = {};
     title.textContent = `Shop this protocol: ${btn.getAttribute("aria-label").replace(/^Shop this protocol: /, "")}`;
     saveNote.textContent = "";
     shareNote.textContent = "";

@@ -1,5 +1,6 @@
 """Shop this protocol: the cheapest plan to buy a protocol's course from the vendors' current price lists."""
 
+import math
 import re
 from datetime import date
 
@@ -43,7 +44,18 @@ def _shop_data(protocol_id: int, request: Request, session: Session, uid: int) -
             except ValueError:
                 raise HTTPException(422, "Vial size must be 0 to 1000 mL and 1 to 100 vials per box")
             sizes[int(pid)] = (ml, per_box)
-    return shop_for_protocol(session, protocol, uid, shipping, sizes) | {"protocol": {"id": protocol.id, "name": protocol.name}}
+    strengths = {}
+    for key, raw in request.query_params.items():                    # strength_<peptide id>: mg per mL typed for a liquid the lists give only a volume for
+        if key.startswith("strength_"):
+            pid = key[len("strength_"):]
+            try:
+                strength = float(raw)
+                if not (pid.isdigit() and 0 < strength <= 1000 and math.isfinite(strength)):
+                    raise ValueError
+            except ValueError:
+                raise HTTPException(422, "Strength must be a number from 0 to 1000 mg per mL")
+            strengths[int(pid)] = strength
+    return shop_for_protocol(session, protocol, uid, shipping, sizes, strengths) | {"protocol": {"id": protocol.id, "name": protocol.name}}
 
 
 @router.get("/protocols/{protocol_id}/shop")

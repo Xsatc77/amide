@@ -97,3 +97,41 @@ def test_a_liquid_without_a_strength_is_never_priced_for_the_plan(client, db, me
     make_list(db, borealis, TODAY, item("Zephyr B-12", 10, 58, unit="ml", card=card))
     data = client.get(f"/protocols/{protocol(me, card.id)}/shop").json()
     assert data["plan"] is None
+
+
+def liquid_only(db, me):
+    card = make_card(db, "Zephyr B-12")
+    with_supplied(db, card)
+    borealis = make_vendor(db, "Borealis")
+    make_list(db, borealis, TODAY, item("Zephyr B-12", 10, 58, unit="ml", card=card))                         # $5.80 a 10 mL vial, strength not stated
+    return card, protocol(me, card.id)
+
+
+def test_a_liquid_with_no_strength_is_asked_about_not_called_unavailable(client, db, me):
+    card, pid = liquid_only(db, me)
+    data = client.get(f"/protocols/{pid}/shop").json()
+    assert data["plan"] is None
+    assert data["needs_strength"] == [{"peptide_id": card.id, "name": "Zephyr B-12", "volume_ml": 10.0, "pack_type": "kit", "pack_size": 10, "pack_price": 58.0}]
+    assert not any(u["name"] == "Zephyr B-12" for u in data["unshoppable"])
+
+
+def test_with_the_strength_typed_the_liquid_is_priced_and_adds_no_bac_water(client, db, me):
+    card, pid = liquid_only(db, me)
+    data = client.get(f"/protocols/{pid}/shop", params={f"strength_{card.id}": "1"}).json()
+    line = data["plan"]["sources"][0]["lines"][0]
+    assert line["size_label"] == "10 mL × 1 mg/mL" and line["per_vial"] == pytest.approx(5.8) and line["vials_needed"] == 2
+    assert data["bac"] is None and data["needs_strength"] == []
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "abc", "1001"])
+def test_a_bad_strength_is_refused(client, db, me, value):
+    card, pid = liquid_only(db, me)
+    assert client.get(f"/protocols/{pid}/shop", params={f"strength_{card.id}": value}).status_code == 422
+
+
+def test_a_strength_is_not_asked_when_a_vendor_states_one(client, db, me):
+    card = make_card(db, "Zephyr B-12")
+    with_supplied(db, card)
+    borealis = make_vendor(db, "Borealis")
+    make_list(db, borealis, TODAY, item("Zephyr B-12 1mg/ml", 10, 58, unit="ml", card=card))
+    assert client.get(f"/protocols/{protocol(me, card.id)}/shop").json()["needs_strength"] == []
