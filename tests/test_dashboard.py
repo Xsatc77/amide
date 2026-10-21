@@ -565,3 +565,9 @@ def test_dashboard_body_diagram_is_cropped_to_the_figure_and_its_labels(client, 
         xs = [float(n) for n in re.findall(r"-?\d+\.?\d*", _silhouette_shape(sex)["body_path"])][0::2]
         assert x <= min(xs) and max(xs) <= x + w
     assert max(slot[0] for slot in _LABEL_SLOTS.values()) <= x + w
+
+
+def test_shipment_orders_alternate_two_shades_of_yellow():
+    css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    assert "tbody tr:nth-child(even) td.ship-vendor { background: #ca8a04; }" in css                       # the deeper tab on every second order
+    assert ".dash-area-shipment .inv-table tbody tr:nth-child(even) td:not(.ship-vendor)" in css          # and a faint wash across its row

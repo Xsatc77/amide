@@ -330,6 +330,9 @@ form.inline { display: inline; }
 .inv-table td.ship-vendor { width: 2.4rem; padding: 0; text-align: center; vertical-align: middle; background: var(--ribbon); color: #000; border-bottom: 1px solid rgba(0, 0, 0, 0.3); writing-mode: vertical-rl; }
 .inv-table td.ship-vendor span { display: inline-block; transform: rotate(180deg); padding: 10px 0; max-height: 9.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; }
 .inv-table th.ship-vendor { width: 2.4rem; padding: 0; background: transparent; }
+/* every other order in the Items In Shipment card gets the deeper yellow tab and a faint yellow wash, so the orders read as separate blocks */
+.inv-table tbody tr:nth-child(even) td.ship-vendor { background: #ca8a04; }
+.dash-area-shipment .inv-table tbody tr:nth-child(even) td:not(.ship-vendor) { background: color-mix(in srgb, var(--ribbon) 12%, transparent); }
 .inv-table th, .inv-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .inv-table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; background: var(--bg); }
 .inv-table tbody tr:last-child td { border-bottom: 0; }
