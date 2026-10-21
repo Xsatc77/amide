@@ -1,6 +1,7 @@
 """Which Apple Health metrics a person wants shown: what has arrived, what is still undecided, and the saved yes/no per metric."""
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.health.groups import RECOMMENDED, SECTIONS, metric_group
@@ -45,60 +46,73 @@ def label_for(metric: str) -> str:
     return words[:1].upper() + words[1:]
 
 
+def note_received(session: Session, owner_id: int, keys: set[str]) -> None:
+    """Records choice keys seen at import time as pending rows (off, decided_at empty); a key that already has a row, pending or decided,
+    is left alone. The caller commits. This is what keeps every page's popup check one small query instead of a scan of all readings."""
+    if keys:
+        session.execute(sqlite_insert(HealthMetricChoice).values(
+            [{"owner_id": owner_id, "metric": k[:80], "enabled": False, "decided_at": None} for k in sorted(keys)]).on_conflict_do_nothing())
+
+
+def _unit(session: Session, owner_id: int, metric: str) -> str:
+    """The unit of the metric's most recent reading: one indexed lookup (owner, metric, start), never a scan."""
+    if metric.startswith("event:"):
+        return ""
+    return session.scalar(select(HealthReading.unit).where(HealthReading.owner_id == owner_id, HealthReading.metric == metric)
+                          .order_by(HealthReading.start_at.desc(), HealthReading.id.desc()).limit(1)) or ""
+
+
+def _rows(session: Session, owner_id: int) -> list[HealthMetricChoice]:
+    return list(session.scalars(select(HealthMetricChoice).where(HealthMetricChoice.owner_id == owner_id)))
+
+
+def _seed_from_data(session: Session, owner_id: int) -> None:
+    """Data stored before pending rows existed: note its keys once (one scan, only for someone with data and no choice rows at all)."""
+    keys = set(session.scalars(select(HealthReading.metric).where(HealthReading.owner_id == owner_id).distinct()))
+    keys |= {f"event:{k}" for k in session.scalars(select(HealthEvent.kind).where(HealthEvent.owner_id == owner_id, HealthEvent.kind.in_(EVENT_KINDS)).distinct())}
+    note_received(session, owner_id, keys)
+    session.commit()
+
+
 def received_metrics(session: Session, owner_id: int) -> list[dict]:
-    """Every metric this person has actually received (numeric ones, plus symptom and state-of-mind events), in section order.
-    Each is {"metric", "label", "unit", "section", "recommended"}; the unit comes from the most recent reading."""
-    newest = (select(HealthReading.metric, func.max(HealthReading.start_at).label("at"))
-              .where(HealthReading.owner_id == owner_id).group_by(HealthReading.metric).subquery())
-    units: dict[str, str] = {}
-    for metric, unit in session.execute(
-            select(HealthReading.metric, HealthReading.unit).join(newest, (HealthReading.metric == newest.c.metric) & (HealthReading.start_at == newest.c.at))
-            .where(HealthReading.owner_id == owner_id).order_by(HealthReading.id)):
-        units[metric] = unit or ""                      # two readings at the same instant: the later row wins
-    rows = [{"metric": m, "label": label_for(m), "unit": unit_label(u), "section": metric_group(m), "recommended": m in RECOMMENDED} for m, u in units.items()]
-    for kind in session.scalars(select(HealthEvent.kind).where(HealthEvent.owner_id == owner_id, HealthEvent.kind.in_(EVENT_KINDS)).distinct()):
-        key = f"event:{kind}"
-        rows.append({"metric": key, "label": label_for(key), "unit": "", "section": metric_group(key), "recommended": key in RECOMMENDED})
+    """Every metric this person has received (numeric ones, plus symptom and state-of-mind events; the parser notes each one), in section
+    order. Each is {"metric", "label", "unit", "section", "recommended"}; the unit comes from the most recent reading."""
+    rows = [{"metric": c.metric, "label": label_for(c.metric), "unit": unit_label(_unit(session, owner_id, c.metric)), "section": metric_group(c.metric),
+             "recommended": c.metric in RECOMMENDED} for c in _rows(session, owner_id)]
     rows.sort(key=lambda r: (SECTIONS.index(r["section"]) if r["section"] in SECTIONS else len(SECTIONS), r["label"].lower()))
     return rows
 
 
 def _decided(session: Session, owner_id: int) -> dict[str, bool]:
-    return {c.metric: c.enabled for c in session.scalars(select(HealthMetricChoice).where(HealthMetricChoice.owner_id == owner_id))}
+    return {c.metric: c.enabled for c in _rows(session, owner_id) if c.decided_at is not None}
 
 
 def has_data(session: Session, owner_id: int) -> bool:
-    """One cheap query: has this person received any Apple reading or event at all? (what every page asks first)"""
+    """One cheap query: has this person received any Apple reading or event at all?"""
     return bool(session.scalar(select(exists().where(HealthReading.owner_id == owner_id) | exists().where(HealthEvent.owner_id == owner_id))))
 
 
 def received_keys(session: Session, owner_id: int) -> set[str]:
-    """The choice keys of everything received (metric names and "event:<kind>"), without units or labels."""
-    keys = set(session.scalars(select(HealthReading.metric).where(HealthReading.owner_id == owner_id).distinct()))
-    keys |= {f"event:{k}" for k in session.scalars(select(HealthEvent.kind).where(HealthEvent.owner_id == owner_id, HealthEvent.kind.in_(EVENT_KINDS)).distinct())}
-    return keys
+    """The choice keys of everything received (metric names and "event:<kind>"), pending or decided."""
+    return {c.metric for c in _rows(session, owner_id)}
 
 
 def undecided(session: Session, owner_id: int) -> list[str]:
     """Received metrics this person has not yet said yes or no to."""
-    return sorted(received_keys(session, owner_id) - _decided(session, owner_id).keys())
+    return sorted(c.metric for c in _rows(session, owner_id) if c.decided_at is None)
 
 
 def needs_popup(session: Session, owner_id: int) -> bool:
-    return bool(undecided(session, owner_id))
+    """One small query (what every page asks): is any received metric still undecided?"""
+    return bool(session.scalar(select(exists().where(HealthMetricChoice.owner_id == owner_id, HealthMetricChoice.decided_at.is_(None)))))
 
 
 def save_choices(session: Session, owner_id: int, enabled: set[str], offered: set[str]) -> None:
     """Writes a yes or no for every metric that was on the form; only those in `enabled` are yes. Names this person never received are ignored."""
-    offered = offered & received_keys(session, owner_id)
-    existing = {c.metric: c for c in session.scalars(select(HealthMetricChoice).where(HealthMetricChoice.owner_id == owner_id))}
     now = naive_utcnow()
-    for metric in offered:
-        row = existing.get(metric)
-        if row is None:
-            session.add(HealthMetricChoice(owner_id=owner_id, metric=metric, enabled=metric in enabled, decided_at=now))
-        else:
-            row.enabled, row.decided_at = metric in enabled, now
+    for row in _rows(session, owner_id):
+        if row.metric in offered:
+            row.enabled, row.decided_at = row.metric in enabled, now
     session.commit()
 
 
@@ -123,6 +137,9 @@ def dialog_context(session: Session, owner_id: int, full: bool = False) -> dict 
     mode "first": nothing decided yet, the whole list. mode "new": some earlier choices exist, so only the undecided ones are listed (the
     earlier ones are kept). mode "all": the manual full list (`full`), with the undecided ones tagged "New"."""
     metrics = received_metrics(session, owner_id)
+    if not metrics and has_data(session, owner_id):
+        _seed_from_data(session, owner_id)
+        metrics = received_metrics(session, owner_id)
     if not metrics:
         return None
     decided = _decided(session, owner_id)

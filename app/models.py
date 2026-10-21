@@ -1681,11 +1681,12 @@ class HealthEvent(Base):
 
 
 class HealthMetricChoice(Base):
-    """Whether the person wants a metric kept (enabled) or dropped; a metric with no row has not been decided yet."""
+    """Whether the person wants a metric shown (enabled) or not. The parser adds a pending row (off, no decided_at) for each metric it
+    sees, so "is anything undecided" is one small query; the popup's answer fills decided_at."""
     __tablename__ = "health_metric_choices"
     __table_args__ = (UniqueConstraint("owner_id", "metric", name="uq_health_metric_choice"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     metric: Mapped[str] = mapped_column(String(80))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    decided_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=naive_utcnow)      # None: received, not yet decided

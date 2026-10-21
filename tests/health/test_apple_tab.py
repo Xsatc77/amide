@@ -82,3 +82,23 @@ def test_whole_numbers_show_without_a_decimal_and_count_is_not_a_unit(client, db
     assert ">10.0" not in page and "10 count" not in page and "10.0 count" not in page
     assert 'data-label="Today">10<' in page
     assert "170.5 lb" in page
+
+
+def test_a_person_on_automatic_time_sees_the_device_day_not_utc(client, db, me):
+    from datetime import timezone
+    zone = "Etc/GMT-14"                                      # UTC+14: its day is never the UTC day at 00:30 local
+    local_today = (datetime.now(timezone.utc) + timedelta(hours=14)).date()
+    midnight = datetime.combine(local_today, datetime.min.time())
+    for start, value in ((midnight + timedelta(minutes=30), 7.0), (midnight - timedelta(minutes=30), 5.0)):      # today 00:30, yesterday 23:30
+        at = start - timedelta(hours=14)
+        db.add(HealthReading(owner_id=me, metric="step_count", start_at=at, end_at=at, grain="hour", value=value, unit="count",
+                             source="Phone", offset_minutes=840))
+    db.commit()
+    enable(db, me, "step_count")
+    assert db.get(User, me).timezone is None
+    client.cookies.set("amide_tz", zone)
+    try:
+        page = client.get("/measurements?tab=apple").text
+    finally:
+        client.cookies.delete("amide_tz")
+    assert 'data-label="Today">7<' in page

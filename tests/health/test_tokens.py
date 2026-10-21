@@ -50,3 +50,31 @@ def test_one_person_cannot_revoke_anothers_token(client, db, me):
     assert client.post(f"/settings/apple-health/token/{token.id}/revoke", data={}).status_code == 200      # the owner's own redirect lands on /settings
     db.expire_all()
     assert db.get(IngestToken, token.id).revoked_at is not None
+
+
+def test_at_most_ten_live_tokens_per_person(client, db, me):
+    for i in range(10):
+        tokens.create_token(db, me, f"phone {i}", scope="health")
+    revoked, _ = tokens.create_token(db, me, "old", scope="health")
+    tokens.revoke_token(db, revoked.id)                            # a revoked one does not count
+    r = client.post("/settings/apple-health/token", data={"label": "eleventh"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert db.query(IngestToken).filter_by(scope="health", revoked_at=None).count() == 10
+    assert db.query(IngestToken).filter_by(label="eleventh").count() == 0
+    page = client.get("/settings").text
+    assert "You have 10 tokens, the most allowed" in page and 'action="/settings/apple-health/token"' not in page
+    client.post(f"/settings/apple-health/token/{db.query(IngestToken).filter_by(label='phone 0').one().id}/revoke")
+    assert 'action="/settings/apple-health/token"' in client.get("/settings").text
+
+
+def test_the_watcher_admin_page_never_lists_or_revokes_health_tokens(client, db, me):
+    health, _ = tokens.create_token(db, me, "Zephyr phone", scope="health")
+    watcher, _ = tokens.create_token(db, me, "Borealis watcher")
+    page = client.get("/settings/ingest").text
+    assert "Borealis watcher" in page and "Zephyr phone" not in page
+    client.post(f"/settings/ingest/tokens/{health.id}/revoke")
+    db.expire_all()
+    assert db.get(IngestToken, health.id).revoked_at is None
+    client.post(f"/settings/ingest/tokens/{watcher.id}/revoke")
+    db.expire_all()
+    assert db.get(IngestToken, watcher.id).revoked_at is not None

@@ -88,5 +88,6 @@ def downgrade() -> None:
     op.drop_table('health_readings')
     op.drop_index('ix_health_raw_owner_id', table_name='health_raw')
     op.drop_table('health_raw')
+    op.execute("DELETE FROM ingest_tokens WHERE scope = 'health'")      # without the column they would read as watcher tokens
     with op.batch_alter_table('ingest_tokens') as b:
         b.drop_column('scope')

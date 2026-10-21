@@ -11,9 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import config
+from app.health import choices
 from app.models import HealthEvent, HealthRaw, HealthReading
 
 log = logging.getLogger(__name__)
+
+CHUNK = 5000                       # readings upserted per transaction
+FAILED = "Import failed"           # how a note starts when the read failed on our side (see import_failed)
 
 GRAIN_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
 # Not established: the exact values of the app's automation-aggregation header; matched case-insensitively, anything else is "point"
@@ -104,6 +108,9 @@ def _load(raw: HealthRaw):
 
 
 def _import_readings(session: Session, raw: HealthRaw, metrics: list, grain: str, skipped: list[str]) -> int:
+    """Upserts each metric's rows CHUNK at a time, committing after every chunk, so a big export never holds the database's write
+    lock for long. A failure part way leaves the earlier chunks in place, which is safe: every row upserts on its key, so a re-read
+    of the same export (a resend, or the daily reprocess pass) simply finishes the job."""
     written = 0
     seconds = GRAIN_SECONDS.get(grain, 0)
     for metric in metrics:
@@ -125,19 +132,24 @@ def _import_readings(session: Session, raw: HealthRaw, metrics: list, grain: str
             rows.append(((start, grain, source[:120]), start, offset, value, extra))
         if not rows:
             continue
-        # Not established: how Batch Requests splits a payload. Overlapping or split batches are safe because every row upserts on its key.
-        # Only the stored rows inside this batch's time span are loaded, never the person's whole history.
-        low, high = min(r[1] for r in rows), max(r[1] for r in rows)
-        existing = {(r.start_at, r.grain, r.source): r for r in session.scalars(select(HealthReading).where(
-            HealthReading.owner_id == raw.owner_id, HealthReading.metric == name, HealthReading.grain == grain,
-            HealthReading.start_at >= low, HealthReading.start_at <= high))}
-        for key, start, offset, value, extra in rows:
-            reading = existing.get(key)
-            if reading is None:
-                reading = existing[key] = HealthReading(owner_id=raw.owner_id, metric=name, start_at=start, grain=grain, source=key[2])
-                session.add(reading)
-            reading.end_at, reading.offset_minutes, reading.value, reading.unit, reading.extra = start + timedelta(seconds=seconds), offset, value, unit, extra
-            written += 1
+        choices.note_received(session, raw.owner_id, {name})            # a new metric becomes a pending choice for the popup
+        rows.sort(key=lambda r: r[1])
+        for n in range(0, len(rows), CHUNK):
+            chunk = rows[n:n + CHUNK]
+            # Not established: how Batch Requests splits a payload. Overlapping or split batches are safe because every row upserts on its key.
+            # Only the stored rows inside this chunk's time span are loaded, never the person's whole history.
+            low, high = chunk[0][1], chunk[-1][1]
+            existing = {(r.start_at, r.grain, r.source): r for r in session.scalars(select(HealthReading).where(
+                HealthReading.owner_id == raw.owner_id, HealthReading.metric == name, HealthReading.grain == grain,
+                HealthReading.start_at >= low, HealthReading.start_at <= high))}
+            for key, start, offset, value, extra in chunk:
+                reading = existing.get(key)
+                if reading is None:
+                    reading = existing[key] = HealthReading(owner_id=raw.owner_id, metric=name, start_at=start, grain=grain, source=key[2])
+                    session.add(reading)
+                reading.end_at, reading.offset_minutes, reading.value, reading.unit, reading.extra = start + timedelta(seconds=seconds), offset, value, unit, extra
+                written += 1
+            session.commit()
     return written
 
 
@@ -167,14 +179,27 @@ def _import_events(session: Session, raw: HealthRaw, payload: dict, skipped: lis
                 session.add(event)
             name = item.get("name")
             event.start_at, event.end_at, event.name, event.payload = start, end, name[:120] if isinstance(name, str) else None, item
+        if kind in choices.EVENT_KINDS and any(isinstance(i, dict) for i in items):
+            choices.note_received(session, raw.owner_id, {f"event:{kind}"})
+        session.commit()                                                  # one kind at a time, like the metrics
+
+
+def import_failed(raw: HealthRaw) -> bool:
+    """True when the last read of this export failed on our side (an error, not bad content), so trying again may well work."""
+    return raw.status == "flagged" and (raw.note or "").startswith(FAILED)
 
 
 def import_raw(session: Session, raw: HealthRaw) -> int:
-    """Reads the stored file into readings and events inside one transaction; returns the readings written. Never raises on bad content."""
+    """Reads the stored file into readings and events, committing a chunk at a time (see _import_readings); returns the readings
+    written. Never raises: bad content is flagged with a note, and an unexpected error is flagged with a note starting FAILED."""
+    if not raw.file_name:                                            # no copy was kept (not JSON, or removed for the quota): nothing to read
+        return raw.readings_count or 0
     try:
         try:
             payload = _load(raw)
-        except (OSError, EOFError, ValueError) as exc:             # missing file, bad gzip, bad UTF-8, bad JSON
+        except OSError as exc:                                       # the stored copy cannot be opened: a fault here, not in the export
+            return _finish(session, raw, 0, "flagged", f"{FAILED}: could not open the stored file ({type(exc).__name__})")
+        except (EOFError, ValueError) as exc:                        # bad gzip, bad UTF-8, bad JSON
             return _finish(session, raw, 0, "flagged", f"Could not read the file: {type(exc).__name__}")
         if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
             payload = payload["data"]                                    # Not established: whether the app wraps its arrays in "data"
@@ -190,10 +215,10 @@ def import_raw(session: Session, raw: HealthRaw) -> int:
         _import_events(session, raw, payload, skipped)
         note = f"{len(skipped)} item(s) skipped: {', '.join(sorted(set(skipped)))}"[:300] if skipped else None
         return _finish(session, raw, written, "flagged" if skipped else "parsed", note)
-    except Exception as exc:                                             # anything unforeseen: undo this export and keep it flagged
+    except Exception as exc:                                             # anything unforeseen: undo the unfinished chunk, keep it flagged for a retry
         log.exception("health import failed for raw %s", raw.id)
         session.rollback()
-        return _finish(session, raw, 0, "flagged", f"Import failed: {type(exc).__name__}")
+        return _finish(session, raw, 0, "flagged", f"{FAILED}: {type(exc).__name__}")
 
 
 def _finish(session: Session, raw: HealthRaw, count: int, status: str, note: str | None) -> int:
@@ -201,3 +226,23 @@ def _finish(session: Session, raw: HealthRaw, count: int, status: str, note: str
     raw.readings_count, raw.status, raw.note = count, status, note
     session.commit()
     return count
+
+
+def reprocess_flagged(session: Session, limit: int = 20) -> int:
+    """Re-reads up to `limit` exports whose last read failed on our side (not those that merely had items skipped) and whose stored copy
+    is still on disk; returns how many were re-read. Run by the daily loop, so a passing fault does not leave an export half read."""
+    rows = session.scalars(select(HealthRaw).where(HealthRaw.status == "flagged", HealthRaw.file_name != "", HealthRaw.note.startswith(FAILED))
+                           .order_by(HealthRaw.id)).all()
+    done = 0
+    for raw in rows:
+        if done >= limit:
+            break
+        if (config.HEALTH_RAW_DIR / raw.file_name).exists():      # one whose copy is lost is passed over, so it cannot use up the day's turns
+            import_raw(session, raw)
+            done += 1
+    return done
+
+
+def run_reprocess(session_factory) -> int:
+    with session_factory() as session:
+        return reprocess_flagged(session)

@@ -22,7 +22,20 @@ PHOTO_MAX_SIDE = 2000
 PHOTO_MAX_PIXELS = 50_000_000
 INGEST_DIR = UPLOAD_DIR / "ingest"
 HEALTH_RAW_DIR = UPLOAD_DIR / "health_raw"
-HEALTH_MAX_BYTES = int(os.environ.get("AMIDE_HEALTH_MAX_MB", "512")) * 1024 * 1024     # the biggest Apple Health upload accepted
+
+
+def _env_mb(name: str, default: int) -> int:
+    """A size setting in MB as bytes; a blank, malformed or non-positive value falls back to the default instead of stopping Amide starting."""
+    try:
+        value = int(os.environ.get(name, "").strip())
+    except ValueError:
+        value = default
+    return (value if value > 0 else default) * 1024 * 1024
+
+
+HEALTH_MAX_BYTES = _env_mb("AMIDE_HEALTH_MAX_MB", 64)                                 # the biggest Apple Health upload accepted (it is read whole by the parser)
+HEALTH_RAW_QUOTA_BYTES = _env_mb("AMIDE_HEALTH_RAW_QUOTA_MB", 2048)                   # stored raw copies per person; past it the oldest parsed copies go first
+HEALTH_MAX_TOKENS = 10                                                               # live Apple Health tokens per person
 HEALTH_RATE_PER_MINUTE = 30                                                          # uploads per token per minute
 HEALTH_RAW_KEEP_DAYS = 90                                                            # how long the stored raw files are kept
 INGEST_WORKER_ENABLED = os.environ.get("AMIDE_INGEST_WORKER", "1") != "0"

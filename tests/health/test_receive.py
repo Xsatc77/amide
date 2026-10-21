@@ -82,3 +82,120 @@ def test_rate_limit_is_429(client, auth, monkeypatch):
     monkeypatch.setattr(health_api, "limiter", tokens.RateLimiter(2, 60.0))
     codes = [client.post("/api/ingest/health", content=BODY, headers=auth).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+def test_the_default_cap_is_64_mb_and_a_bad_setting_falls_back(monkeypatch):
+    mb = 1024 * 1024
+    monkeypatch.delenv("AMIDE_HEALTH_MAX_MB", raising=False)
+    assert config._env_mb("AMIDE_HEALTH_MAX_MB", 64) == 64 * mb
+    monkeypatch.setenv("AMIDE_HEALTH_MAX_MB", "lots")
+    assert config._env_mb("AMIDE_HEALTH_MAX_MB", 64) == 64 * mb       # a typo must not stop Amide starting
+    monkeypatch.setenv("AMIDE_HEALTH_MAX_MB", "-5")
+    assert config._env_mb("AMIDE_HEALTH_MAX_MB", 64) == 64 * mb
+    monkeypatch.setenv("AMIDE_HEALTH_MAX_MB", "200")
+    assert config._env_mb("AMIDE_HEALTH_MAX_MB", 64) == 200 * mb
+    assert config.HEALTH_RAW_QUOTA_BYTES == 2048 * mb
+
+
+def test_a_body_that_is_not_json_keeps_no_file(client, db, auth):
+    before = _files()
+    r = client.post("/api/ingest/health", content=b"definitely not json " * 50, headers=auth)
+    assert r.status_code == 200
+    row = db.query(HealthRaw).one()
+    assert row.status == "flagged" and row.file_name == "" and row.size_bytes == 1000 and "not kept" in row.note
+    assert _files() == before
+    r = client.post("/api/ingest/health", content=b"definitely not json " * 50, headers=auth)     # the same again: still nothing kept, no error
+    assert r.status_code == 200 and r.json()["duplicate"] is True and _files() == before
+
+
+def _steps_body(n):
+    return json.dumps({"data": {"metrics": [{"name": "step_count", "units": "count",
+                                             "data": [{"qty": n, "date": "2024-02-06 10:00:00 +0000", "source": "Phone"}]}]}}).encode()
+
+
+def test_over_the_quota_the_oldest_parsed_copies_go_first(client, db, auth, monkeypatch):
+    first, second, third = _steps_body(1), _steps_body(2), _steps_body(3)
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", len(first) + len(second) + 10)
+    before = {f.name for f in _files()}
+    for body in (first, second):
+        assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 200
+    assert client.post("/api/ingest/health", content=third, headers=auth).status_code == 200
+    rows = db.query(HealthRaw).order_by(HealthRaw.id).all()
+    assert [r.file_name == "" for r in rows] == [True, False, False]
+    assert rows[0].note == "raw copy removed to stay within the storage limit" and rows[0].status == "parsed"
+    assert {f.name for f in _files()} - before == {rows[1].file_name, rows[2].file_name}
+
+
+def test_when_nothing_can_be_freed_the_answer_is_507_and_nothing_is_kept(client, db, auth, monkeypatch):
+    body = _steps_body(1)
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", len(body) - 1)
+    before = _files()
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.status_code == 507
+    assert db.query(HealthRaw).count() == 0 and _files() == before
+
+
+def test_unparsed_copies_are_never_removed_for_the_quota(client, db, auth, monkeypatch):
+    from app.health import parse
+    first, second = _steps_body(1), _steps_body(2)
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", len(first) + len(second) - 1)
+    monkeypatch.setattr(parse, "import_raw", lambda session, raw: 0)      # it stays "stored", so it may still be needed
+    client.post("/api/ingest/health", content=first, headers=auth)
+    assert client.post("/api/ingest/health", content=second, headers=auth).status_code == 507
+    row = db.query(HealthRaw).one()
+    assert row.file_name and (config.HEALTH_RAW_DIR / row.file_name).exists()
+
+
+def test_the_quota_is_per_person(client, db, auth, monkeypatch):
+    from app.models import User
+    other = User(username="quota-pal", username_key="quota-pal", password_hash="x")
+    db.add(other)
+    db.commit()
+    db.add(HealthRaw(owner_id=other.id, sha256="z" * 64, size_bytes=10 ** 9, file_name="someone-else.json.gz", status="parsed"))
+    db.commit()
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", 10_000)
+    try:
+        assert client.post("/api/ingest/health", content=_steps_body(1), headers=auth).status_code == 200
+        assert db.query(HealthRaw).filter_by(owner_id=other.id).one().file_name == "someone-else.json.gz"
+    finally:
+        db.query(HealthRaw).delete()
+        db.delete(other)
+        db.commit()
+
+
+def test_an_import_that_fails_unexpectedly_is_503_so_the_phone_resends(client, db, auth, monkeypatch):
+    from app.health import parse
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("database went away")
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    body = _steps_body(5)
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.status_code == 503
+    row = db.query(HealthRaw).one()
+    assert row.status == "flagged" and row.note.startswith("Import failed")
+    monkeypatch.undo()
+    health_api.limiter._hits.clear()
+    r = client.post("/api/ingest/health", content=body, headers=auth)          # the phone's resend now goes through
+    assert r.status_code == 200 and r.json()["readings"] == 1
+
+
+def test_bad_content_that_was_skipped_stays_200(client, db, auth):
+    body = json.dumps({"data": {"metrics": [{"name": "step_count", "units": "count", "data": [{"qty": "null", "date": "2024-02-06 10:00:00 +0000"}]}]}}).encode()
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.status_code == 200 and db.query(HealthRaw).one().status == "flagged"
+
+
+def test_a_resend_restores_a_stored_copy_that_went_missing(client, db, auth, monkeypatch):
+    from app.health import parse
+    body = _steps_body(7)
+    monkeypatch.setattr(parse, "import_raw", lambda session, raw: 0)
+    client.post("/api/ingest/health", content=body, headers=auth)
+    row = db.query(HealthRaw).one()
+    (config.HEALTH_RAW_DIR / row.file_name).unlink()
+    monkeypatch.undo()
+    health_api.limiter._hits.clear()
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.status_code == 200 and r.json()["readings"] == 1
+    db.expire_all()
+    assert gzip.decompress((config.HEALTH_RAW_DIR / db.query(HealthRaw).one().file_name).read_bytes()) == body

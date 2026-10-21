@@ -624,7 +624,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     from app.health import choices as health_choices, series as health_series
     context["show_apple_tab"] = health_choices.has_data(session, uid) or health_choices.has_health_token(session, uid)       # two cheap queries; the tab is for people using Apple Health
     if tab == "apple":
-        context["apple"] = health_series.apple_tab_data(session, uid, range_key, me_user.timezone if me_user else None)
+        context["apple"] = health_series.apple_tab_data(session, uid, range_key, clock.zone_name())      # the zone the gate resolved (a device's, on "automatic")
     if extra:
         context.update(extra)
 

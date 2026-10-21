@@ -34,8 +34,34 @@ def _find(session: Session, owner_id: int, sha: str) -> HealthRaw | None:
     return session.scalar(select(HealthRaw).where(HealthRaw.owner_id == owner_id, HealthRaw.sha256 == sha))
 
 
+QUOTA_NOTE = "raw copy removed to stay within the storage limit"
+NOT_JSON_NOTE = "The body does not look like JSON; it was not kept"
+
+
+def _make_room(session: Session, owner_id: int, size: int) -> bool:
+    """Keeps the owner's stored raw copies (uncompressed sizes) within HEALTH_RAW_QUOTA_BYTES with `size` more to come, by dropping the
+    oldest copies already read in full ("parsed"; their readings stay). False, with nothing removed, when even that would not be enough."""
+    quota = config.HEALTH_RAW_QUOTA_BYTES
+    kept = session.scalars(select(HealthRaw).where(HealthRaw.owner_id == owner_id, HealthRaw.file_name != "")
+                           .order_by(HealthRaw.received_at, HealthRaw.id)).all()
+    used = sum(r.size_bytes for r in kept)
+    if used + size <= quota:
+        return True
+    parsed = [r for r in kept if r.status == "parsed"]           # a copy not yet read in full may still be needed
+    if used - sum(r.size_bytes for r in parsed) + size > quota:
+        return False
+    for raw in parsed:
+        if used + size <= quota:
+            break
+        _unlink(config.HEALTH_RAW_DIR / raw.file_name)
+        raw.file_name, raw.note, used = "", QUOTA_NOTE, used - raw.size_bytes
+    session.commit()
+    return True
+
+
 async def store_body(request: Request, owner_id: int, session: Session) -> tuple[HealthRaw, bool]:
-    """(row, duplicate). The body is never held whole in memory; more than HEALTH_MAX_BYTES is a 413 the moment it is seen."""
+    """(row, duplicate). The body is never held whole in memory; more than HEALTH_MAX_BYTES is a 413 the moment it is seen, and a body
+    the owner's raw-storage quota cannot take is a 507. A body that does not look like JSON gets a flagged row but no stored file."""
     limit = config.HEALTH_MAX_BYTES
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > limit:            # a declared size over the cap is refused before reading anything
@@ -60,13 +86,19 @@ async def store_body(request: Request, owner_id: int, session: Session) -> tuple
         sha = digest.hexdigest()
         existing = _find(session, owner_id, sha)
         if existing is not None:
+            if existing.file_name and existing.status != "parsed" and not (directory / existing.file_name).exists():
+                await run_in_threadpool(_gzip_file, str(tmp), str(directory / existing.file_name))     # the same bytes again: restore the lost copy
             return existing, True
-        final = directory / f"{sha}-{secrets.token_hex(4)}.json.gz"
-        await run_in_threadpool(_gzip_file, str(tmp), str(final))
         headers = {k: request.headers[k][:200] for k in KEPT_HEADERS if k in request.headers}
-        raw = HealthRaw(owner_id=owner_id, sha256=sha, size_bytes=size, file_name=final.name, status="stored" if looks_json else "flagged",
-                        note=None if looks_json else "The body does not look like JSON", headers=headers or None,
+        raw = HealthRaw(owner_id=owner_id, sha256=sha, size_bytes=size, file_name="", status="stored" if looks_json else "flagged",
+                        note=None if looks_json else NOT_JSON_NOTE, headers=headers or None,
                         automation_name=headers.get("automation-name", "")[:120] or None)
+        if looks_json:
+            if not _make_room(session, owner_id, size):
+                raise HTTPException(507, "Over the storage limit for raw Apple Health copies")
+            final = directory / f"{sha}-{secrets.token_hex(4)}.json.gz"
+            await run_in_threadpool(_gzip_file, str(tmp), str(final))
+            raw.file_name = final.name
         session.add(raw)
         try:
             session.commit()

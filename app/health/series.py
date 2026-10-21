@@ -10,31 +10,44 @@ from app import clock
 from app.health import choices
 from app.models import HealthEvent, HealthReading, naive_utcnow
 
-# Metrics that add up over a day; every other metric shows the day's last value.
-CUMULATIVE = frozenset({"step_count", "walking_running_distance", "flights_climbed", "dietary_water", "dietary_energy", "protein",
-                        "carbohydrates", "total_fat", "fiber", "active_energy"})
+# Metrics that add up over a day (all nutrition, and activity energy, time, distance and counts); every other metric shows the day's
+# last value. Any "dietary_" name adds up too (see is_cumulative). Not established: the full metric-name list.
+CUMULATIVE = frozenset({
+    "step_count", "walking_running_distance", "flights_climbed", "active_energy", "basal_energy_burned", "apple_exercise_time",
+    "apple_stand_time", "apple_stand_hour", "apple_move_time", "cycling_distance", "swimming_distance", "wheelchair_distance",
+    "distance_downhill_snow_sports", "swim_stroke_count", "push_count", "number_of_times_fallen", "time_in_daylight",
+    "dietary_water", "dietary_energy", "dietary_sugar", "dietary_caffeine", "dietary_sodium", "dietary_cholesterol", "dietary_potassium",
+    "dietary_calcium", "dietary_iron", "dietary_fat_saturated", "dietary_fat_total", "dietary_fiber", "dietary_protein", "dietary_carbohydrates",
+    "protein", "carbohydrates", "total_fat", "fiber", "caffeine", "sodium", "sugar", "saturated_fat", "monounsaturated_fat",
+    "polyunsaturated_fat", "cholesterol", "potassium", "calcium", "iron", "magnesium", "zinc", "vitamin_c", "vitamin_d",
+})
+
+
+def is_cumulative(metric: str) -> bool:
+    return metric in CUMULATIVE or metric.startswith("dietary_")
 # Finest first. "point" (a single timed sample) counts as the finest of all.
 _GRAIN_RANK = {"point": 0, "second": 1, "minute": 2, "hour": 3, "day": 4}
 LIST_LIMIT = 100
 
 
 def daily_series(session: Session, owner_id: int, metric: str, start: date, end: date, zone: str | None) -> list[tuple[date, float]]:
-    """(local day, value) for each day from `start` to `end` that has data. A day uses only the finest grain stored for it
-    (two grains are never added together); cumulative metrics sum that day's readings, the rest take the last one."""
+    """(day, value) for each day from `start` to `end` that has data. A reading belongs to the phone's own day when it was taken (its
+    stored UTC time plus its stored offset), so the viewer's zone (`zone`, kept for the callers) does not move it. A day uses only the
+    finest grain stored for it (two grains are never added together); cumulative metrics sum that day's readings, the rest take the last one."""
     low, high = datetime.combine(start - timedelta(days=2), datetime.min.time()), datetime.combine(end + timedelta(days=3), datetime.min.time())
-    rows = session.execute(select(HealthReading.start_at, HealthReading.grain, HealthReading.value).where(
+    rows = session.execute(select(HealthReading.start_at, HealthReading.offset_minutes, HealthReading.grain, HealthReading.value).where(
         HealthReading.owner_id == owner_id, HealthReading.metric == metric, HealthReading.value.is_not(None),
         HealthReading.start_at >= low, HealthReading.start_at < high).order_by(HealthReading.start_at, HealthReading.id)).all()
     by_day: dict[date, list[tuple[str, float]]] = defaultdict(list)
-    for at, grain, value in rows:
-        day = clock.local_date(at, zone)
+    for at, offset, grain, value in rows:
+        day = (at + timedelta(minutes=offset or 0)).date()
         if start <= day <= end:
             by_day[day].append((grain, value))
     out = []
     for day in sorted(by_day):
         finest = min(_GRAIN_RANK.get(g, 5) for g, _ in by_day[day])
         values = [v for g, v in by_day[day] if _GRAIN_RANK.get(g, 5) == finest]
-        out.append((day, float(sum(values)) if metric in CUMULATIVE else float(values[-1])))
+        out.append((day, float(sum(values)) if is_cumulative(metric) else float(values[-1])))
     return out
 
 
@@ -88,7 +101,7 @@ def apple_tab_data(session: Session, owner_id: int, range_param: str | None, zon
         daily = daily_series(session, owner_id, key, fetch_from, today, zone)
         shown = [(d, v) for d, v in daily if since is None or d >= since]
         week = [v for d, v in daily if d > today - timedelta(days=7)]
-        cumulative = key in CUMULATIVE
+        cumulative = is_cumulative(key)
         today_value = next((v for d, v in daily if d == today), None)
         metrics.append({
             "metric": key, "label": item["label"], "unit": item["unit"], "cumulative": cumulative, "series": shown,

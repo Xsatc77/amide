@@ -30,8 +30,10 @@ def require_health_token(request: Request, session: Session = Depends(get_sessio
 @router.post("/health")
 async def receive_health(request: Request, session: Session = Depends(get_session), token: IngestToken = Depends(require_health_token)):
     raw, duplicate = await receive.store_body(request, token.owner_id, session)
-    if duplicate and raw.status == "parsed":
-        readings = raw.readings_count
+    if (duplicate and raw.status == "parsed") or not raw.file_name:
+        readings = raw.readings_count       # already read, or nothing kept to read (a body that was not JSON)
     else:                                   # new, or a repeat the parser has not finished with: (re)read it
         readings = await run_in_threadpool(parse.import_raw, session, raw)
+        if parse.import_failed(raw):        # not bad content but a failure on our side: a 503 makes the phone send this batch again
+            raise HTTPException(503, "The import failed; send it again later", headers={"Retry-After": "300"})
     return {"received": raw.size_bytes, "readings": readings, "duplicate": duplicate}

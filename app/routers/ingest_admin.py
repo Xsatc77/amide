@@ -48,7 +48,7 @@ def _page(request: Request, session: Session, me: User, *, status: str = "", q: 
     for t in session.scalars(select(IngestTopic).order_by(IngestTopic.title)):
         topics_by_source.setdefault(t.source_id, []).append(t)
     return templates.TemplateResponse(request, "settings/ingest.html", {
-        "me": me, "tokens": list(session.scalars(select(IngestToken).order_by(IngestToken.id.desc()))),
+        "me": me, "tokens": list(session.scalars(select(IngestToken).where(IngestToken.scope == "watcher").order_by(IngestToken.id.desc()))),      # people's Apple Health tokens are theirs alone
         "sources": shown, "source_by_id": sources, "topics_by_source": topics_by_source, "q": q, "items": items, "statuses": INGEST_STATUSES, "status": status,
         "waiting": waiting, "vendors": list(session.scalars(select(Vendor).order_by(Vendor.name))), "new_secret": new_secret, "new_label": new_label,
         "today": clock.today().isoformat(),
@@ -71,7 +71,9 @@ async def create_token(request: Request, session: Session = Depends(get_session)
 @router.post("/settings/ingest/tokens/{token_id}/revoke")
 def revoke_token(token_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     _admin(session, uid)
-    tokens.revoke_token(session, token_id)
+    token = session.get(IngestToken, token_id)
+    if token is not None and token.scope == "watcher":     # an Apple Health token is revoked only by its owner, on their own card
+        tokens.revoke_token(session, token_id)
     return _done()
 
 

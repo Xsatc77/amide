@@ -10,10 +10,14 @@
     <p><code>{{ health.header_line }}</code> <button type="button" class="btn btn-ghost btn-small" data-copy="{{ health.header_line }}">Copy</button></p>
   </div>
   {% endif %}
+  {% if health.at_token_limit %}
+  <p class="small">You have {{ health.max_tokens }} tokens, the most allowed. Revoke one you no longer use to create another.</p>
+  {% else %}
   <form method="post" action="/settings/apple-health/token" class="inline-form health-token-form">
     <label class="field"><span>Label</span><input name="label" maxlength="60" placeholder="iPhone"></label>
     <button type="submit" class="btn btn-primary">Create token</button>
   </form>
+  {% endif %}
   {% if health.tokens %}
   <div class="table-wrap"><table>
     <thead><tr><th>Label</th><th>Starts with</th><th>Last used</th><th></th></tr></thead>
@@ -44,7 +48,7 @@
     <li>Set Sync Cadence to <strong>every hour</strong>.</li>
     <li>Tap <strong>Manual Export</strong> to test. The status below should change within a minute.</li>
   </ol>
-  <p class="small muted"><strong>If Amide sits behind a reverse proxy:</strong> allow request bodies large enough for the first export (up to {{ health.max_mb }} MB is accepted by Amide itself), and if anything asks for a separate login in front of Amide, exempt the path <code>/api/ingest/</code> from it, or the phone will be turned away.</p>
+  <p class="small muted"><strong>If Amide sits behind a reverse proxy:</strong> allow request bodies large enough for the first export (Amide itself accepts up to {{ health.max_mb }} MB a post; whoever runs Amide can raise that with the one setting <code>AMIDE_HEALTH_MAX_MB</code>), and if anything asks for a separate login in front of Amide, exempt the path <code>/api/ingest/</code> from it, or the phone will be turned away.</p>
 
   <h3 class="small muted">3. Status</h3>
   <p><strong>{{ health.status_line }}</strong></p>

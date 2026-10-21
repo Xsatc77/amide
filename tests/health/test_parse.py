@@ -239,3 +239,68 @@ def test_a_duplicate_of_an_unparsed_export_is_reparsed(client, db, auth, monkeyp
     monkeypatch.setattr(parse, "import_raw", lambda session, raw: calls.append(1) or 0)
     r = client.post("/api/ingest/health", content=body, headers=auth)   # parsed now: not parsed again
     assert r.json()["readings"] == 1 and not calls
+
+
+def test_each_metric_and_event_kind_commits_on_its_own(db, me, monkeypatch):
+    from sqlalchemy import event
+    payload = {"metrics": [{"name": n, "units": "count", "data": [{"qty": 1, "date": f"2024-02-06 1{i}:00:00 +0000"} for i in range(5)]}
+                           for n in ("step_count", "flights_climbed", "push_count")],
+               "workouts": [{"id": "w1", "name": "Walk", "start": "2024-02-06 10:00:00 +0000"}],
+               "symptoms": [{"name": "Headache", "start": "2024-02-06 10:00:00 +0000"}]}
+    raw = make_raw(db, me, payload)
+    monkeypatch.setattr(parse, "CHUNK", 2)                    # five rows a metric: three chunks each
+    commits = []
+
+    def count(session):
+        commits.append(1)
+    event.listen(db, "after_commit", count)
+    try:
+        assert parse.import_raw(db, raw) == 15
+    finally:
+        event.remove(db, "after_commit", count)
+    assert len(commits) >= 3 * 3 + 2 + 1          # nine reading chunks, two event kinds, the final status
+    assert raw.status == "parsed"
+
+
+def test_reprocess_reruns_exports_that_failed_but_not_ones_with_skipped_items(db, me, monkeypatch):
+    good = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+    skipped = make_raw(db, me, {"metrics": [{"name": "step_count", "data": [{"qty": "null", "date": "2024-02-06 11:00:00 +0000"}]}]})
+    real = parse._import_readings
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("locked")
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    parse.import_raw(db, good)
+    assert good.status == "flagged" and good.note.startswith("Import failed")
+    monkeypatch.setattr(parse, "_import_readings", real)
+    parse.import_raw(db, skipped)
+    assert skipped.status == "flagged" and "skipped" in skipped.note
+    gone = HealthRaw(owner_id=me, sha256="gone-again", size_bytes=1, file_name="", status="flagged", note="Import failed: OSError")
+    db.add(gone)
+    db.commit()
+    calls = []
+    monkeypatch.setattr(parse, "import_raw", lambda s, r, real=parse.import_raw: calls.append(r.id) or real(s, r))
+    assert parse.reprocess_flagged(db) == 1
+    assert calls == [good.id]
+    db.expire_all()
+    assert db.get(HealthRaw, good.id).status == "parsed" and db.query(HealthReading).count() == 1
+    assert parse.reprocess_flagged(db) == 0                    # nothing left that failed
+
+
+def test_a_row_without_a_kept_file_is_left_alone(db, me):
+    raw = HealthRaw(owner_id=me, sha256="nofile", size_bytes=5, file_name="", status="flagged", note="The body does not look like JSON; it was not kept")
+    db.add(raw)
+    db.commit()
+    assert parse.import_raw(db, raw) == 0
+    assert raw.status == "flagged" and raw.note.startswith("The body does not look like JSON")
+
+
+def test_reprocess_passes_over_lost_copies_so_they_cannot_use_up_the_limit(db, me):
+    lost = HealthRaw(owner_id=me, sha256="lost", size_bytes=1, file_name="lost-copy.json.gz", status="flagged", note="Import failed: x")
+    db.add(lost)
+    db.commit()
+    good = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+    good.status, good.note = "flagged", "Import failed: OperationalError"
+    db.commit()
+    assert parse.reprocess_flagged(db, limit=1) == 1
+    assert good.status == "parsed" and lost.status == "flagged"

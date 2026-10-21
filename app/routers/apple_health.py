@@ -73,12 +73,17 @@ def card_data(session: Session, owner_id: int, host_url: str, new_secret: str | 
         "last_received_at": last, "first_data_at": first, "reading_count": readings, "recent": recent, "event_counts": events,
         "status_line": "Waiting for first data" if last is None else f"Last received {_ago(last, now)}, {readings:,} reading{'' if readings == 1 else 's'}",
         "max_mb": config.HEALTH_MAX_BYTES // (1024 * 1024),
+        "max_tokens": config.HEALTH_MAX_TOKENS, "at_token_limit": len(active) >= config.HEALTH_MAX_TOKENS,
     }
 
 
 @router.post("/settings/apple-health/token")
 async def create_token(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     form = await request.form()
+    live = session.scalar(select(func.count()).select_from(IngestToken).where(IngestToken.owner_id == uid, IngestToken.scope == "health",
+                                                                             IngestToken.revoked_at.is_(None)))
+    if live >= config.HEALTH_MAX_TOKENS:            # the card says so and offers no form; this refuses a post sent anyway
+        return RedirectResponse(BACK, status_code=303)
     token, secret = tokens.create_token(session, uid, str(form.get("label") or ""), scope="health")
     if request.state.session_id:
         _remember(request.state.session_id, secret, token.label)

@@ -57,3 +57,47 @@ def test_purge_survives_a_missing_file(db, me):
     raw_row(db, me, "gone", 200, today)
     assert history.purge_raw(db, today) == 1
     assert db.query(HealthRaw).count() == 0
+
+
+def test_purge_removes_stray_files_older_than_an_hour_but_never_fresh_ones(db, me):
+    import os
+    import time
+    today = naive_utcnow()
+    raw_row(db, me, "kept-one", 1, today)
+    directory = config.HEALTH_RAW_DIR
+    stray, fresh, incoming = directory / "stray.json.gz", directory / "fresh-stray.json.gz", directory / "incoming-abc.tmp"
+    for f in (stray, fresh, incoming):
+        f.write_bytes(b"x")
+    old = time.time() - 2 * 3600
+    os.utime(stray, (old, old))
+    os.utime(incoming, (old, old))                       # a temp file left by a crash an hour ago is stray too
+    os.utime(directory / "kept-one.json.gz", (old, old))   # old, but its row still owns it
+    history.purge_raw(db, today)
+    assert not stray.exists() and not incoming.exists()
+    assert fresh.exists() and (directory / "kept-one.json.gz").exists()
+    fresh.unlink()
+
+
+def test_purge_skips_rows_that_kept_no_file(db, me):
+    today = naive_utcnow()
+    db.add(HealthRaw(owner_id=me, sha256="nofile", size_bytes=2, file_name="", received_at=today - timedelta(days=200)))
+    db.commit()
+    assert history.purge_raw(db, today) == 1 and config.HEALTH_RAW_DIR.is_dir()
+
+
+def test_a_failing_daily_run_is_logged_not_swallowed(monkeypatch, caplog):
+    def broken(*args):
+        raise RuntimeError("purge broke")
+    monkeypatch.setattr(history, "run_purge", broken)
+    with caplog.at_level("ERROR", logger="app.health.history"):
+        history.daily_once(lambda: None)
+    assert "purge broke" in caplog.text or any(r.exc_info for r in caplog.records)
+
+
+def test_the_daily_run_also_reprocesses_failed_exports(monkeypatch):
+    from app.health import parse
+    seen = []
+    monkeypatch.setattr(history, "run_purge", lambda factory, now: seen.append("purge") or 0)
+    monkeypatch.setattr(parse, "run_reprocess", lambda factory: seen.append("reprocess") or 0)
+    history.daily_once(lambda: None)
+    assert seen == ["purge", "reprocess"]

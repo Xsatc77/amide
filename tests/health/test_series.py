@@ -4,8 +4,9 @@ from app.health import choices, series
 from app.models import HealthMetricChoice, HealthReading
 
 
-def add(db, owner, metric, start, value, grain="hour", unit="count", source="Phone"):
-    db.add(HealthReading(owner_id=owner, metric=metric, start_at=start, end_at=start, grain=grain, value=value, unit=unit, source=source))
+def add(db, owner, metric, start, value, grain="hour", unit="count", source="Phone", offset=0):
+    db.add(HealthReading(owner_id=owner, metric=metric, start_at=start, end_at=start, grain=grain, value=value, unit=unit, source=source,
+                         offset_minutes=offset))
     db.commit()
 
 
@@ -34,11 +35,21 @@ def test_two_grains_are_never_added_together(db, me):
 
 
 def test_a_2330_minus_0800_reading_lands_on_the_owner_local_day(db, me):
-    # 23:30 local at UTC-8 is 07:30 UTC the next day; the stored time is naive UTC
-    add(db, me, "step_count", datetime(2024, 2, 7, 7, 30), 120)
+    # 23:30 local at UTC-8 is 07:30 UTC the next day; the stored time is naive UTC and the phone's offset is kept beside it
+    add(db, me, "step_count", datetime(2024, 2, 7, 7, 30), 120, offset=-480)
     got = series.daily_series(db, me, "step_count", date(2024, 2, 1), date(2024, 2, 28), "America/Los_Angeles")
     assert got == [(date(2024, 2, 6), 120.0)]
-    assert series.daily_series(db, me, "step_count", date(2024, 2, 1), date(2024, 2, 28), "UTC") == [(date(2024, 2, 7), 120.0)]
+    # the phone's own day decides, whatever zone the viewer is in (or none at all)
+    assert series.daily_series(db, me, "step_count", date(2024, 2, 1), date(2024, 2, 28), "UTC") == [(date(2024, 2, 6), 120.0)]
+    assert series.daily_series(db, me, "step_count", date(2024, 2, 1), date(2024, 2, 28), None) == [(date(2024, 2, 6), 120.0)]
+
+
+def test_day_rows_stored_at_local_midnight_east_of_utc_keep_their_day(db, me):
+    # "2024-02-06 00:00:00 +0100" is stored as 23:00 UTC on the 5th; it is the 6th's total
+    add(db, me, "step_count", datetime(2024, 2, 5, 23), 8000, grain="day", offset=60)
+    add(db, me, "step_count", datetime(2024, 2, 6, 23), 9000, grain="day", offset=60)
+    got = series.daily_series(db, me, "step_count", date(2024, 2, 1), date(2024, 2, 28), None)
+    assert got == [(date(2024, 2, 6), 8000.0), (date(2024, 2, 7), 9000.0)]
 
 
 def test_only_enabled_metrics_are_charted(db, me):
@@ -56,3 +67,21 @@ def test_only_enabled_metrics_are_charted(db, me):
 
 def test_cumulative_set():
     assert "step_count" in series.CUMULATIVE and "weight_&_body_mass" not in series.CUMULATIVE
+
+
+def test_nutrition_and_activity_totals_add_up_over_the_day():
+    for name in ("dietary_caffeine", "dietary_sodium", "dietary_sugar", "caffeine", "potassium", "saturated_fat", "apple_exercise_time",
+                 "apple_stand_hour", "basal_energy_burned", "cycling_distance", "swimming_distance", "swim_stroke_count", "push_count"):
+        assert name in series.CUMULATIVE, name
+    for name in ("heart_rate", "resting_heart_rate", "body_fat_percentage", "walking_speed", "vo2_max", "blood_glucose"):
+        assert name not in series.CUMULATIVE, name
+
+
+def test_every_dietary_name_sums_even_one_not_listed():
+    assert series.is_cumulative("dietary_zephyrium") and not series.is_cumulative("zephyr_index")
+
+
+def test_caffeine_is_summed_per_day(db, me):
+    add(db, me, "dietary_caffeine", datetime(2024, 2, 6, 8), 95, unit="mg")
+    add(db, me, "dietary_caffeine", datetime(2024, 2, 6, 14), 60, unit="mg")
+    assert series.daily_series(db, me, "dietary_caffeine", date(2024, 2, 6), date(2024, 2, 6), None) == [(date(2024, 2, 6), 155.0)]

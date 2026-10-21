@@ -87,3 +87,9 @@ def test_unclaimed_token_secrets_expire_and_are_dropped_on_the_next_write(monkey
     apple_health._remember("s3", "secret-three", "c")
     clock[0] += apple_health.NEW_TOKEN_TTL + 1
     assert apple_health.take_new_token("s3") is None           # too old to show
+
+
+def test_card_states_the_64_mb_cap_and_the_setting_that_raises_it(client):
+    page = client.get("/settings").text
+    card = page[page.index('id="apple-health"'):]
+    assert "64 MB" in card and "AMIDE_HEALTH_MAX_MB" in card and "512 MB" not in card

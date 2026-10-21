@@ -17,6 +17,12 @@ def set_zone(name: str | None) -> None:
         _zone.set(None)
 
 
+def zone_name() -> str | None:
+    """The zone the request gate set for this request (the person's chosen one, else the device's for "automatic"), or None."""
+    zone = _zone.get()
+    return zone.key if zone else None
+
+
 def local_date(moment: datetime, zone_name: str | None) -> date:
     """The calendar day a stored moment (naive means UTC) falls on in a person's own time zone."""
     from datetime import timezone
