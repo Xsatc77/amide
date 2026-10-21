@@ -101,3 +101,18 @@ def test_a_non_cumulative_metric_keeps_the_last_value_across_sources(db, me):
     add(db, me, "heart_rate", datetime(2024, 2, 6, 8), 60, grain="minute", source="Acme Phone")
     add(db, me, "heart_rate", datetime(2024, 2, 6, 9), 72, grain="minute", source="Zephyr Watch")
     assert series.daily_series(db, me, "heart_rate", date(2024, 2, 6), date(2024, 2, 6), None) == [(date(2024, 2, 6), 72.0)]
+
+
+def test_nutrition_and_water_from_two_sources_add_up_but_activity_does_not(db, me):
+    add(db, me, "dietary_water", datetime(2024, 2, 6, 8), 500, unit="mL", source="Acme Water")
+    add(db, me, "dietary_water", datetime(2024, 2, 6, 12), 300, unit="mL", source="Zephyr Food")      # another app, another drink
+    add(db, me, "caffeine", datetime(2024, 2, 6, 9), 95, unit="mg", source="Acme Water")
+    add(db, me, "caffeine", datetime(2024, 2, 6, 15), 60, unit="mg", source="Zephyr Food")
+    add(db, me, "step_count", datetime(2024, 2, 6, 8), 4000, source="Acme Phone")
+    add(db, me, "step_count", datetime(2024, 2, 6, 8, 30), 4200, source="Zephyr Watch")
+    span = (date(2024, 2, 6), date(2024, 2, 6), None)
+    assert series.daily_series(db, me, "dietary_water", *span) == [(date(2024, 2, 6), 800.0)]
+    assert series.daily_series(db, me, "caffeine", *span) == [(date(2024, 2, 6), 155.0)]
+    assert series.daily_series(db, me, "step_count", *span) == [(date(2024, 2, 6), 4200.0)]
+    assert series.adds_across_sources("dietary_zephyrium") and series.adds_across_sources("water")
+    assert not series.adds_across_sources("step_count") and not series.adds_across_sources("active_energy")

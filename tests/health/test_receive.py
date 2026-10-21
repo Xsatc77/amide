@@ -218,9 +218,10 @@ def test_an_import_that_always_fails_gives_up_with_200_after_five_tries(client, 
     assert row.status == "flagged" and row.attempts == 5 and "gave up after 5 tries; fix needed" in row.note.lower()
     assert not parse.import_failed(row) and parse.reprocess_flagged(db) == 0       # the daily pass stops retrying it
     health_api.limiter._hits.clear()
-    assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 200     # a manual resend still tries, and still 200
+    assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 503     # a manual resend gets a fresh 5 tries
     db.expire_all()
-    assert db.query(HealthRaw).one().attempts == 6
+    row = db.query(HealthRaw).one()
+    assert row.attempts == 1 and row.note.startswith(parse.FAILED)
     monkeypatch.undo()                                         # the fix is in: a resend reads it
     health_api.limiter._hits.clear()
     r = client.post("/api/ingest/health", content=body, headers=auth)
@@ -270,3 +271,47 @@ def test_the_copy_of_the_body_being_stored_is_never_removed_for_room(db, me, mon
     monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", 150)
     assert receive._make_room(db, me, 100, "s" * 64) is False
     assert (config.HEALTH_RAW_DIR / "same.json.gz").exists()
+
+
+def test_a_resend_of_an_evicted_unread_copy_stores_it_again_and_reads_it(client, db, auth, monkeypatch):
+    from app.health import parse, receive
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("locked")
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    body = _steps_body(6)
+    assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 503
+    row = db.query(HealthRaw).one()
+    (config.HEALTH_RAW_DIR / row.file_name).unlink()                  # removed for the quota while it waited for the resend
+    row.file_name, row.note = "", f"{receive.QUOTA_NOTE} before it was read in full ({row.note})"
+    db.commit()
+    monkeypatch.undo()
+    health_api.limiter._hits.clear()
+    r = client.post("/api/ingest/health", content=body, headers=auth)   # the phone's resend of the same bytes
+    assert r.status_code == 200 and r.json() == {"received": len(body), "readings": 1, "duplicate": True}
+    db.expire_all()
+    row = db.query(HealthRaw).one()
+    assert row.status == "parsed" and row.file_name and gzip.decompress((config.HEALTH_RAW_DIR / row.file_name).read_bytes()) == body
+
+
+def test_a_resend_of_an_evicted_copy_that_does_not_fit_is_507(client, db, auth, monkeypatch):
+    from app.health import parse
+    monkeypatch.setattr(parse, "_import_readings", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("locked")))
+    body = _steps_body(8)
+    client.post("/api/ingest/health", content=body, headers=auth)
+    row = db.query(HealthRaw).one()
+    (config.HEALTH_RAW_DIR / row.file_name).unlink()
+    row.file_name = ""
+    db.commit()
+    monkeypatch.setattr(config, "HEALTH_RAW_QUOTA_BYTES", len(body) - 1)
+    health_api.limiter._hits.clear()
+    before = _files()
+    assert client.post("/api/ingest/health", content=body, headers=auth).status_code == 507
+    assert _files() == before and db.query(HealthRaw).count() == 1
+
+
+def test_a_not_json_duplicate_still_keeps_no_file(client, db, auth):
+    client.post("/api/ingest/health", content=b"nope " * 10, headers=auth)
+    before = _files()
+    r = client.post("/api/ingest/health", content=b"nope " * 10, headers=auth)
+    assert r.status_code == 200 and _files() == before

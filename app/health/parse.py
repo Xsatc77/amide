@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 CHUNK = 5000                       # readings upserted per transaction
 FAILED = "Import failed"           # how a note starts when the read failed on our side (see import_failed)
-MAX_ATTEMPTS = 5                   # reads of one export before a failure on our side is given up on (see _failed)
+MAX_ATTEMPTS = 5                   # failed reads in a row of one export before it is given up on (see _failed)
 GAVE_UP = f"Gave up after {MAX_ATTEMPTS} tries; fix needed"
 STALE = timedelta(hours=1)         # a "stored" export this old is no longer being read: a crash stopped it (see reprocess_flagged)
 
@@ -170,13 +170,14 @@ def _import_readings(session: Session, raw: HealthRaw, metrics: list, header_gra
             continue
         choices.note_received(session, raw.owner_id, {name})            # a new metric becomes a pending choice for the popup
         for grain, rows in by_grain.items():
-            written += _upsert(session, raw.owner_id, name, unit, grain, rows)
+            written += _upsert(session, raw.owner_id, name, unit, grain, rows, skipped)
     return written
 
 
-def _upsert(session: Session, owner_id: int, name: str, unit: str | None, grain: str, rows: list) -> int:
+def _upsert(session: Session, owner_id: int, name: str, unit: str | None, grain: str, rows: list, skipped: list[str]) -> int:
     seconds, daily = GRAIN_SECONDS.get(grain, 0), grain == "day"
     rows.sort(key=lambda r: r[0])
+    written = 0
     for n in range(0, len(rows), CHUNK):
         chunk = rows[n:n + CHUNK]
         # Not established: how Batch Requests splits a payload. Overlapping or split batches are safe because every row upserts on its key.
@@ -185,22 +186,57 @@ def _upsert(session: Session, owner_id: int, name: str, unit: str | None, grain:
         low, high = chunk[0][0], chunk[-1][0]
         if daily:
             low, high = low - timedelta(days=2), high + timedelta(days=2)
-
-        def key(start, offset, source):
-            return _day_key(start, offset, source) if daily else (start, source)
-        existing = {key(r.start_at, r.offset_minutes, r.source): r for r in session.scalars(select(HealthReading).where(
+        stored = session.scalars(select(HealthReading).where(
             HealthReading.owner_id == owner_id, HealthReading.metric == name, HealthReading.grain == grain,
-            HealthReading.start_at >= low, HealthReading.start_at <= high).order_by(HealthReading.id))}       # the newest of any old twins wins
+            HealthReading.start_at >= low, HealthReading.start_at <= high).order_by(HealthReading.id)).all()
+        at_start = {(r.start_at, r.source): r for r in stored}            # what the unique key already holds
+        same_day: dict[tuple, list[HealthReading]] = {}
+        for r in stored:
+            same_day.setdefault(_day_key(r.start_at, r.offset_minutes, r.source), []).append(r)
         for start, offset, source, value, extra in chunk:
-            reading = existing.get(key(start, offset, source))
+            if daily:
+                reading = _day_row(session, same_day, at_start, start, offset, source)
+                if reading is False:                                     # see _day_row: the start belongs to another local day
+                    skipped.append("day-key collision skipped")
+                    continue
+            else:
+                reading = at_start.get((start, source))
             if reading is None:
-                reading = existing[key(start, offset, source)] = HealthReading(owner_id=owner_id, metric=name, grain=grain, source=source)
+                reading = HealthReading(owner_id=owner_id, metric=name, grain=grain, source=source)
                 session.add(reading)
+                if daily:
+                    same_day[_day_key(start, offset, source)] = [reading]
+            at_start.pop((reading.start_at, source), None)
+            at_start[(start, source)] = reading
             # a day re-sent from another zone moves to its new UTC start and offset rather than being stored a second time
             reading.start_at, reading.end_at, reading.offset_minutes = start, start + timedelta(seconds=seconds), offset
             reading.value, reading.unit, reading.extra = value, unit, extra
+            written += 1
         session.commit()
-    return len(rows)
+    return written
+
+
+def _day_row(session: Session, same_day: dict, at_start: dict, start: datetime, offset: int, source: str):
+    """The stored day row an incoming day reading updates: None for a new one, False when it must be skipped. Old twins of the same local
+    day (an older version stored a trip's day twice) are merged: the one already at the incoming start is kept, else the newest, and the
+    rest are deleted. Two different local days can share one UTC start when the offsets differ by exactly 24 hours (-1000 and +1400, say);
+    the row already there is kept as it is and the incoming one skipped, so the unique key never fails the whole chunk."""
+    twins = same_day.get(_day_key(start, offset, source), [])
+    if twins:
+        keep = next((r for r in twins if r.start_at == start), twins[-1])
+        for other in twins:
+            if other is not keep:
+                at_start.pop((other.start_at, source), None)
+                session.delete(other)
+        if len(twins) > 1:
+            session.flush()                                              # the deletes first, or the move below could meet the twin's key
+        same_day[_day_key(start, offset, source)] = [keep]
+    else:
+        keep = None
+    holder = at_start.get((start, source))
+    if holder is not None and holder is not keep:
+        return False
+    return keep
 
 
 def _import_events(session: Session, raw: HealthRaw, payload: dict, skipped: list[str]) -> None:
@@ -247,13 +283,16 @@ def import_raw(session: Session, raw: HealthRaw) -> int:
         return raw.readings_count or 0
     if raw not in session:
         raw = session.merge(raw)
+    if (raw.note or "").startswith(GAVE_UP):                         # a resend of an export given up on gets a fresh MAX_ATTEMPTS tries
+        raw.attempts = 0
     raw.attempts = (raw.attempts or 0) + 1                           # counted before the read, so a crash part way counts too
+    before = raw.status                                              # see _failed: only a row finished during this read is a twin's work
     session.commit()
     try:
         try:
             payload = _load(raw)
         except OSError as exc:                                       # the stored copy cannot be opened: a fault here, not in the export
-            return _failed(session, raw, f"could not open the stored file ({type(exc).__name__})")
+            return _failed(session, raw, f"could not open the stored file ({type(exc).__name__})", before)
         except (EOFError, ValueError) as exc:                        # bad gzip, bad UTF-8, bad JSON
             return _finish(session, raw, 0, "flagged", f"Could not read the file: {type(exc).__name__}")
         if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
@@ -273,14 +312,15 @@ def import_raw(session: Session, raw: HealthRaw) -> int:
     except Exception as exc:                                             # anything unforeseen: undo the unfinished chunk, keep it flagged for a retry
         log.exception("health import failed for raw %s", raw.id)
         session.rollback()
-        return _failed(session, raw, type(exc).__name__)
+        return _failed(session, raw, type(exc).__name__, before)
 
 
-def _failed(session: Session, raw: HealthRaw, detail: str) -> int:
-    """Records a failure on our side. A concurrent twin import of the same export may have finished meanwhile: its "parsed" row is never
-    written over. After MAX_ATTEMPTS reads the note says it was given up on (no longer FAILED), so the phone gets a 200 and moves on and
-    the daily pass stops; a manual resend of the same export still tries again."""
-    if session.scalar(select(HealthRaw.status).where(HealthRaw.id == raw.id)) == "parsed":
+def _failed(session: Session, raw: HealthRaw, detail: str, before: str | None) -> int:
+    """Records a failure on our side. A concurrent twin import of the same export may have finished meanwhile (the row turned "parsed"
+    after this read began, `before`): its "parsed" row is never written over. After MAX_ATTEMPTS failed reads in a row (attempts counts them: _finish resets it on any other outcome) the note says it
+    was given up on (no longer FAILED), so the phone gets a 200 and moves on and the daily pass stops; a resend of the same export starts
+    a fresh count (see import_raw)."""
+    if before != "parsed" and session.scalar(select(HealthRaw.status).where(HealthRaw.id == raw.id)) == "parsed":
         session.refresh(raw)
         return raw.readings_count or 0
     if (raw.attempts or 0) >= MAX_ATTEMPTS:
@@ -291,6 +331,8 @@ def _failed(session: Session, raw: HealthRaw, detail: str) -> int:
 def _finish(session: Session, raw: HealthRaw, count: int, status: str, note: str | None) -> int:
     raw = session.merge(raw) if raw not in session else raw
     raw.readings_count, raw.status, raw.note = count, status, note
+    if not (note or "").startswith((FAILED, GAVE_UP)):                # read through (parsed, or flagged for its content): no failures in a row
+        raw.attempts = 0
     session.commit()
     return count
 

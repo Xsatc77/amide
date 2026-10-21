@@ -97,6 +97,15 @@ async def store_body(request: Request, owner_id: int, session: Session) -> tuple
         if existing is not None:
             if existing.file_name and existing.status != "parsed" and not (directory / existing.file_name).exists():
                 await run_in_threadpool(_gzip_file, str(tmp), str(directory / existing.file_name))     # the same bytes again: restore the lost copy
+            elif not existing.file_name and existing.status != "parsed" and looks_json:
+                # its copy went for the quota before it was read in full: keep this one (if it fits) so the resend can be read
+                if not await run_in_threadpool(_make_room, session, owner_id, size, sha):
+                    raise HTTPException(507, "Over the storage limit for raw Apple Health copies")
+                final = directory / f"{sha}-{secrets.token_hex(4)}.json.gz"
+                await run_in_threadpool(_gzip_file, str(tmp), str(final))
+                existing.file_name = final.name
+                await run_in_threadpool(session.commit)
+                final = None                                    # kept: the row owns the file now
             return existing, True
         headers = {k: request.headers[k][:200] for k in KEPT_HEADERS if k in request.headers}
         raw = HealthRaw(owner_id=owner_id, sha256=sha, size_bytes=size, file_name="", status="stored" if looks_json else "flagged",

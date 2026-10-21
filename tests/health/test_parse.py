@@ -353,3 +353,85 @@ def test_reprocess_picks_up_exports_a_crash_left_stored_for_over_an_hour(db, me)
     gave_up = db.get(HealthRaw, stuck.id)
     assert gave_up.status == "flagged" and "gave up after 5 tries" in gave_up.note.lower()
     assert db.query(HealthReading).count() == 1
+
+
+def test_successful_reads_do_not_count_towards_giving_up(db, me, monkeypatch):
+    raw = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+    for _ in range(6):                                          # resends after a phone timeout, twins, manual resends
+        parse.import_raw(db, raw)
+    assert raw.status == "parsed" and raw.attempts == 0
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("locked")
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    parse.import_raw(db, raw)                                    # one passing fault: retried, not given up on
+    assert raw.note.startswith(parse.FAILED) and raw.attempts == 1 and parse.import_failed(raw)
+
+
+def test_a_read_flagged_for_its_content_resets_the_failure_count(db, me):
+    raw = make_raw(db, me, {"metrics": [{"name": "step_count", "data": [{"qty": "null", "date": "2024-02-06 11:00:00 +0000"}]}]})
+    raw.attempts = 4
+    db.commit()
+    parse.import_raw(db, raw)
+    assert raw.status == "flagged" and "skipped" in raw.note and raw.attempts == 0
+
+
+def test_only_five_failures_in_a_row_give_up(db, me, monkeypatch):
+    raw = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+    real = parse._import_readings
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("locked")
+    for _ in range(4):
+        monkeypatch.setattr(parse, "_import_readings", broken)
+        parse.import_raw(db, raw)
+    monkeypatch.setattr(parse, "_import_readings", real)
+    parse.import_raw(db, raw)                                    # the fifth read works: the count starts over
+    assert raw.status == "parsed" and raw.attempts == 0
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    for _ in range(4):
+        parse.import_raw(db, raw)
+    assert raw.note.startswith(parse.FAILED) and raw.attempts == 4
+    parse.import_raw(db, raw)
+    assert raw.note.startswith(parse.GAVE_UP) and raw.attempts == 5
+
+
+def test_a_resend_of_a_given_up_export_gets_a_fresh_five_tries(db, me, monkeypatch):
+    raw = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 4)))
+    raw.status, raw.attempts, raw.note = "flagged", 5, f"{parse.GAVE_UP} (RuntimeError)"
+    db.commit()
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("locked")
+    monkeypatch.setattr(parse, "_import_readings", broken)
+    parse.import_raw(db, raw)
+    assert raw.attempts == 1 and raw.note.startswith(parse.FAILED)
+
+
+def _day_row(db, me, start, offset, value):
+    from datetime import timedelta
+    row = HealthReading(owner_id=me, metric="step_count", start_at=start, end_at=start + timedelta(days=1), grain="day", value=value,
+                        unit="count", source="Phone", offset_minutes=offset)
+    db.add(row)
+    db.commit()
+    return row
+
+
+def test_old_twin_day_rows_are_merged_without_a_key_clash(db, me):
+    a = _day_row(db, me, datetime(2026, 10, 20, 5), -300, 6000)        # the same local day, stored twice by an older version
+    _day_row(db, me, datetime(2026, 10, 19, 23), 60, 6500)
+    raw = make_raw(db, me, steps(("2026-10-20 00:00:00 -0500", 7000)), {"automation-aggregation": "days"})
+    assert parse.import_raw(db, raw) == 1 and raw.status == "parsed"
+    rows = db.query(HealthReading).all()
+    assert [(r.id, r.start_at, r.value) for r in rows] == [(a.id, datetime(2026, 10, 20, 5), 7000)]      # the row already at that start stays
+
+
+def test_two_local_days_sharing_one_utc_start_never_fail_the_chunk(db, me):
+    # 2026-10-20 00:00 at +1400 and 2026-10-19 00:00 at -1000 are both 2026-10-19 10:00 UTC
+    held = _day_row(db, me, datetime(2026, 10, 19, 10), 840, 9000)
+    raw = make_raw(db, me, steps(("2026-10-19 00:00:00 -1000", 4000), ("2026-10-18 00:00:00 -1000", 3000)), {"automation-aggregation": "days"})
+    parse.import_raw(db, raw)
+    assert raw.status == "flagged" and "day-key collision skipped" in raw.note and not parse.import_failed(raw)
+    db.expire_all()
+    assert db.get(HealthReading, held.id).value == 9000                       # the row already there is kept as it was
+    assert sorted(r.value for r in db.query(HealthReading).all()) == [3000, 9000]     # the rest of the chunk went in

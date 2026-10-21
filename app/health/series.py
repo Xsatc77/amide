@@ -28,6 +28,16 @@ def is_cumulative(metric: str) -> bool:
     return metric in CUMULATIVE or metric.startswith("dietary_")
 
 
+# Nutrition and water: each source logs its own meals and drinks, so their totals add up (every "dietary_" name too)
+NUTRITION = frozenset({"protein", "carbohydrates", "total_fat", "fiber", "caffeine", "sodium", "sugar", "saturated_fat", "monounsaturated_fat",
+                       "polyunsaturated_fat", "cholesterol", "potassium", "calcium", "iron", "magnesium", "zinc", "vitamin_c", "vitamin_d", "water"})
+
+
+def adds_across_sources(metric: str) -> bool:
+    """True for nutrition and water, summed over every source; other cumulative metrics (activity) take the largest source's total."""
+    return metric in NUTRITION or metric.startswith("dietary_")
+
+
 # Finest first. "point" (a single timed sample) counts as the finest of all.
 _GRAIN_RANK = {"point": 0, "second": 1, "minute": 2, "hour": 3, "day": 4}
 LIST_LIMIT = 100
@@ -36,8 +46,8 @@ LIST_LIMIT = 100
 def daily_series(session: Session, owner_id: int, metric: str, start: date, end: date, zone: str | None) -> list[tuple[date, float]]:
     """(day, value) for each day from `start` to `end` that has data. A reading belongs to the phone's own day when it was taken (its
     stored UTC time plus its stored offset), so the viewer's zone (`zone`, kept for the callers) does not move it. A day uses only the
-    finest grain stored for it (two grains are never added together); cumulative metrics sum that day's readings from one source (see
-    below), the rest take the last one."""
+    finest grain stored for it (two grains are never added together); cumulative metrics sum that day's readings (activity from one source,
+    nutrition and water from all, see adds_across_sources), the rest take the last one."""
     low, high = datetime.combine(start - timedelta(days=2), datetime.min.time()), datetime.combine(end + timedelta(days=3), datetime.min.time())
     rows = session.execute(select(HealthReading.id, HealthReading.start_at, HealthReading.offset_minutes, HealthReading.grain, HealthReading.source,
                                   HealthReading.value).where(
@@ -62,12 +72,13 @@ def daily_series(session: Session, owner_id: int, metric: str, start: date, end:
         finest = min(_GRAIN_RANK.get(g, 5) for g, _, _ in by_day[day])
         values = [(src, v) for g, src, v in by_day[day] if _GRAIN_RANK.get(g, 5) == finest]
         if cumulative:
-            # Not established: how the real export labels sources. When two sources (the phone and another app, say) both report a day,
-            # adding them would count it twice, so only the source with the largest total that day is used.
+            # Not established: how the real export labels sources. Activity measured by two sources (the phone and a watch, say) is the
+            # same walking twice, so only the source with the largest total that day is used; nutrition and water add up across sources,
+            # since two apps log different meals and drinks (see adds_across_sources).
             totals: dict[str, float] = defaultdict(float)
             for src, v in values:
                 totals[src] += v
-            out.append((day, float(max(totals.values()))))
+            out.append((day, float(sum(totals.values()) if adds_across_sources(metric) else max(totals.values()))))
         else:
             out.append((day, float(values[-1][1])))
     return out
