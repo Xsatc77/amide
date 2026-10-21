@@ -320,10 +320,11 @@
   {% if in_transit_groups %}
   <div class="table-wrap">
     <table class="inv-table">
-      <thead><tr><th>Items</th><th>Ordered</th><th>Shipped</th><th>Tracking</th><th></th></tr></thead>
+      <thead><tr><th class="ship-vendor"></th><th>Items</th><th>Ordered</th><th>Shipped</th><th>Tracking</th><th></th></tr></thead>
       <tbody>
         {% for group in in_transit_groups %}
         <tr>
+          <td class="ship-vendor"><span>{{ group.order.vendor or 'No vendor' }}</span></td>
           <td>
             {% for item, li in group.lines %}
             <div><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}</div>

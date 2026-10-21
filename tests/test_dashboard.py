@@ -1,6 +1,7 @@
 import re
 import html
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -482,6 +483,22 @@ def test_shipment_card_lists_unarrived_orders_only(client, db):
     card = _shipment_card(client)
     assert "ShippingPeptide" in card
     assert "ArrivedPeptide" not in card
+
+
+def test_shipment_card_names_the_vendor_in_a_tab_on_the_left_edge(client, db):
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        item = _checked_in_order_item(s, uid, "TabbedPeptide", None, arrival_date=None)
+        order = s.scalar(select(Order).join(OrderItem, OrderItem.order_id == Order.id).where(OrderItem.inventory_item_id == item.id))
+        order.vendor = "Acme Labs"
+        s.commit()
+    card = _shipment_card(client)
+    rows = card.split("<tbody>")[1].split("</tr>")[0]
+    assert re.search(r'<td class="ship-vendor"><span>Acme Labs</span></td>\s*<td>', rows)          # the vendor's own cell comes first in the row
+    assert "<th class=\"ship-vendor\"></th>" in card.split("</thead>")[0]
+    css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    rule = css.split(".ship-vendor {")[1].split("}")[0]
+    assert "writing-mode: vertical-rl" in rule and "var(--ribbon)" in rule and "#000" in rule          # a vertical, yellow tab with black text
 
 
 def test_shipment_card_shows_empty_state_when_nothing_in_transit(client, db):
