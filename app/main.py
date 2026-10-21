@@ -12,6 +12,7 @@ from app.food.foods import load_starter
 from app.library.base_library import load_base_library
 from app import reminders
 from app.backup import scheduled as scheduled_backup
+from app.health import history as health_history
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
@@ -28,11 +29,12 @@ async def lifespan(_: FastAPI):
         load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
         if config.BASE_LIBRARY:
             load_base_library(session)      # the shipped peptide cards: fill what is missing or empty, never what has data
-    task, reminder_task, backup_task = worker.start(), reminders.start(), scheduled_backup.start()
+    task, reminder_task, backup_task, purge_task = worker.start(), reminders.start(), scheduled_backup.start(), health_history.start()
     yield
     await worker.stop(task)
     await reminders.stop(reminder_task)
     await scheduled_backup.stop(backup_task)
+    await health_history.stop(purge_task)
 
 
 app = FastAPI(title="Amide", lifespan=lifespan)
