@@ -49,6 +49,10 @@ _B12_FORM_NAME = re.compile(r"\b(?:methyl|hydroxo|hydroxy|cyano|adenosyl)?cobala
 _B12_VITAMIN_WORD = re.compile(r"\b(?:vitamin|vit\.?|v)[\s._-]*(?=" + _B12 + ")", re.IGNORECASE)
 
 
+# "1mg/ml", "1000mcg/ml", "2.5 mg / mL": a strength per mL (a premixed product's) is never part of its name, so it is left out when names are compared.
+CONCENTRATION = re.compile(r"(\d+(?:\.\d+)?)\s*(mg|mcg|ug|µg|μg)\s*/\s*ml\b", re.IGNORECASE)
+
+
 def _b12(text: str) -> str:
     text = _B12_FORM_PREFIX.sub("", text)
     text = _B12_FORM_NAME.sub("b12", text)
@@ -59,7 +63,7 @@ def _norm(text) -> str:
     text = unicodedata.normalize("NFKC", text or "")
     text = _W_SLASH_O.sub("without ", text)
     text = _W_SLASH.sub("with ", text)
-    return _b12(_GLUED_QUALIFIER.sub(r" \1", text))
+    return CONCENTRATION.sub(" ", _b12(_GLUED_QUALIFIER.sub(r" \1", text)))
 
 
 def _words(text) -> list[str]:

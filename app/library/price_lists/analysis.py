@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.library.matching import match_name, name_key
 from app.library.price_lists.importer import _SOURCE_RANK, vendor_key
+from app.library.price_lists.premixed import premixed_form
 from app.models import Peptide, PriceAlertIgnore, PriceCorrection, PriceList, PriceListItem, Vendor
 
 SIZE_UNITS = ("mg", "mcg", "IU")
@@ -99,9 +100,10 @@ def best_prices(session: Session, peptide_id: int, limit: int = 5) -> list[SizeO
         price = VendorPrice(plist.vendor_id, plist.vendor_name, plist.warehouse.value, it.pack_price / it.pack_size,
                             it.pack_price, it.pack_size, it.pack_type, plist.list_date)
         vendor = plist.vendor_id if plist.vendor_id is not None else vendor_key(plist.vendor_name)
-        held = best[(it.vial_amount, it.vial_unit, it.form)].get(vendor)
+        key = (it.vial_amount, it.vial_unit, it.form or premixed_form(it))          # a liquid with a strength in its name is premixed: a size of its own
+        held = best[key].get(vendor)
         if held is None or _rank(price) < _rank(held):
-            best[(it.vial_amount, it.vial_unit, it.form)][vendor] = price
+            best[key][vendor] = price
     options = [SizeOption(amount, unit, form, sorted(by_vendor.values(), key=_rank)[:limit])
                for (amount, unit, form), by_vendor in best.items()]
     return sorted(options, key=lambda o: (LISTED_UNITS.index(o.unit), o.amount, o.form or ""))

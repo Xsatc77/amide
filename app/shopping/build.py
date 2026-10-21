@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.calculator import units as unit_math
 from app.library.price_lists.analysis import current_lists
+from app.library.price_lists.premixed import strength_mg_per_ml, vial_mg
 from app.models import Category, Frequency, InventoryItem, Peptide, PriceListItem, PurchasingUnit, User
 from app.shopping.bac import BacOffer, is_bac_water, plan_bac, rank_for
 from app.protocols.course_totals import compute_course_totals
@@ -146,6 +147,17 @@ def _offers(session: Session, needs: list[Need], factors: dict[int, float | None
         out.append(Offer(vendor_id=plist.vendor_id, vendor_name=plist.vendor_name, warehouse=plist.warehouse.value, list_date=plist.list_date,
                          need_key=need.key, size=size_mg_or_iu, size_label=f"{row.vial_amount:g} {row.vial_unit}", pack_size=row.pack_size,
                          pack_price=row.pack_price, pack_type=row.pack_type))
+    for row in session.scalars(select(PriceListItem).where(
+            PriceListItem.peptide_id.in_(ids), PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit == "ml",
+            PriceListItem.pack_price > 0, PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)):
+        mg = vial_mg(row)
+        need = by_key[str(row.peptide_id)]
+        if mg is None or need.unit != "mg":                           # a liquid with no stated strength cannot be turned into a dose
+            continue
+        plist = lists[row.price_list_id]
+        out.append(Offer(vendor_id=plist.vendor_id, vendor_name=plist.vendor_name, warehouse=plist.warehouse.value, list_date=plist.list_date,
+                         need_key=need.key, size=mg, size_label=f"{row.vial_amount:g} mL premixed ({strength_mg_per_ml(row.product_name):g} mg/mL)",
+                         pack_size=row.pack_size, pack_price=row.pack_price, pack_type=row.pack_type, premixed=True))
     return out, list(ask.values())
 
 
@@ -202,6 +214,11 @@ def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, size
         return base | {"status": "nothing_to_buy", "plan": None, "alternatives": [], "unshoppable": []}
     offers, needs_volume = _offers(session, needs, factors, sizes)
     result = plan_protocol(needs, offers, shipping)
+    bought_premixed = {int(l.need.key) for s in result.plan.sources for l in s.lines if l.offer.premixed} if result.plan else set()
+    if bought_premixed:                                              # ready to use: those items need no BAC water
+        bac_ml = sum(t.bac_water_ml or 0.0 for it, t in zip(protocol.items, totals)
+                     if it.peptide_id not in bought_premixed and it.peptide_id not in no_bac and not _OIL.search((peptides_by_id.get(it.peptide_id) or it.peptide).name))
+        base["bac"] = {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units)} if bac_ml > 0 else None
     asking = {a["name"] for a in needs_volume}
     unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable
                            if n.name not in asking]

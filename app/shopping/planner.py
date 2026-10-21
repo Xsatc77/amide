@@ -41,6 +41,7 @@ class Offer:
     pack_size: int                # vials in the pack the price buys
     pack_price: float
     pack_type: str | None = None
+    premixed: bool = False        # a liquid ready to use: nothing to reconstitute
 
 
 @dataclass(frozen=True)

@@ -152,6 +152,7 @@ Press **Check in** on the order. Enter the arrival date and how many vials actua
 - An optional watcher program can read price lists posted in chat groups: see [../watcher/README.md](../watcher/README.md).
 - A new price list raises an alert on the Dashboard, and a line it could not match to a library card is flagged so you can add the card.
 - A size such as "10mg Dual Chamber Cartridge" is recognised and kept apart from plain vials, with its own size and price.
+- A liquid listed with a strength per mL, such as "B12 1mg/ml" in 10 mL vials, is **premixed** (ready to use, not a powder): it finds its library card, shows in the card's best-price popup as its own size (for example "10ml premixed (1mg/mL, 10mg a vial)", never mixed with the mg sizes), and the shopping plan can buy it by the mg in each vial with no BAC water. A liquid with only a volume ("10ml*10vials") and no strength stays a plain "10ml" size, because Amide cannot know what is in it.
 
 ### Price correction (administrator)
 
