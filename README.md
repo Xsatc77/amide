@@ -126,6 +126,8 @@ Card text and images are saved in `data/library/` (private, never committed). To
 | `AMIDE_BACKUP_PASSPHRASE` | (none) | Set it (8+ characters) and Amide writes an encrypted whole-installation backup to `data/backups` every `AMIDE_BACKUP_DAYS` days (default 7), keeping the newest `AMIDE_BACKUP_KEEP` (default 4) |
 | `AMIDE_LINK_DESCRIPTIONS` | `1` | On the Links page, a link saved without a description is fetched once to read a short description from the site. `0` turns this off and nothing is fetched |
 | `AMIDE_USDA_API_KEY` | (none) | A free [FoodData Central](https://fdc.nal.usda.gov/api-key-signup.html) key (or each person can paste their own in Settings, USDA food search) turns on **Search the USDA database** in the Add food dialog; without it nothing is ever sent |
+| `AMIDE_HEALTH_MAX_MB` | `64` | The largest single Apple Health (Health Auto Export) upload Amide accepts, in megabytes. Raise it only if a first export is refused; turning on Batch Requests in the phone app is the better fix |
+| `AMIDE_HEALTH_RAW_QUOTA_MB` | `2048` | How much stored raw Apple Health data one person may keep, in megabytes; the oldest raw copies are removed first to stay within it (the clean history is kept) |
 
 ### Accounts
 
