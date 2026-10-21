@@ -232,6 +232,10 @@ The **Calculator** works out concentration, how much to draw and where that fall
 
 Pick a BAC water item and an inventory item, or practise with any library peptide. A library dosing tier with a plain dose has **Open in calculator**.
 
+### The TRT calculator
+
+For a testosterone oil sold by strength (100, 200 or 250 mg/mL, or your own number), open **Testosterone (TRT) calculator** at the top of the Calculator page, or from a testosterone library card. Choose the vial strength, the weekly dose and how often you inject (once weekly, twice weekly, every other day, which averages 3.5 a week, or daily), and pick your syringe barrel (U-100: 100 units is always 1 mL). It shows the milligrams and millilitres per injection, the **units to pull** on a syringe picture with the nearest whole mark and what that mark actually delivers, the volume used per week, and, if you enter the vial size, how long a vial lasts. **Copy a link to this result** gives an address with your choices filled in. It is volume arithmetic only, never a dose recommendation: the dose, schedule and strength are for you and your prescriber or pharmacist to confirm.
+
 ---
 
 ## 8. Body: weight, journal, labs and photos

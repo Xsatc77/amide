@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% set active_nav = "calculator" %}
+{% block title %}TRT Calculator{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Testosterone (TRT) Calculator</h1>
+    <p class="muted">Weekly dose and the strength on the vial in, the draw per injection out: milligrams, millilitres and U-100 syringe units. The ester (cypionate, enanthate) does not change the sums, only the mg/mL on the label does.</p>
+    <p class="small"><a href="/calculator">&larr; Reconstitution calculator</a></p>
+  </div>
+</div>
+
+<div class="calc-layout">
+  <form id="trt-form" class="builder-step calc-form" novalidate>
+    <fieldset class="form-section">
+      <legend>Vial strength (mg/mL)</legend>
+      <div class="chips" id="trt-conc-chips">
+        {% for v in (100, 200, 250) %}<button type="button" class="chip" data-value="{{ v }}">{{ v }}</button>{% endfor %}
+        <button type="button" class="chip" data-other>Other</button>
+      </div>
+      <label class="field" id="trt-conc-other" hidden><span class="small muted">mg per mL on the label</span><input id="trt-conc" type="number" min="0" step="any" inputmode="decimal" value="{{ state.conc }}"></label>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Weekly dose (mg)</legend>
+      <div class="chips" id="trt-weekly-chips">
+        {% for v in (50, 100, 125, 150, 200) %}<button type="button" class="chip" data-value="{{ v }}">{{ v }}</button>{% endfor %}
+        <button type="button" class="chip" data-other>Other</button>
+      </div>
+      <label class="field" id="trt-weekly-other" hidden><span class="small muted">total mg per week</span><input id="trt-weekly" type="number" min="0" step="any" inputmode="decimal" value="{{ state.weekly }}"></label>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>How often</legend>
+      <div class="chips" id="trt-freq-chips">
+        {% for key, (per_week, label) in frequencies.items() %}<button type="button" class="chip" data-value="{{ key }}" aria-pressed="{{ 'true' if state.freq == key else 'false' }}">{{ label }}</button>{% endfor %}
+      </div>
+      <p class="muted small">Every other day averages 3.5 injections a week.</p>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Syringe</legend>
+      <div class="chips" id="trt-syringe-chips">
+        {% for ml, units in capacities.items() %}<button type="button" class="chip" data-value="{{ ml }}" aria-pressed="{{ 'true' if state.syringe_ml | float == ml else 'false' }}">{{ ml }} mL <span class="small">({{ units }}u)</span></button>{% endfor %}
+      </div>
+      <p class="muted small">U-100: 100 units is always 1 mL, whatever the barrel size.</p>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Vial size (optional)</legend>
+      <label class="field"><span class="small muted">mL in the vial, to see how long it lasts</span><input id="trt-vial" type="number" min="0" step="any" inputmode="decimal" value="{{ state.vial_ml }}"></label>
+    </fieldset>
+  </form>
+
+  <div class="calc-result builder-step">
+    <div id="trt-warning" class="alert" role="alert" hidden></div>
+    <div class="calc-units" id="trt-units">—<span class="calc-units-label">units per injection</span></div>
+    <div class="calc-syringe-visual" aria-hidden="true">
+      <div class="calc-syringe">
+        <span class="calc-needle"></span><span class="calc-hub"></span>
+        <div class="calc-syringe-barrel">
+          <div class="calc-syringe-fill" id="trt-fill" style="width: 0%"></div>
+          <div class="calc-syringe-ticks" id="trt-ticks"></div>
+        </div>
+        <span class="calc-flange"></span><span class="calc-plunger"></span>
+      </div>
+      <div class="calc-syringe-scale" id="trt-scale"></div>
+    </div>
+    <dl class="kv calc-kv">
+      <dt>Injections a week</dt><dd id="trt-per-week">—</dd>
+      <dt>Per injection</dt><dd id="trt-mg">—</dd>
+      <dt>Volume per injection</dt><dd id="trt-ml">—</dd>
+      <dt>Nearest mark</dt><dd id="trt-whole">—</dd>
+      <dt>Used per week</dt><dd id="trt-weekly-ml">—</dd>
+      <dt>A vial lasts</dt><dd id="trt-vial-days">—</dd>
+    </dl>
+    <p><button type="button" class="btn" id="trt-copy">Copy a link to this result</button> <span class="small muted" id="trt-copy-note" role="status"></span></p>
+    <p class="muted small">This is volume arithmetic only. It does not recommend a dose and it is not medical advice: the dose, schedule and strength are for you and your prescriber or pharmacist to confirm. Check every figure against the label before drawing.</p>
+  </div>
+</div>
+
+<script type="application/json" id="trt-data">{{ data | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/trt-calculator.js') }}" defer></script>
+{% endblock %}

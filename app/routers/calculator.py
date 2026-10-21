@@ -19,6 +19,7 @@ from app.auth.deps import current_user_id
 from app.calculator import units as unit_math
 from app.calculator.reconstitution import SYRINGE_CAPACITIES_UNITS, compute, water_for_target_units
 from app.calculator.teaching import explain
+from app.calculator.trt import FREQUENCIES, compute_trt
 from app.db import get_session
 from app.inventory.consumption import apply_plan, plan_reconstitution
 from app.inventory.groups import lot_in_use
@@ -101,6 +102,23 @@ def _bac_data(session: Session, uid: int, today: date) -> list[dict]:
                     "bottle_ml": item.volume_ml,
                     "open": {"ml_left": round(vial.volume_remaining_ml, 2), "discard_by": vial.discard_by.isoformat()} if vial else None})
     return out
+
+
+@router.get("/api/calculator/trt")
+def api_trt(conc: str = "", weekly: str = "", freq: str = "", syringe_ml: str = "1.0", vial_ml: str = ""):
+    """The draw per injection for a weekly testosterone dose: every number comes from here, the page only shows them."""
+    return asdict(compute_trt(_num(conc), _num(weekly), freq, _syringe_ml(syringe_ml), _num(vial_ml)))
+
+
+@router.get("/calculator/trt")
+def trt_page(request: Request, uid: int = Depends(current_user_id)):
+    q = request.query_params
+    state = {"conc": q.get("conc", "250"), "weekly": q.get("weekly", ""), "freq": q.get("freq") if q.get("freq") in FREQUENCIES else "weekly",
+             "vial_ml": q.get("vial_ml", "10"), "syringe_ml": "%g" % _syringe_ml(q.get("syringe_ml", "1.0"))}
+    data = {"state": state, "capacities": list(SYRINGE_CAPACITIES_UNITS.items()),
+            "frequencies": [[key, label, per_week] for key, (per_week, label) in FREQUENCIES.items()]}
+    return templates.TemplateResponse(request, "calculator/trt.html", {"state": state, "data": data, "capacities": SYRINGE_CAPACITIES_UNITS,
+                                                                      "frequencies": FREQUENCIES})
 
 
 @router.get("/calculator")

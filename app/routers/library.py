@@ -97,10 +97,11 @@ def library_detail(peptide_id: int, request: Request, session: Session = Depends
         parsed = unit_math.parse_dose_text(t.dose_text)
         if parsed:
             calc_urls[t.level] = f"/calculator?dose_value={parsed[0]:g}&dose_unit={parsed[1]}"
+    trt_url = "/calculator/trt" if re.search(r"testosterone|\btrt\b", p.name or "", re.IGNORECASE) else None            # an oil sold by strength: its own calculator
     my_notes = session.scalars(select(PeptideNote).where(PeptideNote.owner_id == request.state.user.id, PeptideNote.peptide_id == p.id)
                                .order_by(PeptideNote.created_at.desc(), PeptideNote.id.desc())).all()
     return templates.TemplateResponse(request, "library/detail.html", {
-        "calc_urls": calc_urls, "my_notes": my_notes,
+        "calc_urls": calc_urls, "trt_url": trt_url, "my_notes": my_notes,
         "p": p, "card": p.card_details or {}, "goals": _goal_map(session).get(p.id, []), "used_in": used_in,
         "can_delete": bool(session.get(User, request.state.user.id).is_admin) and p.source in (PeptideSource.CUSTOM, PeptideSource.STARTER),
         "protocols_using": session.scalar(select(func.count(func.distinct(ProtocolItem.protocol_id))).where(ProtocolItem.peptide_id == p.id)) or 0,

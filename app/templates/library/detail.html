@@ -47,6 +47,7 @@
       <p class="small muted">A prompt to ask your prescriber or pharmacist, not advice. Edit your list in Settings.</p>
     </section>
     {% endif %}
+    {% if trt_url %}<p><a class="btn" href="{{ trt_url }}">Open the TRT calculator</a> <span class="muted small">weekly dose and vial strength in, units to draw out</span></p>{% endif %}
     {% if is_sheet %}
       {% if p.summary %}<p class="lead">{{ p.summary }}</p>{% endif %}
 
