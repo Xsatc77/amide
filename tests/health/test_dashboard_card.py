@@ -66,3 +66,33 @@ def test_the_dashboard_page_shows_the_card_only_for_your_own_dashboard(client, d
     assert "Set up Apple Health" in page and "Coming in a future update" not in page
     tokens.create_token(db, me, "iPhone", scope="health")
     assert "Setup steps" in client.get("/dashboard").text
+
+
+def days_of_distance(db, me, values):
+    now = naive_utcnow()
+    for ago, value in values:
+        at = now - timedelta(days=ago)
+        db.add(HealthReading(owner_id=me, metric="walking_running_distance", start_at=at, end_at=at, offset_minutes=0, grain="day", value=value, unit="mi", source="Phone"))
+    db.commit()
+    choices.note_received(db, me, {"walking_running_distance"})
+    db.commit()
+
+
+def test_the_card_carries_a_chart_of_the_last_two_weeks_of_walking_distance(db, me):
+    days_of_distance(db, me, [(0, 3.5), (1, 2.0), (3, 4.1), (20, 9.9)])               # the 20 day old one is outside the two weeks
+    choices.save_choices(db, me, {"walking_running_distance"}, {"walking_running_distance"})
+    data = card(db, me, clock.local_date(naive_utcnow(), None))
+    assert data["chart_unit"] == "mi" and [v for _, v in data["chart"]["raw"]] == [4.1, 2.0, 3.5]
+
+
+def test_no_chart_when_the_metric_is_off(db, me):
+    days_of_distance(db, me, [(0, 3.5), (1, 2.0)])
+    choices.save_choices(db, me, set(), {"walking_running_distance"})
+    assert card(db, me, clock.local_date(naive_utcnow(), None))["chart"] is None
+
+
+def test_the_dashboard_draws_it_full_width_with_the_chart(client, db, me):
+    days_of_distance(db, me, [(0, 3.5), (1, 2.0)])
+    choices.save_choices(db, me, {"walking_running_distance"}, {"walking_running_distance"})
+    page = client.get("/dashboard").text
+    assert "Walking And Running Distance (mi)" in page and 'class="apple-card-body"' in page

@@ -1,6 +1,6 @@
 """The Dashboard's Apple Health card: whether it is set up, when data last arrived, and today's steps and walking distance."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,6 +11,8 @@ from app.models import HealthRaw, HealthReading, naive_utcnow
 
 # The two figures worth a glance on the Dashboard (shown when the person switched the metric on).
 GLANCE = (("step_count", "Steps today"), ("walking_running_distance", "Walking and running today"))
+CHART_METRIC = "walking_running_distance"
+CHART_DAYS = 14
 
 
 def card(session: Session, owner_id: int, today: date, now: datetime | None = None) -> dict:
@@ -31,5 +33,13 @@ def card(session: Session, owner_id: int, today: date, now: datetime | None = No
                               .order_by(HealthReading.start_at.desc(), HealthReading.id.desc()).limit(1)) or ""
         figures.append({"label": label, "value": f"{round(value):,}" if value >= 100 else f"{value:.1f}".rstrip("0").rstrip("."),
                         "unit": choices.unit_label(unit)})
-    from app.routers.apple_health import _ago          # deferred: the router module imports from app.health
-    return {"state": "live", "last_received": last, "figures": figures, "ago": _ago(last, now or naive_utcnow()) if last else None}
+    from app.routers import measurements              # deferred: the router modules import from app.health
+    from app.routers.apple_health import _ago
+    chart, unit = None, ""
+    if CHART_METRIC in on:                              # the walking and running distance of the last two weeks, drawn like the Weight card
+        series = daily_series(session, owner_id, CHART_METRIC, today - timedelta(days=CHART_DAYS - 1), today, None)
+        chart = measurements._chart(series) if series else None
+        unit = choices.unit_label(session.scalar(select(HealthReading.unit).where(HealthReading.owner_id == owner_id, HealthReading.metric == CHART_METRIC)
+                                                 .order_by(HealthReading.start_at.desc(), HealthReading.id.desc()).limit(1)) or "")
+    return {"state": "live", "last_received": last, "figures": figures, "ago": _ago(last, now or naive_utcnow()) if last else None,
+            "chart": chart, "chart_unit": unit}
