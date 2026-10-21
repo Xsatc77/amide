@@ -10,6 +10,7 @@ from app.auth import gate
 from app.db import SessionLocal
 from app.food.foods import load_starter
 from app.library.base_library import load_base_library
+from app.library.price_lists.analysis import rematch_items
 from app import reminders
 from app.backup import scheduled as scheduled_backup
 from app.health import history as health_history
@@ -29,6 +30,8 @@ async def lifespan(_: FastAPI):
         load_starter(session)      # the built-in starter foods: add what is missing, refresh what changed
         if config.BASE_LIBRARY:
             load_base_library(session)      # the shipped peptide cards: fill what is missing or empty, never what has data
+        if rematch_items(session):          # price lines that matched no card are tried again with the current matching rules
+            session.commit()
     task, reminder_task, backup_task, purge_task = worker.start(), reminders.start(), scheduled_backup.start(), health_history.start()
     yield
     await worker.stop(task)

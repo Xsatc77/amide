@@ -41,11 +41,25 @@ _W_SLASH = re.compile(r"\bw\s*/\s*", re.IGNORECASE)  # "W/DAC" = with DAC
 _GLUED_QUALIFIER = re.compile(r"(?<=\d)(with|without)\b", re.IGNORECASE)  # "1295WITH DAC"
 
 
+# Vitamin B-12 is written many ways: B12, B 12, Vitamin B-12, Vit. B12, VB12, MB12, methyl B12, and by the name of its forms (cyano-, methyl-,
+# hydroxo-, adenosylcobalamin, mecobalamin). All of them come out as plain "B12", so they find the B-12 card; "B120" or "Vitamin B6" do not.
+_B12 = r"b[\s._-]*12\b"
+_B12_FORM_PREFIX = re.compile(r"\b(?:methyl|hydroxo|hydroxy|cyano|adenosyl)[\s-]*(?=" + _B12 + ")", re.IGNORECASE)
+_B12_FORM_NAME = re.compile(r"\b(?:methyl|hydroxo|hydroxy|cyano|adenosyl)?cobalamine?\b|\bmecobalamin\b|\bcobamamide\b|\bmb[\s._-]*12\b", re.IGNORECASE)
+_B12_VITAMIN_WORD = re.compile(r"\b(?:vitamin|vit\.?|v)[\s._-]*(?=" + _B12 + ")", re.IGNORECASE)
+
+
+def _b12(text: str) -> str:
+    text = _B12_FORM_PREFIX.sub("", text)
+    text = _B12_FORM_NAME.sub("b12", text)
+    return _B12_VITAMIN_WORD.sub("", text)
+
+
 def _norm(text) -> str:
     text = unicodedata.normalize("NFKC", text or "")
     text = _W_SLASH_O.sub("without ", text)
     text = _W_SLASH.sub("with ", text)
-    return _GLUED_QUALIFIER.sub(r" \1", text)
+    return _b12(_GLUED_QUALIFIER.sub(r" \1", text))
 
 
 def _words(text) -> list[str]:

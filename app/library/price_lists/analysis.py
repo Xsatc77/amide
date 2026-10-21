@@ -13,6 +13,7 @@ from app.library.price_lists.importer import _SOURCE_RANK, vendor_key
 from app.models import Peptide, PriceAlertIgnore, PriceCorrection, PriceList, PriceListItem, Vendor
 
 SIZE_UNITS = ("mg", "mcg", "IU")
+LISTED_UNITS = SIZE_UNITS + ("ml",)         # what the card's best-price list shows: a liquid sold as "10ml*10vials" is a size of its own, never mixed with the mg ones
 
 
 def current_lists(session: Session) -> list[PriceList]:
@@ -90,7 +91,7 @@ def best_prices(session: Session, peptide_id: int, limit: int = 5) -> list[SizeO
     current = {p.id: p for p in current_lists(session)}
     items = session.scalars(select(PriceListItem).where(
         PriceListItem.peptide_id == peptide_id, PriceListItem.price_list_id.in_(list(current)),
-        PriceListItem.vial_unit.in_(SIZE_UNITS), PriceListItem.pack_price > 0,
+        PriceListItem.vial_unit.in_(LISTED_UNITS), PriceListItem.pack_price > 0,
         PriceListItem.pack_size.is_not(None), PriceListItem.pack_size > 0)).all()
     best: dict[tuple[float, str, str | None], dict] = defaultdict(dict)
     for it in items:
@@ -103,7 +104,7 @@ def best_prices(session: Session, peptide_id: int, limit: int = 5) -> list[SizeO
             best[(it.vial_amount, it.vial_unit, it.form)][vendor] = price
     options = [SizeOption(amount, unit, form, sorted(by_vendor.values(), key=_rank)[:limit])
                for (amount, unit, form), by_vendor in best.items()]
-    return sorted(options, key=lambda o: (SIZE_UNITS.index(o.unit), o.amount, o.form or ""))
+    return sorted(options, key=lambda o: (LISTED_UNITS.index(o.unit), o.amount, o.form or ""))
 
 
 # ---------------------------------------------------------------- a vendor's price history

@@ -183,3 +183,16 @@ def test_vendor_names_in_the_popup_data_are_safe_to_embed(client, db):
     stock(db, make_vendor(db, "</script><b>x"), 60, card=p)
     text = client.get(f"/library/{p.id}").text
     assert "</script><b>x" not in text.split('id="price-compare-data">')[1].split("</script>")[0]
+
+
+def test_a_product_sold_in_ml_vials_gets_its_own_size_in_the_best_price_list(db):
+    """Vendors sell liquids such as B-12 as "10ml*10vials": that is a size of its own (never mixed with 10 mg vials), not a line to leave out."""
+    from app.library.price_lists.vendor_view import build_price_compare
+    card = make_card(db, "Zephyr Liquid")
+    acme, borealis = make_vendor(db, "Acme"), make_vendor(db, "Borealis")
+    make_list(db, acme, date(2026, 9, 1), item("Zephyr Liquid", 10, 35, card=card, pack=10))
+    make_list(db, borealis, date(2026, 9, 2), item("Zephyr Liquid", 10, 58, unit="ml", card=card, pack=10))
+    options = best_prices(db, card.id)
+    assert [(o.amount, o.unit) for o in options] == [(10, "mg"), (10, "ml")]
+    assert [v.vendor_name for v in options[1].vendors] == ["Borealis"] and options[1].vendors[0].per_vial == 5.8
+    assert [s["label"] for s in build_price_compare(db, card.id, None)["sizes"]] == ["10mg", "10ml"]
