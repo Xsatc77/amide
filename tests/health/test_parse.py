@@ -304,3 +304,17 @@ def test_reprocess_passes_over_lost_copies_so_they_cannot_use_up_the_limit(db, m
     db.commit()
     assert parse.reprocess_flagged(db, limit=1) == 1
     assert good.status == "parsed" and lost.status == "flagged"
+
+
+def test_without_the_header_date_only_values_are_days_and_timed_values_points(db, me):
+    payload = {"metrics": [{"name": "step_count", "units": "count", "data": [{"qty": 8000, "date": "2024-02-06", "source": "Phone"},
+                                                                          {"qty": 12, "date": "2024-02-06 10:00:00 +0000", "source": "Phone"}]}]}
+    assert parse.import_raw(db, make_raw(db, me, payload)) == 2
+    rows = {r.grain: r for r in db.query(HealthReading).all()}
+    assert set(rows) == {"day", "point"}
+    assert rows["day"].start_at == datetime(2024, 2, 6) and rows["day"].end_at == datetime(2024, 2, 7)
+    assert rows["point"].end_at == rows["point"].start_at
+    parse.import_raw(db, make_raw(db, me, {"metrics": [{"name": "step_count", "data": [{"qty": 8100, "date": "2024-02-06", "source": "Phone"}]}]}))
+    assert sorted(r.value for r in db.query(HealthReading).all()) == [12, 8100]       # the day re-sent updates its row
+    parse.import_raw(db, make_raw(db, me, steps(("2024-02-07", 5)), {"automation-aggregation": "hours"}))
+    assert db.query(HealthReading).filter_by(value=5).one().grain == "hour"           # a header still decides when it is there

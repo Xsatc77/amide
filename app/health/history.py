@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from app import config
+from app.health.series import local_day
 from app.models import HealthRaw, HealthReading
 
 log = logging.getLogger(__name__)
@@ -22,14 +23,23 @@ def _iso(moment: datetime) -> str:
 
 
 def history(session, owner_id: int, start: datetime, end: datetime, metrics: list[str] | None = None) -> list[dict]:
-    """The owner's readings that start in [start, end) as plain dicts, oldest first. Naive datetimes are read as UTC."""
+    """The owner's readings that start in [start, end) as plain dicts, oldest first. Naive datetimes are read as UTC. Each row also
+    carries the phone's offset and its local date (the day it counts on); day rows give one row per local day (the newest), even if an
+    older version stored a day twice after a trip."""
     def naive(moment):
         return moment.astimezone(timezone.utc).replace(tzinfo=None) if moment.tzinfo else moment
     query = select(HealthReading).where(HealthReading.owner_id == owner_id, HealthReading.start_at >= naive(start), HealthReading.start_at < naive(end))
     if metrics is not None:
         query = query.where(HealthReading.metric.in_(metrics))
-    rows = session.scalars(query.order_by(HealthReading.start_at, HealthReading.id))
-    return [{"metric": r.metric, "start": _iso(r.start_at), "end": _iso(r.end_at), "value": r.value, "unit": r.unit, "source": r.source, "extra": r.extra} for r in rows]
+    rows = session.scalars(query.order_by(HealthReading.start_at, HealthReading.id)).all()
+    newest = {}                                                     # (metric, source, local date) -> id of the day row that stands
+    for r in rows:
+        if r.grain == "day":
+            k = (r.metric, r.source, local_day(r.start_at, r.offset_minutes))
+            newest[k] = max(newest.get(k, 0), r.id)
+    return [{"metric": r.metric, "start": _iso(r.start_at), "end": _iso(r.end_at), "value": r.value, "unit": r.unit, "source": r.source,
+             "extra": r.extra, "offset_minutes": r.offset_minutes, "local_date": local_day(r.start_at, r.offset_minutes).isoformat()}
+            for r in rows if r.grain != "day" or newest[(r.metric, r.source, local_day(r.start_at, r.offset_minutes))] == r.id]
 
 
 def _remove_strays(session) -> None:

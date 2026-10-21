@@ -1,5 +1,5 @@
 import gzip
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app import config
 from app.health import history
@@ -16,19 +16,29 @@ def test_history_filters_by_range_and_metrics_and_owner(db, me):
     other = User(username="someone-else", username_key="someone-else", password_hash="x")
     db.add(other)
     db.commit()
-    reading(db, me, "heart_rate", datetime(2024, 2, 6, 9), 70)
-    reading(db, me, "step_count", datetime(2024, 2, 6, 8), 100)
-    reading(db, me, "heart_rate", datetime(2024, 2, 9, 9), 80)           # outside the range
-    reading(db, other.id, "heart_rate", datetime(2024, 2, 6, 10), 99)    # someone else's
-    got = history.history(db, me, datetime(2024, 2, 6), datetime(2024, 2, 7))
-    assert [(r["metric"], r["value"]) for r in got] == [("step_count", 100.0), ("heart_rate", 70.0)]       # ordered by start
-    assert got[1] == {"metric": "heart_rate", "start": "2024-02-06T09:00:00+00:00", "end": "2024-02-06T09:05:00+00:00",
-                      "value": 70.0, "unit": "count", "source": "Phone", "extra": {"max": 70.0}}
-    only = history.history(db, me, datetime(2024, 2, 1), datetime(2024, 2, 28), ["heart_rate"])
-    assert [r["value"] for r in only] == [70.0, 80.0]
-    db.query(HealthReading).delete()
-    db.delete(other)                                  # the shared test database must not keep a second user (the settings page lists them)
-    db.commit()
+    try:
+        reading(db, me, "heart_rate", datetime(2024, 2, 6, 9), 70)
+        reading(db, me, "step_count", datetime(2024, 2, 6, 8), 100)
+        reading(db, me, "heart_rate", datetime(2024, 2, 9, 9), 80)           # outside the range
+        reading(db, other.id, "heart_rate", datetime(2024, 2, 6, 10), 99)    # someone else's
+        got = history.history(db, me, datetime(2024, 2, 6), datetime(2024, 2, 7))
+        assert [(r["metric"], r["value"]) for r in got] == [("step_count", 100.0), ("heart_rate", 70.0)]       # ordered by start
+        assert got[1] == {"metric": "heart_rate", "start": "2024-02-06T09:00:00+00:00", "end": "2024-02-06T09:05:00+00:00",
+                          "value": 70.0, "unit": "count", "source": "Phone", "extra": {"max": 70.0}, "offset_minutes": 0, "local_date": "2024-02-06"}
+        only = history.history(db, me, datetime(2024, 2, 1), datetime(2024, 2, 28), ["heart_rate"])
+        assert [r["value"] for r in only] == [70.0, 80.0]
+    finally:
+        db.rollback()
+        db.query(HealthReading).delete()
+        db.delete(db.merge(other))                    # the shared test database must not keep a second user (the settings page lists them)
+        db.commit()
+
+
+def test_history_reads_aware_times_as_the_moments_they_name(db, me):
+    reading(db, me, "heart_rate", datetime(2024, 2, 6, 9), 70)            # 09:00 UTC
+    plus10 = timezone(timedelta(hours=10))
+    assert [r["value"] for r in history.history(db, me, datetime(2024, 2, 6, 19, tzinfo=plus10), datetime(2024, 2, 6, 20, tzinfo=plus10))] == [70.0]
+    assert history.history(db, me, datetime(2024, 2, 6, 9, tzinfo=plus10), datetime(2024, 2, 6, 19, tzinfo=plus10)) == []     # end is exclusive
 
 
 def raw_row(db, me, name, age_days, today):
@@ -101,3 +111,20 @@ def test_the_daily_run_also_reprocesses_failed_exports(monkeypatch):
     monkeypatch.setattr(parse, "run_reprocess", lambda factory: seen.append("reprocess") or 0)
     history.daily_once(lambda: None)
     assert seen == ["purge", "reprocess"]
+
+
+def test_purge_keeps_a_row_exactly_keep_days_old_and_takes_one_a_second_older(db, me):
+    today = datetime(2026, 10, 21, 12)
+    raw_row(db, me, "edge", 30, today)
+    db.add(HealthRaw(owner_id=me, sha256="past-edge", size_bytes=2, file_name="", received_at=today - timedelta(days=30, seconds=1)))
+    db.commit()
+    assert history.purge_raw(db, today, keep_days=30) == 1
+    assert [r.sha256 for r in db.query(HealthRaw)] == ["edge"]
+
+
+def test_purge_reads_an_aware_today_as_utc(db, me):
+    today = datetime(2026, 10, 21, 12)
+    raw_row(db, me, "edge-aware", 30, today)                         # received 2026-09-21 12:00 UTC
+    plus10 = timezone(timedelta(hours=10))
+    assert history.purge_raw(db, datetime(2026, 10, 21, 22, tzinfo=plus10), keep_days=30) == 0      # the same moment: exactly 30 days, kept
+    assert history.purge_raw(db, datetime(2026, 10, 21, 22, 0, 1, tzinfo=plus10), keep_days=30) == 1

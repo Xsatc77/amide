@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -62,9 +62,43 @@ def _qty(value) -> float:
     return number
 
 
-def _grain(raw: HealthRaw) -> str:
+def _grain(raw: HealthRaw) -> str | None:
+    """The grain the automation-aggregation header names; None when there is no such header (see _row_grain)."""
     headers = raw.headers if isinstance(raw.headers, dict) else {}
-    return _HEADER_GRAIN.get(str(headers.get("automation-aggregation", "")).strip().lower(), "point")
+    value = str(headers.get("automation-aggregation") or "").strip().lower()
+    return _HEADER_GRAIN.get(value, "point") if value else None
+
+
+def _row_grain(header_grain: str | None, text) -> str:
+    """Without the header, a date-only value ("yyyy-MM-dd") is a whole day; anything else is a single sample."""
+    if header_grain is not None:
+        return header_grain
+    return "day" if isinstance(text, str) and len(text.strip()) == 10 else "point"
+
+
+def local_day(item) -> date | None:
+    """The phone's own calendar day for an event, from the offset carried by its first readable start date (a bare "yyyy-MM-dd" is
+    that day itself). None when that date carries no offset, so the caller falls back to a zone of its own."""
+    if not isinstance(item, dict):
+        return None
+    for key in _START_KEYS:
+        text = item.get(key)
+        if not isinstance(text, str):
+            continue
+        try:
+            moment, offset = parse_date(text)
+        except ValueError:
+            continue
+        text = text.strip()
+        if len(text.split()) == 3 or len(text) == 10 or datetime.fromisoformat(text).tzinfo is not None:
+            return (moment + timedelta(minutes=offset)).date()
+        return None
+    return None
+
+
+def _day_key(start: datetime, offset: int | None, source: str) -> tuple:
+    """A day row's identity is its local date, not its UTC start: the same day re-sent from another zone starts at another UTC time."""
+    return (start + timedelta(minutes=offset or 0)).date(), source
 
 
 def _reading_fields(name: str, item: dict) -> tuple[float, dict | None]:
@@ -107,18 +141,17 @@ def _load(raw: HealthRaw):
     return json.loads(text)
 
 
-def _import_readings(session: Session, raw: HealthRaw, metrics: list, grain: str, skipped: list[str]) -> int:
+def _import_readings(session: Session, raw: HealthRaw, metrics: list, header_grain: str | None, skipped: list[str]) -> int:
     """Upserts each metric's rows CHUNK at a time, committing after every chunk, so a big export never holds the database's write
     lock for long. A failure part way leaves the earlier chunks in place, which is safe: every row upserts on its key, so a re-read
     of the same export (a resend, or the daily reprocess pass) simply finishes the job."""
     written = 0
-    seconds = GRAIN_SECONDS.get(grain, 0)
     for metric in metrics:
         if not isinstance(metric, dict) or not isinstance(metric.get("name"), str) or not isinstance(metric.get("data"), list):
             skipped.append("metric entry")
             continue
         name, unit = metric["name"][:80], (metric["units"][:30] if isinstance(metric.get("units"), str) else None)
-        rows = []                                                 # (key, start, offset, value, extra) for the rows that parse
+        by_grain: dict[str, list] = {}                            # grain -> (start, offset, source, value, extra) for the rows that parse
         for item in metric["data"]:
             try:
                 if not isinstance(item, dict):
@@ -129,28 +162,42 @@ def _import_readings(session: Session, raw: HealthRaw, metrics: list, grain: str
                 skipped.append(name)
                 continue
             source = item.get("source") if isinstance(item.get("source"), str) else ""
-            rows.append(((start, grain, source[:120]), start, offset, value, extra))
-        if not rows:
+            by_grain.setdefault(_row_grain(header_grain, item.get("date")), []).append((start, offset, source[:120], value, extra))
+        if not by_grain:
             continue
         choices.note_received(session, raw.owner_id, {name})            # a new metric becomes a pending choice for the popup
-        rows.sort(key=lambda r: r[1])
-        for n in range(0, len(rows), CHUNK):
-            chunk = rows[n:n + CHUNK]
-            # Not established: how Batch Requests splits a payload. Overlapping or split batches are safe because every row upserts on its key.
-            # Only the stored rows inside this chunk's time span are loaded, never the person's whole history.
-            low, high = chunk[0][1], chunk[-1][1]
-            existing = {(r.start_at, r.grain, r.source): r for r in session.scalars(select(HealthReading).where(
-                HealthReading.owner_id == raw.owner_id, HealthReading.metric == name, HealthReading.grain == grain,
-                HealthReading.start_at >= low, HealthReading.start_at <= high))}
-            for key, start, offset, value, extra in chunk:
-                reading = existing.get(key)
-                if reading is None:
-                    reading = existing[key] = HealthReading(owner_id=raw.owner_id, metric=name, start_at=start, grain=grain, source=key[2])
-                    session.add(reading)
-                reading.end_at, reading.offset_minutes, reading.value, reading.unit, reading.extra = start + timedelta(seconds=seconds), offset, value, unit, extra
-                written += 1
-            session.commit()
+        for grain, rows in by_grain.items():
+            written += _upsert(session, raw.owner_id, name, unit, grain, rows)
     return written
+
+
+def _upsert(session: Session, owner_id: int, name: str, unit: str | None, grain: str, rows: list) -> int:
+    seconds, daily = GRAIN_SECONDS.get(grain, 0), grain == "day"
+    rows.sort(key=lambda r: r[0])
+    for n in range(0, len(rows), CHUNK):
+        chunk = rows[n:n + CHUNK]
+        # Not established: how Batch Requests splits a payload. Overlapping or split batches are safe because every row upserts on its key.
+        # Only the stored rows inside this chunk's time span are loaded, never the person's whole history; a day row is matched by its
+        # local date (see _day_key), and the same local day can start up to a day apart in UTC, hence the wider span for those.
+        low, high = chunk[0][0], chunk[-1][0]
+        if daily:
+            low, high = low - timedelta(days=2), high + timedelta(days=2)
+
+        def key(start, offset, source):
+            return _day_key(start, offset, source) if daily else (start, source)
+        existing = {key(r.start_at, r.offset_minutes, r.source): r for r in session.scalars(select(HealthReading).where(
+            HealthReading.owner_id == owner_id, HealthReading.metric == name, HealthReading.grain == grain,
+            HealthReading.start_at >= low, HealthReading.start_at <= high).order_by(HealthReading.id))}       # the newest of any old twins wins
+        for start, offset, source, value, extra in chunk:
+            reading = existing.get(key(start, offset, source))
+            if reading is None:
+                reading = existing[key(start, offset, source)] = HealthReading(owner_id=owner_id, metric=name, grain=grain, source=source)
+                session.add(reading)
+            # a day re-sent from another zone moves to its new UTC start and offset rather than being stored a second time
+            reading.start_at, reading.end_at, reading.offset_minutes = start, start + timedelta(seconds=seconds), offset
+            reading.value, reading.unit, reading.extra = value, unit, extra
+        session.commit()
+    return len(rows)
 
 
 def _import_events(session: Session, raw: HealthRaw, payload: dict, skipped: list[str]) -> None:

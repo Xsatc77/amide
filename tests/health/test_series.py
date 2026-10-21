@@ -85,3 +85,19 @@ def test_caffeine_is_summed_per_day(db, me):
     add(db, me, "dietary_caffeine", datetime(2024, 2, 6, 8), 95, unit="mg")
     add(db, me, "dietary_caffeine", datetime(2024, 2, 6, 14), 60, unit="mg")
     assert series.daily_series(db, me, "dietary_caffeine", date(2024, 2, 6), date(2024, 2, 6), None) == [(date(2024, 2, 6), 155.0)]
+
+
+def test_two_sources_of_one_cumulative_metric_are_not_added_together(db, me):
+    # the phone and another app both count the same walk: only the source with the larger total that day is used
+    for hour, phone, watch in ((8, 1000, 900), (12, 2000, 2300)):
+        add(db, me, "step_count", datetime(2024, 2, 6, hour), phone, source="Acme Phone")
+        add(db, me, "step_count", datetime(2024, 2, 6, hour, 30), watch, source="Zephyr Watch")
+    add(db, me, "step_count", datetime(2024, 2, 7, 9), 50, source="Zephyr Watch")         # the next day only one source
+    got = series.daily_series(db, me, "step_count", date(2024, 2, 1), date(2024, 2, 28), None)
+    assert got == [(date(2024, 2, 6), 3200.0), (date(2024, 2, 7), 50.0)]
+
+
+def test_a_non_cumulative_metric_keeps_the_last_value_across_sources(db, me):
+    add(db, me, "heart_rate", datetime(2024, 2, 6, 8), 60, grain="minute", source="Acme Phone")
+    add(db, me, "heart_rate", datetime(2024, 2, 6, 9), 72, grain="minute", source="Zephyr Watch")
+    assert series.daily_series(db, me, "heart_rate", date(2024, 2, 6), date(2024, 2, 6), None) == [(date(2024, 2, 6), 72.0)]

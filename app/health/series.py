@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import clock
-from app.health import choices
+from app.health import choices, parse
 from app.models import HealthEvent, HealthReading, naive_utcnow
 
 # Metrics that add up over a day (all nutrition, and activity energy, time, distance and counts); every other metric shows the day's
@@ -25,6 +25,8 @@ CUMULATIVE = frozenset({
 
 def is_cumulative(metric: str) -> bool:
     return metric in CUMULATIVE or metric.startswith("dietary_")
+
+
 # Finest first. "point" (a single timed sample) counts as the finest of all.
 _GRAIN_RANK = {"point": 0, "second": 1, "minute": 2, "hour": 3, "day": 4}
 LIST_LIMIT = 100
@@ -33,22 +35,52 @@ LIST_LIMIT = 100
 def daily_series(session: Session, owner_id: int, metric: str, start: date, end: date, zone: str | None) -> list[tuple[date, float]]:
     """(day, value) for each day from `start` to `end` that has data. A reading belongs to the phone's own day when it was taken (its
     stored UTC time plus its stored offset), so the viewer's zone (`zone`, kept for the callers) does not move it. A day uses only the
-    finest grain stored for it (two grains are never added together); cumulative metrics sum that day's readings, the rest take the last one."""
+    finest grain stored for it (two grains are never added together); cumulative metrics sum that day's readings from one source (see
+    below), the rest take the last one."""
     low, high = datetime.combine(start - timedelta(days=2), datetime.min.time()), datetime.combine(end + timedelta(days=3), datetime.min.time())
-    rows = session.execute(select(HealthReading.start_at, HealthReading.offset_minutes, HealthReading.grain, HealthReading.value).where(
+    rows = session.execute(select(HealthReading.id, HealthReading.start_at, HealthReading.offset_minutes, HealthReading.grain, HealthReading.source,
+                                  HealthReading.value).where(
         HealthReading.owner_id == owner_id, HealthReading.metric == metric, HealthReading.value.is_not(None),
         HealthReading.start_at >= low, HealthReading.start_at < high).order_by(HealthReading.start_at, HealthReading.id)).all()
-    by_day: dict[date, list[tuple[str, float]]] = defaultdict(list)
-    for at, offset, grain, value in rows:
-        day = (at + timedelta(minutes=offset or 0)).date()
-        if start <= day <= end:
-            by_day[day].append((grain, value))
+    by_day: dict[date, list[tuple[str, str, float]]] = defaultdict(list)
+    day_rows: dict[tuple[date, str], tuple[int, float]] = {}     # (day, source) -> (id, value): one day row per local day, the newest
+    for rid, at, offset, grain, source, value in rows:
+        day = local_day(at, offset)
+        if not start <= day <= end:
+            continue
+        if grain == "day":                                       # an older version could store one local day twice after a trip
+            if (day, source) not in day_rows or rid > day_rows[(day, source)][0]:
+                day_rows[(day, source)] = (rid, value)
+            continue
+        by_day[day].append((grain, source, value))
+    for (day, source), (_, value) in day_rows.items():
+        by_day[day].append(("day", source, value))
+    cumulative = is_cumulative(metric)
     out = []
     for day in sorted(by_day):
-        finest = min(_GRAIN_RANK.get(g, 5) for g, _ in by_day[day])
-        values = [v for g, v in by_day[day] if _GRAIN_RANK.get(g, 5) == finest]
-        out.append((day, float(sum(values)) if is_cumulative(metric) else float(values[-1])))
+        finest = min(_GRAIN_RANK.get(g, 5) for g, _, _ in by_day[day])
+        values = [(src, v) for g, src, v in by_day[day] if _GRAIN_RANK.get(g, 5) == finest]
+        if cumulative:
+            # Not established: how the real export labels sources. When two sources (the phone and another app, say) both report a day,
+            # adding them would count it twice, so only the source with the largest total that day is used.
+            totals: dict[str, float] = defaultdict(float)
+            for src, v in values:
+                totals[src] += v
+            out.append((day, float(max(totals.values()))))
+        else:
+            out.append((day, float(values[-1][1])))
     return out
+
+
+def local_day(at: datetime, offset: int | None) -> date:
+    """The phone's own calendar day for a reading: its stored UTC start plus the offset the phone had then."""
+    return (at + timedelta(minutes=offset or 0)).date()
+
+
+def event_day(event: HealthEvent, zone: str | None) -> date:
+    """The phone's own day for an event, read from the offset in the date string kept in its payload; only a date without one falls
+    back to the viewer's zone. Events store UTC alone, so the payload is where the phone's offset survives."""
+    return parse.local_day(event.payload) or clock.local_date(event.start_at, zone)
 
 
 def _round(value: float) -> float:
@@ -69,7 +101,7 @@ def _workout(event: HealthEvent, zone: str | None) -> dict:
         seconds = (event.end_at - event.start_at).total_seconds() if event.end_at else None
     distance, distance_unit = quantity("distance")
     energy, energy_unit = quantity("activeEnergyBurned")
-    return {"name": event.name or "Workout", "start": event.start_at, "day": clock.local_date(event.start_at, zone),
+    return {"name": event.name or "Workout", "start": event.start_at, "day": event_day(event, zone),
             "minutes": round(seconds / 60) if seconds else None,
             "distance": _round(distance) if distance is not None else None, "distance_unit": distance_unit,
             "energy": _round(energy) if energy is not None else None, "energy_unit": energy_unit}
@@ -80,7 +112,7 @@ def _dated(session: Session, owner_id: int, kind: str, since: date | None, zone:
     if since is not None:
         query = query.where(HealthEvent.start_at >= datetime.combine(since - timedelta(days=1), datetime.min.time()))
     events = session.scalars(query.order_by(HealthEvent.start_at.desc(), HealthEvent.id.desc()).limit(LIST_LIMIT * 2)).all()
-    rows = [{"name": e.name or choices.label_for(f"event:{kind}"), "start": e.start_at, "day": clock.local_date(e.start_at, zone)} for e in events]
+    rows = [{"name": e.name or choices.label_for(f"event:{kind}"), "start": e.start_at, "day": event_day(e, zone)} for e in events]
     return [r for r in rows if since is None or r["day"] >= since][:LIST_LIMIT]
 
 
