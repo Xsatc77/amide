@@ -1468,7 +1468,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .dose-marker { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.8; }
 .dose-dot { fill: var(--info); }
 .dose-key { color: var(--info); }
-.num-icon.rating-neutral { --rate: var(--accent, #0f766e); }
 
 /* Active vial cards: a level gauge beside the vial, and the lot number on a banner across the lower right corner (same band as the protocol cards' status ribbon, in green with yellow writing) */
 .vial-gauge { position: relative; width: 14px; height: var(--pic-h, 140px); flex: none; border: 1.5px solid var(--border); border-radius: 6px; background: var(--surface); overflow: hidden; }

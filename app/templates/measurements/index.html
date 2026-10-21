@@ -608,7 +608,7 @@
           <td data-label="Mood" class="col-rate">{% if e.mood is not none %}<span class="num-icon n{{ e.mood }}" role="img" aria-label="Mood {{ e.mood }} of 5">{{ e.mood }}</span>{% else %}—{% endif %}</td>
           <td data-label="Energy" class="col-rate">{% if e.energy is not none %}<span class="num-icon n{{ e.energy }}" role="img" aria-label="Energy {{ e.energy }} of 5">{{ e.energy }}</span>{% else %}—{% endif %}</td>
           <td data-label="Sleep" class="col-rate">{% if e.sleep_quality is not none %}<span class="num-icon n{{ e.sleep_quality }}" role="img" aria-label="Sleep {{ e.sleep_quality }} of 5">{{ e.sleep_quality }}</span>{% else %}—{% endif %}</td>
-          <td data-label="Appetite" class="col-rate">{% if e.appetite is not none %}<span class="num-icon rating-neutral" role="img" aria-label="Appetite {{ e.appetite }} of 5">{{ e.appetite }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Appetite" class="col-rate">{% if e.appetite is not none %}<span class="num-icon n{{ 6 - e.appetite }}" role="img" aria-label="Appetite {{ e.appetite }} of 5">{{ e.appetite }}</span>{% else %}—{% endif %}</td>
           <td data-label="Side effects">
             {%- if e.side_effects or e.custom_effects or e.side_effects_other -%}
               {{ (e.side_effects + e.custom_effects + ([e.side_effects_other] if e.side_effects_other else [])) | join(', ') }}

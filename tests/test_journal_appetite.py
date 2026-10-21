@@ -63,7 +63,9 @@ def test_the_table_shows_an_appetite_badge_and_the_trend_chart_appears(client, d
     db.commit()
     page = client.get("/measurements?tab=journal").text
     assert "<th class=\"col-rate\">Appetite</th>" in page and 'aria-label="Appetite 3 of 5"' in page
-    assert "rating-neutral" in page                                      # appetite is not good-or-bad, so it is not coloured red to green
+    assert 'num-icon n1" role="img" aria-label="Appetite 5 of 5"' in page      # lower appetite is better: 5 is red, 1 is green
+    assert 'num-icon n5" role="img" aria-label="Appetite 1 of 5"' in page
+    assert 'num-icon n3" role="img" aria-label="Appetite 3 of 5"' in page
     assert '<h3>Appetite</h3>' in page
 
 

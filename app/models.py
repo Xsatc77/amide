@@ -1266,7 +1266,7 @@ class JournalEntry(Base):
     mood: Mapped[int | None] = mapped_column(Integer)
     energy: Mapped[int | None] = mapped_column(Integer)
     sleep_quality: Mapped[int | None] = mapped_column(Integer)
-    appetite: Mapped[int | None] = mapped_column(Integer)         # 1 none, 5 very hungry: not good-or-bad, so never coloured as such
+    appetite: Mapped[int | None] = mapped_column(Integer)         # 1 none, 5 very hungry: lower is better, so its badge colours are mirrored (1 green, 5 red)
     side_effects_other: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

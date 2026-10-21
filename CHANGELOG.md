@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- Journal: the **Appetite** badge colors are now reversed, since lower appetite is the better result: 1 is green and 5 is red (mood, energy and sleep stay higher-is-better). The color is worked out when the page is drawn, so every past entry changes too.
 - **Both guides brought up to date.** `docs/USER_GUIDE.md` and `docs/GUIDE.md` now cover everything added since the last update (Learn, scale readings and import, journal photos, photo reminders, macro rings, the 14-day water table and the 90% rule, removing an item from an order, price correction, Active Vials, weight change labels, the Not established convention on library cards), and all 39 screenshots in `docs/guide/img` were retaken from fresh invented demo data (nine are new).
 - **Weight chart: change between weigh-ins.** On the Dashboard's weight card and the Measurements weight chart, each day's weigh-in is labeled with what was lost (green, −) or gained (amber, +) since the day before, in your units and in numbers big enough to read on a phone. Several weigh-ins on one day (a smart scale gives a few) count once, by the last one, so the labels never stack as "0.0". The first point has nothing before it, and labels are spaced so they never overlap (at most the latest 8 that fit).
 - Food tab water table: the percentage rounds down (a day at 89.6% no longer reads "90%" beside "Short of 90%"), and a note appears when no time zone is set, since each day then follows the server's clock and evening water can land on the next day.
