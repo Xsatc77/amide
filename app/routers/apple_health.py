@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import current_user_id
 from app.db import get_session
+from app.health import choices
 from app.ingest import tokens
 from app.models import IngestToken
 
@@ -43,4 +44,11 @@ def revoke_token(token_id: int, session: Session = Depends(get_session), uid: in
     token = session.scalar(select(IngestToken).where(IngestToken.id == token_id, IngestToken.owner_id == uid, IngestToken.scope == "health"))
     if token is not None:
         tokens.revoke_token(session, token.id)      # someone else's token is left alone, and the answer is the same
+    return RedirectResponse(BACK, status_code=303)
+
+
+@router.post("/settings/apple-health/choices")
+async def save_choices(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    form = await request.form()
+    choices.save_choices(session, uid, {str(v) for v in form.getlist("metric")}, {str(v) for v in form.getlist("offered")})
     return RedirectResponse(BACK, status_code=303)

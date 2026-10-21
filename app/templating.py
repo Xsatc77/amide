@@ -60,6 +60,24 @@ def peptide_cautions(ctx, name, aliases=None):
 templates.env.globals["peptide_cautions"] = peptide_cautions
 
 
+@pass_context
+def health_choices(ctx):
+    """The Apple Health choices popup's data for the signed-in person (None when no Apple data has arrived), read once per request."""
+    request = ctx.get("request")
+    user = getattr(getattr(request, "state", None), "user", None)
+    if user is None:
+        return None
+    if not hasattr(request.state, "health_choices"):
+        from app.db import SessionLocal
+        from app.health import choices
+        with SessionLocal() as s:
+            request.state.health_choices = choices.dialog_context(s, user.id)
+    return request.state.health_choices
+
+
+templates.env.globals["health_choices"] = health_choices
+
+
 def money(value: float | None) -> str:
     return "" if value is None else f"${value:,.2f}"
 

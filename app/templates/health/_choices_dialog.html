@@ -1,0 +1,36 @@
+{# The Apple Health "what do you want to see?" popup. Drawn on every signed-in page, but only for someone who has received Apple data;
+   it opens by itself while some received metric is still undecided, and any element with data-open-health-choices reopens it. #}
+{% set hc = health_choices() %}
+{% if hc %}
+<dialog id="health-choices-dialog" class="dialog dialog-wide health-choices" {% if hc.open %}data-open-on-load{% endif %} aria-labelledby="health-choices-title">
+  <form method="post" action="/settings/apple-health/choices" class="settings-form" novalidate>
+    <header class="dialog-head"><h2 id="health-choices-title">{% if hc.open %}Your Apple Health data arrived{% else %}Apple Health data to show{% endif %}</h2></header>
+    <p class="muted small" style="padding: 0 20px;">Amide found {{ hc.total }} kind{{ '' if hc.total == 1 else 's' }} of data. Pick what to show and chart. Everything is stored either way, so you can switch more on later.</p>
+    {% for sec in hc.sections %}
+    <div class="hc-section" data-section>
+      <label class="hc-head">
+        <input type="checkbox" class="hc-switch" data-section-switch aria-label="All of {{ sec.name }}" {{ 'checked' if sec.all_on }}>
+        <span>{{ sec.name }}</span>
+      </label>
+      {% for m in sec.metrics %}
+      <label class="hc-row">
+        <input type="hidden" name="offered" value="{{ m.metric }}">
+        <input type="checkbox" class="hc-switch" name="metric" value="{{ m.metric }}" data-recommended="{{ 1 if m.recommended else 0 }}" {{ 'checked' if m.on }}>
+        <span class="hc-name">{{ m.label }}</span>
+        {% if m.new and not hc.open %}<span class="hc-tag hc-new">New</span>{% endif %}
+        {% if m.recommended %}<span class="hc-tag">Recommended</span>{% endif %}
+        <span class="hc-unit muted small">{{ m.unit }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <footer class="dialog-foot">
+      <span class="hc-count muted small" data-count>{{ hc.on }} of {{ hc.total }} on</span>
+      <button type="button" class="btn" data-all-off>Turn all off</button>
+      <button type="button" class="btn" data-use-recommended>Use recommended</button>
+      <button type="submit" class="btn btn-primary">Save choices</button>
+    </footer>
+  </form>
+</dialog>
+<script src="{{ static_url('js/health_choices.js') }}" defer></script>
+{% endif %}
