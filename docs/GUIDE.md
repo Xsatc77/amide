@@ -16,6 +16,7 @@ Amide is a self-hosted tracker for peptides and everything around them: what you
 6. [Today and the Calendar](#6-today-and-the-calendar)
 7. [The Calculator](#7-the-calculator)
 8. [Body: weight, journal, labs and photos](#8-body-weight-journal-labs-and-photos)
+    - [Apple Health](#8a-apple-health)
 9. [Nutrition](#9-nutrition)
 10. [Workouts and the Fitness Test](#10-workouts-and-the-fitness-test)
 11. [The Library](#11-the-library)
@@ -273,6 +274,56 @@ A line for every marker, with a reference band when you enter one. Results can b
 
 ---
 
+## 8a. Apple Health
+
+If you have an iPhone, the iOS app **Health Auto Export** can send what Apple Health holds (steps, distance, weight, water and more) to your own Amide on a schedule. There is no cloud service in between: **your phone posts straight to your own server**, and nothing else receives it. Amide only reads what the phone sends; it never writes to Apple Health.
+
+Apple data stays on its own **Apple** tab on the Body page. It is never copied into your own measurements or workout log and never added to the Overview chart, so nothing is counted twice.
+
+### Set it up
+
+Everything you type or copy into the phone app is on one card: **Settings, Integrations, Apple Health**.
+
+![The Apple Health card](guide/img/40-apple-card.png)
+
+1. On the card, type a label (for example "iPhone") and click **Create token**. The token is shown **only once**, as a ready-made header line with a **Copy** button. Later the card shows just its first characters, when it was last used, and a **Revoke** button. Anyone who is signed in can make their own token, and a token only lets the phone send health data for its owner.
+2. In Health Auto Export, create a new automation of type **REST API**.
+3. For the **URL**, use the address on the card (it is built from the address you are using to view Amide) and press its **Copy** button.
+4. Add a header: the name is `Authorization` and the value is `Bearer`, a space, then your token. The card shows the whole line, ready to copy.
+5. Set **Data Type** to **Health Metrics** first. Later add a second automation for **Workouts**, and others if you like.
+6. Set **Export Format** to **JSON** and **Export Version** to **Version 2**.
+7. Set **Date Range** to **Since Last Sync**.
+8. Turn **Summarize Data** on and set the time grouping to **Hours**, so a year of steps is not a million rows. For the very first export pick **Previous 7 Days**, or run a wider range by hand with **Manual Export**.
+9. Turn **Batch Requests** on.
+10. Set the sync cadence to **every hour**.
+11. Tap **Manual Export** to test. The **Status** at the bottom of the card changes from "Waiting for first data" to "Last received ... readings" within a minute, and the list of recent receipts shows each one as OK, Stored or Needs a look, so you can see a problem without the phone.
+
+If Amide sits behind something that forwards web traffic to it, make it accept request bodies large enough for the first export (Amide itself accepts up to 512 MB; the person who runs it can raise that with one setting). If anything asks for a separate sign-in in front of Amide, exempt the path `/api/ingest/` from it, or the phone will be turned away: the phone app cannot sign in. Amide's own sign-in and two-factor step are not used on this path; the token is what lets the phone in.
+
+### Choose what to see
+
+The first time data arrives, a popup opens on your next page.
+
+![The first-data popup](guide/img/41-apple-popup.png)
+
+It lists only what Amide actually received, in sections (Activity, Body, Nutrition and water, Sleep, Heart and vitals, Mind and other), each metric with its unit. A switch on a section turns all of it on or off. The ones tagged **Recommended** start on; for a phone without a watch that means steps, walking and running distance, flights climbed, weight, body fat, lean mass, BMI, water, food energy, protein, carbs, fat, fiber, state of mind and symptoms. **Turn all off** and **Use recommended** are there, the count at the bottom shows how many are on, and **Save choices** keeps your picks. Metrics you leave off are **still stored**; they are just not shown or charted, so you can turn them on later without losing anything. When a new kind of data shows up later, the popup asks again about only the new ones. To reopen it any time, click **Change what is shown** on the card.
+
+### The Apple tab
+
+![The Apple tab](guide/img/42-apple-tab.png)
+
+The **Apple** tab appears on the Body page once you have made a token or received data. It has a **Range** drop-down like the other Body charts, a table with today's value and the last 7 days (a total for things that add up, such as steps and water; an average for the rest), a chart for every metric you switched on, the list of Apple **workouts** (what Apple recorded, kept apart from your own workout log) and, if switched on, your **symptoms** and **state of mind** entries as a dated list.
+
+### What is kept, and for how long
+
+- Every export is kept exactly as it arrived, compressed, so a later improvement to the reader can reprocess it. These raw copies are deleted after **90 days**; the clean per-metric history stays.
+- Sending the same export twice is recognised and not stored twice.
+- Some kinds are **stored only**, with no switch and no display: ECG, heart rate notifications, cycle tracking and medications. The card shows how many of each have been received.
+- The clean history and your choices are included in backups; the raw copies and tokens are not.
+- This is a record, not medical advice. Amide does not interpret your numbers.
+
+---
+
 ## 9. Nutrition
 
 **Nutrition** has your diet type, calorie and macro targets from your body profile, and a food log by meal. Add your own foods; if your administrator set a USDA key you can also search the USDA database live.
@@ -354,7 +405,7 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 | **Medicines** | List the medicines you take so flagged peptides get caution tape. |
 | **Display** | Colorway (including light and dark) and **Units**: US (lb, in, oz, mph) or metric (kg, cm, mL, km/h). Your data is stored once and converted when shown. |
 | **Sharing** | Give chosen people a read-only view of a category of your data. |
-| **Integrations** | Health apps are marked Coming Soon. |
+| **Integrations** | The **Apple Health** card (see [Apple Health](#8a-apple-health)): create a token, copy the address and header line for Health Auto Export, see what has arrived. Other health apps are marked Coming Soon. |
 | **Admin** (administrator only) | Add people, reset a password, remove two-factor, delete a user. |
 
 ---
@@ -392,6 +443,7 @@ Everything is stored in one folder (`AMIDE_DATA_DIR`), so backing up that one fo
 - **Scheduled backups** (to a folder you choose).
 - **Link descriptions** (one plain request to a site you saved a link to, when you left its description blank; can be turned off).
 - **Price-list watcher** (a separate program you run).
+- **Apple Health** works the other way round: Amide makes no outside request, but if you set it up, your **phone** sends data to your Amide, using a token you create and can revoke. See [Apple Health](#8a-apple-health).
 - The **calendar feed**, a private address you choose to share.
 
 The Privacy Policy page in the footer lists these.

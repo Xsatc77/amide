@@ -10,7 +10,7 @@
     <p><code>{{ health.header_line }}</code> <button type="button" class="btn btn-ghost btn-small" data-copy="{{ health.header_line }}">Copy</button></p>
   </div>
   {% endif %}
-  <form method="post" action="/settings/apple-health/token" class="settings-form inline-form">
+  <form method="post" action="/settings/apple-health/token" class="inline-form health-token-form">
     <label class="field"><span>Label</span><input name="label" maxlength="60" placeholder="iPhone"></label>
     <button type="submit" class="btn btn-primary">Create token</button>
   </form>

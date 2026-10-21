@@ -1611,7 +1611,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .dialog .settings-form > .dialog-submit-row { align-self: stretch; margin-left: -20px; margin-right: -20px; }
 
 /* ---------- Apple Health choices popup: a switch per section and per metric ---------- */
-.hc-section { border-top: 1px solid var(--border); padding: 10px 20px; }
+.health-token-form { flex-wrap: wrap; align-items: flex-end; }
+.hc-section { align-self: stretch; border-top: 1px solid var(--border); padding: 10px 20px; }
 .hc-head, .hc-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .hc-head { font-weight: 600; }
 .hc-row { padding: 5px 0 5px 28px; font-size: .9rem; }

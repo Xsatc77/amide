@@ -26,6 +26,15 @@ LABELS: dict[str, str] = {
 }
 
 
+# How a stored unit is shown: "count" is no unit at all, and a few of Apple's spellings read badly as they are.
+UNIT_LABELS: dict[str, str] = {"count": "", "fl_oz_us": "fl oz", "fl_oz_imp": "fl oz (UK)"}
+
+
+def unit_label(unit: str | None) -> str:
+    unit = unit or ""
+    return UNIT_LABELS.get(unit, unit.replace("_", " "))
+
+
 def label_for(metric: str) -> str:
     """A person-readable name: the friendly one if known, otherwise the raw name with underscores opened out."""
     if metric.startswith("event:"):
@@ -46,7 +55,7 @@ def received_metrics(session: Session, owner_id: int) -> list[dict]:
             select(HealthReading.metric, HealthReading.unit).join(newest, (HealthReading.metric == newest.c.metric) & (HealthReading.start_at == newest.c.at))
             .where(HealthReading.owner_id == owner_id).order_by(HealthReading.id)):
         units[metric] = unit or ""                      # two readings at the same instant: the later row wins
-    rows = [{"metric": m, "label": label_for(m), "unit": u, "section": metric_group(m), "recommended": m in RECOMMENDED} for m, u in units.items()]
+    rows = [{"metric": m, "label": label_for(m), "unit": unit_label(u), "section": metric_group(m), "recommended": m in RECOMMENDED} for m, u in units.items()]
     for kind in session.scalars(select(HealthEvent.kind).where(HealthEvent.owner_id == owner_id, HealthEvent.kind.in_(EVENT_KINDS)).distinct()):
         key = f"event:{kind}"
         rows.append({"metric": key, "label": label_for(key), "unit": "", "section": metric_group(key), "recommended": key in RECOMMENDED})

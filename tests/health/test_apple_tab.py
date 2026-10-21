@@ -70,3 +70,15 @@ def test_other_persons_data_is_not_shown(client, db, me):
     db.commit()
     page = client.get("/measurements?tab=apple").text
     assert "Hidden Hike" not in page and "77777" not in page and "Mine" in page
+
+
+def test_whole_numbers_show_without_a_decimal_and_count_is_not_a_unit(client, db, me):
+    now = naive_utcnow()
+    db.add(HealthReading(owner_id=me, metric="step_count", start_at=now, end_at=now, grain="day", value=10.0, unit="count", source="Phone"))
+    db.add(HealthReading(owner_id=me, metric="weight_body_mass", start_at=now, end_at=now, grain="day", value=170.5, unit="lb", source="Phone"))
+    db.commit()
+    enable(db, me, "step_count", "weight_body_mass")
+    page = client.get("/measurements?tab=apple").text
+    assert ">10.0" not in page and "10 count" not in page and "10.0 count" not in page
+    assert 'data-label="Today">10<' in page
+    assert "170.5 lb" in page

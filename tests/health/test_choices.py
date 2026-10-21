@@ -167,3 +167,12 @@ def test_saving_ignores_names_that_were_never_received(db, me):
     add_reading(db, me, "step_count")
     choices.save_choices(db, me, {"step_count", "junk_metric"}, {"step_count", "junk_metric", "event:other"})
     assert [c.metric for c in db.query(HealthMetricChoice)] == ["step_count"]
+
+
+def test_units_read_well_count_is_blank_and_underscores_open_out(db, me):
+    add_reading(db, me, "step_count", unit="count")
+    add_reading(db, me, "dietary_water", unit="fl_oz_us")
+    add_reading(db, me, "zephyr_index", unit="zz_per_min")
+    db.commit()
+    by_key = {r["metric"]: r for r in choices.received_metrics(db, me)}
+    assert by_key["step_count"]["unit"] == "" and by_key["dietary_water"]["unit"] == "fl oz" and by_key["zephyr_index"]["unit"] == "zz per min"
