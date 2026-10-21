@@ -24,6 +24,7 @@ from app.library.conflicts import DISCLAIMER
 from app.library.interactions import cautions_for
 from app.protocols import alerts as alerts_mod
 from app.protocols import premade
+from app.protocols.tiers import builder_tiers
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
 from app.templating import templates
@@ -259,6 +260,7 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
         "state": state,
         "errors": errors,
         "cautions": cautions,
+        "tiers": builder_tiers(session),
         "is_new": is_new,
         "goals": [{"slug": g.slug, "label": g.label, "description": g.description} for g in GOALS],
         "stacks": stacks,

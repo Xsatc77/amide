@@ -580,6 +580,11 @@ section + section { margin-top: 36px; }
 .workout-day-today .workout-day-label { color: var(--text); font-weight: 600; }
 .measurement-chart { display: block; width: 100%; height: auto; color: var(--accent-fg, var(--accent)); }
 .measurement-chart .grid { stroke: var(--border); stroke-width: 1; }
+/* Protocol Builder: the library-dose tier boxes beside "View card" */
+.tier-picks { display: inline-flex; flex-wrap: wrap; gap: 4px 14px; margin-left: 14px; font-size: 0.85rem; font-weight: 400; vertical-align: middle; }
+.tier-pick { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.tier-pick.is-off { opacity: 0.4; cursor: not-allowed; }
+.tier-note { margin: 2px 0 8px; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 6px 20px; list-style: none; margin: 0 0 10px; padding: 0; font-size: 0.95rem; }
 .chart-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .measurement-chart .axis-label { fill: var(--muted); font-size: 15px; }

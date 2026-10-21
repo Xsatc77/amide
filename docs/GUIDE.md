@@ -172,6 +172,8 @@ Pick one or more goals and press **Build protocol**, or open one of the **Exampl
 
 ![The protocol builder](guide/img/06-protocol-builder.png)
 
+Beside **View card** on each library peptide are three boxes, **Beginner**, **Intermediate** and **Advanced**. Tick one to fill in that level's dose, unit and time of day (and the frequency when the card's wording is a plain "daily", "every other day", "weekly" or "as needed") from the peptide's library card; a note says what was filled in and what is left for you to set, such as the dose of a weight-based tier or a "2x daily" schedule. A level the card has no dosing for is greyed out. Ticking another level replaces the first, and you can change any number afterwards. These are the card's community figures, not advice: check them with a prescriber or pharmacist.
+
 For each peptide you set:
 
 - **Dose and unit** (mg, mcg or IU) and **frequency** (daily, every other day, every N days, specific days, weekly, as needed). Use the same peptide twice for two doses a day.

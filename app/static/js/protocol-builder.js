@@ -278,8 +278,39 @@
         onclick: () => { it.cycle_offs.splice(j, 1); changed(); } }, "×"));
   }
 
+  // Beginner / Intermediate / Advanced boxes beside "View card": ticking one fills the dose, unit, time of day and (when the library's wording is
+  // unambiguous) the frequency from that tier of the peptide's library card; a level the card has no dosing for is greyed out. Ticking another
+  // level replaces the first; unticking leaves the numbers as they are.
+  const TIER_LEVELS = ["Beginner", "Intermediate", "Advanced"];
+  function applyTier(it, level, tier) {
+    it.tier = level;
+    if (tier.amount != null) { it.dose = String(tier.amount); it.dose_unit = tier.unit; }
+    if (tier.frequency) it.frequency = tier.frequency;
+    if (tier.time_of_day) it.time_of_day = tier.time_of_day;
+  }
+  function tierNote(it, tiers) {
+    const tier = it.tier && tiers[it.tier];
+    if (!tier) return null;
+    const said = [tier.text, tier.frequency_text].filter(Boolean).join(", ");
+    const left = [tier.amount == null ? "the dose" : null, tier.frequency == null ? "how often" : null].filter(Boolean);
+    return h("div", { class: "small muted tier-note",
+      text: `Filled in from the library's ${it.tier} dosing: ${said}.` + (left.length ? ` Set ${left.join(" and ")} yourself.` : "") });
+  }
+  function tierPicks(it, tiers) {
+    return h("span", { class: "tier-picks", role: "group", "aria-label": "Fill in a dose from the library card" },
+      TIER_LEVELS.map((level) => {
+        const tier = tiers[level];
+        const box = h("input", { type: "checkbox", checked: it.tier === level, disabled: !tier,
+          onchange: (e) => { if (e.target.checked) applyTier(it, level, tier); else it.tier = null; changed(); } });
+        return h("label", { class: "tier-pick" + (tier ? "" : " is-off"),
+          title: tier ? `${level} dosing from the library card: ${[tier.text, tier.frequency_text].filter(Boolean).join(", ")}`
+            : `The library card has no ${level.toLowerCase()} dosing for this peptide` }, box, h("span", { text: level }));
+      }));
+  }
+
   function itemCard(it, i) {
     const p = `items-${i}`;
+    const tiers = it.peptide_id ? (data.tiers?.[it.peptide_id] || {}) : null;
     const set = (name) => (v) => { it[name] = v; };
     const unitLabel = data.options.dose_unit.find(([v]) => v === it.dose_unit)?.[1] ?? it.dose_unit;
 
@@ -309,9 +340,11 @@
       h("div", { class: "item-card-head" },
         h("h3", {}, itemName(it), it.new_name ? h("span", { class: "tag new-tag", text: "New to library" }) : null,
           it.peptide_id ? h("a", { class: "small view-card", href: `/library/${it.peptide_id}`, target: "_blank",
-            rel: "noopener", text: "View card" }) : null),
+            rel: "noopener", text: "View card" }) : null,
+          tiers ? tierPicks(it, tiers) : null),
         h("button", { type: "button", class: "btn btn-ghost btn-icon", "aria-label": `Remove ${itemName(it)}`,
           onclick: () => { items = items.filter((x) => x !== it); changed(); } }, "×")),
+      tiers ? tierNote(it, tiers) : null,
       flagged ? h("div", { class: "small caution-note" },
         h("strong", { text: "Caution with your medicines: " }),
         flagged.map((c) => `${c.medicine} - ${c.note}`).join(" ")) : null,
