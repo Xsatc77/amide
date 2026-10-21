@@ -1,4 +1,6 @@
+import re
 from datetime import datetime
+from pathlib import Path
 
 from app.health import choices
 from app.models import HealthEvent, HealthMetricChoice, HealthReading
@@ -241,3 +243,15 @@ def test_readings_from_before_pending_rows_still_bring_the_list_once(client, db,
     db.commit()
     assert "step_count" in client.get("/settings").text.split('id="health-choices-dialog"')[1]
     assert choices.undecided(db, me) == ["step_count"]          # seeded once; ordinary pages now see it cheaply
+
+
+def test_dialog_has_a_cancel_button_and_a_close_x_that_save_nothing(client, db, me):
+    add_reading(db, me, "step_count")
+    dialog = client.get("/dashboard").text.split('id="health-choices-dialog"')[1].split("</dialog>")[0]
+    head = dialog.split("</header>")[0]
+    assert re.search(r'<button type="button"[^>]*data-close[^>]*aria-label="Close"[^>]*>×</button>', head)          # the X in the header
+    foot = dialog.split('class="dialog-foot"')[1]
+    assert re.search(r'<button type="button" class="btn" data-close>Cancel</button>', foot)
+    js = (Path(__file__).resolve().parents[2] / "app" / "static" / "js" / "health_choices.js").read_text(encoding="utf-8")
+    assert "[data-close]" in js and "dialog.close()" in js
+    assert "data-open-on-load" in client.get("/dashboard").text          # still undecided: it opens again on the next page

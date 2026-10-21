@@ -39,6 +39,7 @@ def test_new_token_secret_is_shown_once_and_the_address_uses_the_request_host(cl
     assert secret.startswith("amide_hlt_")
     assert "http://testserver/api/ingest/health" in page
     assert page.count(secret) >= 2        # the shown line and its copy button
+    assert client.cookies.get("amide_session")       # the browser session the secret was kept for
     again = client.get("/settings").text
     assert secret not in again
     assert "Phone" in again and "Revoke" in again       # later only the label and prefix remain
@@ -51,7 +52,7 @@ def test_event_counts_listed_for_stored_only_kinds(client, db, me):
             db.add(HealthEvent(owner_id=me, kind=kind, external_id=f"{kind}{i}", start_at=datetime(2024, 2, 6), name="x"))
     db.commit()
     data = apple_health.card_data(db, me, "http://testserver/")
-    assert data["event_counts"] == {"ecg": 1, "workout": 2}
+    assert data["event_counts"][0] == (2, "workout", "workouts") and data["event_counts"][3] == (1, "ECG", "ECGs") and data["event_total"] == 3
     assert data["ingest_url"] == "http://testserver/api/ingest/health" and data["header_line"] is None
     page = client.get("/settings").text
     assert "workout" in page.lower() and "ecg" in page.lower()
@@ -73,6 +74,9 @@ def test_card_never_contains_a_domain_other_than_the_request_host(client, db, me
     hosts = set(re.findall(r"\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|app|dev|ai)\b", text.lower()))
     assert hosts <= {"example.com"}, hosts
     assert "testserver" in page
+    card = page[start:start + 20000].split("Hume")[0]
+    urls = re.findall(r"https?://([^/\s\"'<>:]+)", card)          # every address in the card, in text and in attributes alike
+    assert urls and set(urls) <= {"testserver"}, urls             # only the request host (the card links to no documentation)
 
 
 def test_unclaimed_token_secrets_expire_and_are_dropped_on_the_next_write(monkeypatch):
@@ -93,3 +97,25 @@ def test_card_states_the_64_mb_cap_and_the_setting_that_raises_it(client):
     page = client.get("/settings").text
     card = page[page.index('id="apple-health"'):]
     assert "64 MB" in card and "AMIDE_HEALTH_MAX_MB" in card and "512 MB" not in card
+
+
+def test_card_counts_every_stored_kind_including_none_yet(client, db, me):
+    add_raw(db, me)
+    db.add(HealthEvent(owner_id=me, kind="workout", external_id="w", start_at=datetime(2024, 2, 6), name="x"))
+    db.add(HealthEvent(owner_id=me, kind="ecg", external_id="e", start_at=datetime(2024, 2, 6)))
+    db.commit()
+    card = client.get("/settings").text.split('id="apple-health"')[1]
+    line = re.search(r"Also kept: ([^<]+)\.", card).group(1)
+    assert line == ("1 workout, 0 symptoms, 0 states of mind, 1 ECG, 0 heart rate notifications, 0 cycle tracking entries, 0 medications")
+
+
+def test_revoke_asks_first(client, db, me):
+    client.post("/settings/apple-health/token", data={"label": "Phone"}, follow_redirects=False)
+    card = client.get("/settings").text.split('id="apple-health"')[1]
+    assert re.search(r'<form method="post" action="/settings/apple-health/token/\d+/revoke"[^>]*data-confirm="[^"]+"', card)
+
+
+def test_the_card_script_asks_before_a_confirmed_form_is_sent():
+    from pathlib import Path
+    js = (Path(__file__).resolve().parents[2] / "app" / "static" / "js" / "health_card.js").read_text(encoding="utf-8")
+    assert 'form[data-confirm]' in js and "window.confirm" in js

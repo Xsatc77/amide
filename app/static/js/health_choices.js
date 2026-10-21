@@ -18,6 +18,7 @@
     refresh();
   });
   dialog.querySelector("[data-all-off]").addEventListener("click", () => { metrics().forEach((b) => { b.checked = false; }); refresh(); });
+  dialog.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => dialog.close()));      // nothing saved
   dialog.querySelector("[data-use-recommended]").addEventListener("click", () => { metrics().forEach((b) => { b.checked = b.dataset.recommended === "1"; }); refresh(); });
   document.addEventListener("click", (event) => {
     if (event.target.closest("[data-open-health-choices]") && !dialog.open) { event.preventDefault(); dialog.showModal(); }

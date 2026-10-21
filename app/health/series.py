@@ -1,5 +1,6 @@
 """Apple Health readings turned into one value per local day, and everything the Apple tab shows."""
 
+import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
@@ -92,7 +93,7 @@ def _workout(event: HealthEvent, zone: str | None) -> dict:
 
     def quantity(key):
         item = payload.get(key)
-        if isinstance(item, dict) and isinstance(item.get("qty"), (int, float)) and not isinstance(item.get("qty"), bool):
+        if isinstance(item, dict) and isinstance(item.get("qty"), (int, float)) and not isinstance(item.get("qty"), bool) and math.isfinite(item["qty"]):
             return item["qty"], item.get("units") or ""
         return None, ""
 

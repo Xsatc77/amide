@@ -91,6 +91,9 @@ def clean(client):
         f.unlink()
     for f in config.INGEST_DIR.glob("*"):
         f.unlink()
+    for f in config.HEALTH_RAW_DIR.glob("*"):      # raw Apple Health copies (and stray test files) must not pile up between tests
+        if f.is_file():
+            f.unlink()
 
 
 @pytest.fixture

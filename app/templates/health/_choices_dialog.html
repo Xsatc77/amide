@@ -1,10 +1,12 @@
 {# The Apple Health "what do you want to see?" popup. Drawn on every signed-in page, but only for someone who has received Apple data;
-   it opens by itself while some received metric is still undecided, and any element with data-open-health-choices reopens it. #}
+   it opens by itself while some received metric is still undecided, and any element with data-open-health-choices reopens it.
+   Cancel and the X close it without saving, so it opens again on the next page while something is still undecided. #}
 {% set hc = health_choices() %}
 {% if hc %}
 <dialog id="health-choices-dialog" class="dialog dialog-wide health-choices" {% if hc.open %}data-open-on-load{% endif %} aria-labelledby="health-choices-title">
   <form method="post" action="/settings/apple-health/choices" class="settings-form" novalidate>
-    <header class="dialog-head"><h2 id="health-choices-title">{% if hc.mode == 'first' %}Your Apple Health data arrived{% elif hc.mode == 'new' %}New Apple Health data arrived{% else %}Apple Health data to show{% endif %}</h2></header>
+    <header class="dialog-head"><h2 id="health-choices-title">{% if hc.mode == 'first' %}Your Apple Health data arrived{% elif hc.mode == 'new' %}New Apple Health data arrived{% else %}Apple Health data to show{% endif %}</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Close">×</button></header>
     {% if hc.mode == 'new' %}
     <p class="muted small" style="padding: 0 20px;">Amide found {{ hc.total }} new kind{{ '' if hc.total == 1 else 's' }} of data. Your earlier choices are kept. Pick what to show and chart; everything is stored either way.</p>
     {% else %}
@@ -30,6 +32,7 @@
     {% endfor %}
     <footer class="dialog-foot">
       <span class="hc-count muted small" data-count>{{ hc.on }} of {{ hc.total }} on</span>
+      <button type="button" class="btn" data-close>Cancel</button>
       <button type="button" class="btn" data-all-off>Turn all off</button>
       <button type="button" class="btn" data-use-recommended>Use recommended</button>
       <button type="submit" class="btn btn-primary">Save choices</button>

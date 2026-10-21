@@ -102,3 +102,40 @@ def test_a_person_on_automatic_time_sees_the_device_day_not_utc(client, db, me):
     finally:
         client.cookies.delete("amide_tz")
     assert 'data-label="Today">7<' in page
+
+
+def test_chart_caption_shows_whole_numbers_without_a_decimal(client, db, me):
+    now = naive_utcnow()
+    for days_ago, value in ((1, 5960.0), (0, 8860.0)):
+        at = now - timedelta(days=days_ago)
+        db.add(HealthReading(owner_id=me, metric="step_count", start_at=at, end_at=at, grain="day", value=value, unit="count", source="Phone"))
+    db.commit()
+    enable(db, me, "step_count")
+    page = client.get("/measurements?tab=apple").text
+    assert "range 5960–8860" in page and "5960.0" not in page and "8860.0" not in page
+
+
+def test_other_charts_keep_their_caption_format():
+    from app.templating import templates
+    macro = templates.env.get_template("measurements/_silhouette_macros.html").module.line_chart
+    from datetime import date
+    chart = {"width": 10, "height": 10, "y_axis": [], "band": None, "markers": None, "poly": "", "points": [], "raw": [],
+             "min_v": 5960.0, "max_v": 8860.0, "min_d": date(2024, 2, 1), "max_d": date(2024, 2, 2)}
+    assert "range 5960.0–8860.0" in str(macro(chart, "Weight"))          # the shared macro's default is unchanged
+
+
+def test_amount_shows_a_dash_for_nan_and_infinity():
+    from app.templating import templates
+    module = templates.env.get_template("health/apple_tab.html").make_module({"apple": {"metrics": [], "workouts": [], "symptoms": [], "state_of_mind": []}})
+    assert str(module.amount(float("nan"), "kg")).strip() == "—"
+    assert str(module.amount(float("inf"), "kg")).strip() == "—"
+    assert str(module.amount(-float("inf"), "kg")).strip() == "—"
+    assert str(module.amount(12.0, "kg")).strip() == "12 kg"
+
+
+def test_a_workout_with_an_infinite_distance_does_not_break_the_tab(client, db, me):
+    db.add(HealthEvent(owner_id=me, kind="workout", external_id="inf", start_at=naive_utcnow(), name="Acme Loop",
+                       payload={"distance": {"qty": float("inf"), "units": "km"}}))
+    db.commit()
+    r = client.get("/measurements?tab=apple")
+    assert r.status_code == 200 and "Acme Loop" in r.text

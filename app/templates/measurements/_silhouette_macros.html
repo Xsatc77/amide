@@ -4,7 +4,10 @@
 
 {% macro y_grid(axis) %}{% if axis %}{% for t in axis.ticks %}<line class="grid" x1="{{ axis.left }}" x2="{{ axis.right }}" y1="{{ t.y }}" y2="{{ t.y }}"></line><text class="axis-label" x="{{ axis.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.value }}</text>{% endfor %}{% endif %}{% endmacro %}
 
-{% macro line_chart(chart, label, stroke='currentColor', change=false) %}
+{# `whole`: show a whole number (a range end, a point's value) without its ".0" (the Apple tab asks for it; every other chart keeps its old output) #}
+{% macro _range_end(v, whole) %}{{ v|int if whole and v == v|int else v }}{% endmacro %}
+
+{% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false) %}
 {% if chart %}
 <div class="card">
   <h3>{{ label }}</h3>
@@ -14,11 +17,11 @@
     {% for m in chart.markers or () %}<line class="dose-marker" x1="{{ m.x }}" x2="{{ m.x }}" y1="12" y2="{{ chart.height - 16 }}"></line>{% endfor %}
     <polyline points="{{ chart.poly }}" fill="none" stroke="{{ stroke }}" stroke-width="2"></polyline>
     {% for cx, cy in chart.points %}{% set d, v = chart.raw[loop.index0] %}<circle cx="{{ cx }}" cy="{{ cy }}" r="2.5" fill="{{ stroke }}" class="chart-point"
-      data-date="{{ d | shortdate }}" data-value="{{ v }}"></circle>{% endfor %}
+      data-date="{{ d | shortdate }}" data-value="{{ _range_end(v, whole) }}"></circle>{% endfor %}
     {% for m in chart.markers or () %}<circle cx="{{ m.x }}" cy="12" r="4" class="chart-point dose-dot" data-date="{{ m.date | shortdate }}" data-value="{{ m.label }}"></circle>{% endfor %}
     {% if change %}{% for c in chart.changes or () %}<text class="chart-delta {{ c.cls }}" x="{{ c.x + 14 if c.x > 500 else c.x }}" y="{{ c.y - 12 if c.y > 34 else c.y + 28 }}" text-anchor="{{ 'end' if c.x > 500 else 'middle' }}">{{ c.text }}</text>{% endfor %}{% endif %}
   </svg>
-  <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · range {{ chart.min_v }}–{{ chart.max_v }}{% if chart.markers %} · <span class="dose-key">&#9679;</span> dose start or change{% endif %}</p>
+  <p class="muted">{{ chart.min_d | shortdate }} – {{ chart.max_d | shortdate }} · range {{ _range_end(chart.min_v, whole) }}–{{ _range_end(chart.max_v, whole) }}{% if chart.markers %} · <span class="dose-key">&#9679;</span> dose start or change{% endif %}</p>
 </div>
 {% endif %}
 {% endmacro %}

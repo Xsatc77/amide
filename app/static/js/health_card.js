@@ -19,3 +19,6 @@ document.querySelectorAll("#apple-health [data-copy]").forEach((btn) =>
     setTimeout(() => { btn.textContent = label; }, 1500);
   })
 );
+// Forms that ask first (Revoke a token).
+document.querySelectorAll("#apple-health form[data-confirm]").forEach((f) =>
+  f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));

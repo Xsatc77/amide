@@ -1,7 +1,7 @@
 {# The Apple tab of the Measurements page. Needs `apple` (see app/health/series.apple_tab_data). Apple data lives only here: it is never copied into the person's own measurements. #}
 {% from "measurements/_silhouette_macros.html" import line_chart %}
-{# whole numbers without ".0"; the unit "count" (steps and the like) is not shown #}
-{% macro amount(v, unit) %}{{ ('{:,}'.format(v|int) if v == v|int else '{:,}'.format(v)) if v is not none else '—' }}{% if v is not none and unit and unit != 'count' %} {{ unit }}{% endif %}{% endmacro %}
+{# whole numbers without ".0"; the unit "count" (steps and the like) is not shown; no number (or NaN, or infinity, where v - v is not 0) is a dash #}
+{% macro amount(v, unit) %}{% set shown = v is not none and v - v == 0 %}{{ ('{:,}'.format(v|int) if v == v|int else '{:,}'.format(v)) if shown else '—' }}{% if shown and unit and unit != 'count' %} {{ unit }}{% endif %}{% endmacro %}
 
 <section aria-labelledby="apple-heading">
   <h2 id="apple-heading" class="section-title">Apple Health</h2>
@@ -29,7 +29,7 @@
     </table>
   </div>
   <div class="dashboard-placeholders">
-    {% for m in apple.metrics %}{{ line_chart(m.chart, m.label ~ (' (' ~ m.unit ~ ')' if m.unit else '')) }}{% endfor %}
+    {% for m in apple.metrics %}{{ line_chart(m.chart, m.label ~ (' (' ~ m.unit ~ ')' if m.unit else ''), whole=true) }}{% endfor %}
   </div>
   <div id="chart-tooltip" class="chart-tooltip" hidden role="status"></div>
 </section>
