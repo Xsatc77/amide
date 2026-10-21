@@ -17,7 +17,7 @@ LABELS: dict[str, str] = {
     "apple_stand_time": "Stand minutes", "apple_stand_hour": "Stand hours", "walking_speed": "Walking speed",
     "walking_step_length": "Walking step length", "walking_asymmetry_percentage": "Walking asymmetry",
     "walking_double_support_percentage": "Walking double support", "stair_speed_up": "Stair speed up", "stair_speed_down": "Stair speed down",
-    "weight_&_body_mass": "Weight", "body_fat_percentage": "Body fat", "lean_body_mass": "Lean body mass", "body_mass_index": "BMI",
+    "weight_&_body_mass": "Weight", "weight_body_mass": "Weight", "body_fat_percentage": "Body fat", "lean_body_mass": "Lean body mass", "body_mass_index": "BMI",
     "dietary_water": "Water", "dietary_energy": "Dietary energy", "protein": "Protein", "carbohydrates": "Carbohydrates",
     "total_fat": "Fat", "fiber": "Fiber", "dietary_sugar": "Sugar", "sleep_analysis": "Sleep analysis",
     "heart_rate": "Heart rate", "resting_heart_rate": "Resting heart rate", "walking_heart_rate_average": "Walking heart rate",

@@ -255,3 +255,15 @@ def test_dialog_has_a_cancel_button_and_a_close_x_that_save_nothing(client, db, 
     js = (Path(__file__).resolve().parents[2] / "app" / "static" / "js" / "health_choices.js").read_text(encoding="utf-8")
     assert "[data-close]" in js and "dialog.close()" in js
     assert "data-open-on-load" in client.get("/dashboard").text          # still undecided: it opens again on the next page
+
+
+def test_the_real_weight_name_is_a_body_metric_recommended_and_called_weight():
+    from app.health.groups import RECOMMENDED, metric_group
+    assert metric_group("weight_body_mass") == "Body" and "weight_body_mass" in RECOMMENDED       # the name Health Auto Export really sends
+    assert choices.label_for("weight_body_mass") == "Weight"
+
+
+def test_the_dialog_form_is_not_refilled_by_the_browser(client, db, me):
+    add_reading(db, me, "step_count")
+    form = client.get("/dashboard").text.split('id="health-choices-dialog"')[1].split("<form", 1)[1].split(">", 1)[0]
+    assert 'autocomplete="off"' in form       # Firefox otherwise restores old switch positions over what is saved

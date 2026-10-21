@@ -8,7 +8,7 @@ _GROUPS: dict[str, tuple[str, ...]] = {
                  "apple_stand_time", "apple_stand_hour", "walking_speed", "walking_step_length", "walking_asymmetry_percentage",
                  "walking_double_support_percentage", "stair_speed_up", "stair_speed_down", "cycling_distance", "swimming_distance",
                  "distance_downhill_snow_sports", "physical_effort"),
-    "Body": ("weight_&_body_mass", "body_fat_percentage", "lean_body_mass", "body_mass_index", "height", "waist_circumference"),
+    "Body": ("weight_&_body_mass", "weight_body_mass", "body_fat_percentage", "lean_body_mass", "body_mass_index", "height", "waist_circumference"),
     "Nutrition and water": ("dietary_water", "dietary_energy", "protein", "carbohydrates", "total_fat", "fiber", "dietary_sugar", "sodium",
                             "caffeine", "saturated_fat", "cholesterol", "potassium", "calcium", "iron"),
     "Sleep": ("sleep_analysis",),
@@ -20,7 +20,7 @@ _BY_NAME = {name: section for section, names in _GROUPS.items() for name in name
 
 # The default "on" list for a phone with no watch. Event kinds use the key "event:<kind>".
 RECOMMENDED: frozenset[str] = frozenset({
-    "step_count", "walking_running_distance", "flights_climbed", "weight_&_body_mass", "body_fat_percentage", "lean_body_mass",
+    "step_count", "walking_running_distance", "flights_climbed", "weight_&_body_mass", "weight_body_mass", "body_fat_percentage", "lean_body_mass",
     "body_mass_index", "dietary_water", "dietary_energy", "protein", "carbohydrates", "total_fat", "fiber",
     "event:symptom", "event:state_of_mind",
 })
