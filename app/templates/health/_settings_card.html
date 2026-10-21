@@ -45,7 +45,7 @@
     <li>Set Date Range to <strong>Since Last Sync</strong>.</li>
     <li>Turn <strong>Summarize Data</strong> on and set Time Grouping to <strong>Hours</strong>, so a year of steps is not a million rows. For the very first export, pick <strong>Previous 7 Days</strong>, or run a wider range by hand with Manual Export.</li>
     <li>Turn <strong>Batch Requests</strong> on.</li>
-    <li>Set Sync Cadence to <strong>every hour</strong>.</li>
+    <li>Set Sync Cadence <strong>as often as you like</strong>; two or three times a day is plenty. Each reading counts on the local day of where your phone was when it was recorded, so overlapping, repeated or late exports never double a day.</li>
     <li>Tap <strong>Manual Export</strong> to test. The status below should change within a minute.</li>
   </ol>
   <p class="small muted"><strong>If Amide sits behind a reverse proxy:</strong> allow request bodies large enough for the first export (Amide itself accepts up to {{ health.max_mb }} MB a post; whoever runs Amide can raise that with the one setting <code>AMIDE_HEALTH_MAX_MB</code>), and if anything asks for a separate login in front of Amide, exempt the path <code>/api/ingest/</code> from it, or the phone will be turned away.</p>

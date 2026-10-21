@@ -295,7 +295,7 @@ Everything you type or copy into the phone app is on one card: **Settings, Integ
 7. Set **Date Range** to **Since Last Sync**.
 8. Turn **Summarize Data** on and set the time grouping to **Hours**, so a year of steps is not a million rows. For the very first export pick **Previous 7 Days**, or run a wider range by hand with **Manual Export**.
 9. Turn **Batch Requests** on.
-10. Set the sync cadence to **every hour**.
+10. Set the sync cadence **as often as you like**; two or three times a day is plenty. Exports that overlap, repeat what was already sent or cover only part of a day are fine: every reading is matched and updated, never added twice.
 11. Tap **Manual Export** to test. The **Status** at the bottom of the card changes from "Waiting for first data" to "Last received ... readings" within a minute, and the list of recent receipts shows each one as OK, Stored or Needs a look, so you can see a problem without the phone.
 
 If Amide sits behind something that forwards web traffic to it, make it accept request bodies large enough for the first export (Amide itself accepts up to 64 MB a post; the person who runs it can raise that with the one setting `AMIDE_HEALTH_MAX_MB`). If anything asks for a separate sign-in in front of Amide, exempt the path `/api/ingest/` from it, or the phone will be turned away: the phone app cannot sign in. Amide's own sign-in and two-factor step are not used on this path; the token is what lets the phone in.
@@ -306,23 +306,23 @@ The first time data arrives, a popup opens on your next page.
 
 ![The first-data popup](guide/img/41-apple-popup.png)
 
-It lists only what Amide actually received, in sections (Activity, Body, Nutrition and water, Sleep, Heart and vitals, Mind and other), each metric with its unit. A switch on a section turns all of it on or off. The ones tagged **Recommended** start on; for a phone without a watch that means steps, walking and running distance, flights climbed, weight, body fat, lean mass, BMI, water, food energy, protein, carbs, fat, fiber, state of mind and symptoms. **Turn all off** and **Use recommended** are there, the count at the bottom shows how many are on, and **Save choices** keeps your picks. Metrics you leave off are **still stored**; they are just not shown or charted, so you can turn them on later without losing anything. When a new kind of data shows up later, the popup asks again about only the new ones. To reopen it any time, click **Change what is shown** on the card.
+It lists only what Amide actually received, in sections (Activity, Body, Nutrition and water, Sleep, Heart and vitals, Mind and other), each metric with its unit. A switch on a section turns all of it on or off. The ones tagged **Recommended** start on; for a phone without a watch that means steps, walking and running distance, flights climbed, weight, body fat, lean mass, BMI, water, food energy, protein, carbs, fat, fiber, state of mind and symptoms. **Turn all off** and **Use recommended** are there, **Cancel** (or the X) closes it without saving, so it asks again next time, the count at the bottom shows how many are on, and **Save choices** keeps your picks. Metrics you leave off are **still stored**; they are just not shown or charted, so you can turn them on later without losing anything. When a new kind of data shows up later, the popup asks again about only the new ones. To reopen it any time, click **Change what is shown** on the card.
 
 ### The Apple tab
 
 ![The Apple tab](guide/img/42-apple-tab.png)
 
-The **Apple** tab appears on the Body page once you have made a token or received data. It has a **Range** drop-down like the other Body charts, a table with today's value and the last 7 days (a total for things that add up, such as steps and water; an average for the rest), a chart for every metric you switched on, the list of Apple **workouts** (what Apple recorded, kept apart from your own workout log) and, if switched on, your **symptoms** and **state of mind** entries as a dated list. Each reading counts on the day it was on your phone when it was taken, so a late-evening walk stays on that evening's day even if you look from another time zone.
+The **Apple** tab appears on the Body page once you have made a token or received data. It has a **Range** drop-down like the other Body charts, a table with today's value and the last 7 days (a total for things that add up, such as steps and water; an average for the rest), a chart for every metric you switched on, the list of Apple **workouts** (what Apple recorded, kept apart from your own workout log) and, if switched on, your **symptoms** and **state of mind** entries as a dated list. Each reading counts on the **local day of where your phone was when it was recorded** (Amide stores the time in UTC together with the phone's own offset at that moment). So a re-sent or late export lands on the right day, a late-evening walk stays on that evening's day even if you look from another time zone, and a trip across time zones does not split or double a day: the same day sent again from the new zone replaces the earlier one. Workouts, symptoms and state of mind follow the same rule. When two sources (say the phone and another app) both count steps for a day, only the one with the larger total is used, so they are not added together. "Today" and the last 7 days follow your own time zone in Amide.
 
 ### What is kept, and for how long
 
 - Every export is kept exactly as it arrived, compressed, so a later improvement to the reader can reprocess it. These raw copies are deleted after **90 days**; the clean per-metric history stays.
 - Sending the same export twice is recognised and not stored twice.
-- Each person's raw copies are limited to **2 GB** in all (the person who runs Amide can change it with `AMIDE_HEALTH_RAW_QUOTA_MB`). When a new export would pass that, the oldest copies that were already read in full are removed first (their readings stay, and the receipt says "raw copy removed to stay within the storage limit"); if that is still not enough, the phone is told the server is full and nothing is kept.
+- Each person's raw copies are limited to **2 GB** in all (the person who runs Amide can change it with `AMIDE_HEALTH_RAW_QUOTA_MB`). When a new export would pass that, the oldest copies that were already read in full are removed first (their readings stay, and the receipt says "raw copy removed to stay within the storage limit"), then the oldest copies that will not be read again by themselves (ones marked Needs a look, and ones left unread for over an hour); a copy that may still be being read is never removed. If that is still not enough, the phone is told the server is full and nothing is kept.
 - A post that is not JSON at all is listed as Needs a look, but no copy of it is kept.
-- If reading an export fails on Amide's side (not because of what was sent), the phone is told to try again later and resends that batch; Amide also retries such exports once a day by itself.
+- If reading an export fails on Amide's side (not because of what was sent), the phone is told to try again later and resends that batch; Amide also retries such exports once a day by itself, along with any left unread for over an hour (after a restart, say). After **5** failed tries Amide gives up on that export: the phone is told it arrived, so it moves on, and the receipt says "Gave up after 5 tries; fix needed". Sending the same export again by hand still tries once more.
 - One person can hold at most **10** live tokens; revoke one you no longer use to make another.
-- Some kinds are **stored only**, with no switch and no display: ECG, heart rate notifications, cycle tracking and medications. The card shows how many of each have been received.
+- Some kinds are **stored only**, with no switch and no display: ECG, heart rate notifications, cycle tracking and medications. The card shows how many of each have been received (0 until one arrives), next to the workouts, symptoms and state of mind counts.
 - The clean history and your choices are included in backups; the raw copies and tokens are not.
 - This is a record, not medical advice. Amide does not interpret your numbers.
 
@@ -447,7 +447,7 @@ Everything is stored in one folder (`AMIDE_DATA_DIR`), so backing up that one fo
 - **Scheduled backups** (to a folder you choose).
 - **Link descriptions** (one plain request to a site you saved a link to, when you left its description blank; can be turned off).
 - **Price-list watcher** (a separate program you run).
-- **Apple Health** works the other way round: Amide makes no outside request, but if you set it up, your **phone** sends data to your Amide, using a token you create and can revoke. See [Apple Health](#8a-apple-health).
+- **Apple Health** works the other way round: Amide makes no outside request, but if you set it up, your **phone** sends data to your Amide, using a token you create and can revoke (the card asks before revoking). See [Apple Health](#8a-apple-health).
 - The **calendar feed**, a private address you choose to share.
 
 The Privacy Policy page in the footer lists these.
