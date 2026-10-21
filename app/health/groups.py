@@ -2,6 +2,7 @@
 
 SECTIONS: tuple[str, ...] = ("Activity", "Body", "Nutrition and water", "Sleep", "Heart and vitals", "Mind and other")
 
+# Not established: the full list of metric names the app can send; this is the documented and likely set, and unknown names fall to "Mind and other"
 _GROUPS: dict[str, tuple[str, ...]] = {
     "Activity": ("step_count", "walking_running_distance", "flights_climbed", "active_energy", "basal_energy_burned", "apple_exercise_time",
                  "apple_stand_time", "apple_stand_hour", "walking_speed", "walking_step_length", "walking_asymmetry_percentage",

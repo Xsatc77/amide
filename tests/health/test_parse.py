@@ -99,7 +99,7 @@ def test_null_string_and_missing_date_readings_are_skipped_and_flagged_while_the
     raw = make_raw(db, me, payload)
     assert parse.import_raw(db, raw) == 2
     assert db.query(HealthReading).count() == 2
-    assert raw.status == "flagged" and "5" in raw.note and raw.readings_count == 2
+    assert raw.status == "flagged" and raw.note.startswith("5 item(s) skipped") and raw.readings_count == 2
 
 
 def test_unknown_metric_is_kept_and_grouped_under_mind_and_other(db, me):
@@ -144,6 +144,39 @@ def test_workout_symptom_state_of_mind_and_unknown_event_kinds_are_stored_with_f
     assert len(events["ecg"].external_id) == 40            # no id: the SHA-1 of the item
     parse.import_raw(db, make_raw(db, me, payload))        # a repost does not duplicate events
     assert db.query(HealthEvent).count() == 7
+
+
+def test_an_unknown_top_level_kind_flags_the_export_while_known_kinds_import(db, me):
+    payload = {**steps(("2024-02-06 10:00:00 +0000", 3)), "symptoms": [{"id": "S-9", "name": "Cough", "start": "2024-02-06 09:00:00 +0000"}],
+               "zephyr_events": [{"id": "Z-1"}]}
+    raw = make_raw(db, me, payload)
+    assert parse.import_raw(db, raw) == 1
+    assert raw.status == "flagged" and "unknown: zephyr_events" in raw.note
+    assert db.query(HealthEvent).one().external_id == "S-9"
+
+
+def test_a_long_event_id_is_hashed_and_a_long_unit_is_cut(db, me):
+    payload = {"metrics": [{"name": "step_count", "units": "u" * 50, "data": [{"qty": 1, "date": "2024-02-06 10:00:00 +0000"}]}],
+               "symptoms": [{"id": "x" * 200, "start": "2024-02-06 09:00:00 +0000"}]}
+    assert parse.import_raw(db, make_raw(db, me, payload)) == 1
+    assert len(db.query(HealthReading).one().unit) == 30
+    assert len(db.query(HealthEvent).one().external_id) == 40
+
+
+def test_a_post_loads_and_touches_only_rows_in_its_own_time_span(db, me):
+    hourly = {"automation-aggregation": "hours"}
+    old = steps(("2023-01-01 10:00:00 +0000", 11), ("2023-01-01 11:00:00 +0000", 12))
+    parse.import_raw(db, make_raw(db, me, old, hourly))
+    parse.import_raw(db, make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 5)), hourly))
+    loaded = []
+    from sqlalchemy import event as sa_event
+    db.expunge_all()
+    hook = lambda target, ctx: loaded.append(target.value)
+    sa_event.listen(HealthReading, "load", hook)
+    parse.import_raw(db, make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 6), ("2024-02-06 12:00:00 +0000", 7)), hourly))
+    sa_event.remove(HealthReading, "load", hook)
+    assert loaded == [5]                                              # only the overlapping row was read; the 2023 rows never were
+    assert sorted(r.value for r in db.query(HealthReading).all()) == [6, 7, 11, 12]     # overlap upserted, nothing duplicated
 
 
 def test_garbage_json_is_flagged_not_raised(db, me):

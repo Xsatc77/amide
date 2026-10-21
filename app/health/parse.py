@@ -81,8 +81,8 @@ def _reading_fields(name: str, item: dict) -> tuple[float, dict | None]:
 
 
 def _event_id(item: dict) -> str:
-    if item.get("id") not in (None, ""):
-        return str(item["id"])[:120]
+    if item.get("id") not in (None, "") and len(str(item["id"])) <= 120:         # a too-long id is hashed rather than cut, so two long ids cannot collide
+        return str(item["id"])
     return hashlib.sha1(json.dumps(item, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -110,9 +110,8 @@ def _import_readings(session: Session, raw: HealthRaw, metrics: list, grain: str
         if not isinstance(metric, dict) or not isinstance(metric.get("name"), str) or not isinstance(metric.get("data"), list):
             skipped.append("metric entry")
             continue
-        name, unit = metric["name"][:80], (metric.get("units") if isinstance(metric.get("units"), str) else None)
-        existing = {(r.start_at, r.grain, r.source): r for r in session.scalars(
-            select(HealthReading).where(HealthReading.owner_id == raw.owner_id, HealthReading.metric == name))}
+        name, unit = metric["name"][:80], (metric["units"][:30] if isinstance(metric.get("units"), str) else None)
+        rows = []                                                 # (key, start, offset, value, extra) for the rows that parse
         for item in metric["data"]:
             try:
                 if not isinstance(item, dict):
@@ -123,7 +122,16 @@ def _import_readings(session: Session, raw: HealthRaw, metrics: list, grain: str
                 skipped.append(name)
                 continue
             source = item.get("source") if isinstance(item.get("source"), str) else ""
-            key = (start, grain, source[:120])
+            rows.append(((start, grain, source[:120]), start, offset, value, extra))
+        if not rows:
+            continue
+        # Not established: how Batch Requests splits a payload. Overlapping or split batches are safe because every row upserts on its key.
+        # Only the stored rows inside this batch's time span are loaded, never the person's whole history.
+        low, high = min(r[1] for r in rows), max(r[1] for r in rows)
+        existing = {(r.start_at, r.grain, r.source): r for r in session.scalars(select(HealthReading).where(
+            HealthReading.owner_id == raw.owner_id, HealthReading.metric == name, HealthReading.grain == grain,
+            HealthReading.start_at >= low, HealthReading.start_at <= high))}
+        for key, start, offset, value, extra in rows:
             reading = existing.get(key)
             if reading is None:
                 reading = existing[key] = HealthReading(owner_id=raw.owner_id, metric=name, start_at=start, grain=grain, source=key[2])
@@ -141,7 +149,11 @@ def _import_events(session: Session, raw: HealthRaw, payload: dict, skipped: lis
         if not isinstance(items, list):
             skipped.append(key)
             continue
-        existing = {e.external_id: e for e in session.scalars(select(HealthEvent).where(HealthEvent.owner_id == raw.owner_id, HealthEvent.kind == kind))}
+        ids = [_event_id(i) for i in items if isinstance(i, dict)]
+        existing = {}                                                     # only the events named in this batch, looked up in chunks
+        for n in range(0, len(ids), 500):
+            existing.update({e.external_id: e for e in session.scalars(select(HealthEvent).where(
+                HealthEvent.owner_id == raw.owner_id, HealthEvent.kind == kind, HealthEvent.external_id.in_(ids[n:n + 500])))})
         for item in items:
             if not isinstance(item, dict):
                 skipped.append(key)
@@ -173,6 +185,7 @@ def import_raw(session: Session, raw: HealthRaw) -> int:
         if not isinstance(metrics, list):
             skipped.append("metrics")
             metrics = []
+        skipped += [f"unknown: {k}" for k, v in payload.items() if k != "metrics" and k not in EVENT_KEYS and isinstance(v, (list, dict))]   # kept raw, flagged for a look
         written = _import_readings(session, raw, metrics, _grain(raw), skipped)
         _import_events(session, raw, payload, skipped)
         note = f"{len(skipped)} item(s) skipped: {', '.join(sorted(set(skipped)))}"[:300] if skipped else None
