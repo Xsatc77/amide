@@ -345,13 +345,29 @@
 </section>
 {% endif %}
 
+{% if apple_card %}
 <section class="card dash-panel dash-area-integrations" aria-labelledby="integrations-heading">
   <div class="panel-head">
     {{ panel_icon('link') }}
-    <h2 id="integrations-heading" class="section-title">Health App Integrations</h2>
+    <h2 id="integrations-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=apple">Apple Health</a></h2>
   </div>
-  <p class="muted">Coming in a future update.</p>
+  {% if apple_card.state == 'live' %}
+  <p class="small muted">Last data received {{ apple_card.ago }}.</p>
+  {% if apple_card.figures %}
+  <ul class="apple-glance">
+    {% for f in apple_card.figures %}<li><strong>{{ f.value }}</strong>{% if f.unit %} {{ f.unit }}{% endif %} <span class="muted">{{ f.label | lower }}</span></li>{% endfor %}
+  </ul>
+  {% else %}<p class="muted">Nothing from today yet.</p>{% endif %}
+  <p><a class="btn" href="/measurements?tab=apple">Open the Apple tab</a> <a class="btn btn-ghost" href="/settings#integrations">Settings</a></p>
+  {% elif apple_card.state == 'waiting' %}
+  <p class="muted">Your token is ready, but nothing has arrived from the phone yet. Run Manual Export in Health Auto Export to test.</p>
+  <p><a class="btn" href="/settings#integrations">Setup steps</a></p>
+  {% else %}
+  <p class="muted">Send your iPhone's Apple Health data to Amide with the Health Auto Export app: steps, weight, water, sleep and more, charted on the Body page.</p>
+  <p><a class="btn" href="/settings#integrations">Set up Apple Health</a></p>
+  {% endif %}
 </section>
+{% endif %}
 
 </div>
 {% endblock %}

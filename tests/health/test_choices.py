@@ -162,7 +162,7 @@ def test_a_page_for_someone_with_no_data_runs_one_health_query_at_most(client, d
             seen.append(statement)
     event.listen(engine, "before_cursor_execute", record)
     try:
-        client.get("/dashboard")
+        client.get("/today")
     finally:
         event.remove(engine, "before_cursor_execute", record)
     assert len(seen) <= 1 and not any("GROUP BY" in q or "DISTINCT" in q for q in seen)
@@ -229,7 +229,7 @@ def test_a_person_with_many_readings_runs_no_scan_on_an_ordinary_page(client, db
         seen.clear()
         event.listen(engine, "before_cursor_execute", record)
         try:
-            page = client.get("/dashboard").text
+            page = client.get("/today").text
         finally:
             event.remove(engine, "before_cursor_execute", record)
         assert not any("GROUP BY" in q or "DISTINCT" in q for q in seen), (state, seen)

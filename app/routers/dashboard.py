@@ -15,6 +15,7 @@ from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_l
 from app.inventory import calibrate
 from app.inventory.runout import ALERT_DAYS as RUNOUT_ALERT_DAYS, runs_out
 from app import photo_reminders
+from app.health import dashboard as apple_dashboard
 from app.library.price_lists.analysis import new_peptides
 from app.auth.deps import current_user_id
 from app.calendar.schedule import occurrences
@@ -319,6 +320,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # viewed -- only show it when you're looking at your own dashboard, so it's never mistaken
         # for adding a note to someone else's journal.
         "show_quick_capture": effective_uid == uid,
+        "apple_card": apple_dashboard.card(session, uid, today) if effective_uid == uid else None,          # your own phone's data, never someone else's
     })
 
 

@@ -75,7 +75,8 @@ The Dashboard pulls the day together on one page.
 | **Cost Snapshot** | What your active protocols cost. |
 | **Journal** | A quick note box. |
 | **Weight** | A chart with value lines. Each day's point is labeled with what you lost (green, −) or gained (amber, +) since the day before. Several weigh-ins on one day count once, by the last one. |
-| **Items In Shipment** | Orders on the way, with tracking and a **Check in** button for when they arrive. |
+| **Items In Shipment** | Orders on the way, with the vendor in a yellow tab on the left, tracking, and a **Check in** button for when they arrive. |
+| **Apple Health** | Your own dashboard only. Before setup it offers the setup steps; once data flows it shows when data last arrived and today's steps and walking distance (the ones you switched on), with links to the Apple tab and Settings. |
 
 If someone shares their data with you (Settings, Sharing) you can view their Dashboard from the menu that appears.
 
