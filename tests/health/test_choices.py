@@ -128,7 +128,7 @@ def test_automatic_popup_for_a_new_metric_lists_only_that_one(client, db, me):
     add_reading(db, me, "flights_climbed")
     page = client.get("/dashboard").text
     dialog = page.split('id="health-choices-dialog"')[1].split("</dialog>")[0]
-    assert "data-open-on-load" in page and "New Apple Health data arrived" in dialog and "earlier choices are kept" in dialog
+    assert "data-open-on-load" in page and "New Apple Health Data Arrived" in dialog and "earlier choices are kept" in dialog
     assert 'value="flights_climbed"' in dialog and "step_count" not in dialog and "heart_rate" not in dialog and "1 of 1 on" in dialog
     choices.save_choices(db, me, {"flights_climbed"}, {"flights_climbed"})
     assert choices.is_enabled(db, me, "step_count") and not choices.is_enabled(db, me, "heart_rate")      # earlier choices untouched
@@ -138,7 +138,7 @@ def test_first_popup_lists_everything_with_the_first_title(client, db, me):
     add_reading(db, me, "step_count")
     add_reading(db, me, "heart_rate", unit="bpm")
     dialog = client.get("/dashboard").text.split('id="health-choices-dialog"')[1]
-    assert "Your Apple Health data arrived" in dialog and "step_count" in dialog and "heart_rate" in dialog
+    assert "Your Apple Health Data Arrived" in dialog and "step_count" in dialog and "heart_rate" in dialog
 
 
 def test_manual_list_on_settings_shows_all_and_marks_new_ones(client, db, me):

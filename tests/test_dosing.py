@@ -209,7 +209,7 @@ def test_today_shows_logged_entries_with_an_undo_button(client, db):
         "scheduled_date": date.today().isoformat(),
     })
     t = html.unescape(client.get("/today").text)
-    assert "Logged today" in t and "Retatrutide" in t
+    assert "Logged Today" in t and "Retatrutide" in t
     assert 'action="/today/undo"' in t
 
 
@@ -306,7 +306,7 @@ def test_protocol_page_shows_dose_history(client, db):
         "scheduled_date": date.today().isoformat(),
     }, follow_redirects=False)
     t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
-    assert "Dose history" in t
+    assert "Dose History" in t
     assert "On time" in t
 
 

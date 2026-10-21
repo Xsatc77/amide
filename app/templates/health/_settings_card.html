@@ -3,7 +3,7 @@
   <strong>Apple Health</strong>
   <p class="small muted">Health Auto Export on your iPhone sends your Apple Health data here. Amide keeps every file it receives, so nothing is lost if the reading changes later.</p>
 
-  <h3 class="small muted">1. Create a token</h3>
+  <h3 class="small muted">1. Create A Token</h3>
   {% if health.new_secret %}
   <div class="health-secret">
     <p class="small">Your new token{% if health.new_label %} &ldquo;{{ health.new_label }}&rdquo;{% endif %} is shown only this once. Copy it into the phone app now.</p>
@@ -33,7 +33,7 @@
   </table></div>
   {% endif %}
 
-  <h3 class="small muted">2. Set up the phone app</h3>
+  <h3 class="small muted">2. Set Up The Phone App</h3>
   <ol class="small health-steps">
     <li>In Health Auto Export, create a new automation of type <strong>REST API</strong>.</li>
     <li>For the URL, use this address: <code>{{ health.ingest_url }}</code> <button type="button" class="btn btn-ghost btn-small" data-copy="{{ health.ingest_url }}">Copy</button></li>

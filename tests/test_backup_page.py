@@ -75,7 +75,7 @@ def test_an_administrator_sees_the_whole_installation_option_and_shared_sections
     assert "Whole installation" not in person and 'value="library"' not in person and 'value="vendors"' not in person
     assert 'value="inventory"' in person and 'value="journal"' in person
     share = text_of(other_client.get("/backup?tab=export"))
-    assert "Share non-medical data" in share and 'value="vendors"' not in share and 'value="inventory"' in share
+    assert "Share Non-Medical Data" in share and 'value="vendors"' not in share and 'value="inventory"' in share
 
 
 def test_a_backup_downloads_as_a_new_dated_encrypted_file_of_the_chosen_sections(client, db, me, world):
@@ -124,7 +124,7 @@ def test_opening_a_file_shows_what_is_inside_and_changes_nothing(client, db, me,
     page = open_file(client, blob)
     assert page.status_code == 200
     text = text_of(page)
-    assert "What is in this file" in text and "Inventory" in text and "Journal" in text and "Made by" in text
+    assert "What Is In This File" in text and "Inventory" in text and "Journal" in text and "Made by" in text
     assert "Restore everything" not in text and 'name="token"' in text
     assert "Replace deletes your 5 current rows" in text and "Replace deletes your 3 current rows" in text
     assert person_counts(db, me) == before
@@ -217,7 +217,7 @@ def test_restore_everything_runs_the_restore_and_signs_the_person_out(client, db
     monkeypatch.setattr(backup_restore, "restore_installation", fake)
     r = own.post("/backup/restore", data={"token": token, "confirm": "RESTORE", "safety_passphrase": PASS,
                                            "safety_confirm": PASS})
-    assert r.status_code == 200 and "Everything was restored" in text_of(r) and "amide-safety-test" in r.text
+    assert r.status_code == 200 and "Everything Was Restored" in text_of(r) and "amide-safety-test" in r.text
     assert seen == {"uid": me, "creator": "Tester", "passphrase": PASS}
     assert 'amide_session=""' in r.headers["set-cookie"] or "amide_session=;" in r.headers["set-cookie"]
     again = own.post("/backup/restore", data={"token": token, "confirm": "RESTORE", "safety_passphrase": PASS,

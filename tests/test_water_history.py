@@ -74,7 +74,7 @@ def test_the_food_tab_shows_the_table_with_a_summary(client, db, me):
     add(db, me, 2, 95, goal=100)
     try:
         page = client.get("/measurements?tab=food").text
-        assert "last 14 days" in page and "1 of 13" in page and "Compliant" in page
+        assert "Last 14 Days" in page and "1 of 13" in page and "Compliant" in page
     finally:
         db.query(BodyMeasurement).delete()
         db.commit()

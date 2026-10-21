@@ -62,7 +62,7 @@ def test_a_flagged_peptide_gets_tape_in_the_library_and_a_note_on_its_page(clien
         pytest.skip("no semaglutide card in the test library")
     assert "caution-tape" not in client.get(f"/library/{pid}").text.split("<style")[0].split('class="lib-layout"')[-1]
     client.post("/settings/medicines", data={"name": "Metformin"})
-    assert "Caution with your medicines" in client.get(f"/library/{pid}").text
+    assert "Caution With Your Medicines" in client.get(f"/library/{pid}").text
     assert "caution-tape" in client.get("/library").text
 
 

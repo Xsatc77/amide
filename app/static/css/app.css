@@ -493,7 +493,7 @@ section + section { margin-top: 36px; }
      Workouts / Body / Adherence
      Water    / Body / Cost
      Journal  / Body / Weight
-     .        / Integrations / .
+     Integrations (the full width)
    Falls back to a plain stacked column (DOM order) below 900px, since a 3-column arrangement
    this specific has no sensible narrow-screen equivalent. */
 .dashboard-layout {
@@ -506,7 +506,7 @@ section + section { margin-top: 36px; }
     "water body cost"
     "journal body weight"
     "shipment shipment shipment"
-    ".  integrations .";
+    "integrations integrations integrations";
 }
 /* Every direct child stretches to fill both its row's height and its column's width (the grid
    default), which is what keeps each left/right pair (Schedule+Alerts, Workouts+Adherence,
@@ -530,6 +530,9 @@ section + section { margin-top: 36px; }
 .dash-area-weight { grid-area: weight; }
 .dash-area-shipment { grid-area: shipment; }
 .dash-area-integrations { grid-area: integrations; }
+.apple-card-body { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+.apple-card-body > .card { margin: 0; }
+@media (max-width: 720px) { .apple-card-body { grid-template-columns: minmax(0, 1fr); } }
 .apple-glance { list-style: none; margin: 4px 0 12px; padding: 0; display: grid; gap: 4px; }
 .apple-glance strong { font-size: 1.4rem; }
 

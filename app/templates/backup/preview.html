@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>What is in this file</h1>
+    <h1>What Is In This File</h1>
     <p class="muted">Nothing has been changed yet.</p>
   </div>
 </div>
@@ -24,7 +24,7 @@
 </section>
 
 <form method="post" action="/backup/load" class="builder-step backup-form" style="margin-top: 16px;">
-  <h2 class="section-title">Load sections</h2>
+  <h2 class="section-title">Load Sections</h2>
   <p class="muted small">Tick what to load. <strong>Add</strong> keeps what you have and adds the file's rows (rows that would duplicate something, such as a second journal entry for the same day, are skipped). <strong>Replace</strong> deletes your current rows in that section first and makes it match the file.</p>
   <input type="hidden" name="token" value="{{ token }}">
   <div class="table-wrap">
@@ -57,7 +57,7 @@
 
 {% if can_restore %}
 <form method="post" action="/backup/restore" class="builder-step backup-form" style="margin-top: 16px;" data-restore-form>
-  <h2 class="section-title">Restore everything</h2>
+  <h2 class="section-title">Restore Everything</h2>
   <div class="alert" role="alert">This <strong>deletes all current data</strong> (every account, inventory, logs, vendors, price lists, the library and every uploaded file) and rebuilds it from this file. Everyone is signed out afterwards. Before anything is deleted, a safety backup of what is there now is saved on this computer in the <code>data/backups</code> folder, protected by the passphrase below.</div>
   <input type="hidden" name="token" value="{{ token }}">
   <div class="grid">

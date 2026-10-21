@@ -513,7 +513,7 @@ def test_edit_item_from_detail_page_updates_and_rerenders_on_error(client, db):
     assert "Item name is required" in t
     assert "data-open-on-load" in t
     assert 'id="item-edit-dialog"' in t
-    assert 'Order history' in t  # confirms detail.html rendered, not list.html
+    assert 'Order History' in t  # confirms detail.html rendered, not list.html
 
 
 # ---------------------------------------------------------------- Task 5: Order History section
@@ -969,7 +969,7 @@ def test_detail_page_shows_sold_button_and_dialog_for_medicine(client, db):
     assert 'data-action="sold"' in t
     assert 'id="sale-dialog"' in t
     assert 'name="include_bac_water"' in t
-    assert 'Sale history' in t
+    assert 'Sale History' in t
 
 
 def test_detail_page_shows_sold_button_for_bac_water_without_bundle_checkbox(client, db):
@@ -1004,7 +1004,7 @@ def test_sale_history_lists_committed_sales(client, db):
     client.post(f"/inventory/{item_id}/sales", data={"sale_date": "2026-09-25", "quantity": "3", "price": "150.00"},
                follow_redirects=False)
     t = html.unescape(client.get(f"/inventory/{item_id}").text)
-    assert "Sale history" in t
+    assert "Sale History" in t
     assert "$150.00" in t
 
 

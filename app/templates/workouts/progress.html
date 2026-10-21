@@ -46,18 +46,18 @@
 <section class="side-box">
   <h2 class="section-title">{{ chosen }}</h2>
   {% if load_chart %}
-  <h3 class="small muted">Top load</h3>
+  <h3 class="small muted">Top Load</h3>
   {{ line_chart(load_chart, 'Top load of ' ~ chosen, '%.0f ' ~ u.load_label) }}
   {% endif %}
   {% if volume_chart %}
-  <h3 class="small muted">Total volume per session</h3>
+  <h3 class="small muted">Total Volume Per Session</h3>
   {{ line_chart(volume_chart, 'Total volume of ' ~ chosen, '%.0f') }}
   {% endif %}
   {% if not load_chart and not volume_chart %}<p class="muted">No loads or volume logged for {{ chosen }} in this range.</p>{% endif %}
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">Weekly volume by body area</h2>
+  <h2 class="section-title">Weekly Volume By Body Area</h2>
   {% if weekly %}
   <ul class="price-legend">{% for area, color in area_colors.items() %}<li><span class="swatch" style="background: {{ color }}"></span>{{ area }}</li>{% endfor %}</ul>
   <svg class="price-chart wk-chart" viewBox="0 0 {{ weekly.width }} {{ weekly.height }}" role="img" aria-label="Weekly training volume by body area">
@@ -77,7 +77,7 @@
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">Where the burn comes from</h2>
+  <h2 class="section-title">Where The Burn Comes From</h2>
   {% if ring %}
   <div class="burn-split">
     <svg viewBox="0 0 {{ ring.size }} {{ ring.size }}" class="burn-ring" role="img" aria-label="Estimated net calories by equipment">
@@ -88,7 +88,7 @@
       {% for s in ring.slices %}<li><span class="swatch" style="background: {{ equipment_colors[s.name] }}"></span>{{ s.name }} &middot; {{ n(s.value | round | int) }} kcal ({{ (s.share * 100) | round | int }}%)</li>{% endfor %}
     </ul>
   </div>
-  <h3 class="small muted">Most estimated burn</h3>
+  <h3 class="small muted">Most Estimated Burn</h3>
   <ol class="hbars">
     {% for name, kcal, pct in top %}
     <li><span class="hbar-name">{{ name }}</span><span class="hbar-track"><span class="hbar-fill" style="width: {{ pct }}%"></span></span><strong>{{ n(kcal | round | int) }} kcal</strong></li>
@@ -99,7 +99,7 @@
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">Personal records</h2>
+  <h2 class="section-title">Personal Records</h2>
   <div class="table-wrap">
     <table class="inv-table">
       <thead><tr><th>Exercise</th><th>Heaviest load</th><th>Most reps in a set</th><th>Biggest session volume</th></tr></thead>

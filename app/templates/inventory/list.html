@@ -115,7 +115,7 @@
 
 {% if label_vial %}
 <dialog id="label-dates-dialog" class="dialog" data-open-on-load aria-labelledby="label-dates-title">
-  <header class="dialog-head"><h2 id="label-dates-title">Put these dates on your label</h2></header>
+  <header class="dialog-head"><h2 id="label-dates-title">Put These Dates On Your Label</h2></header>
   <div class="dialog-body">
     <p><strong>{{ label_vial.inventory_item.name }}</strong></p>
     <p>Reconstituted: <strong>{{ label_vial.date_mixed | shortdate }}</strong></p>
@@ -225,7 +225,7 @@
 {{ item_table('supplies', 'Supplies', supply_rows, false) }}
 
 <section id="in-transit" aria-labelledby="in-transit-heading">
-  <h2 id="in-transit-heading" class="section-title">In-transit <a class="btn btn-small" href="/inventory/orders">Track orders</a></h2>
+  <h2 id="in-transit-heading" class="section-title">In-Transit <a class="btn btn-small" href="/inventory/orders">Track Orders</a></h2>
   {% if in_transit_groups %}
   <div class="table-wrap">
     <table class="inv-table">
@@ -404,7 +404,7 @@
     </fieldset>
 
     <fieldset class="form-section" data-category-group="order">
-      <legend>First order</legend>
+      <legend>First Order</legend>
       <div class="grid">
         <label {{ cls('quantity') }}>
           <span>Quantity</span>
@@ -519,7 +519,7 @@
 <dialog id="new-order-dialog" class="dialog" {% if new_order_errors %}data-open-on-load{% endif %}>
   <form method="post" enctype="multipart/form-data" class="item-form" action="/inventory/orders" novalidate>
     <header class="dialog-head">
-      <h2 data-title>New order</h2>
+      <h2 data-title>New Order</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-new-order" aria-label="Close">×</button>
     </header>
 
@@ -529,7 +529,7 @@
     {{ noerr('lines') }}
 
     <fieldset class="form-section">
-      <legend>Order details</legend>
+      <legend>Order Details</legend>
       <div class="grid">
         <label {{ nocls('order_date') }}><span>Order date</span><input name="order_date" type="date" value="{{ nof.order_date or today_iso }}">{{ noerr('order_date') }}</label>
         <label {{ nocls('shipped_date') }}><span>Shipped date</span><input name="shipped_date" type="date" value="{{ nof.shipped_date }}">{{ noerr('shipped_date') }}</label>
@@ -560,7 +560,7 @@
         </label>
 
         <fieldset class="form-section" data-staleness-prompt hidden>
-          <legend>Price list still current?<span data-staleness-date></span></legend>
+          <legend>Price List Still Current?<span data-staleness-date></span></legend>
           <div class="chips" role="radiogroup" aria-label="Price list still current">
             <label class="chip-radio"><input type="radio" name="price_list_current" value="yes" {{ 'checked' if nof.price_list_current != 'no' }} data-price-list-current-radio> Yes</label>
             <label class="chip-radio"><input type="radio" name="price_list_current" value="no" {{ 'checked' if nof.price_list_current == 'no' }} data-price-list-current-radio> No, replace it</label>
@@ -575,7 +575,7 @@
       </div>
 
       <fieldset class="form-section" data-vendor-group="new" hidden>
-        <legend>New vendor profile</legend>
+        <legend>New Vendor Profile</legend>
         <div class="grid">
           <label {{ nocls('name', 'span-2') }}><span>Vendor name <em>*</em></span><input name="name" maxlength="200" value="{{ nof.name }}">{{ noerr('name') }}</label>
           <label {{ nocls('website') }}><span>Website</span><input name="website" type="url" maxlength="300" placeholder="https://..." value="{{ nof.website }}">{{ noerr('website') }}</label>
@@ -612,7 +612,7 @@
         <button type="button" class="btn btn-ghost" data-action="add-vendor-contact-row">+ Add another contact method</button>
 
         <fieldset class="form-section">
-          <legend>Payment methods accepted</legend>
+          <legend>Payment Methods Accepted</legend>
           <div class="chips">
             {% for t in payment_types %}
             <label class="chip-checkbox">
@@ -740,7 +740,7 @@
 <script type="application/json" id="inv-rules">{{ medium_rules | tojson }}</script>
 
 <dialog id="duplicate-vial-check" class="dialog">
-  <div class="dialog-head"><h3>You already have an open vial of <span data-fill="item-name"></span></h3></div>
+  <div class="dialog-head"><h3>You Already Have An Open Vial Of <span data-fill="item-name"></span></h3></div>
   <div class="form-section">
     <p class="small muted" data-fill="existing-summary"></p>
     <p class="small muted">Reconstitute a new one anyway?</p>
@@ -752,7 +752,7 @@
 </dialog>
 
 <dialog id="expiry-prompt" class="dialog">
-  <div class="dialog-head"><h3><span data-fill="item-name"></span> passed its discard-by date</h3></div>
+  <div class="dialog-head"><h3><span data-fill="item-name"></span> Passed Its Discard-By Date</h3></div>
   <div class="form-section"><p class="small muted">Discard it?</p></div>
   <div class="dialog-foot">
     <button type="button" class="btn btn-primary" data-action="expiry-discard">Discard</button>
@@ -761,7 +761,7 @@
 </dialog>
 
 <dialog id="reconstitute-again-prompt" class="dialog">
-  <div class="dialog-head"><h3>Reconstitute a new one now?</h3></div>
+  <div class="dialog-head"><h3>Reconstitute A New One Now?</h3></div>
   <div class="dialog-foot">
     <button type="button" class="btn btn-primary" data-action="reconstitute-again-yes">Yes</button>
     <button type="button" class="btn" data-action="reconstitute-again-no">No</button>

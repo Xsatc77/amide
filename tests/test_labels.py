@@ -141,15 +141,15 @@ def test_reconstituting_shows_the_dates_to_put_on_the_label(client, db, world):
         vial_id = vial.id
     assert r.status_code == 303 and r.headers["location"] == f"/inventory?labels={vial_id}#active-vials"
     page = text(client.get(f"/inventory?labels={vial_id}"))
-    assert "Put these dates on your label" in page
-    assert TODAY.strftime("%m/%d/%Y") in page.split("Put these dates on your label")[1] and (TODAY + timedelta(days=28)).strftime("%m/%d/%Y") in page.split("Put these dates on your label")[1]
+    assert "Put These Dates On Your Label" in page
+    assert TODAY.strftime("%m/%d/%Y") in page.split("Put These Dates On Your Label")[1] and (TODAY + timedelta(days=28)).strftime("%m/%d/%Y") in page.split("Put These Dates On Your Label")[1]
     assert f"/active-vials/{vial_id}/label" in page
-    assert "Put these dates on your label" not in client.get("/inventory").text
+    assert "Put These Dates On Your Label" not in client.get("/inventory").text
 
 
 def test_the_dialog_ignores_a_vial_that_is_not_yours(client, db, world):
     with other_client("labelother2") as member:
-        assert "Put these dates on your label" not in text(member.get("/inventory?labels=1"))
+        assert "Put These Dates On Your Label" not in text(member.get("/inventory?labels=1"))
 
 
 def test_a_single_vial_label_has_the_dates_and_concentration_filled_in(client, db, world):

@@ -99,7 +99,7 @@
   root.appendChild(picture);
 
   var back = el("div", { class: "learn-sy-back" });
-  back.appendChild(el("h4", {}, "Working backward"));
+  back.appendChild(el("h4", {}, "Working Backward"));
   back.appendChild(el("p", {}, "Say a label or a note tells you an amount in mg, and you want to know how many units that is for each vial."));
   var wantedInput = number(state.wanted, 0, 100, "any", function (v) { state.wanted = v; update(); });
   back.appendChild(field("Amount wanted (mg)", wantedInput));

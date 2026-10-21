@@ -41,7 +41,7 @@
 <dialog id="item-edit-dialog" class="dialog" {% if form %}data-open-on-load{% endif %}>
   <form method="post" class="item-form" action="/inventory/{{ item.id }}" novalidate>
     <header class="dialog-head">
-      <h2 data-title>Edit item</h2>
+      <h2 data-title>Edit Item</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-item-edit" aria-label="Close">×</button>
     </header>
 
@@ -193,7 +193,7 @@
 
 {% if item.category.value != 'Supply' or item.order_items %}
 <section aria-labelledby="orders-heading">
-  <h2 id="orders-heading" class="section-title">Order history</h2>
+  <h2 id="orders-heading" class="section-title">Order History</h2>
   {% if is_owner and item.category.value != 'Supply' %}
   <button type="button" class="btn btn-ghost" data-action="add-order">Add order</button>
   {% elif is_owner %}
@@ -296,7 +296,7 @@
 <dialog id="checkin-dialog" class="dialog" {% if checkin_errors %}data-open-on-load{% endif %}>
   <form method="post" class="item-form" novalidate action="#">
     <header class="dialog-head">
-      <h2 data-title>Check in order</h2>
+      <h2 data-title>Check In Order</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-checkin" aria-label="Close">×</button>
     </header>
     <div class="alert" role="alert" data-checkin-alert hidden>Please fix the highlighted fields.</div>
@@ -319,7 +319,7 @@
 
 {% if item.category.value != 'Supply' %}
 <section aria-labelledby="sales-heading">
-  <h2 id="sales-heading" class="section-title">Sale history</h2>
+  <h2 id="sales-heading" class="section-title">Sale History</h2>
   {% if is_owner %}
   <button type="button" class="btn btn-ghost" data-action="sold"
           {% if item.available_count <= 0 %}disabled title="Nothing available to sell"{% endif %}>Sold</button>

@@ -22,7 +22,7 @@
       <h2 class="section-title">User</h2>
 
       <form method="post" action="/settings/username" class="settings-form" novalidate>
-        <h3 class="small muted">Change username</h3>
+        <h3 class="small muted">Change Username</h3>
         <div class="grid">
           <label class="field {{ 'has-error' if errors.username }}">
             <span>New username</span>
@@ -39,7 +39,7 @@
       </form>
 
       <form method="post" action="/settings/password" class="settings-form" novalidate>
-        <h3 class="small muted">Change password</h3>
+        <h3 class="small muted">Change Password</h3>
         <div class="grid">
           <label class="field {{ 'has-error' if errors.password_current_password }}">
             <span>Current password</span>
@@ -61,7 +61,7 @@
       </form>
 
       <div class="settings-form">
-        <h3 class="small muted">Two-factor authentication</h3>
+        <h3 class="small muted">Two-Factor Authentication</h3>
         <p>Status: <span class="status {{ 'status-active' if me.totp_enabled else '' }}">{{ 'On' if me.totp_enabled else 'Off' }}</span></p>
         <a class="btn" href="/account/2fa">Manage two-factor authentication</a>
       </div>
@@ -114,7 +114,7 @@
       </form>
 
       <form method="post" action="/settings/discard-window" class="settings-form" novalidate>
-        <h3 class="small muted">Default discard window</h3>
+        <h3 class="small muted">Default Discard Window</h3>
         <p class="small muted">How many days after reconstituting a vial it defaults to expiring. You can still change it per vial when you reconstitute.</p>
         <label class="field {{ 'has-error' if errors.default_discard_days }}">
           <span>Days</span>
@@ -126,7 +126,7 @@
       </form>
 
       <form method="post" action="/settings/dashboard-thresholds" class="settings-form" novalidate>
-        <h3 class="small muted">Dashboard alert defaults</h3>
+        <h3 class="small muted">Dashboard Alert Defaults</h3>
         <p class="small muted">Used when an item doesn't have its own low-stock number set, and for
           flagging a shipment that's taking longer than usual.</p>
         <label class="field {{ 'has-error' if errors.low_stock_default }}">
@@ -145,7 +145,7 @@
       </form>
 
       <div class="settings-form" id="reminders">
-        <h3 class="small muted">Dose reminders (ntfy)</h3>
+        <h3 class="small muted">Dose Reminders (ntfy)</h3>
         <p class="small muted">Amide can push a message to your phone when a dose is due and not yet logged, at the time of day set on the protocol (Fasting 6:30, Waking 7:00, AM 8:00, Pre-workout 4:30 PM, Post-workout 6:30 PM, PM 8:00 PM, Before bed 9:30 PM, Bedtime 10:00 PM; &ldquo;Any time&rdquo; doses get no reminder), in your own time zone. Install the free <strong>ntfy</strong> app and subscribe to your topic. <strong>This is the one thing Amide sends to the outside on its own</strong>: a short message (peptide and dose) to {{ ntfy_server }}.</p>
         <form method="post" action="/settings/reminders" novalidate>
           <label class="field check-field"><input type="checkbox" name="ntfy_enabled" value="1" {{ 'checked' if me.ntfy_enabled }}><span>Send me dose reminders and body-photo reminders (9:00 AM)</span></label>
@@ -157,7 +157,7 @@
       </div>
 
       <div class="settings-form" id="usda">
-        <h3 class="small muted">USDA food search</h3>
+        <h3 class="small muted">USDA Food Search</h3>
         <p class="small muted">Paste a free <a href="https://fdc.nal.usda.gov/api-key-signup.html" target="_blank" rel="noopener">FoodData Central key</a> to add <strong>Search the USDA database</strong> to the Add food dialog. Amide contacts USDA only when you press Search there, and sends the words you typed and the key. The key is kept with your account and is never shown again or included in your exports.</p>
         {% if me.usda_api_key %}<p class="small">A key is saved for your account.</p>{% endif %}
         <form method="post" action="/settings/usda-key" novalidate>
@@ -169,7 +169,7 @@
       </div>
 
       <div class="settings-form" id="calendar-feed">
-        <h3 class="small muted">Subscribe to your calendar</h3>
+        <h3 class="small muted">Subscribe To Your Calendar</h3>
         <p class="small muted">A private address your phone or computer calendar (Apple, Google, Outlook) can subscribe to. Every dose due in the next three months shows up at its time of day, with a pop-up alert. Anyone with the address can read your dose schedule, so keep it to yourself; making a new one cancels the old one.</p>
         {% if calendar_feed_url %}
         <label class="field"><span>Address</span><input type="text" readonly value="{{ calendar_feed_url }}" onclick="this.select()"></label>
@@ -181,7 +181,7 @@
       </div>
 
       <form method="post" action="/settings/labels" class="settings-form" novalidate>
-        <h3 class="small muted">Vial labels</h3>
+        <h3 class="small muted">Vial Labels</h3>
         <p class="small muted">When you check in an order, a page of vial labels (name, size, lot, blank boxes for the reconstitution and expiry dates, "Research Use Only") opens and your browser's print window appears by itself.</p>
         <label class="field check-field"><input type="checkbox" name="auto_print_labels" value="1" {{ 'checked' if me.auto_print_labels }}><span>Print labels automatically on check-in</span></label>
         <label class="field {{ 'has-error' if errors.label_size }}">
@@ -191,7 +191,7 @@
         </label>
         {% set L = me.label_layout or {} %}
         <fieldset class="form-section" id="custom-labels">
-          <legend>Custom sheet</legend>
+          <legend>Custom Sheet</legend>
           <p class="small muted">Used when the size above is &ldquo;Custom sheet&rdquo;. Everyone prints on different labels, so enter the numbers from your label maker's template
             (for Avery, the template on their website lists the page margins, label size and pitch). Pitch is the distance from the edge of one label to the same edge of
             the next. Numbers already saved are shown in inches. Use <strong>Print a test sheet</strong> to check the alignment on plain paper.</p>
@@ -232,7 +232,7 @@
       </form>
 
       <form method="post" action="/settings/body-profile" class="settings-form" novalidate>
-        <h3 class="small muted">Body profile</h3>
+        <h3 class="small muted">Body Profile</h3>
         <p class="small muted">Used by the macro calculator to estimate your calorie and macro targets.</p>
         <div class="grid">
           <label class="field {{ 'has-error' if errors.sex }}">
@@ -336,7 +336,7 @@
       </form>
 
       <div class="settings-form">
-        <h3 class="small muted">Backup &amp; restore</h3>
+        <h3 class="small muted">Backup &amp; Restore</h3>
         <p class="small muted">Back up, export, share and restore your data, in encrypted files.</p>
         <p class="small muted" id="auto-backup-status">{{ 'Automatic backups are on: an encrypted whole-installation backup is written to data/backups every ' ~ auto_backup_days ~ ' days and the newest ' ~ auto_backup_keep ~ ' are kept. Copy that folder somewhere safe.' if auto_backup_on else 'Automatic backups are off. Whoever runs Amide can turn them on with AMIDE_BACKUP_PASSPHRASE (see docs/DEPLOYING.md).' }}</p>
         <a class="btn" href="/backup">Go to Backup &amp; restore</a>
@@ -453,7 +453,7 @@
       <p><a class="btn" href="/settings/ingest">Price list inbox</a> <span class="muted small">&mdash; price lists the watcher found in chat groups, and the tokens it uses</span></p>
 
       <form method="post" action="/settings/admin/users/new" class="settings-form inline-form" novalidate>
-        <h3 class="small muted">Add a new user</h3>
+        <h3 class="small muted">Add A New User</h3>
         <div class="grid">
           <label class="field {{ 'has-error' if errors.new_username }}">
             <span>Username</span>
@@ -537,7 +537,7 @@
 
 <dialog id="delete-user-step2" class="dialog">
   <form method="post" data-delete-form>
-    <div class="dialog-head"><h3>Really delete <span data-fill="username"></span>?</h3></div>
+    <div class="dialog-head"><h3>Really Delete <span data-fill="username"></span>?</h3></div>
     <div class="form-section">
       <p class="small muted">Type the username exactly to confirm. This permanently deletes their inventory, COAs, and protocols.</p>
       <label class="field">

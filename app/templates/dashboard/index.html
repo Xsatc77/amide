@@ -243,7 +243,7 @@
 <dialog id="water-dialog" class="dialog">
   <form method="post" action="/dashboard/water/log">
     <header class="dialog-head">
-      <h2>Log water</h2>
+      <h2>Log Water</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
     <div class="water-quick-picks">
@@ -352,13 +352,18 @@
     <h2 id="integrations-heading" class="section-title"><a class="panel-title-link" href="/measurements?tab=apple">Apple Health</a></h2>
   </div>
   {% if apple_card.state == 'live' %}
-  <p class="small muted">Last data received {{ apple_card.ago }}.</p>
-  {% if apple_card.figures %}
-  <ul class="apple-glance">
-    {% for f in apple_card.figures %}<li><strong>{{ f.value }}</strong>{% if f.unit %} {{ f.unit }}{% endif %} <span class="muted">{{ f.label | lower }}</span></li>{% endfor %}
-  </ul>
-  {% else %}<p class="muted">Nothing from today yet.</p>{% endif %}
-  <p><a class="btn" href="/measurements?tab=apple">Open the Apple tab</a> <a class="btn btn-ghost" href="/settings#integrations">Settings</a></p>
+  <div class="apple-card-body">
+    <div>
+      <p class="small muted">Last data received {{ apple_card.ago }}.</p>
+      {% if apple_card.figures %}
+      <ul class="apple-glance">
+        {% for f in apple_card.figures %}<li><strong>{{ f.value }}</strong>{% if f.unit %} {{ f.unit }}{% endif %} <span class="muted">{{ f.label | lower }}</span></li>{% endfor %}
+      </ul>
+      {% else %}<p class="muted">Nothing from today yet.</p>{% endif %}
+      <p><a class="btn" href="/measurements?tab=apple">Open the Apple tab</a> <a class="btn btn-ghost" href="/settings#integrations">Settings</a></p>
+    </div>
+    {% if apple_card.chart %}{{ line_chart(apple_card.chart, 'Walking And Running Distance' ~ (' (' ~ apple_card.chart_unit ~ ')' if apple_card.chart_unit else '')) }}{% endif %}
+  </div>
   {% elif apple_card.state == 'waiting' %}
   <p class="muted">Your token is ready, but nothing has arrived from the phone yet. Run Manual Export in Health Auto Export to test.</p>
   <p><a class="btn" href="/settings#integrations">Setup steps</a></p>

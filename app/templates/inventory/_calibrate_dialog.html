@@ -4,7 +4,7 @@
 <dialog id="calibrate-dialog" class="dialog dialog-wide" data-open-on-load aria-labelledby="calibrate-title">
   <form method="post" action="/active-vials/calibrate" class="settings-form" novalidate>
     <input type="hidden" name="next" value="{{ calibrate_next }}">
-    <header class="dialog-head"><h2 id="calibrate-title">How much is in your open vials?</h2></header>
+    <header class="dialog-head"><h2 id="calibrate-title">How Much Is In Your Open Vials?</h2></header>
     <p class="muted small" style="padding: 0 20px;">These vials were open before Amide could track what is in them, so their gauges are estimates. Tell Amide how each was mixed and what has come out,
       and the gauge and the "doses left" count become exact. You can skip this and update a vial later from its card.</p>
     {% for c in calibrate_vials %}

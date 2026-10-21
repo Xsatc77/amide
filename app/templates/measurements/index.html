@@ -107,7 +107,7 @@
       {% endfor %}
       <div class="overview-chart-panel" data-metric="nutrition" data-range-ring{{ '' if not shown.done else ' hidden' }}>
         <div class="card nutrition-range">
-          <h3>Nutrition over {{ charts.range_labels[charts.range] | lower }}</h3>
+          <h3>Nutrition Over {{ charts.range_labels[charts.range] | lower }}</h3>
           {% if nutrition_range %}
           {{ macro_ring(nutrition_range.ring, 'Protein, carbs, fat and fiber eaten over ' ~ (charts.range_labels[charts.range] | lower), nutrition_range.days) }}
           <p class="muted small">{{ nutrition_range.days_logged }} day{{ '' if nutrition_range.days_logged == 1 else 's' }} with food logged. "A day" is the average over those days.</p>
@@ -138,7 +138,7 @@
 </div>
 
 <section class="card scale-section" id="scale-section" aria-labelledby="scale-heading">
-  <h2 id="scale-heading" class="section-title">Body composition from your scale</h2>
+  <h2 id="scale-heading" class="section-title">Body Composition From Your Scale</h2>
   {% if scale_import %}<div class="alert alert-ok" role="status">{{ scale_import.imported or 0 }} reading{{ '' if scale_import.imported == 1 else 's' }} imported{% if scale_import.skipped %}, {{ scale_import.skipped }} already there{% endif %}{% if scale_import.unread %}, {{ scale_import.unread }} row{{ '' if scale_import.unread == 1 else 's' }} could not be read{% endif %}.</div>{% endif %}
   {% if errors.scale_import %}<div class="alert" role="alert">{{ errors.scale_import }}</div>{% endif %}
   {% if scale_latest %}
@@ -279,7 +279,7 @@
 </dialog>
 
 <section aria-labelledby="entries-heading">
-  <h2 id="entries-heading" class="section-title">Recent entries</h2>
+  <h2 id="entries-heading" class="section-title">Recent Entries</h2>
   {% if not entries %}
   <div class="empty">
     <p><strong>No measurements logged yet.</strong></p>
@@ -315,7 +315,7 @@
 
 {% if shared_views %}
 <section aria-labelledby="shared-heading">
-  <h2 id="shared-heading" class="section-title">Shared with you</h2>
+  <h2 id="shared-heading" class="section-title">Shared With You</h2>
   <div class="table-wrap">
     <table class="inv-table">
       <thead>
@@ -352,7 +352,7 @@
 
 {% if water %}
 <section aria-labelledby="water-heading">
-  <h2 id="water-heading" class="section-title">Water goal</h2>
+  <h2 id="water-heading" class="section-title">Water Goal</h2>
   <p>
     <strong>{{ u.volume(water.goal_oz) }} {{ u.volume_label }}/day</strong>
     <span class="muted">(about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups per hour, or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles per hour, to pace it over 16 waking hours)</span>
@@ -365,7 +365,7 @@
 
 {% if water_history %}
 <section aria-labelledby="water-history-heading">
-  <h2 id="water-history-heading" class="section-title">Water against your goal, last 14 days</h2>
+  <h2 id="water-history-heading" class="section-title">Water Against Your Goal, Last 14 Days</h2>
   {% if not me.timezone %}<p class="alert" role="note">No time zone is set, so each day follows the server's clock, not yours. Water logged in the evening can land on the next day. Set your time zone in <a href="/settings">Settings</a>.</p>{% endif %}
   <p class="muted small">A day is compliant at 90% or more of that day's goal. Today is still open, so it is not counted yet. <strong>{{ water_summary.compliant }} of {{ water_summary.days }}</strong> finished days were compliant.</p>
   <div class="table-wrap">
@@ -389,7 +389,7 @@
 
 {% if water_entries %}
 <section aria-labelledby="water-log-heading">
-  <h2 id="water-log-heading" class="section-title">Water log, last 30 days</h2>
+  <h2 id="water-log-heading" class="section-title">Water Log, Last 30 Days</h2>
   <ul class="water-log">
     {% for w in water_entries %}
     <li><span>{{ w.logged_at | shortdate }}: {{ u.volume(w.ounces) }} {{ u.volume_label }}</span>
@@ -436,7 +436,7 @@
 <dialog id="journal-photo-dialog" class="dialog"{{ ' open' if journal_photo_error }}>
   <form method="post" action="/journal/photos" enctype="multipart/form-data" class="settings-form">
     <header class="dialog-head">
-      <h2>Add a photo</h2>
+      <h2>Add A Photo</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-journal-photo" aria-label="Close">&times;</button>
     </header>
     <p class="muted small">A picture to keep with a day: something that caught your attention, a motivating photo, a scale report. Private to you; location and camera data are removed.</p>
@@ -454,7 +454,7 @@
   <form method="post" action="/journal/entries" class="settings-form" novalidate>
     <input type="hidden" name="entry_date" value="{{ journal_form_date.isoformat() }}">
     <header class="dialog-head">
-      <h2>{% if journal_form_is_today %}Today's entry{% else %}Entry for {{ journal_form_date | shortdate }}{% endif %}</h2>
+      <h2>{% if journal_form_is_today %}Today's Entry{% else %}Entry For {{ journal_form_date | shortdate }}{% endif %}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
 
@@ -483,7 +483,7 @@
     </div>
 
     <fieldset class="form-section">
-      <legend>Side effects</legend>
+      <legend>Side Effects</legend>
       {{ err('side_effects') }}
       <div class="chips">
         {% for se in journal_side_effects %}
@@ -528,7 +528,7 @@
     {% endif %}
 
     <fieldset class="form-section">
-      <legend>Today's doses</legend>
+      <legend>Today's Doses</legend>
       {% if not today_doses %}
       <p class="muted">No doses logged today.</p>
       {% else %}
@@ -551,7 +551,7 @@
 <dialog id="workout-log-dialog" class="dialog">
   <form method="get" action="/workouts/log" class="settings-form">
     <header class="dialog-head">
-      <h2>Log a workout</h2>
+      <h2>Log A Workout</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-workout-log" aria-label="Close">&times;</button>
     </header>
     {% if workout_day_options %}
@@ -715,7 +715,7 @@
 <dialog id="lab-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
   <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate data-lab-form>
     <header class="dialog-head">
-      <h2 data-lab-dialog-title>New lab panel</h2>
+      <h2 data-lab-dialog-title>New Lab Panel</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
 

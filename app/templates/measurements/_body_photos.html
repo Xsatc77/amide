@@ -2,7 +2,7 @@
          data-mode="{{ 'code' if photo_2fa else 'click' }}" data-sharp="{{ '1' if photo_sharp else '0' }}"
          data-seconds="{{ photo_seconds }}">
   <div class="photos-head">
-    <h2 id="body-photos-heading" class="section-title">Body photos</h2>
+    <h2 id="body-photos-heading" class="section-title">Body Photos</h2>
     <button type="button" class="btn btn-primary" data-photo-add>Add body photo</button>
   </div>
   <p class="muted small">Private to you: never shared with anyone. Photos stay blurred until you reveal them{{ ' with your authenticator code' if photo_2fa }}.</p>
@@ -28,7 +28,7 @@
 
 <dialog id="photo-upload-dialog" class="dialog"{{ ' data-open-on-load' if open_photo_dialog or photo_error }}>
   <form method="post" action="/measurements/photos" enctype="multipart/form-data" class="settings-form">
-    <div class="dialog-head"><h3>Add body photo</h3><button type="button" class="btn btn-ghost" data-photo-close aria-label="Close">&times;</button></div>
+    <div class="dialog-head"><h3>Add Body Photo</h3><button type="button" class="btn btn-ghost" data-photo-close aria-label="Close">&times;</button></div>
     <div class="form-section">
       <label class="field"><span>Photo</span><input type="file" name="file" accept="image/*,.heic,.heif" required></label>
       {% if photo_error and photo_error.file %}<p class="error small">{{ photo_error.file }}</p>{% endif %}
@@ -50,7 +50,7 @@
 
 <dialog id="photo-unlock-dialog" class="dialog">
   <form method="post" action="/measurements/photos/unlock" class="settings-form" data-photo-unlock-form>
-    <div class="dialog-head"><h3>Show body photos</h3><button type="button" class="btn btn-ghost" data-photo-close aria-label="Close">&times;</button></div>
+    <div class="dialog-head"><h3>Show Body Photos</h3><button type="button" class="btn btn-ghost" data-photo-close aria-label="Close">&times;</button></div>
     <div class="form-section">
       <label class="field"><span>6-digit code from your authenticator</span>
         <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label>

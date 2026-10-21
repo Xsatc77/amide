@@ -25,7 +25,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Backup &amp; restore</h1>
+    <h1>Backup &amp; Restore</h1>
     <p class="muted">Encrypted files you keep. Every backup, export or share is a new dated file and never overwrites an earlier one.</p>
   </div>
 </div>
@@ -40,7 +40,7 @@
 
 {% if tab == 'backup' %}
 <form method="post" action="/backup/create" class="builder-step backup-form" data-backup-form>
-  <h2 class="section-title">Back up</h2>
+  <h2 class="section-title">Back Up</h2>
   <p class="muted small">A copy of your data for safekeeping. It contains health and personal records: keep the file private.</p>
   <input type="hidden" name="kind" value="backup">
   {% if is_admin %}
@@ -50,10 +50,10 @@
   </div>
   {% else %}<input type="hidden" name="scope" value="person">{% endif %}
   <div data-sections>
-    <h3 class="small muted">My data</h3>
+    <h3 class="small muted">My Data</h3>
     {{ checklist(person_sections) }}
     {% if shared_sections %}
-    <h3 class="small muted">Shared data (administrator)</h3>
+    <h3 class="small muted">Shared Data (Administrator)</h3>
     {{ checklist(shared_sections) }}
     {% endif %}
   </div>
@@ -64,7 +64,7 @@
 
 {% elif tab == 'export' %}
 <form method="post" action="/backup/create" class="builder-step backup-form" data-backup-form>
-  <h2 class="section-title">Export to move to a new computer</h2>
+  <h2 class="section-title">Export To Move To A New Computer</h2>
   <p class="muted small">Pick the sections to carry to another install of Amide (for example a new computer). Load the file there from Restore / Import.</p>
   <input type="hidden" name="kind" value="export">
   <input type="hidden" name="scope" value="person">
@@ -75,7 +75,7 @@
 </form>
 
 <form method="post" action="/backup/create" class="builder-step backup-form" style="margin-top: 16px;" data-backup-form>
-  <h2 class="section-title">Share non-medical data</h2>
+  <h2 class="section-title">Share Non-Medical Data</h2>
   <p class="muted small">A file you can give to someone else. It leaves out personal records: dose logs, workout logs and fitness tests, sales and vials in use, wallet addresses, accounts, profile, measurements, journal and labs. It still keeps free-text notes and costs, so read your notes first. Vendor and price-list files hold supplier information; sharing them is your decision. Whoever loads it needs the passphrase, and shared vendors, price lists and library entries can only be loaded by an administrator.</p>
   <input type="hidden" name="kind" value="share">
   <input type="hidden" name="scope" value="person">
@@ -86,7 +86,7 @@
 
 {% else %}
 <div class="builder-step">
-  <h2 class="section-title">Open a backup, export or share file</h2>
+  <h2 class="section-title">Open A Backup, Export Or Share File</h2>
   <p class="muted small">Choose the file and enter its passphrase. You will see what is inside before anything is changed.</p>
   <form method="post" action="/backup/open" enctype="multipart/form-data" class="backup-form">
     <div class="grid">

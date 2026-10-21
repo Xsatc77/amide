@@ -14,7 +14,7 @@
 <div class="calc-layout">
   <form id="trt-form" class="builder-step calc-form" novalidate>
     <fieldset class="form-section">
-      <legend>Vial strength (mg/mL)</legend>
+      <legend>Vial Strength (mg/mL)</legend>
       <div class="chips" id="trt-conc-chips">
         {% for v in (100, 200, 250) %}<button type="button" class="chip" data-value="{{ v }}">{{ v }}</button>{% endfor %}
         <button type="button" class="chip" data-other>Other</button>
@@ -23,7 +23,7 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>Weekly dose (mg)</legend>
+      <legend>Weekly Dose (mg)</legend>
       <div class="chips" id="trt-weekly-chips">
         {% for v in (50, 100, 125, 150, 200) %}<button type="button" class="chip" data-value="{{ v }}">{{ v }}</button>{% endfor %}
         <button type="button" class="chip" data-other>Other</button>
@@ -32,7 +32,7 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>How often</legend>
+      <legend>How Often</legend>
       <div class="chips" id="trt-freq-chips">
         {% for key, (per_week, label) in frequencies.items() %}<button type="button" class="chip" data-value="{{ key }}" aria-pressed="{{ 'true' if state.freq == key else 'false' }}">{{ label }}</button>{% endfor %}
       </div>
@@ -48,7 +48,7 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>Vial size (optional)</legend>
+      <legend>Vial Size (Optional)</legend>
       <label class="field"><span class="small muted">mL in the vial, to see how long it lasts</span><input id="trt-vial" type="number" min="0" step="any" inputmode="decimal" value="{{ state.vial_ml }}"></label>
     </fieldset>
   </form>

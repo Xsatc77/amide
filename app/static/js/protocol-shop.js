@@ -65,7 +65,7 @@
   // Oils sold by strength (250 mg/mL) with no vial size on the sheet: ask, every time, then price them.
   function sizeQuestions(items) {
     const box = el("section", "shop-plan shop-sizes");
-    box.append(el("h3", "shop-plan-title", "Vial size needed"));
+    box.append(el("h3", "shop-plan-title", "Vial Size Needed"));
     box.append(el("p", "small muted", "These are oil suspensions, so no BAC water is added. The price list gives the strength but not how much is in a vial."));
     for (const a of items) {
       const row = el("div", "shop-size-row");
@@ -86,7 +86,7 @@
 
   function strengthQuestions(items) {
     const box = el("section", "shop-plan shop-sizes");
-    box.append(el("h3", "shop-plan-title", "Also sold by volume"));
+    box.append(el("h3", "shop-plan-title", "Also Sold By Volume"));
     box.append(el("p", "small muted", "These liquids are listed by volume only, so Amide cannot tell how much is in a vial. If you know the strength, enter it to include them in the plan."));
     for (const a of items) {
       const row = el("div", "shop-size-row");
@@ -116,13 +116,13 @@
       }
     } else {
       body.append(el("p", "shop-reason", data.plan.reason + "."));
-      body.append(planBlock(data.plan, "Best plan"));
+      body.append(planBlock(data.plan, "Best Plan"));
       if (data.alternatives.length) {
         const alt = el("details", "shop-alts");
-        alt.append(el("summary", "", "Other plans to compare"));
+        alt.append(el("summary", "", "Other Plans To Compare"));
         for (const p of data.alternatives) {
           const diff = p.vs_chosen === 0 ? "same total" : p.vs_chosen < 0 ? `${money(-p.vs_chosen)} cheaper` : `${money(p.vs_chosen)} more`;
-          alt.append(planBlock(p, `${p.sources.length === 1 ? "One order" : "Two orders"}: ${money(p.total)} (${diff})`, "shop-alt-title"));
+          alt.append(planBlock(p, `${p.sources.length === 1 ? "One Order" : "Two Orders"}: ${money(p.total)} (${diff})`, "shop-alt-title"));
         }
         body.append(alt);
       }
@@ -131,7 +131,7 @@
     if (data.needs_strength && data.needs_strength.length) body.append(strengthQuestions(data.needs_strength));
     if (data.unshoppable.length) {
       const box = el("div", "shop-unavailable");
-      box.append(el("strong", "", "Not available on the current price lists"));
+      box.append(el("strong", "", "Not Available On The Current Price Lists"));
       const ul = el("ul");
       for (const u of data.unshoppable) ul.append(el("li", "", `${u.name}: ${u.reason}`));
       box.append(ul);
@@ -140,7 +140,7 @@
     if (data.bac && data.bac.buy) {
       const b = data.bac.buy;
       const box = el("section", "shop-plan");
-      box.append(el("h3", "shop-plan-title", `BAC water (about ${data.bac.ml} mL for the course)`));
+      box.append(el("h3", "shop-plan-title", `BAC Water (about ${data.bac.ml} mL for the course)`));
       box.append(el("p", "", `${b.vendor} ${warehouse(b.warehouse)}: ${b.product} ${b.size_label}, ${b.packs} × ${b.pack_label} (${b.units} bottle${b.units === 1 ? "" : "s"}).`));
       box.append(el("p", "shop-ship small", b.shipping ? `Cost ${money(b.cost)} + shipping ${money(b.shipping)} (its own order) = ${money(b.extra)}`
                                                       : `Cost ${money(b.cost)}, added to the order from this vendor`));

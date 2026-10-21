@@ -67,7 +67,7 @@
     </ul>
   </div>
 
-  <h3 class="small muted">Today against your targets</h3>
+  <h3 class="small muted">Today Against Your Targets</h3>
   <div class="fulfil">
     {% for key, label, unit in (('calories', 'Calories', 'kcal'), ('protein', 'Protein', 'g'), ('carb', 'Carbs', 'g'), ('fat', 'Fat', 'g'), ('fiber', 'Fiber', 'g')) %}
     {% set f = food.fulfil[key] %}
@@ -86,7 +86,7 @@
   {% endif %}
 
   {% if food.eaten_ring %}
-  <h3 class="section-title">What you ate</h3>
+  <h3 class="section-title">What You Ate</h3>
   <div data-eaten-ring>{{ macro_ring(food.eaten_ring, 'Calories eaten from protein, carbs and fat on this day') }}</div>
   {% endif %}
 
@@ -142,7 +142,7 @@
 </section>
 
 <dialog id="food-dialog" class="dialog"{{ ' data-open-on-load' if food_error and not (food_error.keys() | select('in', ('diet_preset', 'macro_goal', 'custom')) | list) }}>
-  <div class="dialog-head"><h3>Add food</h3><button type="button" class="btn btn-ghost" data-food-close aria-label="Close">&times;</button></div>
+  <div class="dialog-head"><h3>Add Food</h3><button type="button" class="btn btn-ghost" data-food-close aria-label="Close">&times;</button></div>
   <div class="form-section">
     <div class="food-modes" role="tablist">
       <label><input type="radio" name="food-mode" value="existing" checked> Find a food</label>

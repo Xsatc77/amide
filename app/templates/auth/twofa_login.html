@@ -3,7 +3,7 @@
 
 {% block content %}
 <form method="post" action="/login/2fa" class="auth-card" novalidate>
-  <h1>Two-factor code</h1>
+  <h1>Two-Factor Code</h1>
   <p class="muted">Open your authenticator app and enter the 6-digit code for Amide.</p>
   {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
   <label class="field" for="code">

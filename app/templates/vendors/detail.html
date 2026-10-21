@@ -46,7 +46,7 @@
     <dt>Notes</dt><dd>{{ vendor.notes or '—' }}</dd>
   </dl>
 
-  <h3 class="section-title">Contact methods</h3>
+  <h3 class="section-title">Contact Methods</h3>
   {% if contacts %}
   <ul class="kv-list">
     {% for c in contacts %}
@@ -60,7 +60,7 @@
   <p class="muted">No contact methods on file.</p>
   {% endif %}
 
-  <h3 class="section-title">Payment methods accepted</h3>
+  <h3 class="section-title">Payment Methods Accepted</h3>
   {% if vendor.payment_methods %}
   <div class="chips">
     {% for pm in vendor.payment_methods %}<span class="tag">{{ pm.method_type.name }}</span>{% endfor %}
@@ -69,7 +69,7 @@
   <p class="muted">None on file.</p>
   {% endif %}
 
-  <h3 class="section-title">Crypto wallets</h3>
+  <h3 class="section-title">Crypto Wallets</h3>
   {% if vendor.wallets %}
   <ul class="wallet-list">
     {% for w in vendor.wallets %}
@@ -90,7 +90,7 @@
   <p class="muted">None on file.</p>
   {% endif %}
 
-  <h3 class="section-title">Price list</h3>
+  <h3 class="section-title">Price List</h3>
   <p>
     {% if vendor.price_list_url %}<a class="btn btn-small" href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
     {% elif vendor.price_list_filename %}<a class="btn btn-small" href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>
@@ -123,7 +123,7 @@
 <dialog id="vendor-edit-dialog" class="dialog dialog-wide" {% if form %}data-open-on-load{% endif %}>
   <form method="post" action="/vendors/{{ vendor.id }}" class="item-form" enctype="multipart/form-data" novalidate>
     <header class="dialog-head">
-      <h2 data-title>Edit vendor</h2>
+      <h2 data-title>Edit Vendor</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-vendor-edit" aria-label="Close">&times;</button>
     </header>
 
@@ -157,7 +157,7 @@
     </div>
 
     <fieldset class="form-section">
-      <legend>Price list</legend>
+      <legend>Price List</legend>
       {% if vendor.price_list_filename or vendor.price_list_url %}
       <p class="muted small">
         Currently on file:
@@ -211,7 +211,7 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>Contact methods</legend>
+      <legend>Contact Methods</legend>
       <div data-contact-rows>
         {% for c in contacts %}
         <div class="grid" data-contact-row>
@@ -241,7 +241,7 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>Payment methods accepted</legend>
+      <legend>Payment Methods Accepted</legend>
       <div class="chips">
         {% for t in payment_types %}
         <label class="chip-checkbox">
@@ -257,7 +257,7 @@
     </fieldset>
 
     <fieldset class="form-section">
-      <legend>Crypto wallets</legend>
+      <legend>Crypto Wallets</legend>
       {{ verr('wallets') }}
       <div data-wallet-rows>
         {% for w in vendor.wallets %}

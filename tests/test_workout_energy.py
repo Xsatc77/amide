@@ -47,7 +47,7 @@ def test_the_numbers_match_the_reference_calculator_for_a_moderate_man(client, p
     page = energy(client)
     for expected in ("2,760", "1,780", "24.5", "Normal", "135.4", "1,500"):
         assert expected in page
-    ladder = re.findall(r"<td>([\d,]+) kcal</td>", page.split("Goal ladder", 1)[1].split("</table>", 1)[0])
+    ladder = re.findall(r"<td>([\d,]+) kcal</td>", page.split("Goal Ladder", 1)[1].split("</table>", 1)[0])
     assert ladder == ["1,760", "2,010", "2,260", "2,760", "3,010", "3,260"]
     for formula, value in (("Mifflin-St Jeor", "1,780"), ("Harris-Benedict", "1,853"), ("Katch-McArdle", "1,697"),
                            ("Cunningham", "1,852")):

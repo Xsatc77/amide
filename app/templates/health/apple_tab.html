@@ -13,7 +13,7 @@
 
 {% if apple.metrics %}
 <section aria-labelledby="apple-metrics-heading">
-  <h2 id="apple-metrics-heading" class="section-title">Your metrics</h2>
+  <h2 id="apple-metrics-heading" class="section-title">Your Metrics</h2>
   <div class="table-wrap">
     <table class="inv-table">
       <thead><tr><th>Metric</th><th>Today</th><th>Last 7 days</th></tr></thead>
@@ -66,7 +66,7 @@
 
 {% if apple.state_of_mind %}
 <section aria-labelledby="apple-mind-heading">
-  <h2 id="apple-mind-heading" class="section-title">State of mind</h2>
+  <h2 id="apple-mind-heading" class="section-title">State Of Mind</h2>
   <ul class="water-log">{% for s in apple.state_of_mind %}<li><span>{{ s.day | shortdate }}: {{ s.name }}</span></li>{% endfor %}</ul>
 </section>
 {% endif %}

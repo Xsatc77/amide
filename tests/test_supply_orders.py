@@ -156,8 +156,8 @@ def test_a_supplys_page_shows_its_orders_with_check_in_and_no_sale_form(client, 
     place(client, a={"mode": "new", "category": "Supply", "name": "Sorder Alcohol Pads", "supply_type": SupplyType.ALCOHOL_PAD.value, "quantity": "200"})
     item_id = item()[0]
     page = html.unescape(client.get(f"/inventory/{item_id}").text)
-    assert "Order history" in page and 'data-action="check-in"' in page and 'id="checkin-dialog"' in page
-    assert 'id="sale-dialog"' not in page and 'data-action="add-order"' not in page and "Sale history" not in page
+    assert "Order History" in page and 'data-action="check-in"' in page and 'id="checkin-dialog"' in page
+    assert 'id="sale-dialog"' not in page and 'data-action="add-order"' not in page and "Sale History" not in page
     li, order_id = the_line(item_id)
     check_in(client, item_id, order_id, **{str(li): 200})
     page = html.unescape(client.get(f"/inventory/{item_id}").text)
@@ -167,7 +167,7 @@ def test_a_supplys_page_shows_its_orders_with_check_in_and_no_sale_form(client, 
 def test_a_supply_with_no_orders_keeps_its_plain_page(client, me):
     existing = make_supply(me, "Sorder Gloves", SupplyType.PEPTIDE_FILTER, 4)
     page = html.unescape(client.get(f"/inventory/{existing}").text)
-    assert "Order history" not in page and "Count:" in page
+    assert "Order History" not in page and "Count:" in page
 
 
 def test_a_supply_can_be_ordered_with_no_type_for_things_that_are_not_consumed(client, me):

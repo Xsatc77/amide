@@ -57,13 +57,13 @@ def test_editing_a_past_entry_opens_the_dialog_filled_in_for_that_day(client, db
     dialog = page.split('id="journal-dialog"')[1].split("</dialog>")[0]
     assert dialog.startswith(" class=\"dialog\" open") or " open" in dialog[:60]
     assert f'name="entry_date" value="{PAST.isoformat()}"' in dialog and "Old note text" in dialog
-    assert f"Entry for {PAST.strftime('%m/%d/%Y')}" in dialog
+    assert f"Entry For {PAST.strftime('%m/%d/%Y')}" in dialog
 
 
 def test_the_default_dialog_is_today_and_closed(client, db, me):
     page = html.unescape(client.get("/measurements", params={"tab": "journal"}).text)
     dialog = page.split('id="journal-dialog"')[1].split("</dialog>")[0]
-    assert f'name="entry_date" value="{TODAY.isoformat()}"' in dialog and "Today's entry" in dialog and not dialog.lstrip().startswith("open")
+    assert f'name="entry_date" value="{TODAY.isoformat()}"' in dialog and "Today's Entry" in dialog and not dialog.lstrip().startswith("open")
 
 
 def test_each_own_entry_has_an_edit_link_and_there_is_a_day_picker(client, db, me):

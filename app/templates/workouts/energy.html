@@ -28,7 +28,7 @@
   <p class="muted small">{{ r.life_stage_note }}{% if pcos %} The reference calculator lists PCOS as -6% of BMR but applies no change; Amide applies the -6% it states.{% endif %}
     These are estimates: eat near your target for two to three weeks, track your weight, and adjust by about 100 kcal a day if it does not match.</p>
 
-  <h2 class="section-title">Where it goes</h2>
+  <h2 class="section-title">Where It Goes</h2>
   <div class="split-bar" role="img" aria-label="BMR {{ total[0] }}%, activity {{ total[1] }}%, food digestion {{ total[2] }}%">
     {% for name, pct in (('BMR', total[0]), ('Activity', total[1]), ('Food digestion', total[2])) %}
     {% if pct %}<span style="width: {{ pct }}%; background: {{ stack_colors[name] }}" title="{{ name }}: {{ pct }}%"></span>{% endif %}
@@ -42,7 +42,7 @@
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">Goal ladder</h2>
+  <h2 class="section-title">Goal Ladder</h2>
   <table class="lib-table">
     <thead><tr><th>Goal</th><th>Change</th><th>Calories per day</th></tr></thead>
     <tbody>
@@ -76,7 +76,7 @@
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">BMR by formula</h2>
+  <h2 class="section-title">BMR By Formula</h2>
   <table class="lib-table">
     <thead><tr><th>Formula</th><th>BMR</th><th>Source</th></tr></thead>
     <tbody>
@@ -87,7 +87,7 @@
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">TDEE by activity level</h2>
+  <h2 class="section-title">TDEE By Activity Level</h2>
   <div class="level-bars">
     {% for b in level_bars %}
     <div class="level-bar{% if b.current %} current{% endif %}">
@@ -101,7 +101,7 @@
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">All metrics</h2>
+  <h2 class="section-title">All Metrics</h2>
   <table class="lib-table">
     <tbody>
       <tr><td>BMR</td><td>{{ n(r.bmr) }} kcal/day</td></tr>
@@ -116,13 +116,13 @@
       <tr><td>Activity factor</td><td>{{ '%.3f' | format(r.activity_factor) }} &times;</td></tr>
     </tbody>
   </table>
-  <h3 class="small muted">The math</h3>
+  <h3 class="small muted">The Math</h3>
   <pre class="math-lines">{% for line in r.math %}{{ line }}
 {% endfor %}</pre>
 </section>
 
 <section class="side-box">
-  <h2 class="section-title">Estimated workout burn against TDEE</h2>
+  <h2 class="section-title">Estimated Workout Burn Against TDEE</h2>
   <div class="chips" role="group" aria-label="Range">
     {% for k in ranges %}<a class="tag{{ ' active' if k == range }}" href="/workouts/energy?goal={{ goal }}&carb={{ carb }}&range={{ k }}">{{ k }} days</a>{% endfor %}
   </div>

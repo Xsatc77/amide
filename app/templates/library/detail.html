@@ -42,7 +42,7 @@
     {% set cx = peptide_cautions(p.name, p.aliases) %}
     {% if cx %}
     <section class="lib-section caution-tape" aria-label="Cautions with your medicines">
-      <h2 class="section-title">Caution with your medicines</h2>
+      <h2 class="section-title">Caution With Your Medicines</h2>
       <ul>{% for c in cx %}<li><strong>{{ c.medicine }}</strong>: {{ c.note }}</li>{% endfor %}</ul>
       <p class="small muted">A prompt to ask your prescriber or pharmacist, not advice. Edit your list in Settings.</p>
     </section>
@@ -64,7 +64,7 @@
 
       {% if dosing_tiers %}
       <section class="lib-section">
-        <h2 class="section-title">Dosing (community)</h2>
+        <h2 class="section-title">Dosing (Community)</h2>
         <table class="lib-table">
           <thead><tr><th>Level</th><th>Dose</th><th>Frequency</th><th>Time of day</th><th><span class="sr-only">Calculator</span></th></tr></thead>
           <tbody>
@@ -81,7 +81,7 @@
 
       {% if p.cycle and p.cycle.note %}
       <section class="lib-section">
-        <h2 class="section-title">Cycle notes</h2>
+        <h2 class="section-title">Cycle Notes</h2>
         <p>{{ p.cycle.note }}</p>
       </section>
       {% endif %}
@@ -89,7 +89,7 @@
       {% if p.stack_relations %}
       <section class="lib-section two-col">
         <div>
-          <h2 class="section-title">Works with</h2>
+          <h2 class="section-title">Works With</h2>
           {% for r in p.stack_relations if r.relation.value == "works_with" %}
           <p><strong>{{ r.partner_name }}</strong>{% if r.note %} — {{ r.note }}{% endif %}</p>
           {% endfor %}
@@ -105,7 +105,7 @@
 
       {% if p.monitoring_tests %}
       <section class="lib-section">
-        <h2 class="section-title">Recommended monitoring</h2>
+        <h2 class="section-title">Recommended Monitoring</h2>
         <table class="lib-table">
           <thead><tr><th>Test</th><th>When</th><th>Why</th><th>Target</th></tr></thead>
           <tbody>
@@ -157,7 +157,7 @@
     {% else %}
     {% if card.applications %}
     <section class="lib-section">
-      <h2 class="section-title">Key applications</h2>
+      <h2 class="section-title">Key Applications</h2>
       <div class="app-grid">
         {% for a in card.applications %}<div class="app-tile"><strong>{{ a.title }}</strong><span class="small muted">{{ a.detail }}</span></div>{% endfor %}
       </div>
@@ -165,7 +165,7 @@
     {% endif %}
 
     <section class="lib-section">
-      <h2 class="section-title">How it works</h2>
+      <h2 class="section-title">How It Works</h2>
       {% if card.mechanism_flow %}
       <ol class="flow">{% for step in card.mechanism_flow %}<li>{{ step }}</li>{% endfor %}</ol>
       {% endif %}
@@ -179,14 +179,14 @@
         {{ bullets(card.evidence.points if card.evidence else []) }}
       </div>
       <div>
-        <h2 class="section-title">Clinical caution</h2>
+        <h2 class="section-title">Clinical Caution</h2>
         {{ bullets(card.cautions) }}
       </div>
     </section>
 
     {% if card.quick_info %}
     <section class="lib-section">
-      <h2 class="section-title">Quick practical info</h2>
+      <h2 class="section-title">Quick Practical Info</h2>
       {% set shown = namespace(price=false) %}
       <dl class="kv">{% for k, v in card.quick_info.items() %}<dt>{{ k }}</dt>
         {% if price_range and not shown.price and k | lower == 'half-life' %}{% set shown.price = true %}<dd class="with-aside"><span>{{ v or '—' }}</span>{{ price_chip(price_range, price_compare) }}</dd>
@@ -201,21 +201,21 @@
 
     {% if card.regulatory %}
     <section class="lib-section">
-      <h2 class="section-title">Regulatory status</h2>
+      <h2 class="section-title">Regulatory Status</h2>
       <dl class="kv">{% for k, v in card.regulatory.items() %}<dt>{{ k }}</dt><dd>{{ v or '—' }}</dd>{% endfor %}</dl>
     </section>
     {% endif %}
 
     {% if card.quick_read %}
     <section class="lib-section">
-      <h2 class="section-title">Clinical read in 10 seconds</h2>
+      <h2 class="section-title">Clinical Read In 10 Seconds</h2>
       {{ bullets(card.quick_read) }}
     </section>
     {% endif %}
 
     {% if card.references %}
     <section class="lib-section">
-      <h2 class="section-title">Key references</h2>
+      <h2 class="section-title">Key References</h2>
       {{ bullets(card.references) }}
     </section>
     {% endif %}
@@ -232,7 +232,7 @@
     {% endif %}
 
     <div class="side-box">
-      <div class="side-head"><h2 class="section-title">Your info</h2><a class="btn btn-ghost" href="/library/{{ p.id }}/edit">Edit</a>
+      <div class="side-head"><h2 class="section-title">Your Info</h2><a class="btn btn-ghost" href="/library/{{ p.id }}/edit">Edit</a>
         {% if can_delete %}<form method="post" action="/library/{{ p.id }}/delete" class="inline" data-confirm="Delete “{{ p.name }}” from the library for everyone on this server? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger">Delete</button></form>{% endif %}</div>
       <dl class="kv kv-tight">
         <dt>Dose range</dt>
@@ -252,7 +252,7 @@
       (yours or another person's). Remove it from those first.</p>
     {% endif %}
     <div class="side-box">
-      <h2 class="section-title">Used in protocols</h2>
+      <h2 class="section-title">Used In Protocols</h2>
       {% if used_in %}
       <ul class="plain-list">{% for proto in used_in %}<li><a href="/protocols/{{ proto.id }}/edit">{{ proto.name }}</a> <span class="small muted">{{ proto.start_date | shortdate }}</span></li>{% endfor %}</ul>
       {% else %}<p class="muted small">Not in any protocol yet.</p>{% endif %}
@@ -261,7 +261,7 @@
 </div>
 
 <section class="lib-section" id="learning" aria-labelledby="learning-heading">
-  <h2 id="learning-heading" class="section-title">My notes and saved articles</h2>
+  <h2 id="learning-heading" class="section-title">My Notes And Saved Articles</h2>
   <p class="small muted">Private to you. <a class="btn btn-small" href="/library/learning">See all your notes</a>.</p>
   {% if my_notes %}
   <ul class="note-list">
@@ -287,7 +287,7 @@
 <script type="application/json" id="price-compare-data">{{ price_compare | tojson }}</script>
 <dialog id="price-compare" class="dialog price-compare" aria-labelledby="price-compare-title">
   <div class="dialog-head">
-    <h3 id="price-compare-title">Best price per <strong>vial</strong> &middot; {{ p.name }}</h3>
+    <h3 id="price-compare-title">Best Price Per <strong>Vial</strong> &middot; {{ p.name }}</h3>
     <button type="button" class="btn btn-ghost" data-price-close aria-label="Close">&times;</button>
   </div>
   <div class="form-section">
