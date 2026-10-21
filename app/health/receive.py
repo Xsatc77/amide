@@ -54,7 +54,7 @@ async def store_body(request: Request, owner_id: int, session: Session) -> tuple
                 if size > limit:
                     raise HTTPException(413, "Too large")
                 if looks_json is None and chunk.strip():
-                    looks_json = chunk.lstrip()[:1] in (b"{", b"[")
+                    looks_json = chunk.lstrip(b"\xef\xbb\xbf \t\r\n")[:1] in (b"{", b"[")      # a UTF-8 byte-order mark is no reason to doubt it
                 digest.update(chunk)
                 out.write(chunk)
         sha = digest.hexdigest()

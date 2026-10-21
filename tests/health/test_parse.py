@@ -1,0 +1,208 @@
+import gzip
+import json
+from datetime import datetime
+
+import pytest
+
+from app import config
+from app.health import parse
+from app.health.groups import RECOMMENDED, SECTIONS, metric_group
+from app.ingest import tokens
+from app.models import HealthEvent, HealthRaw, HealthReading
+from app.routers import health_api
+
+
+@pytest.fixture(autouse=True)
+def fresh_limiter():
+    health_api.limiter._hits.clear()
+    yield
+
+
+def make_raw(db, me, payload, headers=None, *, as_bytes=None):
+    """Writes an invented export where the receiver would and returns its row."""
+    body = as_bytes if as_bytes is not None else json.dumps(payload).encode()
+    config.HEALTH_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    file_name = f"t-{db.query(HealthRaw).count()}.json.gz"
+    (config.HEALTH_RAW_DIR / file_name).write_bytes(gzip.compress(body))
+    raw = HealthRaw(owner_id=me, sha256=file_name, size_bytes=len(body), file_name=file_name, headers=headers)
+    db.add(raw)
+    db.commit()
+    return raw
+
+
+def steps(*points):
+    return {"metrics": [{"name": "step_count", "units": "count", "data": [{"qty": q, "date": d, "source": "Phone"} for d, q in points]}]}
+
+
+def test_parse_date_with_offset_and_bare_day():
+    assert parse.parse_date("2024-02-06 14:30:00 -0800") == (datetime(2024, 2, 6, 22, 30), -480)
+    assert parse.parse_date("2024-02-06 14:30:00 +0530") == (datetime(2024, 2, 6, 9, 0), 330)
+    assert parse.parse_date("2024-02-06") == (datetime(2024, 2, 6), 0)
+    with pytest.raises(ValueError):
+        parse.parse_date("yesterday")
+
+
+def test_steps_become_readings_with_the_header_grain(db, me):
+    raw = make_raw(db, me, steps(("2024-02-06 10:00:00 -0800", 120), ("2024-02-06 11:00:00 -0800", 80)),
+                   {"automation-aggregation": "Hours"})
+    assert parse.import_raw(db, raw) == 2
+    rows = db.query(HealthReading).order_by(HealthReading.start_at).all()
+    assert [(r.metric, r.value, r.unit, r.grain, r.source, r.offset_minutes) for r in rows] == [
+        ("step_count", 120, "count", "hour", "Phone", -480), ("step_count", 80, "count", "hour", "Phone", -480)]
+    assert rows[0].start_at == datetime(2024, 2, 6, 18) and rows[0].end_at == datetime(2024, 2, 6, 19)
+    assert (raw.status, raw.readings_count, raw.note) == ("parsed", 2, None)
+    assert parse.GRAIN_SECONDS == {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+
+
+def test_grain_is_point_without_or_with_an_unknown_header(db, me):
+    for i, headers in enumerate([None, {"automation-aggregation": "weeks"}, {"automation-aggregation": "fortnights"}]):
+        parse.import_raw(db, make_raw(db, me, steps((f"2024-02-0{i + 1} 10:00:00 +0000", 5)), headers))
+    rows = db.query(HealthReading).all()
+    assert len(rows) == 3 and {r.grain for r in rows} == {"point"} and all(r.end_at == r.start_at for r in rows)
+
+
+def test_reposting_updates_not_duplicates(db, me):
+    first = make_raw(db, me, steps(("2024-02-06 10:00:00 -0800", 120)), {"automation-aggregation": "hours"})
+    parse.import_raw(db, first)
+    second = make_raw(db, me, steps(("2024-02-06 10:00:00 -0800", 150)), {"automation-aggregation": "hours"})
+    assert parse.import_raw(db, second) == 1
+    assert [r.value for r in db.query(HealthReading).all()] == [150]
+
+
+def test_blood_pressure_heart_rate_and_sleep_shapes(db, me):
+    payload = {"metrics": [
+        {"name": "blood_pressure", "units": "mmHg", "data": [{"systolic": 118, "diastolic": 76, "date": "2024-02-06 08:00:00 +0000", "source": "Cuff"}]},
+        {"name": "heart_rate", "units": "count/min", "data": [{"Min": 52, "Avg": 64.5, "Max": 101, "date": "2024-02-06 09:00:00 +0000", "source": "Watch"}]},
+        {"name": "sleep_analysis", "units": "hr", "data": [{"date": "2024-02-06 00:00:00 +0000", "totalSleep": 7.25, "asleep": 0, "core": 4.1, "deep": 1.2,
+                                                           "rem": 1.95, "inBed": 8.0, "sleepStart": "2024-02-05 23:10:00 +0000",
+                                                           "sleepEnd": "2024-02-06 06:40:00 +0000", "source": "Watch"}]},
+    ]}
+    assert parse.import_raw(db, make_raw(db, me, payload, {"automation-aggregation": "days"})) == 3
+    bp, hr, sl = (db.query(HealthReading).filter_by(metric=m).one() for m in ("blood_pressure", "heart_rate", "sleep_analysis"))
+    assert bp.value == 118 and bp.extra == {"systolic": 118, "diastolic": 76}
+    assert hr.value == 64.5 and hr.extra == {"min": 52, "max": 101}
+    assert sl.value == 7.25 and sl.unit == "hr"
+    # Not established: whether aggregated sleep carries exactly these stage names
+    assert sl.extra["core"] == 4.1 and sl.extra["deep"] == 1.2 and sl.extra["rem"] == 1.95 and sl.extra["inBed"] == 8.0
+
+
+def test_null_string_and_missing_date_readings_are_skipped_and_flagged_while_the_rest_import(db, me):
+    payload = {"metrics": [{"name": "step_count", "units": "count", "data": [
+        {"qty": 10, "date": "2024-02-06 10:00:00 +0000", "source": "Phone"},
+        {"qty": "null", "date": "2024-02-06 11:00:00 +0000"},
+        {"qty": None, "date": "2024-02-06 12:00:00 +0000"},
+        {"qty": 7},
+        {"qty": 9, "date": "not a date"},
+        "junk",
+        {"qty": 11, "date": "2024-02-06 13:00:00 +0000", "source": "Phone"},
+    ]}]}
+    raw = make_raw(db, me, payload)
+    assert parse.import_raw(db, raw) == 2
+    assert db.query(HealthReading).count() == 2
+    assert raw.status == "flagged" and "5" in raw.note and raw.readings_count == 2
+
+
+def test_unknown_metric_is_kept_and_grouped_under_mind_and_other(db, me):
+    payload = {"metrics": [{"name": "zephyr_index", "units": "zp", "data": [{"qty": 3.5, "date": "2024-02-06 10:00:00 +0000"}]}]}
+    assert parse.import_raw(db, make_raw(db, me, payload)) == 1
+    assert db.query(HealthReading).one().metric == "zephyr_index"
+    assert metric_group("zephyr_index") == "Mind and other" == SECTIONS[-1]
+    assert metric_group("step_count") == "Activity" and metric_group("weight_&_body_mass") == "Body"
+    assert metric_group("dietary_water") == "Nutrition and water" and metric_group("sleep_analysis") == "Sleep"
+    assert metric_group("heart_rate") == "Heart and vitals"
+    assert {"step_count", "fiber", "event:symptom", "event:state_of_mind"} <= RECOMMENDED
+    assert "heart_rate" not in RECOMMENDED and "sleep_analysis" not in RECOMMENDED
+
+
+def test_data_wrapped_and_unwrapped_payloads_both_work(db, me):
+    # Not established: whether Health Auto Export nests the arrays under a "data" key
+    assert parse.import_raw(db, make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 1)))) == 1
+    assert parse.import_raw(db, make_raw(db, me, {"data": steps(("2024-02-07 10:00:00 +0000", 2))})) == 1
+    assert db.query(HealthReading).count() == 2
+
+
+def test_workout_symptom_state_of_mind_and_unknown_event_kinds_are_stored_with_full_payload(db, me):
+    route = [{"latitude": 1.5, "longitude": 2.5, "timestamp": "2024-02-06 07:00:05 +0000"}]
+    payload = {"workouts": [{"id": "W-1", "name": "Walking", "start": "2024-02-06 07:00:00 +0000", "end": "2024-02-06 07:30:00 +0000",
+                             "duration": 1800, "distance": {"qty": 2.1, "units": "km"}, "route": route}],
+               # Not established: the shapes of symptoms, state of mind, ECG, heart rate notifications, cycle tracking and medications
+               "symptoms": [{"id": "S-1", "name": "Headache", "start": "2024-02-06 09:00:00 +0000", "severity": "mild"}],
+               "state_of_mind": [{"id": "M-1", "kind": "daily_mood", "start": "2024-02-06 20:00:00 +0000", "valence": 0.4, "labels": ["calm"]}],
+               "ecg": [{"start": "2024-02-06 10:00:00 +0000", "classification": "sinus", "voltageMeasurements": [0.1, 0.2, 0.3]}],
+               "heart_rate_notifications": [{"start": "2024-02-06 11:00:00 +0000", "threshold": 120}],
+               "cycle_tracking": [{"name": "Period", "start": "2024-02-01 00:00:00 +0000"}],
+               "medications": [{"name": "Zephyrol", "start": "2024-02-06 08:00:00 +0000", "dose": "1"}]}
+    raw = make_raw(db, me, payload)
+    assert parse.import_raw(db, raw) == 0 and raw.status == "parsed"
+    events = {e.kind: e for e in db.query(HealthEvent).all()}
+    assert set(events) == {"workout", "symptom", "state_of_mind", "ecg", "heart_rate_notification", "cycle", "medication"}
+    w = events["workout"]
+    assert w.external_id == "W-1" and w.name == "Walking" and w.start_at == datetime(2024, 2, 6, 7) and w.end_at == datetime(2024, 2, 6, 7, 30)
+    assert w.payload == payload["workouts"][0] and w.payload["route"] == route
+    assert events["symptom"].external_id == "S-1" and events["state_of_mind"].payload["labels"] == ["calm"]
+    assert events["ecg"].payload["voltageMeasurements"] == [0.1, 0.2, 0.3]
+    assert len(events["ecg"].external_id) == 40            # no id: the SHA-1 of the item
+    parse.import_raw(db, make_raw(db, me, payload))        # a repost does not duplicate events
+    assert db.query(HealthEvent).count() == 7
+
+
+def test_garbage_json_is_flagged_not_raised(db, me):
+    for body in (b"not json at all", b'{"metrics": [', b"[1, 2", b"\xff\xfe\x00", b"", b"42", b'{"nothing": true}'):
+        raw = make_raw(db, me, None, as_bytes=body)
+        assert parse.import_raw(db, raw) == 0
+        assert raw.status == "flagged" and raw.note, body
+    missing = HealthRaw(owner_id=me, sha256="gone", size_bytes=1, file_name="does-not-exist.json.gz")
+    db.add(missing)
+    db.commit()
+    assert parse.import_raw(db, missing) == 0 and missing.status == "flagged"
+    assert db.query(HealthReading).count() == 0
+
+
+def test_bom_prefixed_json_parses(db, me):
+    raw = make_raw(db, me, None, as_bytes=b"\xef\xbb\xbf" + json.dumps(steps(("2024-02-06 10:00:00 +0000", 4))).encode())
+    assert parse.import_raw(db, raw) == 1 and raw.status == "parsed"
+
+
+def test_an_unexpected_error_rolls_the_whole_export_back(db, me, monkeypatch):
+    raw = make_raw(db, me, steps(("2024-02-06 10:00:00 +0000", 1), ("2024-02-06 11:00:00 +0000", 2)))
+    real = parse._qty
+    calls = []
+
+    def boom(value):
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError("boom")
+        return real(value)
+
+    monkeypatch.setattr(parse, "_qty", boom)
+    assert parse.import_raw(db, raw) == 0
+    assert db.query(HealthReading).count() == 0 and raw.status == "flagged" and raw.readings_count == 0
+
+
+@pytest.fixture
+def auth(db, me):
+    _, secret = tokens.create_token(db, me, "phone", scope="health")
+    return {"Authorization": f"Bearer {secret}"}
+
+
+def test_receiver_tolerates_a_bom_when_judging_json(client, db, auth):
+    body = b"\xef\xbb\xbf" + json.dumps(steps(("2024-02-06 10:00:00 +0000", 4))).encode()
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.json()["readings"] == 1
+    assert db.query(HealthRaw).one().status == "parsed"      # not flagged as "not JSON"
+
+
+def test_a_duplicate_of_an_unparsed_export_is_reparsed(client, db, auth, monkeypatch):
+    body = json.dumps(steps(("2024-02-06 10:00:00 +0000", 4))).encode()
+    real = parse.import_raw
+    monkeypatch.setattr(parse, "import_raw", lambda session, raw: 0)    # a broken parser leaves it stored
+    client.post("/api/ingest/health", content=body, headers=auth)
+    assert db.query(HealthRaw).one().status == "stored"
+    monkeypatch.setattr(parse, "import_raw", real)
+    r = client.post("/api/ingest/health", content=body, headers=auth)
+    assert r.json() == {"received": len(body), "readings": 1, "duplicate": True}
+    assert db.query(HealthRaw).count() == 1 and db.query(HealthReading).count() == 1
+    calls = []
+    monkeypatch.setattr(parse, "import_raw", lambda session, raw: calls.append(1) or 0)
+    r = client.post("/api/ingest/health", content=body, headers=auth)   # parsed now: not parsed again
+    assert r.json()["readings"] == 1 and not calls

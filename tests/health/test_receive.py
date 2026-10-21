@@ -35,7 +35,7 @@ def test_valid_post_stores_a_gzipped_copy_and_answers_200(client, db, auth):
     r = client.post("/api/ingest/health", content=BODY, headers={**auth, "Automation-Name": "Nightly", "Session-Id": "s1"})
     assert r.status_code == 200 and r.json() == {"received": len(BODY), "readings": 0, "duplicate": False}
     row = db.query(HealthRaw).one()
-    assert row.status == "stored" and row.size_bytes == len(BODY) and row.automation_name == "Nightly"
+    assert row.status == "parsed" and row.size_bytes == len(BODY) and row.automation_name == "Nightly"
     assert row.headers == {"automation-name": "Nightly", "session-id": "s1"}
     assert gzip.decompress((config.HEALTH_RAW_DIR / row.file_name).read_bytes()) == BODY
     assert not list(config.HEALTH_RAW_DIR.glob("*.tmp"))

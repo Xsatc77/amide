@@ -30,5 +30,8 @@ def require_health_token(request: Request, session: Session = Depends(get_sessio
 @router.post("/health")
 async def receive_health(request: Request, session: Session = Depends(get_session), token: IngestToken = Depends(require_health_token)):
     raw, duplicate = await receive.store_body(request, token.owner_id, session)
-    readings = raw.readings_count if duplicate else await run_in_threadpool(parse.import_raw, session, raw)
+    if duplicate and raw.status == "parsed":
+        readings = raw.readings_count
+    else:                                   # new, or a repeat the parser has not finished with: (re)read it
+        readings = await run_in_threadpool(parse.import_raw, session, raw)
     return {"received": raw.size_bytes, "readings": readings, "duplicate": duplicate}
