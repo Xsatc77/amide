@@ -4,7 +4,7 @@
 {% set hc = health_choices() %}
 {% if hc %}
 <dialog id="health-choices-dialog" class="dialog dialog-wide health-choices" {% if hc.open %}data-open-on-load{% endif %} aria-labelledby="health-choices-title">
-  <form method="post" action="/settings/apple-health/choices" class="settings-form" novalidate>
+  <form method="post" action="/settings/apple-health/choices" class="settings-form" autocomplete="off" novalidate>
     <header class="dialog-head"><h2 id="health-choices-title">{% if hc.mode == 'first' %}Your Apple Health data arrived{% elif hc.mode == 'new' %}New Apple Health data arrived{% else %}Apple Health data to show{% endif %}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Close">×</button></header>
     {% if hc.mode == 'new' %}
