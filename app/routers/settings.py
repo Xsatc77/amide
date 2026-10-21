@@ -27,6 +27,7 @@ from app.models import (
 )
 from app.models import UserMedicine
 from app.settings.rules import TIMEZONES, email_error, timezone_error
+from app.routers import apple_health
 from app.templating import templates
 from app.users import user_rows
 
@@ -68,6 +69,9 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
         "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
     }
+    shown = apple_health.take_new_token(request.state.session_id)
+    context["health"] = apple_health.card_data(session, me.id, str(request.base_url), shown[0] if shown else None)
+    context["health"]["new_label"] = shown[1] if shown else None
     if me.is_admin:
         users = user_rows(session)
         for row in users:

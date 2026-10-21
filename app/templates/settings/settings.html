@@ -438,10 +438,7 @@
     <section id="integrations" class="builder-step">
       <h2 class="section-title">Integrations</h2>
       <div class="integration-grid">
-        <div class="integration-card">
-          <strong>Apple Health</strong>
-          <span class="tag">Coming soon</span>
-        </div>
+        {% include "health/_settings_card.html" %}
         <div class="integration-card">
           <strong>Hume</strong>
           <span class="tag">Coming soon</span>
@@ -559,4 +556,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/settings.js') }}" defer></script>
+<script src="{{ static_url('js/health_card.js') }}" defer></script>
 {% endblock %}

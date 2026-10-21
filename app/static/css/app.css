@@ -1091,6 +1091,9 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .settings-form .grid { width: 100%; }
 .integration-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .integration-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.integration-card-wide { grid-column: 1 / -1; }
+.health-steps li { margin-bottom: 6px; }
+.health-secret { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); }
 
 .inline-form { display: flex; align-items: center; gap: 8px; }
 /* .table-wrap normally clips to keep its rounded corners; let it open up while a row's menu is

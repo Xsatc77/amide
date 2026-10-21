@@ -1,24 +1,37 @@
 """Apple Health: the person's own tokens for the Health Auto Export app (the receiver and the settings card come later)."""
 
 import threading
+import time
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import config
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.health import choices
 from app.ingest import tokens
-from app.models import IngestToken
+from app.models import HealthEvent, HealthRaw, HealthReading, IngestToken, naive_utcnow
 
 router = APIRouter()
 BACK = "/settings#integrations"
 
 # A new token's secret is kept here for one look, per browser session: the redirect target reads it and it is gone.
-_new_tokens: dict[str, tuple[str, str]] = {}
+# Assumes a single process (as Amide runs): with several workers a redirect could land on a worker that never saw the token.
+# Entries expire after NEW_TOKEN_TTL seconds; stale ones are dropped on every write, so the store cannot grow without bound.
+NEW_TOKEN_TTL = 300
+_new_tokens: dict[str, tuple[str, str, float]] = {}      # session id -> (secret, label, stored at)
 _lock = threading.Lock()
+
+
+def _remember(session_id: str, secret: str, label: str) -> None:
+    now = time.monotonic()
+    with _lock:
+        for sid in [k for k, v in _new_tokens.items() if now - v[2] > NEW_TOKEN_TTL]:
+            del _new_tokens[sid]
+        _new_tokens[session_id] = (secret, label, now)
 
 
 def take_new_token(session_id: str | None) -> tuple[str, str] | None:
@@ -26,7 +39,41 @@ def take_new_token(session_id: str | None) -> tuple[str, str] | None:
     if not session_id:
         return None
     with _lock:
-        return _new_tokens.pop(session_id, None)
+        entry = _new_tokens.pop(session_id, None)
+    if entry is None or time.monotonic() - entry[2] > NEW_TOKEN_TTL:
+        return None
+    return entry[0], entry[1]
+
+
+def _ago(then, now) -> str:
+    seconds = max(0, int((now - then).total_seconds()))
+    for size, unit in ((86400, "day"), (3600, "hour"), (60, "minute")):
+        if seconds >= size:
+            n = seconds // size
+            return f"{n} {unit}{'' if n == 1 else 's'} ago"
+    return "just now"
+
+
+def card_data(session: Session, owner_id: int, host_url: str, new_secret: str | None = None) -> dict:
+    """Everything the Settings card shows: tokens, the address to type into the phone app, and how the receiving is going."""
+    base = host_url.rstrip("/")
+    active = session.scalars(select(IngestToken).where(IngestToken.owner_id == owner_id, IngestToken.scope == "health",
+                                                       IngestToken.revoked_at.is_(None)).order_by(IngestToken.id)).all()
+    first, last = session.execute(select(func.min(HealthRaw.received_at), func.max(HealthRaw.received_at))
+                                  .where(HealthRaw.owner_id == owner_id)).one()
+    readings = session.scalar(select(func.count()).select_from(HealthReading).where(HealthReading.owner_id == owner_id)) or 0
+    recent = session.scalars(select(HealthRaw).where(HealthRaw.owner_id == owner_id)
+                             .order_by(HealthRaw.received_at.desc(), HealthRaw.id.desc()).limit(10)).all()
+    events = dict(session.execute(select(HealthEvent.kind, func.count()).where(HealthEvent.owner_id == owner_id)
+                                  .group_by(HealthEvent.kind).order_by(HealthEvent.kind)).all())
+    now = naive_utcnow()
+    return {
+        "tokens": active, "new_secret": new_secret, "ingest_url": f"{base}/api/ingest/health",
+        "header_line": f"Authorization: Bearer {new_secret}" if new_secret else None,
+        "last_received_at": last, "first_data_at": first, "reading_count": readings, "recent": recent, "event_counts": events,
+        "status_line": "Waiting for first data" if last is None else f"Last received {_ago(last, now)}, {readings:,} reading{'' if readings == 1 else 's'}",
+        "max_mb": config.HEALTH_MAX_BYTES // (1024 * 1024),
+    }
 
 
 @router.post("/settings/apple-health/token")
@@ -34,8 +81,7 @@ async def create_token(request: Request, session: Session = Depends(get_session)
     form = await request.form()
     token, secret = tokens.create_token(session, uid, str(form.get("label") or ""), scope="health")
     if request.state.session_id:
-        with _lock:
-            _new_tokens[request.state.session_id] = (secret, token.label)
+        _remember(request.state.session_id, secret, token.label)
     return RedirectResponse(BACK, status_code=303)
 
 
