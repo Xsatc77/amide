@@ -21,7 +21,7 @@ from app.templating import templates
 
 router = APIRouter()
 
-TABS = ("measurements", "food", "journal", "labs")
+TABS = ("measurements", "food", "journal", "labs", "apple")
 
 # Chart range selector: exactly these seven values are accepted (spec). Anything else -- absent,
 # malformed, or garbage -- falls back to DEFAULT_RANGE rather than ever raising. The day counts
@@ -621,6 +621,10 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
                        water_history=water_mod.history(session, me_user, clock.today()), water_summary=water_mod.history_summary(water_mod.history(session, me_user, clock.today())),
                        diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user, usda_enabled=bool(usda.key_for(me_user)),
                        my_foods=session.scalars(select(Food).where(Food.owner_id == uid).order_by(Food.name)).all())
+    from app.health import choices as health_choices, series as health_series
+    context["show_apple_tab"] = health_choices.has_data(session, uid) or health_choices.has_health_token(session, uid)       # two cheap queries; the tab is for people using Apple Health
+    if tab == "apple":
+        context["apple"] = health_series.apple_tab_data(session, uid, range_key, me_user.timezone if me_user else None)
     if extra:
         context.update(extra)
 

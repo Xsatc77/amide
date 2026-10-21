@@ -1,0 +1,71 @@
+{# The Apple tab of the Measurements page. Needs `apple` (see app/health/series.apple_tab_data). Apple data lives only here: it is never copied into the person's own measurements. #}
+{% from "measurements/_silhouette_macros.html" import line_chart %}
+{% macro amount(v, unit) %}{{ '{:,}'.format(v) if v is not none else '—' }}{% if v is not none and unit %} {{ unit }}{% endif %}{% endmacro %}
+
+<section aria-labelledby="apple-heading">
+  <h2 id="apple-heading" class="section-title">Apple Health</h2>
+  <p class="muted small">Sent from your phone and kept apart from your own measurements, so nothing is counted twice. Choose what is shown in <a href="/settings#apple-health">Settings</a>.</p>
+  {% if not apple.metrics and not apple.workouts and not apple.symptoms and not apple.state_of_mind %}
+  <div class="empty"><p class="muted">Nothing to show in this range yet. Once data arrives, pick the metrics you want in Settings, under Apple Health.</p></div>
+  {% endif %}
+</section>
+
+{% if apple.metrics %}
+<section aria-labelledby="apple-metrics-heading">
+  <h2 id="apple-metrics-heading" class="section-title">Your metrics</h2>
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Metric</th><th>Today</th><th>Last 7 days</th></tr></thead>
+      <tbody>
+      {% for m in apple.metrics %}
+        <tr>
+          <td data-label="Metric">{{ m.label }}</td>
+          <td data-label="Today">{{ amount(m.today, m.unit) }}</td>
+          <td data-label="Last 7 days">{{ amount(m.week, m.unit) }}{% if m.week is not none %} <span class="muted small">{{ m.week_kind }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="dashboard-placeholders">
+    {% for m in apple.metrics %}{{ line_chart(m.chart, m.label ~ (' (' ~ m.unit ~ ')' if m.unit else '')) }}{% endfor %}
+  </div>
+  <div id="chart-tooltip" class="chart-tooltip" hidden role="status"></div>
+</section>
+{% endif %}
+
+{% if apple.workouts %}
+<section aria-labelledby="apple-workouts-heading">
+  <h2 id="apple-workouts-heading" class="section-title">Workouts</h2>
+  <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Day</th><th>Workout</th><th>Time</th><th>Distance</th><th>Energy</th></tr></thead>
+      <tbody>
+      {% for w in apple.workouts %}
+        <tr>
+          <td data-label="Day">{{ w.day | shortdate }}</td>
+          <td data-label="Workout">{{ w.name }}</td>
+          <td data-label="Time">{{ w.minutes ~ ' min' if w.minutes else '—' }}</td>
+          <td data-label="Distance">{{ amount(w.distance, w.distance_unit) }}</td>
+          <td data-label="Energy">{{ amount(w.energy, w.energy_unit) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if apple.symptoms %}
+<section aria-labelledby="apple-symptoms-heading">
+  <h2 id="apple-symptoms-heading" class="section-title">Symptoms</h2>
+  <ul class="water-log">{% for s in apple.symptoms %}<li><span>{{ s.day | shortdate }}: {{ s.name }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if apple.state_of_mind %}
+<section aria-labelledby="apple-mind-heading">
+  <h2 id="apple-mind-heading" class="section-title">State of mind</h2>
+  <ul class="water-log">{% for s in apple.state_of_mind %}<li><span>{{ s.day | shortdate }}: {{ s.name }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}

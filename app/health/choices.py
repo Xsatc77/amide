@@ -4,7 +4,7 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.health.groups import RECOMMENDED, SECTIONS, metric_group
-from app.models import HealthEvent, HealthMetricChoice, HealthReading, naive_utcnow
+from app.models import HealthEvent, HealthMetricChoice, HealthReading, IngestToken, naive_utcnow
 
 # Event kinds are offered next to the numeric metrics under the key "event:<kind>".
 EVENT_KINDS: dict[str, str] = {"symptom": "Symptoms", "state_of_mind": "State of mind"}
@@ -97,6 +97,16 @@ def is_enabled(session: Session, owner_id: int, metric: str) -> bool:
     """True only for a metric the person switched on; one with no saved choice is not shown yet."""
     row = session.scalar(select(HealthMetricChoice).where(HealthMetricChoice.owner_id == owner_id, HealthMetricChoice.metric == metric))
     return bool(row and row.enabled)
+
+
+def enabled_metrics(session: Session, owner_id: int) -> set[str]:
+    """The keys of every metric the person switched on, in one query (what a page asks instead of is_enabled once per metric)."""
+    return set(session.scalars(select(HealthMetricChoice.metric).where(HealthMetricChoice.owner_id == owner_id, HealthMetricChoice.enabled.is_(True))))
+
+
+def has_health_token(session: Session, owner_id: int) -> bool:
+    """True when the person has a live (not revoked) Apple Health token."""
+    return bool(session.scalar(select(exists().where(IngestToken.owner_id == owner_id, IngestToken.scope == "health", IngestToken.revoked_at.is_(None)))))
 
 
 def dialog_context(session: Session, owner_id: int, full: bool = False) -> dict | None:

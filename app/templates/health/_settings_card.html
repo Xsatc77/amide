@@ -66,5 +66,5 @@
     </tbody>
   </table></div>
   {% endif %}
-  <p><button type="button" class="btn btn-ghost" data-open-health-choices>Change what is shown</button></p>
+  {% if health.reading_count or health.event_counts %}<p><button type="button" class="btn btn-ghost" data-open-health-choices>Change what is shown</button></p>{% endif %}
 </div>

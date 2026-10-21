@@ -33,6 +33,7 @@
   <a href="/measurements?tab=food" class="tab {{ 'active' if active_tab == 'food' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'food' else 'false' }}">Food</a>
   <a href="/measurements?tab=journal" class="tab {{ 'active' if active_tab == 'journal' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'journal' else 'false' }}">Journal</a>
   <a href="/measurements?tab=labs" class="tab {{ 'active' if active_tab == 'labs' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'labs' else 'false' }}">Labs</a>
+  {% if show_apple_tab or active_tab == 'apple' %}<a href="/measurements?tab=apple" class="tab {{ 'active' if active_tab == 'apple' }}" role="tab" aria-selected="{{ 'true' if active_tab == 'apple' else 'false' }}">Apple</a>{% endif %}
 </div>
 
 {% if active_tab == 'measurements' %}
@@ -341,6 +342,10 @@
 {% endif %}
 
 {% include "measurements/_body_photos.html" %}
+
+{% elif active_tab == 'apple' %}
+{{ range_select('apple', charts.range, 'apple') }}
+{% include "health/apple_tab.html" %}
 
 {% elif active_tab == 'food' %}
 {% include "measurements/_food.html" %}

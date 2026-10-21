@@ -13,8 +13,8 @@ def add_raw(db, owner, ago_minutes=3, status="parsed", note=None, size=2048, sha
 
 def test_card_shows_waiting_then_last_received(client, db, me):
     page = client.get("/settings").text
-    assert "Waiting for first data" in page and "Create token" in page and "Change what is shown" in page
-    assert "data-open-health-choices" in page
+    assert "Waiting for first data" in page and "Create token" in page
+    assert "data-open-health-choices" not in page and "Change what is shown" not in page      # nothing received: the dialog renders nothing, so no button
     add_raw(db, me, ago_minutes=3)
     for i in range(3):
         db.add(HealthReading(owner_id=me, metric="step_count", start_at=datetime(2024, 2, 6, i), end_at=datetime(2024, 2, 6, i + 1),
@@ -23,6 +23,13 @@ def test_card_shows_waiting_then_last_received(client, db, me):
     page = client.get("/settings").text
     assert "Waiting for first data" not in page
     assert "Last received 3 minutes ago, 3 readings" in page
+    assert "data-open-health-choices" in page and "Change what is shown" in page
+
+
+def test_change_button_also_shows_when_only_events_arrived(client, db, me):
+    db.add(HealthEvent(owner_id=me, kind="workout", external_id="w", start_at=datetime(2024, 2, 6), name="x"))
+    db.commit()
+    assert "data-open-health-choices" in client.get("/settings").text
 
 
 def test_new_token_secret_is_shown_once_and_the_address_uses_the_request_host(client, db, me):
