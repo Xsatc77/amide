@@ -1,6 +1,6 @@
 """Which Apple Health metrics a person wants shown: what has arrived, what is still undecided, and the saved yes/no per metric."""
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.health.groups import RECOMMENDED, SECTIONS, metric_group
@@ -58,10 +58,21 @@ def _decided(session: Session, owner_id: int) -> dict[str, bool]:
     return {c.metric: c.enabled for c in session.scalars(select(HealthMetricChoice).where(HealthMetricChoice.owner_id == owner_id))}
 
 
+def has_data(session: Session, owner_id: int) -> bool:
+    """One cheap query: has this person received any Apple reading or event at all? (what every page asks first)"""
+    return bool(session.scalar(select(exists().where(HealthReading.owner_id == owner_id) | exists().where(HealthEvent.owner_id == owner_id))))
+
+
+def received_keys(session: Session, owner_id: int) -> set[str]:
+    """The choice keys of everything received (metric names and "event:<kind>"), without units or labels."""
+    keys = set(session.scalars(select(HealthReading.metric).where(HealthReading.owner_id == owner_id).distinct()))
+    keys |= {f"event:{k}" for k in session.scalars(select(HealthEvent.kind).where(HealthEvent.owner_id == owner_id, HealthEvent.kind.in_(EVENT_KINDS)).distinct())}
+    return keys
+
+
 def undecided(session: Session, owner_id: int) -> list[str]:
     """Received metrics this person has not yet said yes or no to."""
-    decided = _decided(session, owner_id)
-    return [m["metric"] for m in received_metrics(session, owner_id) if m["metric"] not in decided]
+    return sorted(received_keys(session, owner_id) - _decided(session, owner_id).keys())
 
 
 def needs_popup(session: Session, owner_id: int) -> bool:
@@ -69,7 +80,8 @@ def needs_popup(session: Session, owner_id: int) -> bool:
 
 
 def save_choices(session: Session, owner_id: int, enabled: set[str], offered: set[str]) -> None:
-    """Writes a yes or no for every metric that was on the form; only those in `enabled` are yes."""
+    """Writes a yes or no for every metric that was on the form; only those in `enabled` are yes. Names this person never received are ignored."""
+    offered = offered & received_keys(session, owner_id)
     existing = {c.metric: c for c in session.scalars(select(HealthMetricChoice).where(HealthMetricChoice.owner_id == owner_id))}
     now = naive_utcnow()
     for metric in offered:
@@ -87,8 +99,10 @@ def is_enabled(session: Session, owner_id: int, metric: str) -> bool:
     return bool(row and row.enabled)
 
 
-def dialog_context(session: Session, owner_id: int) -> dict | None:
-    """What the popup needs, or None when this person has received no Apple data (then nothing is drawn)."""
+def dialog_context(session: Session, owner_id: int, full: bool = False) -> dict | None:
+    """What the popup needs, or None when this person has received no Apple data (then nothing is drawn).
+    mode "first": nothing decided yet, the whole list. mode "new": some earlier choices exist, so only the undecided ones are listed (the
+    earlier ones are kept). mode "all": the manual full list (`full`), with the undecided ones tagged "New"."""
     metrics = received_metrics(session, owner_id)
     if not metrics:
         return None
@@ -96,8 +110,16 @@ def dialog_context(session: Session, owner_id: int) -> dict | None:
     for m in metrics:
         m["on"] = decided[m["metric"]] if m["metric"] in decided else m["recommended"]       # the saved answer, else the suggestion
         m["new"] = m["metric"] not in decided
+    if all(m["new"] for m in metrics):
+        mode = "first"
+    elif full:
+        mode = "all"
+    else:
+        mode = "new"
+        metrics = [m for m in metrics if m["new"]]
     sections = [{"name": s, "metrics": [m for m in metrics if m["section"] == s]} for s in SECTIONS]
     sections = [s for s in sections if s["metrics"]]
     for s in sections:
         s["all_on"] = all(m["on"] for m in s["metrics"])
-    return {"sections": sections, "total": len(metrics), "on": sum(m["on"] for m in metrics), "open": any(m["new"] for m in metrics)}
+    opens = mode == "first" or (mode == "new" and bool(metrics))
+    return {"sections": sections, "total": len(metrics), "on": sum(m["on"] for m in metrics), "open": opens, "mode": mode}

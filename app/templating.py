@@ -71,7 +71,13 @@ def health_choices(ctx):
         from app.db import SessionLocal
         from app.health import choices
         with SessionLocal() as s:
-            request.state.health_choices = choices.dialog_context(s, user.id)
+            # Cheap first: one existence query for everyone; the full list is built only on Settings (the manual list) or when something needs deciding.
+            context = None
+            if choices.has_data(s, user.id):
+                full = request.url.path == "/settings"
+                if full or choices.needs_popup(s, user.id):
+                    context = choices.dialog_context(s, user.id, full=full)
+            request.state.health_choices = context
     return request.state.health_choices
 
 

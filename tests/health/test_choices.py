@@ -100,7 +100,8 @@ def test_dialog_opens_on_a_page_only_when_something_is_undecided(client, db, me)
     assert 'id="health-choices-dialog"' in page and "data-open-on-load" in page
     choices.save_choices(db, me, {"step_count"}, {"step_count"})
     page = client.get("/dashboard").text
-    assert 'id="health-choices-dialog"' in page and "data-open-on-load" not in page      # still there to reopen, but quiet
+    assert 'id="health-choices-dialog"' not in page                    # nothing to decide: other pages draw nothing (Settings keeps the manual list)
+    assert 'id="health-choices-dialog"' in client.get("/settings").text
 
 
 def test_dialog_html_has_section_and_metric_switches(client, db, me):
@@ -113,3 +114,56 @@ def test_dialog_html_has_section_and_metric_switches(client, db, me):
     assert page.count("Recommended</span>") == 1            # steps only
     for text in ("Turn all off", "Use recommended", "Save choices", "of 2 on"):
         assert text in page
+
+
+def test_automatic_popup_for_a_new_metric_lists_only_that_one(client, db, me):
+    add_reading(db, me, "step_count")
+    add_reading(db, me, "heart_rate", unit="bpm")
+    choices.save_choices(db, me, {"step_count"}, {"step_count", "heart_rate"})
+    add_reading(db, me, "flights_climbed")
+    page = client.get("/dashboard").text
+    dialog = page.split('id="health-choices-dialog"')[1].split("</dialog>")[0]
+    assert "data-open-on-load" in page and "New Apple Health data arrived" in dialog and "earlier choices are kept" in dialog
+    assert 'value="flights_climbed"' in dialog and "step_count" not in dialog and "heart_rate" not in dialog and "1 of 1 on" in dialog
+    choices.save_choices(db, me, {"flights_climbed"}, {"flights_climbed"})
+    assert choices.is_enabled(db, me, "step_count") and not choices.is_enabled(db, me, "heart_rate")      # earlier choices untouched
+
+
+def test_first_popup_lists_everything_with_the_first_title(client, db, me):
+    add_reading(db, me, "step_count")
+    add_reading(db, me, "heart_rate", unit="bpm")
+    dialog = client.get("/dashboard").text.split('id="health-choices-dialog"')[1]
+    assert "Your Apple Health data arrived" in dialog and "step_count" in dialog and "heart_rate" in dialog
+
+
+def test_manual_list_on_settings_shows_all_and_marks_new_ones(client, db, me):
+    add_reading(db, me, "step_count")
+    choices.save_choices(db, me, {"step_count"}, {"step_count"})
+    add_reading(db, me, "flights_climbed")
+    page = client.get("/settings").text
+    dialog = page.split('id="health-choices-dialog"')[1].split("</dialog>")[0]
+    assert "step_count" in dialog and "flights_climbed" in dialog and dialog.count(">New<") == 1
+    assert "data-open-on-load" not in page.split('id="health-choices-dialog"')[1].split(">")[0]
+
+
+def test_a_page_for_someone_with_no_data_runs_one_health_query_at_most(client, db, me):
+    from sqlalchemy import event
+
+    from app.db import engine
+    seen = []
+
+    def record(conn, cursor, statement, *rest):
+        if "health_" in statement:
+            seen.append(statement)
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        client.get("/dashboard")
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+    assert len(seen) <= 1 and not any("GROUP BY" in q or "DISTINCT" in q for q in seen)
+
+
+def test_saving_ignores_names_that_were_never_received(db, me):
+    add_reading(db, me, "step_count")
+    choices.save_choices(db, me, {"step_count", "junk_metric"}, {"step_count", "junk_metric", "event:other"})
+    assert [c.metric for c in db.query(HealthMetricChoice)] == ["step_count"]
