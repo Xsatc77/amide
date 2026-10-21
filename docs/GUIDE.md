@@ -298,7 +298,7 @@ Everything you type or copy into the phone app is on one card: **Settings, Integ
 10. Set the sync cadence to **every hour**.
 11. Tap **Manual Export** to test. The **Status** at the bottom of the card changes from "Waiting for first data" to "Last received ... readings" within a minute, and the list of recent receipts shows each one as OK, Stored or Needs a look, so you can see a problem without the phone.
 
-If Amide sits behind something that forwards web traffic to it, make it accept request bodies large enough for the first export (Amide itself accepts up to 512 MB; the person who runs it can raise that with one setting). If anything asks for a separate sign-in in front of Amide, exempt the path `/api/ingest/` from it, or the phone will be turned away: the phone app cannot sign in. Amide's own sign-in and two-factor step are not used on this path; the token is what lets the phone in.
+If Amide sits behind something that forwards web traffic to it, make it accept request bodies large enough for the first export (Amide itself accepts up to 64 MB a post; the person who runs it can raise that with the one setting `AMIDE_HEALTH_MAX_MB`). If anything asks for a separate sign-in in front of Amide, exempt the path `/api/ingest/` from it, or the phone will be turned away: the phone app cannot sign in. Amide's own sign-in and two-factor step are not used on this path; the token is what lets the phone in.
 
 ### Choose what to see
 
@@ -312,12 +312,16 @@ It lists only what Amide actually received, in sections (Activity, Body, Nutriti
 
 ![The Apple tab](guide/img/42-apple-tab.png)
 
-The **Apple** tab appears on the Body page once you have made a token or received data. It has a **Range** drop-down like the other Body charts, a table with today's value and the last 7 days (a total for things that add up, such as steps and water; an average for the rest), a chart for every metric you switched on, the list of Apple **workouts** (what Apple recorded, kept apart from your own workout log) and, if switched on, your **symptoms** and **state of mind** entries as a dated list.
+The **Apple** tab appears on the Body page once you have made a token or received data. It has a **Range** drop-down like the other Body charts, a table with today's value and the last 7 days (a total for things that add up, such as steps and water; an average for the rest), a chart for every metric you switched on, the list of Apple **workouts** (what Apple recorded, kept apart from your own workout log) and, if switched on, your **symptoms** and **state of mind** entries as a dated list. Each reading counts on the day it was on your phone when it was taken, so a late-evening walk stays on that evening's day even if you look from another time zone.
 
 ### What is kept, and for how long
 
 - Every export is kept exactly as it arrived, compressed, so a later improvement to the reader can reprocess it. These raw copies are deleted after **90 days**; the clean per-metric history stays.
 - Sending the same export twice is recognised and not stored twice.
+- Each person's raw copies are limited to **2 GB** in all (the person who runs Amide can change it with `AMIDE_HEALTH_RAW_QUOTA_MB`). When a new export would pass that, the oldest copies that were already read in full are removed first (their readings stay, and the receipt says "raw copy removed to stay within the storage limit"); if that is still not enough, the phone is told the server is full and nothing is kept.
+- A post that is not JSON at all is listed as Needs a look, but no copy of it is kept.
+- If reading an export fails on Amide's side (not because of what was sent), the phone is told to try again later and resends that batch; Amide also retries such exports once a day by itself.
+- One person can hold at most **10** live tokens; revoke one you no longer use to make another.
 - Some kinds are **stored only**, with no switch and no display: ECG, heart rate notifications, cycle tracking and medications. The card shows how many of each have been received.
 - The clean history and your choices are included in backups; the raw copies and tokens are not.
 - This is a record, not medical advice. Amide does not interpret your numbers.
