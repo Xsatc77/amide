@@ -15,7 +15,7 @@ from app.backup import scheduled as scheduled_backup
 from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
-    auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, learn, legal, price_correction, library, library_extras, links,
+    apple_health, auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, inventory, journal, labels, labs, learn, legal, price_correction, library, library_extras, links,
     measurements, order_tracking, price_alerts, protocol_shop, protocols, settings, spending, vendors, workout_insights, workouts,
 )
 
@@ -54,6 +54,7 @@ app.include_router(body_photos.router)
 app.include_router(food.router)
 app.include_router(ingest_api.router)
 app.include_router(ingest_admin.router)
+app.include_router(apple_health.router)
 app.include_router(price_correction.router)
 app.include_router(journal.router)
 app.include_router(labs.router)
