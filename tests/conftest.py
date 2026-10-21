@@ -19,7 +19,7 @@ from app import config  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
-    BodyMeasurement, BodyPhoto, DashboardDismissal, FitnessTestResult, IngestItem, IngestSource, IngestToken, IngestTopic, Food, FoodLog, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceCorrection, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
+    BodyMeasurement, BodyPhoto, HealthEvent, HealthMetricChoice, HealthRaw, HealthReading, DashboardDismissal, FitnessTestResult, IngestItem, IngestSource, IngestToken, IngestTopic, Food, FoodLog, LoginSession, InventoryItem, Peptide, PeptideSource, PriceAlertIgnore, PriceCorrection, PriceList, Protocol, User, Vendor, WorkoutLog, WorkoutPlan,
 )
 from sqlalchemy import select, update  # noqa: E402
 
@@ -67,6 +67,10 @@ def clean(client):
         s.query(IngestTopic).delete()
         s.query(IngestSource).delete()
         s.query(IngestToken).delete()
+        s.query(HealthRaw).delete()
+        s.query(HealthReading).delete()
+        s.query(HealthEvent).delete()
+        s.query(HealthMetricChoice).delete()
         s.query(DashboardDismissal).delete()
         s.query(FoodLog).delete()
         s.query(Food).delete()

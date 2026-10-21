@@ -18,8 +18,8 @@ from app import config
 from app.db import Base
 
 PERSON, INSTALLATION = "person", "installation"
-# Left out on purpose: sessions are per-browser; ingest tokens are secrets (make a new one after a restore); alert dismissals are noise.
-NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dismissals", "dose_reminders", "photo_reminders_sent"}
+# Left out on purpose: raw Apple Health uploads are files on disk (the parsed rows are backed up); sessions are per-browser; ingest tokens are secrets (make a new one after a restore); alert dismissals are noise.
+NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dismissals", "dose_reminders", "photo_reminders_sent", "health_raw"}
 
 # File directories attached to rows (and the library's own files), by key.
 FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "LAB_REPORT_DIR",
@@ -117,6 +117,9 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("peptide_notes", "owner_id = :uid", share_drop=True),
         Tbl("saved_links", "owner_id = :uid", share_drop=True)),
         help="Your private notes and saved articles on library peptides, and your saved links. Never offered in a Share file."),
+    Section("apple_health", "Apple Health", PERSON, (
+        Tbl("health_readings", "owner_id = :uid"), Tbl("health_events", "owner_id = :uid"), Tbl("health_metric_choices", "owner_id = :uid")),
+        help="Readings and events received from Apple Health, and which metrics you chose to keep. The raw uploaded files are not backed up."),
     Section("accounts", "Accounts", INSTALLATION, (
         Tbl("users"), Tbl("shares")),
         help="Every account, with password hashes and 2FA secrets, and sharing grants. Whole-installation backups only."),

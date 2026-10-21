@@ -21,6 +21,10 @@ PHOTO_UNLOCK_MINUTES = 10
 PHOTO_MAX_SIDE = 2000
 PHOTO_MAX_PIXELS = 50_000_000
 INGEST_DIR = UPLOAD_DIR / "ingest"
+HEALTH_RAW_DIR = UPLOAD_DIR / "health_raw"
+HEALTH_MAX_BYTES = int(os.environ.get("AMIDE_HEALTH_MAX_MB", "512")) * 1024 * 1024     # the biggest Apple Health upload accepted
+HEALTH_RATE_PER_MINUTE = 30                                                          # uploads per token per minute
+HEALTH_RAW_KEEP_DAYS = 90                                                            # how long the stored raw files are kept
 INGEST_WORKER_ENABLED = os.environ.get("AMIDE_INGEST_WORKER", "1") != "0"
 REMINDERS_ENABLED = os.environ.get("AMIDE_REMINDERS", "1") != "0"           # the dose-reminder loop (it only acts for users who turned reminders on)
 BACKUP_PASSPHRASE = os.environ.get("AMIDE_BACKUP_PASSPHRASE", "")             # set it and Amide writes an encrypted whole-installation backup to data/backups on a schedule
@@ -67,3 +71,4 @@ def ensure_dirs() -> None:
     BODY_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
     JOURNAL_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
     INGEST_DIR.mkdir(parents=True, exist_ok=True)
+    HEALTH_RAW_DIR.mkdir(parents=True, exist_ok=True)

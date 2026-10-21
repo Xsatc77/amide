@@ -1539,6 +1539,7 @@ class IngestToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    scope: Mapped[str] = mapped_column(String(12), default="watcher", server_default="watcher")      # "watcher" (price-list inbox) or "health" (Apple Health receiver)
 
 
 class IngestSource(Base):
@@ -1622,3 +1623,69 @@ class DashboardDismissal(Base):
     alert_key: Mapped[str] = mapped_column(String(120))
     snoozed_until: Mapped[date | None] = mapped_column(Date)      # None = dismissed for good; a date = hidden until that day has passed
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+
+
+class HealthRaw(Base):
+    """One file the phone's export app sent, kept on disk (config.HEALTH_RAW_DIR) so a parser fix can re-read it. Deduplicated by SHA-256 per owner."""
+    __tablename__ = "health_raw"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "sha256", name="uq_health_raw_sha"),
+        CheckConstraint("status IN ('stored', 'parsed', 'flagged')", name="ck_health_raw_status"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+    sha256: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    file_name: Mapped[str] = mapped_column(String(80))      # random name inside HEALTH_RAW_DIR
+    status: Mapped[str] = mapped_column(String(10), default="stored")
+    note: Mapped[str | None] = mapped_column(String(300))
+    automation_name: Mapped[str | None] = mapped_column(String(120))
+    readings_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    headers: Mapped[dict | None] = mapped_column(JSON)      # the automation-* and session-id request headers (lowercase keys), read by the parser
+
+
+class HealthReading(Base):
+    """One measurement (a heart rate, a day's steps...). `grain` says how long a stretch the value covers; naive UTC times plus the local offset."""
+    __tablename__ = "health_readings"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "metric", "start_at", "grain", "source", name="uq_health_reading"),
+        CheckConstraint("grain IN ('second', 'minute', 'hour', 'day', 'point')", name="ck_health_reading_grain"),
+        Index("ix_health_reading_owner_metric_start", "owner_id", "metric", "start_at"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    metric: Mapped[str] = mapped_column(String(80))
+    start_at: Mapped[datetime] = mapped_column(DateTime)
+    end_at: Mapped[datetime] = mapped_column(DateTime)
+    offset_minutes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")      # the phone's UTC offset when it was taken
+    grain: Mapped[str] = mapped_column(String(8))
+    value: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(30))
+    source: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    extra: Mapped[dict | None] = mapped_column(JSON)      # other fields of the record (min, max, avg...)
+
+
+class HealthEvent(Base):
+    """A discrete happening (a symptom, a state of mind) rather than a number."""
+    __tablename__ = "health_events"
+    __table_args__ = (UniqueConstraint("owner_id", "kind", "external_id", name="uq_health_event"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    external_id: Mapped[str] = mapped_column(String(120))
+    start_at: Mapped[datetime] = mapped_column(DateTime)
+    end_at: Mapped[datetime | None] = mapped_column(DateTime)
+    name: Mapped[str | None] = mapped_column(String(120))
+    payload: Mapped[dict | None] = mapped_column(JSON)
+
+
+class HealthMetricChoice(Base):
+    """Whether the person wants a metric kept (enabled) or dropped; a metric with no row has not been decided yet."""
+    __tablename__ = "health_metric_choices"
+    __table_args__ = (UniqueConstraint("owner_id", "metric", name="uq_health_metric_choice"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    metric: Mapped[str] = mapped_column(String(80))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    decided_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
