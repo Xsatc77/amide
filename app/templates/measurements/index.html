@@ -107,7 +107,7 @@
       {% endfor %}
       <div class="overview-chart-panel" data-metric="nutrition" data-range-ring{{ '' if not shown.done else ' hidden' }}>
         <div class="card nutrition-range">
-          <h3>Nutrition Over {{ charts.range_labels[charts.range] | lower }}</h3>
+          <h3>Nutrition Over {{ charts.range_labels[charts.range] }}</h3>
           {% if nutrition_range %}
           {{ macro_ring(nutrition_range.ring, 'Protein, carbs, fat and fiber eaten over ' ~ (charts.range_labels[charts.range] | lower), nutrition_range.days) }}
           <p class="muted small">{{ nutrition_range.days_logged }} day{{ '' if nutrition_range.days_logged == 1 else 's' }} with food logged. "A day" is the average over those days.</p>

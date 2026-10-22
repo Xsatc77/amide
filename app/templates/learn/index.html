@@ -15,7 +15,7 @@
 
   <nav class="learn-contents" aria-label="Contents">
     <ol>
-      {% for s in sections %}<li><a href="#{{ s.slug }}">{{ s.title }}</a></li>{% endfor %}
+      {% for s in sections %}<li><a href="#{{ s.slug }}">{{ s.title | titled }}</a></li>{% endfor %}
       <li><a href="#glossary">Glossary</a></li>
       <li><a href="#sources">Sources and review</a></li>
     </ol>
@@ -23,7 +23,7 @@
 
   {% for s in sections %}
   <section id="{{ s.slug }}" class="learn-section">
-    <h2>{{ loop.index }}. {{ s.title }}</h2>
+    <h2>{{ loop.index }}. {{ s.title | titled }}</h2>
     <div class="learn-prose" data-learn-section="{{ s.slug }}">{% include s.template %}</div>
     {{ terms_box(s) }}
   </section>

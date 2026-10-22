@@ -11,7 +11,7 @@
 </div>
 {% for s in stacks %}
 <section class="card" id="goal-{{ s.goal.slug }}" aria-labelledby="stack-{{ s.goal.slug }}">
-  <h2 id="stack-{{ s.goal.slug }}" class="section-title">{{ s.goal.label }}</h2>
+  <h2 id="stack-{{ s.goal.slug }}" class="section-title">{{ s.goal.label | titled }}</h2>
   {% if s.entries %}
   <ol class="stack-list">
     {% for pid, name in s.entries %}

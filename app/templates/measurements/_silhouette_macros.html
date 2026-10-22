@@ -10,7 +10,7 @@
 {% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false) %}
 {% if chart %}
 <div class="card">
-  <h3>{{ label }}</h3>
+  <h3>{{ label | titled }}</h3>
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
     {{ y_grid(chart.y_axis) }}
     {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
@@ -48,7 +48,7 @@
 {% macro dual_chart(chart, label, a_label, b_label) %}
 {% if chart %}
 <div class="card">
-  <h3>{{ label }}</h3>
+  <h3>{{ label | titled }}</h3>
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
     {{ y_grid(chart.y_axis) }}
     <polyline points="{{ chart.poly_a }}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>

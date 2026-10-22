@@ -93,7 +93,7 @@
   <h3 class="section-title">Log</h3>
   {% for meal in food.meals %}
   <div class="food-meal" id="meal-{{ meal.key }}">
-    <div class="food-meal-head"><h4>{{ meal.label }}</h4>
+    <div class="food-meal-head"><h4>{{ meal.label | titled }}</h4>
       <span class="muted small">{{ meal.totals.calories | round | int }} kcal &middot; P {{ meal.totals.protein_g | round | int }} &middot; C {{ meal.totals.carb_g | round | int }} &middot; F {{ meal.totals.fat_g | round | int }}</span></div>
     {% if meal.entries %}
     <ul class="food-entries">

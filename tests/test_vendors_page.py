@@ -537,7 +537,7 @@ def test_vendors_are_grouped_favorites_then_recommended_then_all_others_each_a_t
     client.post(f"/vendors/{ids['Zed Group Co']}/favorite")              # a favorite that is also recommended sits under Favorites only
     try:
         page = _text(client.get("/vendors"))
-        favorites, recommended, others = page.index("Favorites <span"), page.index("Recommended <span"), page.index("All others <span")
+        favorites, recommended, others = page.index("Favorites <span"), page.index("Recommended <span"), page.index("All Others <span")
         assert favorites < recommended < others
         order = [page.index(n) for n in ("Beta Group Co", "Zed Group Co", "Rec Alpha Group", "Rec Zulu Group", "Amber Group Co", "Mid Group Co", "Nope Group Co")]
         assert order == sorted(order)
@@ -553,7 +553,7 @@ def test_an_empty_group_has_no_heading(client, db):
     only = _make_vendor("Lonely Plain Group Co")
     try:
         page = _text(client.get("/vendors"))
-        assert "All others <span" in page and "Favorites <span" not in page and "Recommended <span" not in page
+        assert "All Others <span" in page and "Favorites <span" not in page and "Recommended <span" not in page
     finally:
         with SessionLocal() as s:
             s.query(Vendor).filter(Vendor.id == only).delete()

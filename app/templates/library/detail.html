@@ -129,7 +129,7 @@
       {% set caution_keys = ("side_effects", "contraindications", "drug_interactions") %}
       {% for key, title in narrative_order if simple.get(key) %}
       <section class="lib-section{{ ' lib-section-caution' if key in caution_keys else '' }}">
-        <h2 class="section-title">{{ title }}</h2>
+        <h2 class="section-title">{{ title | titled }}</h2>
         {% if key in bullet_keys or (key == 'side_effects' and '\n' in simple[key]) %}
           {{ bullets(simple[key].split("\n")) }}
         {% else %}

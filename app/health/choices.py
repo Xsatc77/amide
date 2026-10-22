@@ -4,6 +4,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.titles import title_case
 from app.health.groups import RECOMMENDED, SECTIONS, metric_group
 from app.models import HealthEvent, HealthMetricChoice, HealthReading, IngestToken, naive_utcnow
 
@@ -41,9 +42,8 @@ def label_for(metric: str) -> str:
     if metric.startswith("event:"):
         return EVENT_KINDS.get(metric[6:], label_for(metric[6:]))
     if metric in LABELS:
-        return LABELS[metric]
-    words = metric.replace("_", " ").replace("&", "and").strip()
-    return words[:1].upper() + words[1:]
+        return title_case(LABELS[metric])
+    return title_case(metric.replace("_", " ").replace("&", "and").strip())
 
 
 def note_received(session: Session, owner_id: int, keys: set[str]) -> None:

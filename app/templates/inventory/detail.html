@@ -255,7 +255,7 @@
   <form method="post" class="item-form" enctype="multipart/form-data" novalidate
         action="{{ '/inventory/%d/orders/%d' % (item.id, editing_order.id) if editing_order else '/inventory/%d/orders' % item.id }}">
     <header class="dialog-head">
-      <h2 data-title>{{ 'Edit order' if editing_order else 'Add order' }}</h2>
+      <h2 data-title>{{ 'Edit Order' if editing_order else 'Add Order' }}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-order" aria-label="Close">×</button>
     </header>
     {% if order_errors %}

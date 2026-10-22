@@ -12,7 +12,7 @@
 <div class="fitness-test-grid">
   {% for e in exercises %}
   <section class="lib-section">
-    <h2 class="section-title">{{ e.label }}</h2>
+    <h2 class="section-title">{{ e.label | titled }}</h2>
     {% if e.suggest_retest %}
     <p class="note">It's been a while — consider a retest for {{ e.label }}.</p>
     {% endif %}

@@ -17,7 +17,7 @@
 <style>{{ page_rule | safe }}{% if custom_css %}
 {{ custom_css | safe }}{% endif %}</style>
 <div class="label-tools no-print">
-  <h1 class="page-title">{{ title }}</h1>
+  <h1 class="page-title">{{ title | titled }}</h1>
   <p class="muted">{{ labels | length }} label{{ '' if labels | length == 1 else 's' }}. The print window opens by itself; if it does not, use the button.</p>
   <button type="button" class="btn btn-primary" data-print>Print</button>
   <a class="btn btn-ghost" href="{{ next_page }}">Back</a>

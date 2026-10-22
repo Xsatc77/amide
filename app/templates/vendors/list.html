@@ -24,7 +24,7 @@
 {% else %}
 {% for group_label, group_vendors in groups %}
 <section class="vendor-group" aria-labelledby="vg-{{ loop.index }}">
-  <h2 id="vg-{{ loop.index }}" class="section-title">{{ group_label }} <span class="muted small">({{ group_vendors | length }})</span></h2>
+  <h2 id="vg-{{ loop.index }}" class="section-title">{{ group_label | titled }} <span class="muted small">({{ group_vendors | length }})</span></h2>
 <div class="table-wrap">
   <table class="inv-table">
     <thead>

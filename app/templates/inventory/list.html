@@ -130,7 +130,7 @@
 
 {% macro item_table(section_id, heading, groups, show_medium) %}
 <section id="{{ section_id }}" aria-labelledby="{{ section_id }}-heading">
-  <h2 id="{{ section_id }}-heading" class="section-title">{{ heading }}</h2>
+  <h2 id="{{ section_id }}-heading" class="section-title">{{ heading | titled }}</h2>
   {% if show_medium %}
   <form method="get" action="/inventory" class="inv-sort">
     <label for="inv-sort-select" class="small muted">Order</label>
@@ -259,7 +259,7 @@
   <form method="post" enctype="multipart/form-data" class="item-form"
         action="{{ '/inventory/%d' % editing.id if editing else '/inventory' }}" novalidate>
     <header class="dialog-head">
-      <h2 data-title>{{ 'Edit item' if editing else 'New inventory item' }}</h2>
+      <h2 data-title>{{ 'Edit Item' if editing else 'New Inventory Item' }}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
 

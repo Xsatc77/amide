@@ -22,7 +22,7 @@
 
 {% for kind, rows in groups %}
 <section class="link-group" aria-labelledby="links-{{ loop.index }}">
-  <h2 id="links-{{ loop.index }}" class="section-title">{{ kind }} <span class="muted small">({{ rows | length }})</span></h2>
+  <h2 id="links-{{ loop.index }}" class="section-title">{{ kind | titled }} <span class="muted small">({{ rows | length }})</span></h2>
   <ul class="link-list">
     {% for l in rows %}
     <li class="link-card">
@@ -47,7 +47,7 @@
 <dialog id="link-dialog" class="dialog"{% if errors %} data-open-on-load{% endif %}>
   <form method="post" action="{{ '/links/' ~ edit_id if edit_id else '/links' }}" class="settings-form" id="link-form" novalidate>
     <header class="dialog-head">
-      <h2 id="link-dialog-title">{{ 'Edit link' if edit_id else 'Add a link' }}</h2>
+      <h2 id="link-dialog-title">{{ 'Edit Link' if edit_id else 'Add A Link' }}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
     <label class="field {{ 'has-error' if errors.name }}">

@@ -29,10 +29,10 @@ def panel(db, me, days_ago, **results):
 def test_each_ratio_is_charted_once_there_are_two_panels_with_its_inputs(client, db, me):
     panel(db, me, 60, FASTING_INSULIN=10.0, FASTING_GLUCOSE=90.0, TRIGLYCERIDES=150.0, HDL=50.0, LDL=100.0, TOTAL_CHOLESTEROL=200.0)
     page = client.get("/measurements?tab=labs&range=lifetime").text
-    assert "HOMA-IR (calculated)" not in page                               # one panel is not a trend
+    assert "HOMA-IR (Calculated)" not in page                               # one panel is not a trend
     panel(db, me, 0, FASTING_INSULIN=8.0, FASTING_GLUCOSE=85.0, TRIGLYCERIDES=120.0, HDL=55.0, LDL=90.0, TOTAL_CHOLESTEROL=190.0)
     page = client.get("/measurements?tab=labs&range=lifetime").text
-    for label in ("HOMA-IR (calculated)", "Triglycerides / HDL (calculated)", "Non-HDL cholesterol (calculated)", "LDL / HDL (calculated)"):
+    for label in ("HOMA-IR (Calculated)", "Triglycerides / HDL (Calculated)", "Non-HDL Cholesterol (Calculated)", "LDL / HDL (Calculated)"):
         assert f"<h3>{label}</h3>" in page
 
 
@@ -40,7 +40,7 @@ def test_a_ratio_needs_both_of_its_inputs_on_the_same_panel(client, db, me):
     panel(db, me, 60, TRIGLYCERIDES=150.0)
     panel(db, me, 0, HDL=55.0)
     page = client.get("/measurements?tab=labs&range=lifetime").text
-    assert "Triglycerides / HDL (calculated)" not in page
+    assert "Triglycerides / HDL (Calculated)" not in page
 
 
 def test_glucose_in_mmol_uses_the_matching_homa_constant(client, db, me):

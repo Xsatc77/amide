@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 
+from app.titles import title_case
 from app.goals import GOALS_BY_SLUG
 from app.library.tag_goals import goal_colors_for_tag
 
@@ -97,6 +98,7 @@ def shortdate(value: date | None) -> str:
 
 
 templates.env.filters["money"] = money
+templates.env.filters["titled"] = title_case
 templates.env.filters["mg"] = mg
 templates.env.filters["shortdate"] = shortdate
 templates.env.filters["dose_num"] = lambda v: f"{v:g}"

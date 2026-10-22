@@ -7,6 +7,7 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+from app.titles import title_case
 from app.learn import glossary, syringe
 from app.learn.sections import LAST_UPDATED, SECTIONS
 from app.main import app
@@ -77,7 +78,7 @@ def test_the_page_needs_a_login(client):
 def test_the_page_has_every_section_a_terms_box_and_the_glossary(client):
     text = page(client)
     for section in SECTIONS:
-        assert f'id="{section.slug}"' in text and section.title in text, section.slug
+        assert f'id="{section.slug}"' in text and title_case(section.title) in text, section.slug
         box = text.split(f'id="{section.slug}"', 1)[1].split('class="learn-terms"', 1)[1].split("</div>", 1)[0]
         for term in section.terms:
             assert term in box, f"{section.slug} box is missing {term}"

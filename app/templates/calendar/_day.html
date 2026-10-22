@@ -12,7 +12,7 @@
   {% endif %}
   {% for slot, key, entries in sections if entries %}
   <section class="cal-day-section" data-slot="{{ key }}">
-    <h2 class="section-title">{{ slot.label }}</h2>
+    <h2 class="section-title">{{ slot.label | titled }}</h2>
     <div class="cal-card-grid">
       {% for occ, items in entries %}
       {% set status = adherence.get((occ.protocol_id | string) ~ '|' ~ occ.date.isoformat(), 'upcoming') %}

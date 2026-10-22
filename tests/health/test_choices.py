@@ -39,7 +39,7 @@ def test_popup_lists_only_received_metrics_with_recommended_marked(db, me):
     assert by_key["step_count"]["label"] == "Steps" and by_key["step_count"]["recommended"] is True
     assert by_key["heart_rate"]["recommended"] is False and by_key["heart_rate"]["unit"] == "bpm"
     assert by_key["weight_&_body_mass"]["unit"] == "kg" and by_key["weight_&_body_mass"]["label"] == "Weight"
-    assert by_key["zephyr_index"]["label"] == "Zephyr index" and by_key["zephyr_index"]["section"] == "Mind and other"
+    assert by_key["zephyr_index"]["label"] == "Zephyr Index" and by_key["zephyr_index"]["section"] == "Mind and other"
     assert by_key["event:symptom"]["section"] == "Mind and other" and by_key["event:symptom"]["label"] == "Symptoms" and by_key["event:symptom"]["recommended"]
     sections = [m["section"] for m in got]
     assert sections == sorted(sections, key=choices.SECTIONS.index)       # grouped in the popup's section order

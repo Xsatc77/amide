@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set active_nav = "workouts" %}
-{% block title %}Log: {{ day.label if day else (free_label or 'Free workout') }}{% endblock %}
+{% block title %}Log: {{ day.label if day else (free_label or 'Free Workout') }}{% endblock %}
 
 {#- "27.5 kg · 3 × 8" / "30 min": what a past log of the same exercise recorded. -#}
 {% macro last_text(l) -%}
@@ -35,7 +35,7 @@
 {% endmacro %}
 
 {% block content %}
-<div class="page-head"><div><h1>{{ day.label if day else (free_label or 'Free workout') }}</h1><p class="muted">{{ log_date | shortdate }}{% if free %} · not part of a plan{% endif %}</p></div></div>
+<div class="page-head"><div><h1>{{ day.label if day else (free_label or 'Free Workout') }}</h1><p class="muted">{{ log_date | shortdate }}{% if free %} · not part of a plan{% endif %}</p></div></div>
 <p class="muted small" data-keep-awake-note></p>
 
 <form method="post" action="{{ form_action if free else '/workouts/day/' ~ day.id ~ '/log' }}" id="workout-log-form" data-confirm-incomplete>
@@ -120,7 +120,7 @@
   </table></div>
   {% endif %}
 
-  <h2 class="section-title">{{ 'Exercises' if free else 'Added today' }}</h2>
+  <h2 class="section-title">{{ 'Exercises' if free else 'Added Today' }}</h2>
   <p class="muted small">Add anything you did that is not on the plan. Pick it from the list (or type a common name) and enter its sets and reps, or minutes for cardio, to get its calorie estimate.</p>
   <div class="log-scroll"><table class="lib-table log-table">
     <thead><tr><th>Exercise</th><th>Load</th><th>Sets</th><th>Reps per set</th><th>Cardio: min / mph / % grade / watts</th><th>Estimate</th><th></th></tr></thead>

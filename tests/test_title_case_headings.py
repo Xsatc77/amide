@@ -1,12 +1,12 @@
 """Every card heading in the templates is Title Case ("Items In Shipment"): no word of a title starts with a lowercase letter.
 
-The tutorial chapters (templates/learn/s*.html) and the legal documents keep the sentence style of their prose, and a few units stay lowercase."""
+Units in parentheses stay lowercase."""
 
 import re
 from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "templates"
-PROSE = ("learn/s", "legal/")
+PROSE = ("legal/",)          # the legal documents are already in the standard title form with small words lowercase ("Terms of Service")
 HEADING = re.compile(r"<(h[1-4]|legend)\b[^>]*>(.*?)</\1>", re.S | re.I)
 MARKUP = re.compile(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}|<[^>]+>|&[#A-Za-z0-9]+;|\([^)]*\)", re.S)          # expressions, tags, entities and parentheses (units) are not title words
 NOTE = re.compile(r'<(?:span|small)\b[^>]*class="[^"]*\b(?:muted|small)\b')                           # a muted note after the title is a sentence
