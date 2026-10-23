@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% set active_nav = "measurements" %}
+{% from "measurements/_silhouette_macros.html" import rating_chart %}
+{% block title %}Compare Days Of The Week{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Compare Days Of The Week</h1>
+    <p class="muted">Pick a day of the week to see mood, energy, sleep quality and appetite for just those days across your whole journal, and how that weekday sits against every other day. Only your own entries are used.</p>
+    <p class="small"><a href="/measurements?tab=journal">&larr; Back to the Journal</a></p>
+  </div>
+</div>
+
+<div class="chips cmp-picks" role="group" aria-label="Day of the week">
+  {% for short, name in weekdays %}<a class="chip" href="/journal/compare?day={{ short }}&amp;range={{ range_key }}" aria-pressed="{{ 'true' if loop.index0 == weekday else 'false' }}">{{ name }}</a>{% endfor %}
+</div>
+<div class="chips cmp-picks" role="group" aria-label="How far back">
+  {% for key, label, days in ranges %}<a class="chip" href="/journal/compare?day={{ weekdays[weekday][0] }}&amp;range={{ key }}" aria-pressed="{{ 'true' if key == range_key else 'false' }}">{{ label }}</a>{% endfor %}
+</div>
+
+<section aria-labelledby="cmp-chart-heading">
+  <h2 id="cmp-chart-heading" class="section-title">{{ weekday_name }} Entries Across {{ range_label }}</h2>
+  {% if chart %}{{ rating_chart(chart) }}{% else %}<p class="muted">No {{ weekday_name }} entries yet{% if range_key != 'all' %} in this range{% endif %}. Log a rating on a {{ weekday_name }} and it will show here.</p>{% endif %}
+</section>
+
+{% if chart %}
+<section aria-labelledby="cmp-stats-heading">
+  <h2 id="cmp-stats-heading" class="section-title">How {{ weekday_name }} Compares With Every Day</h2>
+  <div class="table-wrap">
+    <table class="inv-table cmp-table">
+      <thead><tr><th>Rating</th><th>{{ weekday_name }}s</th><th>Every Day</th><th>Difference</th><th>Lowest</th><th>Highest</th><th>Entries</th></tr></thead>
+      <tbody>
+        {% for s in stats %}
+        <tr>
+          <td data-label="Rating"><span class="cmp-swatch" style="border-top-color: {{ s.color }}"></span> {{ s.label }}</td>
+          <td data-label="{{ weekday_name }}s">{{ '%.1f' % s.avg if s.avg is not none else '—' }}</td>
+          <td data-label="Every Day">{{ '%.1f' % s.all_avg if s.all_avg is not none else '—' }}</td>
+          <td data-label="Difference">{{ '%+.1f' % s.diff if s.diff is not none else '—' }}</td>
+          <td data-label="Lowest">{{ s.low if s.low is not none else '—' }}</td>
+          <td data-label="Highest">{{ s.high if s.high is not none else '—' }}</td>
+          <td data-label="Entries">{{ s.count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">Ratings run 1 to 5. A difference above zero means that weekday is rated higher than your average day. For appetite, lower is better.</p>
+</section>
+{% endif %}
+
+<section aria-labelledby="cmp-pattern-heading">
+  <h2 id="cmp-pattern-heading" class="section-title">Average By Day Of The Week</h2>
+  <div class="table-wrap">
+    <table class="inv-table cmp-table">
+      <thead><tr><th>Rating</th>{% for short, name in weekdays %}<th class="{{ 'is-picked' if loop.index0 == weekday }}">{{ name }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in pattern %}
+        <tr>
+          <td data-label="Rating"><span class="cmp-swatch" style="border-top-color: {{ row.color }}"></span> {{ row.label }}</td>
+          {% for avg in row.averages %}
+          <td data-label="{{ weekdays[loop.index0][1] }}" class="{{ 'is-picked' if loop.index0 == weekday }}">{% if avg is not none %}{{ '%.1f' % avg }}<span class="cmp-bar" style="width: {{ (avg / 5 * 100) | round(0) | int }}%; background: {{ row.color }}"></span>{% else %}—{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">Each cell is the average of every entry on that weekday in the range shown. The bar is the average out of 5.</p>
+</section>
+{% endblock %}

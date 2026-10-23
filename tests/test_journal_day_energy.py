@@ -1,5 +1,6 @@
 """The Journal's day rows pull in that day's water, food calories, workout calories burned and the estimated deficit."""
 
+import re
 from datetime import date, datetime
 
 import pytest
@@ -81,6 +82,17 @@ def test_the_journal_page_shows_the_day_summary_and_the_energy_rating_is_still_a
     assert "<b>40</b> of 95 oz water" in page and "<b>640</b> kcal eaten" in page and "<b>220</b> kcal burned" in page and "Deficit <b>" in page
     assert 'aria-label="Energy 4 of 5"' in page and 'aria-label="Mood 3 of 5"' in page and 'aria-label="Sleep 2 of 5"' in page
     assert "water_oz" not in page and "deficit_note" not in page                       # no raw data leaking into a cell
+
+
+def test_hovering_the_deficit_bubble_gives_the_weekly_estimate_like_the_nutrition_page(client, db, me, monkeypatch):
+    profile(db, me)
+    log(db, me, calories=640, water=40)
+    db.add(JournalEntry(owner_id=me, entry_date=DAY, mood=3))
+    db.commit()
+    monkeypatch.setattr(day_overview, "burn_by_day", lambda session, uid: {DAY: 220.0})
+    page = client.get("/measurements?tab=journal").text
+    title = re.search(r'class="deficit-pill[^"]*" title="([^"]+)"', page).group(1)
+    assert "TDEE + workout burn - eaten" in title and re.search(r"about \d+(\.\d+)? lb per week if every day were like this: an estimate", title)
 
 
 def test_a_day_with_nothing_logged_shows_a_dash(client, db, me):

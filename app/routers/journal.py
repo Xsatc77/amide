@@ -7,9 +7,10 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app import clock, config, journal_photos
+from app import clock, config, journal_compare, journal_photos
 from app.auth.deps import current_user_id
 from app.db import get_session
+from app.templating import templates
 from app.models import (
     DoseLog, JournalCustomEffect, JournalEntry, JournalEntryCustomEffect, JournalEntrySideEffect, JournalPhoto, JournalQuickNote, JournalSideEffect, Share, ShareCategory,
     User,
@@ -425,6 +426,27 @@ def _photo_file(photo: JournalPhoto):
 
 
 _NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+@router.get("/journal/compare")
+def compare_page(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Pick a day of the week: the four ratings for just that weekday across history, set against every other day. Only the viewer's own entries."""
+    q = request.query_params
+    today = clock.today()
+    weekday = journal_compare.parse_weekday(q.get("day"), default=today.weekday())
+    range_key = journal_compare.parse_range(q.get("range"))
+    entries = journal_compare.entries_since(session.scalars(select(JournalEntry).where(JournalEntry.owner_id == uid)).all(), today, range_key)
+    points = journal_compare.weekday_points(entries, weekday)
+    shown = [{"key": item["key"], "points": points[item["key"]]} for item in RATING_SERIES if points[item["key"]]]
+    stats = {s["key"]: s for s in journal_compare.weekday_stats(entries, weekday)}
+    pattern = journal_compare.weekday_averages(entries)
+    info = {item["key"]: item for item in RATING_SERIES}
+    return templates.TemplateResponse(request, "journal/compare.html", {
+        "weekdays": journal_compare.WEEKDAYS, "weekday": weekday, "weekday_name": journal_compare.WEEKDAYS[weekday][1],
+        "ranges": journal_compare.RANGES, "range_key": range_key, "range_label": journal_compare.range_label(range_key),
+        "chart": rating_chart(shown) if shown else None,
+        "stats": [stats[k] | {"label": info[k]["label"], "color": info[k]["color"]} for k in journal_compare.RATINGS],
+        "pattern": [{"label": info[k]["label"], "color": info[k]["color"], "averages": pattern[k]} for k in journal_compare.RATINGS]})
 
 
 @router.get("/journal/photos/{photo_id}")

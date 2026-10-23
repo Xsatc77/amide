@@ -406,6 +406,7 @@
   <div class="btn-row">
     <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
     <button type="button" class="btn" data-action="open-journal-photo" data-date="{{ today_iso }}">Add a photo</button>
+    <a class="btn" href="/journal/compare">Compare</a>
     <button type="button" class="btn" data-action="open-workout-log">Log Workout</button>
     <button type="button" class="btn" data-quick-open>Quick activity</button>
     <a class="btn" href="/workouts/free/log">Log a workout that is not in a plan</a>
@@ -674,7 +675,7 @@
               {% if t.lifted_lb %}<li><svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span><b>{{ "{:,}".format(u.weight(t.lifted_lb, 0)) }}</b> {{ u.load_label }} lifted</span></li>{% endif %}
             </ul>
             {% if t.deficit %}
-            <div class="deficit-pill{{ ' is-surplus' if t.deficit.surplus else '' }}" title="Your daily need plus workouts, minus food. Every calorie figure here is an estimate.">
+            <div class="deficit-pill{{ ' is-surplus' if t.deficit.surplus else '' }}" title="Your daily need plus workouts, minus food (TDEE + workout burn - eaten; about {{ u.weight(t.deficit.lb_per_week) }} {{ 'kg' if u.metric else 'lb' }} per week if every day were like this: an estimate). Every calorie figure here is an estimate.">
               <svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v14M6 12l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"{% if t.deficit.surplus %} transform="rotate(180 12 12)"{% endif %}/></svg>
               <span>{{ 'Surplus' if t.deficit.surplus else 'Deficit' }} <b>{{ "{:,}".format(t.deficit.kcal | abs) }}</b> kcal</span>
             </div>
