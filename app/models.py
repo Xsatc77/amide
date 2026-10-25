@@ -558,7 +558,7 @@ class OrderItem(Base):
     __table_args__ = (
         CheckConstraint("quantity > 0", name="ck_order_item_quantity_pos"),
         CheckConstraint(
-            "received_quantity IS NULL OR (received_quantity >= 0 AND received_quantity <= quantity)",
+            "received_quantity IS NULL OR (received_quantity >= 0 AND received_quantity <= quantity * 2)",
             name="ck_order_item_received_range"),
         CheckConstraint("cost_cents IS NULL OR cost_cents >= 0", name="ck_order_item_cost_nonneg"),
         CheckConstraint("coa_vial_size_mg IS NULL OR coa_vial_size_mg > 0", name="ck_order_item_coa_vial_size_pos"),

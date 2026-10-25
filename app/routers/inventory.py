@@ -1188,10 +1188,14 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
         except ValueError:
             errors[field] = "Must be a whole number."
             continue
-        if not 0 <= qty <= li.quantity:
-            errors[field] = f"Must be between 0 and {li.quantity}."
+        if not 0 <= qty <= li.quantity * 2:
+            errors[field] = f"Must be between 0 and {li.quantity * 2} (double the {li.quantity} ordered)."
             continue
-        received[li.id] = (qty, raw[f"received_note_{li.id}"] or None)
+        note = raw[f"received_note_{li.id}"] or None
+        if qty > li.quantity and not note:
+            errors[f"received_note_{li.id}"] = f"Say why you received more than the {li.quantity} ordered."
+            continue
+        received[li.id] = (qty, note)
 
     if errors:
         item = _own_item(session, item_id, uid)
@@ -1343,8 +1347,11 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
                 errors["received_quantity"] = "Must be a whole number."
         if ("received_quantity" not in errors and received_quantity is not None
                 and line_values["quantity"] is not None
-                and not 0 <= received_quantity <= line_values["quantity"]):
-            errors["received_quantity"] = f"Must be between 0 and {line_values['quantity']}."
+                and not 0 <= received_quantity <= line_values["quantity"] * 2):
+            errors["received_quantity"] = f"Must be between 0 and {line_values['quantity'] * 2} (double the {line_values['quantity']} ordered)."
+        elif (received_quantity is not None and line_values["quantity"] is not None
+                and received_quantity > line_values["quantity"] and not li.received_note):
+            errors["received_quantity"] = "Over the ordered quantity needs a note: check the order in again to add one."
 
     new_coa = None
     if not errors and coa:

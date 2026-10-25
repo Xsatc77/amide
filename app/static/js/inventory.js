@@ -330,7 +330,7 @@
       qtyInput.name = `received_quantity_${line.id}`;
       qtyInput.type = "number";
       qtyInput.min = "0";
-      qtyInput.max = String(line.quantity);
+      qtyInput.max = String(line.quantity * 2);
       qtyInput.step = "1";
       qtyInput.value = posted != null && posted !== "" ? posted : String(line.quantity);
       qtyLabel.append(qtySpan, qtyInput);
@@ -341,15 +341,29 @@
         qtyLabel.appendChild(small);
       }
 
+      const noteErr = prefill && prefill.errors ? prefill.errors[`received_note_${line.id}`] : null;
       const noteLabel = document.createElement("label");
-      noteLabel.className = "field";
+      noteLabel.className = `field ${noteErr ? "has-error" : ""}`;
       const noteSpan = document.createElement("span");
-      noteSpan.textContent = "Note (if short or damaged)";
       const noteInput = document.createElement("input");
       noteInput.name = `received_note_${line.id}`;
       noteInput.maxLength = 300;
       noteInput.value = postedNote || "";
+      // More than ordered (up to double) needs a note saying why; short or damaged is optional.
+      const syncNote = () => {
+        const over = Number(qtyInput.value) > line.quantity;
+        noteInput.required = over;
+        noteSpan.textContent = over ? "Note (required: more than ordered)" : "Note (if short or damaged)";
+      };
+      qtyInput.addEventListener("input", syncNote);
+      syncNote();
       noteLabel.append(noteSpan, noteInput);
+      if (noteErr) {
+        const small = document.createElement("small");
+        small.className = "error";
+        small.textContent = noteErr;
+        noteLabel.appendChild(small);
+      }
 
       row.append(nameDiv, qtyLabel, noteLabel);
       linesContainer.appendChild(row);

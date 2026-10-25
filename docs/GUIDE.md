@@ -124,7 +124,7 @@ If the vendor cannot send one of the items and the order has not shipped yet, op
 
 ### When a package arrives: Check in
 
-Press **Check in** on the order. Enter the arrival date and how many vials actually arrived (with a note if some were short). Amide then opens your vial labels in the browser's print window (name, size, lot, boxes for the reconstitution and expiry dates). Settings, **Vial labels** changes the label size or turns this off.
+Press **Check in** on the order. Enter the arrival date and how many vials actually arrived (with a note if some were short). A vendor that sent extras can be counted up to double the ordered amount, but anything over the ordered amount needs a note saying why. Amide then opens your vial labels in the browser's print window (name, size, lot, boxes for the reconstitution and expiry dates). Settings, **Vial labels** changes the label size or turns this off.
 
 ### Reconstitute
 

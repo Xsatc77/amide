@@ -307,7 +307,7 @@ def test_available_count_uses_received_quantity_not_ordered_quantity(db, me):
     assert item.available_count == 8 - 2 - 1
 
 
-def test_order_item_received_quantity_cannot_exceed_ordered_quantity(db, me):
+def test_order_item_received_quantity_cannot_exceed_double_the_ordered_quantity(db, me):
     from app.models import OrderItem
 
     item = InventoryItem(owner_id=me, name="Retatrutide", category=Category.MEDICINE,
@@ -318,7 +318,7 @@ def test_order_item_received_quantity_cannot_exceed_ordered_quantity(db, me):
     db.add(order)
     db.flush()
     with pytest.raises(IntegrityError):
-        db.add(OrderItem(order_id=order.id, inventory_item_id=item.id, quantity=5, received_quantity=6))
+        db.add(OrderItem(order_id=order.id, inventory_item_id=item.id, quantity=5, received_quantity=11))
         db.flush()
     db.rollback()
 
@@ -951,13 +951,13 @@ def test_checkin_validation_error_reopens_dialog(client, db):
         order_id, li_id = li.order_id, li.id
 
     r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
-        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "11",
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "21",
     })
     assert r.status_code == 422
     t = html.unescape(r.text)
     assert "data-open-on-load" in t
     assert 'id="checkin-dialog"' in t
-    assert "Must be between 0 and 10" in t
+    assert "Must be between 0 and 20" in t
 
 
 # ---------------------------------------------------------------- Sold flow: Task 4 (template)
@@ -1379,7 +1379,7 @@ def test_check_in_order_with_short_receipt_does_not_inflate_available_count(clie
         assert item.order_items[0].received_note == "2 vials cracked in transit"
 
 
-def test_check_in_rejects_received_quantity_above_ordered(client, db):
+def test_check_in_rejects_received_quantity_above_double_the_ordered(client, db):
     client.post("/inventory", data={
         "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
         "quantity": "10", "order_date": "2026-08-01",
@@ -1390,11 +1390,62 @@ def test_check_in_rejects_received_quantity_above_ordered(client, db):
         order_id, li_id = li.order_id, li.id
 
     r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
-        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "11",
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "21", f"received_note_{li_id}": "extras",
     })
     assert r.status_code == 422
     with SessionLocal() as s:
         assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date is None
+
+
+def _ordered_ten(client):
+    client.post("/inventory", data={
+        "name": "Retatrutide", "category": "Medicine", "medium": "Lyophilized", "vial_size_mg": "10",
+        "quantity": "10", "order_date": "2026-08-01",
+    }, follow_redirects=False)
+    with SessionLocal() as s:
+        item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
+        li = s.get(InventoryItem, item_id).order_items[0]
+        return item_id, li.order_id, li.id
+
+
+def test_check_in_over_the_ordered_quantity_needs_a_note(client, db):
+    item_id, order_id, li_id = _ordered_ten(client)
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "12",
+    })
+    assert r.status_code == 422
+    assert "Say why you received more than the 10 ordered." in html.unescape(r.text)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, item_id).order_items[0].order.arrival_date is None
+
+
+def test_check_in_over_the_ordered_quantity_with_a_note_counts_every_vial(client, db):
+    item_id, order_id, li_id = _ordered_ten(client)
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "12",
+        f"received_note_{li_id}": "2 extra sent for shipping delays",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        item = s.get(InventoryItem, item_id)
+        assert item.order_items[0].received_quantity == 12
+        assert item.available_count == 12
+
+
+def test_check_in_up_to_double_the_ordered_quantity_is_allowed(client, db):
+    item_id, order_id, li_id = _ordered_ten(client)
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "20", f"received_note_{li_id}": "double",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_check_in_at_or_under_the_ordered_quantity_needs_no_note(client, db):
+    item_id, order_id, li_id = _ordered_ten(client)
+    r = client.post(f"/inventory/{item_id}/orders/{order_id}/check-in", data={
+        "arrival_date": "2026-08-10", f"received_quantity_{li_id}": "10",
+    }, follow_redirects=False)
+    assert r.status_code == 303
 
 
 def test_check_in_rejects_future_arrival_date(client, db):
@@ -1774,10 +1825,10 @@ def test_editing_a_checked_in_line_lowering_quantity_below_received_is_422_not_5
         s.commit()
 
     r = client.post(f"/inventory/{item_id}/orders/{li.id}", data={
-        "quantity": "5", "order_date": "2026-08-01",
+        "quantity": "4", "order_date": "2026-08-01",
     }, follow_redirects=False)
     assert r.status_code == 422
-    assert "Must be between 0 and 5" in html.unescape(r.text)
+    assert "Must be between 0 and 8" in html.unescape(r.text)
     with SessionLocal() as s:
         assert s.get(InventoryItem, item_id).order_items[0].received_quantity == 10  # unchanged
 

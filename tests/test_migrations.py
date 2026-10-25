@@ -346,7 +346,7 @@ def test_0013_splits_orders_into_order_items(tmp_path):
         assert rows == [(10, 10, 8400), (5, None, None)]
         with pytest.raises(sqlite3.IntegrityError):
             c.execute("insert into order_items(order_id,inventory_item_id,quantity,received_quantity) "
-                      "values (1,?,5,6)", (item_id,))  # received > ordered
+                      "values (1,?,5,11)", (item_id,))  # received > double the ordered
     command.downgrade(cfg, "0012")
     with sqlite3.connect(db) as c:
         tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
