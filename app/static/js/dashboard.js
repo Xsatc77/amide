@@ -34,3 +34,23 @@
 // Forms that ask first (Reset today's water).
 document.querySelectorAll("form[data-confirm]").forEach((f) =>
   f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));
+
+// Apple Health card: hover a plotted point to see its date and amount.
+(() => {
+  const slot = document.getElementById("apple-chart-slot");
+  const tip = document.getElementById("apple-chart-tooltip");
+  if (!slot || !tip) return;
+  slot.addEventListener("mouseover", (e) => {
+    const pt = e.target.closest(".chart-point");
+    if (!pt) return;
+    tip.textContent = `${pt.dataset.date}: ${pt.dataset.value}`;
+    tip.hidden = false;
+    const r = pt.getBoundingClientRect();
+    tip.style.left = `${r.left + r.width / 2}px`;
+    tip.style.top = `${r.top}px`;
+    tip.style.transform = "translate(-50%, calc(-100% - 8px))";
+  });
+  slot.addEventListener("mouseout", (e) => {
+    if (e.target.closest(".chart-point")) tip.hidden = true;
+  });
+})();

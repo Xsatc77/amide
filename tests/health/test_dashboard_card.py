@@ -1,5 +1,6 @@
 """The Dashboard's Apple Health card: set up, waiting, or live with today's steps and distance."""
 
+import re
 from datetime import datetime, timedelta
 
 import pytest
@@ -96,3 +97,11 @@ def test_the_dashboard_draws_it_full_width_with_the_chart(client, db, me):
     choices.save_choices(db, me, {"walking_running_distance"}, {"walking_running_distance"})
     page = client.get("/dashboard").text
     assert "Walking And Running Distance (mi)" in page and 'class="apple-card-body"' in page
+
+
+def test_each_point_on_the_dashboard_chart_carries_its_date_and_amount_for_the_hover(client, db, me):
+    days_of_distance(db, me, [(0, 3.5), (1, 2.0)])
+    choices.save_choices(db, me, {"walking_running_distance"}, {"walking_running_distance"})
+    page = client.get("/dashboard").text
+    assert re.search(r'data-value="[0-9.]+ mi"', page)
+    assert 'id="apple-chart-slot"' in page and 'id="apple-chart-tooltip"' in page
