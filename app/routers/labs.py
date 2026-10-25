@@ -10,7 +10,7 @@ from starlette.datastructures import UploadFile
 from app import clock, config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.labs import labcorp, monitoring
+from app.labs import labcorp, marker_info, monitoring
 from app.models import LabMarker, LabPanel, LabResult, Peptide, Protocol, ProtocolItem, Share, ShareCategory, User
 from app.protocols.status import Status, protocol_status
 from app.routers.journal import doses_for
@@ -225,6 +225,8 @@ def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifeti
 
     return {"panels": panels, "lab_markers": list(LabMarker),
            "lab_peptides": peptides, "lab_peptide": only,
+           "lab_marker_info": {r["marker_label"]: info for v in panels for r in v["results"]
+                               if (info := marker_info.lookup(r["marker_label"]))},
            "lab_charts": {"range": range_key, "series": _labs_charts(own_panels, window_start, only)},
            "own_panels_for_edit": [_panel_edit_data(p) for p in own_panels]}
 

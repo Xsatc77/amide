@@ -186,7 +186,7 @@ def test_a_lab_a_peptide_recommends_gets_a_star_and_the_filter_narrows_to_it(cli
         assert "lab-star" in page and f"Recommended for monitoring with {name}" in page
         assert f'<option value="{pid}"' in page
         narrowed = client.get(f"/measurements?tab=labs&peptide={pid}").text
-        assert "<td data-label=\"Marker\">LDL" in narrowed and "<td data-label=\"Marker\">TSH" not in narrowed
+        assert 'data-marker-info="LDL"' in narrowed and 'data-marker-info="TSH"' not in narrowed
         assert f'<option value="{pid}" selected' in narrowed
     finally:
         _clear_lab_panels(me)
@@ -200,7 +200,7 @@ def test_an_ended_protocol_adds_no_peptide_and_no_stars(client, db):
         _post_panel(client, [("LDL", "90", "mg/dL")])
         page = client.get(f"/measurements?tab=labs&peptide={pid}").text
         assert f'<option value="{pid}"' not in page and "Recommended for monitoring" not in page
-        assert "<td data-label=\"Marker\">LDL" in page                  # an unknown peptide filters nothing
+        assert 'data-marker-info="LDL"' in page                  # an unknown peptide filters nothing
     finally:
         _clear_lab_panels(me)
         _cleanup(pid, proto)

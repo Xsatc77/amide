@@ -1659,3 +1659,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .lab-import { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0; }
 .lab-peptide-filter { margin: 12px 0 4px; }
 .lab-star { color: #ca8a04; cursor: help; }
+
+.lab-marker-link { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+.lab-marker-link:hover, .lab-marker-link:focus-visible { color: var(--accent); }
+.marker-info { padding: 0 20px 16px; }
+.marker-info h3 { margin: 14px 0 4px; font-size: 0.95rem; }
+.marker-info p { margin: 0 0 6px; }

@@ -188,3 +188,26 @@
     dialog.showModal();
   }
 })();
+
+// A marker name opens the reference popup: what it measures, and what values above or below the range can point to.
+(() => {
+  const dialog = document.getElementById("marker-info-dialog");
+  const data = document.getElementById("marker-info-data");
+  if (!dialog || !data) return;
+  const info = JSON.parse(data.textContent);
+  const fill = (name, text) => { dialog.querySelector(`[data-marker-info-${name}]`).textContent = text; };
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-marker-info]");
+    if (btn && info[btn.dataset.markerInfo]) {
+      const entry = info[btn.dataset.markerInfo];
+      fill("title", entry.name);
+      fill("about", entry.about);
+      fill("high", entry.high);
+      fill("low", entry.low);
+      dialog.showModal();
+    } else if (e.target.closest('[data-action="close-marker-info"]')) {
+      dialog.close();
+    }
+  });
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+})();

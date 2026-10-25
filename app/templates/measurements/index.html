@@ -735,6 +735,22 @@
 <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
 {% endif %}
 
+<dialog id="marker-info-dialog" class="dialog">
+  <header class="dialog-head">
+    <h2 data-marker-info-title></h2>
+    <button type="button" class="btn btn-ghost btn-icon" data-action="close-marker-info" aria-label="Close">×</button>
+  </header>
+  <div class="marker-info">
+    <p data-marker-info-about></p>
+    <h3>Above The Range</h3>
+    <p data-marker-info-high></p>
+    <h3>Below The Range</h3>
+    <p data-marker-info-low></p>
+    <p class="muted small">General information, not a diagnosis. A value outside the range is a reason to ask your clinician, who knows your history, medicines and the lab's own range.</p>
+  </div>
+</dialog>
+<script type="application/json" id="marker-info-data">{{ (lab_marker_info or {}) | tojson }}</script>
+
 <dialog id="lab-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
   <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate data-lab-form>
     <header class="dialog-head">
@@ -846,7 +862,7 @@
         <tbody>
           {% for r in panel.results %}
           <tr class="{{ 'lab-out-of-range' if r.out_of_range }}">
-            <td data-label="Marker">{{ r.marker_label }}{% if r.starred_by %} <span class="lab-star" title="Recommended for monitoring with {{ r.starred_by | join(', ') }}" aria-label="Recommended for monitoring with {{ r.starred_by | join(', ') }}">&#9733;</span>{% endif %}</td>
+            <td data-label="Marker">{% if r.marker_label in lab_marker_info %}<button type="button" class="lab-marker-link" data-marker-info="{{ r.marker_label }}" title="{{ lab_marker_info[r.marker_label].short }}">{{ r.marker_label }}</button>{% else %}{{ r.marker_label }}{% endif %}{% if r.starred_by %} <span class="lab-star" title="Recommended for monitoring with {{ r.starred_by | join(', ') }}" aria-label="Recommended for monitoring with {{ r.starred_by | join(', ') }}">&#9733;</span>{% endif %}</td>
             <td data-label="Value">{{ r.qualifier }}{{ r.value }}</td>
             <td data-label="Unit">{{ r.unit or '—' }}</td>
             <td data-label="Range">
