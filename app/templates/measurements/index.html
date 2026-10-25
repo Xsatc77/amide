@@ -13,6 +13,7 @@
   <form class="range-controls" method="get" action="/measurements">
     <input type="hidden" name="tab" value="{{ tab }}">
     {% if tab == 'measurements' %}<input type="hidden" name="metric" value="">{% endif %}
+    {% if tab == 'labs' and lab_peptide %}<input type="hidden" name="peptide" value="{{ lab_peptide.id }}">{% endif %}
     <select name="range" id="{{ idprefix }}-range-select" aria-label="Chart range">
       {% for opt in charts.range_options %}
       <option value="{{ opt }}" {{ 'selected' if current_range == opt }}>{{ charts.range_labels[opt] }}</option>
@@ -707,6 +708,27 @@
   </label>
   <button type="button" class="btn" data-action="open-edit-panel">Edit</button>
   {% endif %}
+  <form method="post" action="/labs/import" enctype="multipart/form-data" class="lab-import">
+    <label class="field"><span>Import A LabCorp Report (PDF)</span><input type="file" name="report" accept=".pdf" required></label>
+    <button type="submit" class="btn">Import</button>
+  </form>
+  {% if errors.import %}<div class="alert" role="alert">{{ errors.import }}</div>{% endif %}
+  {% if lab_imported %}<div class="alert alert-ok" role="status">Imported {{ lab_imported }} results from the report. Check them against the PDF: Edit changes any line.</div>{% endif %}
+  {% if lab_peptides %}
+  <form class="range-controls lab-peptide-filter" method="get" action="/measurements">
+    <input type="hidden" name="tab" value="labs">
+    <input type="hidden" name="range" value="{{ lab_charts.range }}">
+    <label class="field">
+      <span>Peptide</span>
+      <select name="peptide" id="lab-peptide-select" aria-label="Show the labs a peptide recommends checking">
+        <option value="">All Labs</option>
+        {% for p in lab_peptides %}<option value="{{ p.id }}" {{ 'selected' if lab_peptide and lab_peptide.id == p.id }}>{{ p.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit" class="btn">Show</button></noscript>
+  </form>
+  <p class="muted small"><span class="lab-star" aria-hidden="true">&#9733;</span> marks a lab that a peptide in one of your active protocols recommends checking. Pick a peptide to show only its labs.</p>
+  {% endif %}
 </section>
 
 {% if errors %}
@@ -824,7 +846,7 @@
         <tbody>
           {% for r in panel.results %}
           <tr class="{{ 'lab-out-of-range' if r.out_of_range }}">
-            <td data-label="Marker">{{ r.marker_label }}</td>
+            <td data-label="Marker">{{ r.marker_label }}{% if r.starred_by %} <span class="lab-star" title="Recommended for monitoring with {{ r.starred_by | join(', ') }}" aria-label="Recommended for monitoring with {{ r.starred_by | join(', ') }}">&#9733;</span>{% endif %}</td>
             <td data-label="Value">{{ r.qualifier }}{{ r.value }}</td>
             <td data-label="Unit">{{ r.unit or '—' }}</td>
             <td data-label="Range">

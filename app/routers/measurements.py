@@ -604,7 +604,10 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context.update(journal.journal_tab_context(session, uid, edit_day))
         context["journal_open"] = edit_day is not None
     elif tab == "labs":
-        context.update(labs.labs_tab_context(session, uid, range_key, window_start))
+        q = request.query_params
+        context.update(labs.labs_tab_context(session, uid, range_key, window_start,
+                                             int(q["peptide"]) if q.get("peptide", "").isdigit() else None))
+        context["lab_imported"] = int(q["imported"]) if q.get("imported", "").isdigit() else None
     if tab == "measurements" and me_user:
         login_row = session.get(LoginSession, request.state.session_id) if request.state.session_id else None
         context.update(photo_access.page_context(session, me_user, login_row, sessions.now_utc()))

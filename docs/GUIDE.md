@@ -280,6 +280,10 @@ Each day also shows the water you drank against that day's goal, the calories ea
 
 A line for every marker, with a reference band when you enter one. Results can be 0, negative, <5 or >100. Attach the lab report if you have it.
 
+**Import A LabCorp Report (PDF)** fills a panel for you from a LabCorp patient report saved as a PDF (the text version, not a scan or photo). It takes the collection date, each test's current result, its units and its reference range, and attaches the PDF. Tests Amide has a marker for use it; everything else is added under LabCorp's own name. Amide reads only the test rows, not the patient details, and it does not import a second panel for a date that already has one. Check the numbers against the PDF afterwards: Edit changes any line.
+
+A **star** beside a lab means a peptide in one of your active protocols lists that test under Recommended Monitoring (hover the star to see which). The **Peptide** dropdown at the top of the Labs tab shows only the labs one peptide recommends, in the panels and in the charts.
+
 ![Labs](guide/img/12-labs.png)
 
 ---

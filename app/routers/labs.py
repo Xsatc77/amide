@@ -7,10 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from starlette.datastructures import UploadFile
 
-from app import uploads
+from app import clock, config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.models import LabMarker, LabPanel, LabResult, Share, ShareCategory, User
+from app.labs import labcorp, monitoring
+from app.models import LabMarker, LabPanel, LabResult, Peptide, Protocol, ProtocolItem, Share, ShareCategory, User
+from app.protocols.status import Status, protocol_status
 from app.routers.journal import doses_for
 
 router = APIRouter()
@@ -51,8 +53,31 @@ def _get_own_panel(session: Session, panel_id: int, uid: int) -> LabPanel:
 
 # ---------------------------------------------------------------- display helpers
 
-def _result_view(r: LabResult) -> dict:
-    marker_label = r.marker_other if r.marker is LabMarker.OTHER else r.marker.value
+def active_peptides(session: Session, uid: int) -> list[dict]:
+    """The peptides in this user's active protocols whose library entry lists lab tests to check: [{"id", "name", "topics"}], by name."""
+    today = clock.today()
+    protocols = session.scalars(select(Protocol).where(Protocol.owner_id == uid).options(
+        selectinload(Protocol.items).selectinload(ProtocolItem.peptide).selectinload(Peptide.monitoring_tests))).all()
+    found: dict[int, dict] = {}
+    for protocol in protocols:
+        if protocol_status(protocol, today) is not Status.ACTIVE:
+            continue
+        for item in protocol.items:
+            peptide = item.peptide
+            if peptide.id in found:
+                continue
+            topics = monitoring.peptide_topics([t.test_name for t in peptide.monitoring_tests])
+            if topics:
+                found[peptide.id] = {"id": peptide.id, "name": peptide.name, "topics": topics}
+    return sorted(found.values(), key=lambda p: p["name"].lower())
+
+
+def _label(r: LabResult) -> str:
+    return r.marker_other if r.marker is LabMarker.OTHER else r.marker.value
+
+
+def _result_view(r: LabResult, peptides: list[dict] | None = None) -> dict:
+    marker_label = _label(r)
     out_of_range = None
     if r.range_low is not None and r.range_high is not None and not r.qualifier:       # "<5" has no exact value to compare
         out_of_range = not (r.range_low <= r.value <= r.range_high)
@@ -64,10 +89,12 @@ def _result_view(r: LabResult) -> dict:
         "range_low": r.range_low,
         "range_high": r.range_high,
         "out_of_range": out_of_range,
+        "starred_by": [c["name"] for c in monitoring.covering(marker_label, peptides or [])],
     }
 
 
-def _panel_view(session: Session, p: LabPanel, owner_name: str | None = None) -> dict:
+def _panel_view(session: Session, p: LabPanel, owner_name: str | None = None,
+                peptides: list[dict] | None = None, only: dict | None = None) -> dict:
     # That panel's OWN owner/draw-date -- for a shared panel, always the panel owner (the sharing
     # user), never the viewer, and always that panel's own `drawn_at`, never today. Mirrors the
     # cross-owner scoping rule Journal's `doses_for` already established for shared entries.
@@ -78,7 +105,8 @@ def _panel_view(session: Session, p: LabPanel, owner_name: str | None = None) ->
         "notes": p.notes,
         "report_filename": p.report_filename,
         "owner_name": owner_name,
-        "results": [_result_view(r) for r in p.results],
+        "results": [_result_view(r, peptides) for r in p.results
+                    if only is None or monitoring.result_topics(_label(r)) & only["topics"]],
         "active_protocols": [
             {"peptide_name": d["peptide_name"], "dose_value": d["dose_value"], "dose_unit": d["dose_unit"]}
             for d in doses
@@ -105,7 +133,7 @@ def _in_window(panels: list[LabPanel], window_start: date | None) -> list[LabPan
     return panels if window_start is None else [p for p in panels if p.drawn_at >= window_start]
 
 
-def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[dict]:
+def _labs_charts(own_panels: list[LabPanel], window_start: date | None, only: dict | None = None) -> list[dict]:
     """One trend chart per marker, built ONLY from the viewer's OWN panels (a sharing partner's
     results stay visible in the panel list but never get plotted into the viewer's own chart --
     same rule Weight & Measurements' own charts follow), windowed by the shared range selector.
@@ -119,6 +147,8 @@ def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[
     for panel in _in_window(own_panels, window_start):
         for r in panel.results:
             key = r.marker_other if r.marker is LabMarker.OTHER else r.marker.value
+            if only is not None and not monitoring.result_topics(key) & only["topics"]:
+                continue
             grouped.setdefault(key, []).append({
                 "drawn_at": panel.drawn_at, "value": r.value,
                 "range_low": r.range_low, "range_high": r.range_high,
@@ -139,7 +169,8 @@ def _labs_charts(own_panels: list[LabPanel], window_start: date | None) -> list[
         chart = _chart([(p["drawn_at"], p["value"]) for p in points], band=band)
         if chart is not None:
             charts.append({"marker_label": label, "chart": chart})
-    charts += _ratio_charts(_in_window(own_panels, window_start))
+    if only is None:
+        charts += _ratio_charts(_in_window(own_panels, window_start))          # calculated ratios belong to no one peptide
     charts.sort(key=lambda c: c["marker_label"])
     return charts
 
@@ -172,7 +203,7 @@ def _ratio_charts(panels: list[LabPanel]) -> list[dict]:
 
 
 def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifetime",
-                     window_start: date | None = None) -> dict:
+                     window_start: date | None = None, peptide_id: int | None = None) -> dict:
     own_panels = session.scalars(
         _lab_query(viewer_uid).order_by(LabPanel.drawn_at.desc(), LabPanel.id.desc())).all()
 
@@ -183,12 +214,18 @@ def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifeti
     if owner_ids:
         owner_names = dict(session.execute(select(User.id, User.username).where(User.id.in_(owner_ids))).all())
 
-    panels = [_panel_view(session, p) for p in own_panels]
-    panels += [_panel_view(session, p, owner_name=owner_names.get(p.owner_id)) for p in shared_panels]
+    peptides = active_peptides(session, viewer_uid)
+    only = next((p for p in peptides if p["id"] == peptide_id), None)          # a peptide that is not in an active protocol filters nothing
+
+    panels = [_panel_view(session, p, peptides=peptides, only=only) for p in own_panels]
+    panels += [_panel_view(session, p, owner_name=owner_names.get(p.owner_id), peptides=peptides, only=only) for p in shared_panels]
+    if only is not None:
+        panels = [v for v in panels if v["results"]]
     panels.sort(key=lambda v: v["drawn_at"], reverse=True)
 
     return {"panels": panels, "lab_markers": list(LabMarker),
-           "lab_charts": {"range": range_key, "series": _labs_charts(own_panels, window_start)},
+           "lab_peptides": peptides, "lab_peptide": only,
+           "lab_charts": {"range": range_key, "series": _labs_charts(own_panels, window_start, only)},
            "own_panels_for_edit": [_panel_edit_data(p) for p in own_panels]}
 
 
@@ -300,6 +337,49 @@ def _parse_lab_rows(form) -> tuple[list[dict], list[dict], dict]:
     if not any_filled:
         errors["rows"] = "Enter at least one result."
     return parsed_results, posted_rows, errors
+
+
+@router.post("/labs/import")
+async def import_labcorp(request: Request, session: Session = Depends(get_session),
+                         uid: int = Depends(current_user_id)):
+    """Read a LabCorp report PDF into a new panel: the draw date, every test's current result, units and reference range, with the PDF
+    attached. Nothing is kept from the patient block of the report."""
+    form = await request.form()
+    upload = form.get("report")
+
+    def refuse(message: str):
+        from app.routers import measurements  # deferred: measurements imports this module at load time
+        return measurements._render(request, session, uid, tab="labs", errors={"import": message}, status_code=422)
+
+    if not isinstance(upload, UploadFile) or not upload.filename:
+        return refuse("Choose the LabCorp report PDF to import.")
+    if not upload.filename.lower().endswith(".pdf"):
+        return refuse("The import reads LabCorp reports saved as a PDF.")
+    data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
+    if len(data) > config.MAX_UPLOAD_BYTES:
+        return refuse(f"That file is larger than {config.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+    if not data.startswith(b"%PDF"):
+        return refuse("That file is not a PDF.")
+    try:
+        report = labcorp.read_pdf(data)
+    except Exception:  # noqa: BLE001 -- a PDF pdfplumber cannot open is just an unreadable report
+        return refuse("That PDF could not be read.")
+    if report.drawn_at is None or not report.rows:
+        return refuse("No LabCorp results were found in that PDF. It must be the text version of the report, not a scan or photo.")
+    if session.scalar(select(LabPanel.id).where(LabPanel.owner_id == uid, LabPanel.drawn_at == report.drawn_at)):
+        return refuse(f"You already have a lab panel for {report.drawn_at.isoformat()}. Edit that one, or delete it first to import again.")
+
+    await upload.seek(0)
+    try:
+        report_filename = await uploads.save_lab_report(upload)
+    except uploads.UploadError as exc:
+        return refuse(str(exc))
+    session.add(LabPanel(
+        owner_id=uid, drawn_at=report.drawn_at, notes="Imported from a LabCorp report.", report_filename=report_filename,
+        results=[LabResult(marker=r.marker, marker_other=r.marker_other, value=r.value, qualifier=r.qualifier,
+                           unit=r.unit, range_low=r.range_low, range_high=r.range_high) for r in report.rows]))
+    session.commit()
+    return RedirectResponse(f"/measurements?tab=labs&imported={len(report.rows)}", status_code=303)
 
 
 @router.get("/labs/panels/{panel_id}/report")
