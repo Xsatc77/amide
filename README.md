@@ -127,6 +127,7 @@ Card text and images are saved in `data/library/` (private, never committed). To
 | `AMIDE_LINK_DESCRIPTIONS` | `1` | On the Links page, a link saved without a description is fetched once to read a short description from the site. `0` turns this off and nothing is fetched |
 | `AMIDE_USDA_API_KEY` | (none) | A free [FoodData Central](https://fdc.nal.usda.gov/api-key-signup.html) key (or each person can paste their own in Settings, USDA food search) turns on **Search the USDA database** in the Add food dialog; without it nothing is ever sent |
 | `AMIDE_HEALTH_MAX_MB` | `64` | The largest single Apple Health (Health Auto Export) upload Amide accepts, in megabytes. Raise it only if a first export is refused; turning on Batch Requests in the phone app is the better fix |
+| `AMIDE_PUBLIC_URL` | (the address of each request) | The address people open Amide at, for passkeys, only needed when a proxy hides it (for example `https://amide.example.com`) |
 | `AMIDE_HEALTH_RAW_QUOTA_MB` | `2048` | How much stored raw Apple Health data one person may keep, in megabytes; the oldest raw copies are removed first to stay within it (the clean history is kept) |
 
 ### Accounts
@@ -135,7 +136,9 @@ Card text and images are saved in `data/library/` (private, never committed). To
 - **Privacy:** each account sees only its own inventory and protocols. The peptide library is shared.
 - **Passwords:** case sensitive, at least `AMIDE_PASSWORD_MIN_LENGTH` characters with an uppercase, lowercase, number and special character. Usernames are not case sensitive.
 - **Two-factor (optional):** any authenticator app (Google/Microsoft Authenticator, Authy, 1Password, Bitwarden…). Turn it on at sign-up or from the menu under your initial (top right).
-- **Timeout:** with no Amide tab open for 10 minutes you're signed out; the next visit shows the legal notice again.
+- **Passkeys (optional):** sign in with Face ID, a fingerprint or your device PIN, with no password or code. Add one from Settings, **Manage passkeys**, on each phone or computer; it needs Amide's https address. Your face stays on the device. Amide keeps only a public key. Behind a proxy that rewrites the address, set `AMIDE_PUBLIC_URL` (for example `https://amide.example.com`).
+- **Remember this device:** tick it when you enter a two-factor code and that browser skips the code for 14 days (the password is still asked). It is forgotten when you turn two-factor off, change the password, or press **Forget All Remembered Devices**.
+- **Timeout:** with no Amide tab open for 30 minutes you're signed out; the next visit shows the legal notice again.
 - **Lockout:** 5 wrong passwords or codes lock that account for 15 minutes.
 - **Recovery** (there's no email), run on the server:
 

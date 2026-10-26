@@ -1,7 +1,7 @@
 """The front door: every request passes through here.
 
 Order of the steps a browser goes through:
-  legal notice (/notice)  ->  welcome (/welcome: New User or Login)  ->  [2FA code]  ->  the app
+  legal notice (/notice)  ->  welcome (/welcome: New User or Login)  ->  [2FA code, unless a passkey or a remembered device]  ->  the app
 A session that has seen no request for config.SESSION_IDLE_MINUTES is gone, so the browser starts again
 at the notice. Pages redirect to the right step; the JSON API answers 401 instead.
 """
@@ -23,7 +23,7 @@ OPEN_PREFIXES = ("/static/", "/branding/")
 TOKEN_PREFIXES = ("/api/ingest/", "/calendar/feed/")
 OPEN_PATHS = {"/healthz", "/notice", "/sw.js"}
 # Reachable once the notice is accepted, signed in or not.
-SIGN_IN_PATHS = {"/welcome", "/register", "/login", "/login/2fa", "/logout", "/session/ping"}
+SIGN_IN_PATHS = {"/welcome", "/register", "/login", "/login/2fa", "/login/passkey", "/login/passkey/options", "/logout", "/session/ping"}
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 

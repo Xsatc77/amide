@@ -18,8 +18,8 @@ from app import config
 from app.db import Base
 
 PERSON, INSTALLATION = "person", "installation"
-# Left out on purpose: raw Apple Health uploads are files on disk (the parsed rows are backed up); sessions are per-browser; ingest tokens are secrets (make a new one after a restore); alert dismissals are noise.
-NOT_BACKED_UP = {"sessions", "alembic_version", "ingest_tokens", "dashboard_dismissals", "dose_reminders", "photo_reminders_sent", "health_raw"}
+# Left out on purpose: raw Apple Health uploads are files on disk (the parsed rows are backed up); sessions and remembered devices are per-browser; passkeys belong to the phones that hold them and the site address they were made for (add them again after a restore); ingest tokens are secrets (make a new one after a restore); alert dismissals are noise.
+NOT_BACKED_UP = {"sessions", "passkeys", "trusted_devices", "alembic_version", "ingest_tokens", "dashboard_dismissals", "dose_reminders", "photo_reminders_sent", "health_raw"}
 
 # File directories attached to rows (and the library's own files), by key.
 FILE_DIRS = {"coa": "COA_DIR", "price_lists": "PRICE_LIST_DIR", "lab_reports": "LAB_REPORT_DIR",

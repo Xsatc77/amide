@@ -11,6 +11,7 @@
     <input name="code" id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*"
            maxlength="7" required autofocus>
   </label>
+  <label class="check"><input type="checkbox" name="remember" value="1"> Remember this device for {{ trusted_days }} days</label>
   <div class="auth-actions auth-actions-end">
     <button type="submit" class="btn btn-primary">Okay</button>
   </div>

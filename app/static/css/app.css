@@ -1665,3 +1665,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .marker-info { padding: 0 20px 16px; }
 .marker-info h3 { margin: 14px 0 4px; font-size: 0.95rem; }
 .marker-info p { margin: 0 0 6px; }
+
+.passkey-login { margin-top: 12px; text-align: center; }
+.passkey-login .btn { width: 100%; }

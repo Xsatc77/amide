@@ -1,14 +1,14 @@
 """Legal notice, welcome, new user, login, two-factor authentication, logout."""
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app import config
-from app.auth import passwords, sessions, totp
+from app.auth import devices, passkeys, passwords, sessions, totp
 from app.db import get_session
-from app.models import InventoryItem, LoginSession, Protocol, User
+from app.models import InventoryItem, LoginSession, Passkey, Protocol, User
 from app.templating import templates
 
 router = APIRouter()
@@ -37,7 +37,8 @@ templates.env.globals["banner_url"] = banner_url
 
 
 def _render(request: Request, name: str, context: dict | None = None, status_code: int = 200):
-    return templates.TemplateResponse(request, f"auth/{name}.html", context or {}, status_code=status_code)
+    return templates.TemplateResponse(request, f"auth/{name}.html", {"trusted_days": config.TRUSTED_DEVICE_DAYS} | (context or {}),
+                                      status_code=status_code)
 
 
 def _set_cookie(response: Response, request: Request, token: str) -> None:
@@ -197,7 +198,8 @@ async def login(request: Request, db: Session = Depends(get_session)):
         db.commit()
         return fail(_locked_message(user, now) if sessions.is_locked(user, now) else GENERIC_LOGIN_ERROR)
     sessions.clear_failures(user)
-    return _sign_in(db, request, user, pending_2fa=user.totp_enabled)
+    remembered = user.totp_enabled and devices.is_trusted(db, user.id, request.cookies.get(devices.COOKIE), now)
+    return _sign_in(db, request, user, pending_2fa=user.totp_enabled and not remembered)
 
 
 @router.get("/login/2fa")
@@ -216,7 +218,8 @@ async def twofa_login(request: Request, db: Session = Depends(get_session)):
     user, now = row.user, sessions.now_utc()
     if sessions.is_locked(user, now):
         return _render(request, "twofa_login", {"error": _locked_message(user, now)}, 422)
-    if problem := check_code(user, (await _form(request)).get("code", ""), now):
+    form = await _form(request)
+    if problem := check_code(user, form.get("code", ""), now):
         sessions.record_failure(user, now)
         db.commit()
         message = _locked_message(user, now) if sessions.is_locked(user, now) else problem
@@ -224,8 +227,13 @@ async def twofa_login(request: Request, db: Session = Depends(get_session)):
     sessions.clear_failures(user)
     row.twofa_pending = False
     user.last_login_at = now
+    token = devices.remember(db, user.id, now) if form.get("remember") == "1" else None
     db.commit()
-    return RedirectResponse(HOME, status_code=303)
+    response = RedirectResponse(HOME, status_code=303)
+    if token:
+        response.set_cookie(devices.COOKIE, token, max_age=devices.MAX_AGE, httponly=True, samesite="lax",
+                            secure=request.url.scheme == "https", path="/")
+    return response
 
 
 # ---------------------------------------------------------------- 2FA setup / disable
@@ -263,10 +271,83 @@ async def twofa_change(request: Request, db: Session = Depends(get_session)):
         return _twofa_page(request, user, problem, 422)
     if form.get("action") == "disable":
         user.totp_enabled, user.totp_secret, user.totp_last_step = False, None, None
+        devices.forget_all(db, user.id)
     else:
         user.totp_enabled = True
     db.commit()
     return RedirectResponse(HOME if user.totp_enabled else "/account/2fa", status_code=303)
+
+
+@router.post("/account/2fa/forget-devices")
+def forget_devices(request: Request, db: Session = Depends(get_session)):
+    devices.forget_all(db, request.state.user.id)
+    db.commit()
+    response = RedirectResponse("/account/2fa", status_code=303)
+    response.delete_cookie(devices.COOKIE, path="/")
+    return response
+
+
+# ---------------------------------------------------------------- passkeys
+
+def _json_sign_in(db: Session, request: Request, user: User) -> Response:
+    """Sign `user` in without a 2FA step (a passkey is both factors) and answer the browser's fetch with where to go."""
+    redirect = _sign_in(db, request, user, pending_2fa=False)
+    answer = JSONResponse({"next": HOME})
+    answer.raw_headers += [h for h in redirect.raw_headers if h[0] == b"set-cookie"]
+    return answer
+
+
+async def _json_body(request: Request) -> dict:
+    try:
+        body = await request.json()
+    except ValueError:
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+@router.post("/login/passkey/options")
+def passkey_login_options(request: Request, db: Session = Depends(get_session)):
+    return Response(passkeys.login_options(db, request), media_type="application/json")
+
+
+@router.post("/login/passkey")
+async def passkey_login(request: Request, db: Session = Depends(get_session)):
+    now = sessions.now_utc()
+    user = passkeys.login(db, request, (await _json_body(request)).get("credential") or {}, now)
+    if user is None:
+        return JSONResponse({"error": "That passkey was not accepted. Use your password instead."}, status_code=401)
+    return _json_sign_in(db, request, user)
+
+
+@router.get("/account/passkeys")
+def passkeys_page(request: Request, db: Session = Depends(get_session)):
+    mine = db.scalars(select(Passkey).where(Passkey.user_id == request.state.user.id).order_by(Passkey.created_at)).all()
+    return _render(request, "passkeys", {"passkeys": mine, "supported": passkeys.supported(request)})
+
+
+@router.post("/account/passkeys/options")
+def passkey_register_options(request: Request, db: Session = Depends(get_session)):
+    user = db.get(User, request.state.user.id)
+    return Response(passkeys.registration_options(db, request, user), media_type="application/json")
+
+
+@router.post("/account/passkeys")
+async def passkey_register(request: Request, db: Session = Depends(get_session)):
+    body = await _json_body(request)
+    user = db.get(User, request.state.user.id)
+    key = passkeys.register(db, request, user, body.get("credential") or {}, str(body.get("name") or ""), sessions.now_utc())
+    if key is None:
+        return JSONResponse({"error": "That passkey could not be added. Try again."}, status_code=400)
+    return JSONResponse({"next": "/account/passkeys"})
+
+
+@router.post("/account/passkeys/{passkey_id}/delete")
+def passkey_delete(passkey_id: int, request: Request, db: Session = Depends(get_session)):
+    key = db.get(Passkey, passkey_id)
+    if key is not None and key.user_id == request.state.user.id:
+        db.delete(key)
+        db.commit()
+    return RedirectResponse("/account/passkeys", status_code=303)
 
 
 # ---------------------------------------------------------------- logout + keep-alive

@@ -43,7 +43,7 @@ The first account you create is the **administrator**: it can add other people, 
 
 ### First steps, in this order
 
-1. **Settings** (your name, top right). Set your **time zone**, fill in the **body profile** (sex, birth date, height, activity level) so the Food and Energy pages can work, and turn on **two-factor sign-in** if you like.
+1. **Settings** (your name, top right). Set your **time zone**, fill in the **body profile** (sex, birth date, height, activity level) so the Food and Energy pages can work, and turn on **two-factor sign-in** or add a **passkey** if you like (a passkey signs you in with Face ID or a fingerprint, with no password or code).
 2. Add what you own in **Inventory** ([section 3](#3-inventory-and-orders)).
 3. Build a protocol in **Protocols** ([section 5](#5-protocols)).
 4. Each day, open **Today** and press **Log** as you take each dose.

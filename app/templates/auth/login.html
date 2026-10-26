@@ -21,4 +21,10 @@
     <button type="submit" class="btn btn-primary">Okay</button>
   </div>
 </form>
+<div class="auth-card passkey-login" data-passkey-box hidden>
+  <div class="alert" role="alert" data-passkey-error hidden></div>
+  <button type="button" class="btn" data-passkey-login>Sign In With A Passkey</button>
+</div>
 {% endblock %}
+
+{% block scripts %}<script src="{{ static_url('js/passkeys.js') }}" defer></script>{% endblock %}

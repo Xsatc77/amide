@@ -3,7 +3,7 @@ import math
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
-    JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text,
+    JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, LargeBinary, String, Text,
     UniqueConstraint, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -1099,8 +1099,37 @@ class LoginSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime)
     last_seen: Mapped[datetime] = mapped_column(DateTime)
     photo_unlocked_until: Mapped[datetime | None] = mapped_column(DateTime)
+    webauthn_challenge: Mapped[str | None] = mapped_column(String(200))     # the passkey challenge in flight for this browser
 
     user: Mapped[User | None] = relationship()
+
+
+class Passkey(Base):
+    """A passkey: the public half of a key held in a person's phone or computer. Face ID or a fingerprint unlocks the private half there;
+    this server only ever stores what is needed to check a signature."""
+
+    __tablename__ = "passkeys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    credential_id: Mapped[str] = mapped_column(String(512), unique=True)     # base64url
+    public_key: Mapped[bytes] = mapped_column(LargeBinary)
+    sign_count: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(60))
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class TrustedDevice(Base):
+    """A browser that was told "Remember this device": it skips the 2FA code until `expires_at`. Only a hash of the cookie token is kept."""
+
+    __tablename__ = "trusted_devices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
 
 
 class BodyMeasurement(Base):

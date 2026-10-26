@@ -84,10 +84,10 @@ def test_session_expires_after_idle_limit(s):
     row = sessions.create(s, now=T0)
     token = row.id
     assert len(token) >= 40
-    assert sessions.get_live(s, token, now=T0 + timedelta(minutes=9, seconds=59)) is not None
-    sessions.touch(s, row, now=T0 + timedelta(minutes=9, seconds=59))
-    assert sessions.get_live(s, token, now=T0 + timedelta(minutes=19, seconds=58)) is not None
-    assert sessions.get_live(s, token, now=T0 + timedelta(minutes=30)) is None
+    assert sessions.get_live(s, token, now=T0 + timedelta(minutes=29, seconds=59)) is not None
+    sessions.touch(s, row, now=T0 + timedelta(minutes=29, seconds=59))
+    assert sessions.get_live(s, token, now=T0 + timedelta(minutes=59, seconds=58)) is not None
+    assert sessions.get_live(s, token, now=T0 + timedelta(minutes=90)) is None
     assert s.get(LoginSession, token) is None  # expired sessions are removed
     assert sessions.get_live(s, "nope", now=T0) is None and sessions.get_live(s, None, now=T0) is None
 

@@ -216,11 +216,11 @@ def test_disable_2fa_needs_current_code(fresh):
 def test_session_expires_after_idle_limit(fresh, clock):
     accept(fresh)
     register(fresh, "Idler")
-    clock["now"] += timedelta(minutes=9)
+    clock["now"] += timedelta(minutes=29)
     assert fresh.post("/session/ping").status_code == 204
-    clock["now"] += timedelta(minutes=9)  # 18 min since login, but only 9 since the ping
+    clock["now"] += timedelta(minutes=29)  # 58 min since login, but only 29 since the ping
     assert fresh.get("/protocols").status_code == 200
-    clock["now"] += timedelta(minutes=10, seconds=1)
+    clock["now"] += timedelta(minutes=30, seconds=1)
     assert fresh.get("/protocols").headers["location"].endswith("/notice")
     assert fresh.post("/session/ping").status_code == 401
 

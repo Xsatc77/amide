@@ -13,7 +13,7 @@ from datetime import date, timezone
 
 from app import clock
 from app import body_photos, config, reminders, units, uploads
-from app.auth import passwords, sessions
+from app.auth import devices, passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
@@ -584,6 +584,7 @@ async def admin_remove_2fa(user_id: int, request: Request, session: Session = De
     target = _target_user(request, session, user_id)
     target.totp_enabled, target.totp_secret, target.totp_last_step = False, None, None
     target.photo_2fa_required = False      # its authenticator is gone, so the photo setting cannot stay on
+    devices.forget_all(session, target.id)
     session.commit()
     return RedirectResponse("/settings#admin", status_code=303)
 

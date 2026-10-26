@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app import config
+from app.auth import devices
 from app.models import LoginSession, User
 
 COOKIE = "amide_session"
@@ -60,10 +61,12 @@ def clear_failures(user: User) -> None:
 def end_other_sessions(db: Session, user_id: int, keep_id: str) -> None:
     """Sign this user out everywhere except the session at `keep_id` (e.g. after a password change)."""
     db.query(LoginSession).filter(LoginSession.user_id == user_id, LoginSession.id != keep_id).delete()
+    devices.forget_all(db, user_id)                      # a new password means every remembered device asks for the code again
     db.commit()
 
 
 def end_all_sessions(db: Session, user_id: int) -> None:
     """Sign this user out everywhere (e.g. an admin reset their password)."""
     db.query(LoginSession).filter(LoginSession.user_id == user_id).delete()
+    devices.forget_all(db, user_id)
     db.commit()

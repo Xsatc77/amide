@@ -64,7 +64,10 @@ BRANDING_DIR = DATA_DIR / "branding"  # optional banner.{svg,png,jpg,jpeg,webp} 
 
 # Sign-in. Minimum password length (AMIDE_PASSWORD_MIN_LENGTH); the complexity rules in app/auth/passwords.py apply on top of it.
 PASSWORD_MIN_LENGTH = int(os.environ.get("AMIDE_PASSWORD_MIN_LENGTH", "8"))
-SESSION_IDLE_MINUTES = 10  # no Amide tab open this long -> signed out, legal notice again
+SESSION_IDLE_MINUTES = 30  # no Amide tab open this long -> signed out, legal notice again
+TRUSTED_DEVICE_DAYS = 14  # "Remember this device" skips the 2FA code on that browser for this long
+# The address the browser sees, for passkeys (the site name must match). Leave unset to use the address of each request.
+PUBLIC_URL = os.environ.get("AMIDE_PUBLIC_URL", "").rstrip("/")
 LOCKOUT_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Passkeys{% endblock %}
+
+{% block content %}
+<div class="page-head"><div><h1>Passkeys</h1>
+  <p class="muted">Sign in with Face ID, a fingerprint or your device PIN. A passkey replaces the password and the 2FA code, because it proves both the device and you.</p></div></div>
+
+<div class="builder-step twofa">
+  <div class="alert" role="alert" data-passkey-error hidden></div>
+  {% if passkeys %}
+  <table class="table">
+    <thead><tr><th>Name</th><th>Added</th><th>Last used</th><th></th></tr></thead>
+    <tbody>
+      {% for p in passkeys %}
+      <tr>
+        <td data-label="Name">{{ p.name }}</td>
+        <td data-label="Added">{{ p.created_at | shortdate }}</td>
+        <td data-label="Last used">{{ p.last_used_at | shortdate if p.last_used_at else 'Never' }}</td>
+        <td><form method="post" action="/account/passkeys/{{ p.id }}/delete" data-confirm="Remove the passkey {{ p.name }}? You can still sign in with your password."><button type="submit" class="btn btn-ghost">Remove</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">You have no passkeys yet.</p>
+  {% endif %}
+
+  {% if supported %}
+  <form class="settings-form" data-passkey-add novalidate>
+    <label class="field"><span>Name this device</span>
+      <input name="name" maxlength="60" placeholder="My iPhone" autocomplete="off"></label>
+    <button type="submit" class="btn btn-primary">Add A Passkey On This Device</button>
+  </form>
+  <p class="muted small">Add one on each phone or computer you use. Your face or fingerprint stays on the device; Amide only keeps a public key.</p>
+  {% else %}
+  <p class="muted">This page is not on a secure (https) address, so the browser will not offer passkeys here. Open Amide at its https address to add one.</p>
+  {% endif %}
+  <p class="muted small">Your password and two-factor code keep working as a fallback.</p>
+  <p><a class="btn" href="/settings">Back To Settings</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/passkeys.js') }}" defer></script>
+<script>
+  document.querySelectorAll("form[data-confirm]").forEach((f) =>
+    f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));
+</script>
+{% endblock %}
