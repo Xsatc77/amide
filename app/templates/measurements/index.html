@@ -708,11 +708,7 @@
   </label>
   <button type="button" class="btn" data-action="open-edit-panel">Edit</button>
   {% endif %}
-  <form method="post" action="/labs/import" enctype="multipart/form-data" class="lab-import">
-    <label class="field"><span>Import A LabCorp Report (PDF)</span><input type="file" name="report" accept=".pdf" required></label>
-    <button type="submit" class="btn">Import</button>
-  </form>
-  {% if errors.import %}<div class="alert" role="alert">{{ errors.import }}</div>{% endif %}
+  <button type="button" class="btn" data-action="open-lab-import">Import A Lab Report</button>
   {% if lab_imported %}<div class="alert alert-ok" role="status">Imported {{ lab_imported }} results from the report. Check them against the PDF: Edit changes any line.</div>{% endif %}
   {% if lab_peptides %}
   <form class="range-controls lab-peptide-filter" method="get" action="/measurements">
@@ -731,7 +727,7 @@
   {% endif %}
 </section>
 
-{% if errors %}
+{% if errors and not errors.import %}
 <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
 {% endif %}
 
@@ -751,7 +747,28 @@
 </dialog>
 <script type="application/json" id="marker-info-data">{{ (lab_marker_info or {}) | tojson }}</script>
 
-<dialog id="lab-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
+<dialog id="lab-import-dialog" class="dialog"{{ ' data-open-on-load' if errors and errors.import }}>
+  <form method="post" action="/labs/import" enctype="multipart/form-data" class="settings-form">
+    <header class="dialog-head">
+      <h2>Import A Lab Report</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-lab-import" aria-label="Close">×</button>
+    </header>
+    {% if errors.import %}<div class="alert" role="alert">{{ errors.import }}</div>{% endif %}
+    <label class="field"><span>Which lab is the report from?</span>
+      <select name="lab" required>
+        {% for key, name in lab_report_labs %}<option value="{{ key }}">{{ name }}{{ '' if key in lab_report_checked else ' (best effort)' }}</option>{% endfor %}
+      </select></label>
+    <label class="field"><span>Report (PDF)</span><input type="file" name="report" accept=".pdf" required></label>
+    <label class="field"><span>Draw date (only needed if the report does not show it)</span><input type="date" name="drawn_at"></label>
+    <p class="muted small">Each result becomes a line on a new panel, with its unit and reference range, and the PDF is attached. LabCorp and Quest reports are read by a reader written for their layout. For every other lab Amide looks for lines shaped like a test name, a result, a unit and a range, so check each imported line against your report and use Edit to fix any. Reports must be the text version, not a scan or a photo.</p>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-lab-import">Cancel</button>
+      <button type="submit" class="btn btn-primary">Import</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="lab-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors and not errors.import }}>
   <form method="post" action="/labs/panels" enctype="multipart/form-data" class="settings-form" novalidate data-lab-form>
     <header class="dialog-head">
       <h2 data-lab-dialog-title>New Lab Panel</h2>
@@ -822,13 +839,15 @@
 
 {% if lab_charts.series %}
 <section aria-labelledby="labs-charts-heading">
-  <h2 id="labs-charts-heading" class="section-title">Charts</h2>
-  {{ range_select('labs', lab_charts.range, 'labs') }}
-  <div class="dashboard-placeholders">
-    {% for c in lab_charts.series %}
-      {{ line_chart(c.chart, c.marker_label) }}
-    {% endfor %}
-  </div>
+  <details class="lab-charts" id="lab-charts">
+    <summary><h2 id="labs-charts-heading" class="section-title">Charts ({{ lab_charts.series | length }})</h2></summary>
+    {{ range_select('labs', lab_charts.range, 'labs') }}
+    <div class="dashboard-placeholders">
+      {% for c in lab_charts.series %}
+        {{ line_chart(c.chart, c.marker_label) }}
+      {% endfor %}
+    </div>
+  </details>
 </section>
 {% endif %}
 

@@ -189,6 +189,26 @@
   }
 })();
 
+// The import button opens the lab-report popup; the Charts section remembers whether it was left open.
+(() => {
+  const dialog = document.getElementById("lab-import-dialog");
+  if (dialog) {
+    document.addEventListener("click", (e) => {
+      if (e.target.closest('[data-action="open-lab-import"]')) dialog.showModal();
+      else if (e.target.closest('[data-action="close-lab-import"]')) dialog.close();
+    });
+    dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+    if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
+  }
+  const charts = document.getElementById("lab-charts");
+  if (charts) {
+    try {
+      charts.open = sessionStorage.getItem("amide-lab-charts") === "open";
+      charts.addEventListener("toggle", () => sessionStorage.setItem("amide-lab-charts", charts.open ? "open" : "closed"));
+    } catch (e) { /* storage blocked: the section simply starts closed each time */ }
+  }
+})();
+
 // A marker name opens the reference popup: what it measures, and what values above or below the range can point to.
 (() => {
   const dialog = document.getElementById("marker-info-dialog");

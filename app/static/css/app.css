@@ -1668,3 +1668,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 
 .passkey-login { margin-top: 12px; text-align: center; }
 .passkey-login .btn { width: 100%; }
+
+/* Labs: the import popup's button row and the collapsed Charts section */
+.lab-charts > summary { cursor: pointer; list-style: none; }
+.lab-charts > summary::-webkit-details-marker { display: none; }
+.lab-charts > summary h2 { display: inline-block; margin: 0; }
+.lab-charts > summary h2::before { content: "\25B8"; display: inline-block; margin-right: 8px; transition: transform .15s; }
+.lab-charts[open] > summary h2::before { transform: rotate(90deg); }

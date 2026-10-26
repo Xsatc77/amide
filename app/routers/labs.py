@@ -10,7 +10,7 @@ from starlette.datastructures import UploadFile
 from app import clock, config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.labs import labcorp, marker_info, monitoring
+from app.labs import marker_info, monitoring, reports
 from app.models import LabMarker, LabPanel, LabResult, Peptide, Protocol, ProtocolItem, Share, ShareCategory, User
 from app.protocols.status import Status, protocol_status
 from app.routers.journal import doses_for
@@ -224,6 +224,7 @@ def labs_tab_context(session: Session, viewer_uid: int, range_key: str = "lifeti
     panels.sort(key=lambda v: v["drawn_at"], reverse=True)
 
     return {"panels": panels, "lab_markers": list(LabMarker),
+           "lab_report_labs": reports.LABS, "lab_report_checked": reports.CHECKED,
            "lab_peptides": peptides, "lab_peptide": only,
            "lab_marker_info": {r["marker_label"]: info for v in panels for r in v["results"]
                                if (info := marker_info.lookup(r["marker_label"]))},
@@ -342,32 +343,44 @@ def _parse_lab_rows(form) -> tuple[list[dict], list[dict], dict]:
 
 
 @router.post("/labs/import")
-async def import_labcorp(request: Request, session: Session = Depends(get_session),
-                         uid: int = Depends(current_user_id)):
-    """Read a LabCorp report PDF into a new panel: the draw date, every test's current result, units and reference range, with the PDF
+async def import_report(request: Request, session: Session = Depends(get_session),
+                        uid: int = Depends(current_user_id)):
+    """Read a lab report PDF into a new panel: the draw date, every test's current result, units and reference range, with the PDF
     attached. Nothing is kept from the patient block of the report."""
     form = await request.form()
     upload = form.get("report")
+    lab = str(form.get("lab", "labcorp"))
+    lab_name = reports.LAB_NAMES.get(lab)
 
     def refuse(message: str):
         from app.routers import measurements  # deferred: measurements imports this module at load time
         return measurements._render(request, session, uid, tab="labs", errors={"import": message}, status_code=422)
 
+    if lab_name is None:
+        return refuse("Choose which lab the report is from.")
     if not isinstance(upload, UploadFile) or not upload.filename:
-        return refuse("Choose the LabCorp report PDF to import.")
+        return refuse(f"Choose the {lab_name} report PDF to import.")
     if not upload.filename.lower().endswith(".pdf"):
-        return refuse("The import reads LabCorp reports saved as a PDF.")
+        return refuse("The import reads reports saved as a PDF.")
     data = await upload.read(config.MAX_UPLOAD_BYTES + 1)
     if len(data) > config.MAX_UPLOAD_BYTES:
         return refuse(f"That file is larger than {config.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
     if not data.startswith(b"%PDF"):
         return refuse("That file is not a PDF.")
     try:
-        report = labcorp.read_pdf(data)
+        report = reports.read_pdf(lab, data)
     except Exception:  # noqa: BLE001 -- a PDF pdfplumber cannot open is just an unreadable report
         return refuse("That PDF could not be read.")
-    if report.drawn_at is None or not report.rows:
-        return refuse("No LabCorp results were found in that PDF. It must be the text version of the report, not a scan or photo.")
+    if not report.rows:
+        return refuse(f"No {lab_name} results were found in that PDF. It must be the text version of the report, not a scan or photo.")
+    entered = str(form.get("drawn_at", "")).strip()
+    if entered:
+        try:
+            report.drawn_at = date.fromisoformat(entered)
+        except ValueError:
+            return refuse("The draw date is not a valid date.")
+    if report.drawn_at is None:
+        return refuse("That report does not say when the blood was drawn. Enter the draw date and import it again.")
     if session.scalar(select(LabPanel.id).where(LabPanel.owner_id == uid, LabPanel.drawn_at == report.drawn_at)):
         return refuse(f"You already have a lab panel for {report.drawn_at.isoformat()}. Edit that one, or delete it first to import again.")
 
@@ -377,7 +390,7 @@ async def import_labcorp(request: Request, session: Session = Depends(get_sessio
     except uploads.UploadError as exc:
         return refuse(str(exc))
     session.add(LabPanel(
-        owner_id=uid, drawn_at=report.drawn_at, notes="Imported from a LabCorp report.", report_filename=report_filename,
+        owner_id=uid, drawn_at=report.drawn_at, notes=f"Imported from a {lab_name} report.", report_filename=report_filename,
         results=[LabResult(marker=r.marker, marker_other=r.marker_other, value=r.value, qualifier=r.qualifier,
                            unit=r.unit, range_low=r.range_low, range_high=r.range_high) for r in report.rows]))
     session.commit()
