@@ -34,6 +34,15 @@
   let mousedownOnBackdrop = false;
   dialog.addEventListener("mousedown", (e) => { mousedownOnBackdrop = e.target === dialog; });
   dialog.addEventListener("click", (e) => { if (mousedownOnBackdrop && e.target === dialog) dialog.close(); });
+  // A refused upload re-renders the page: reopen the popup with the reason inside it.
+  if (dialog.hasAttribute("data-open-on-load")) dialog.showModal();
+  // Upload sends the photos to the server, which can take a while on a phone connection: say so, and do not send twice.
+  dialog.querySelector("form").addEventListener("submit", (e) => {
+    const button = e.currentTarget.querySelector('button[type="submit"]');
+    if (button.disabled) { e.preventDefault(); return; }
+    button.disabled = true;
+    button.textContent = "Uploading...";
+  });
 })();
 
 // Log Workout dialog (Journal tab): open/close wiring; the form is a plain GET that redirects to the day's log form.

@@ -154,3 +154,12 @@ def test_a_shared_journal_never_shows_photos_to_the_person_it_is_shared_with(cli
     entry = db.scalar(select(JournalEntry))
     view = journal._entry_view(entry, [], [], owner_name="Someone")
     assert view["photos"] == []
+
+
+def test_a_refused_upload_reopens_the_popup_with_the_reason_inside_it_and_keeps_the_day_and_caption(client, db, me):
+    day = TODAY - timedelta(days=2)
+    r = upload(client, day=day, caption="Kept", files=[("file", ("notes.txt", io.BytesIO(b"hello"), "text/plain"))])
+    dialog = r.text.split('id="journal-photo-dialog"', 1)[1].split("</dialog>", 1)[0]
+    assert r.status_code == 422 and "data-open-on-load" in r.text.split('id="journal-photo-dialog"', 1)[1][:60]
+    assert "Nothing was uploaded" in dialog and "not a photo" in dialog
+    assert f'value="{day.isoformat()}"' in dialog and 'value="Kept"' in dialog

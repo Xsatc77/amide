@@ -495,7 +495,8 @@ async def add_photos(request: Request, session: Session = Depends(get_session), 
             except journal_photos.PhotoError as exc:
                 errors.append(f"{upload.filename}: {exc}")
     if errors:
-        return measurements._render(request, session, uid, tab="journal", status_code=422, extra={"journal_photo_error": " ".join(errors)})
+        return measurements._render(request, session, uid, tab="journal", status_code=422, extra={"journal_photo_error": " ".join(errors),
+                                                                                                 "journal_photo_posted": {"entry_date": str(form.get("entry_date", "")), "caption": caption}})
     entry = get_or_create_entry(session, uid, day)
     names = [journal_photos.store(jpeg) for jpeg in cleaned]
     for name in names:

@@ -403,7 +403,6 @@
 {% elif active_tab == 'journal' %}
 <section aria-labelledby="journal-heading">
   <h2 id="journal-heading" class="section-title">Journal</h2>
-  {% if journal_photo_error %}<div class="alert" role="alert">{{ journal_photo_error }}</div>{% endif %}
   <div class="btn-row">
     <button type="button" class="btn btn-primary" data-action="open-journal">New Entry</button>
     <button type="button" class="btn" data-action="open-journal-photo" data-date="{{ today_iso }}">Add a photo</button>
@@ -435,16 +434,17 @@
   </form>
 </section>
 
-<dialog id="journal-photo-dialog" class="dialog"{{ ' open' if journal_photo_error }}>
+<dialog id="journal-photo-dialog" class="dialog"{{ ' data-open-on-load' if journal_photo_error }}>
   <form method="post" action="/journal/photos" enctype="multipart/form-data" class="settings-form">
     <header class="dialog-head">
       <h2>Add A Photo</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-journal-photo" aria-label="Close">&times;</button>
     </header>
     <p class="muted small">A picture to keep with a day: something that caught your attention, a motivating photo, a scale report. Private to you; location and camera data are removed.</p>
-    <label class="field"><span>Day</span><input type="date" name="entry_date" id="journal-photo-date" value="{{ today_iso }}" max="{{ today_iso }}"></label>
+    {% if journal_photo_error %}<div class="alert" role="alert">Nothing was uploaded. {{ journal_photo_error }} Choose the photo again.</div>{% endif %}
+    <label class="field"><span>Day</span><input type="date" name="entry_date" id="journal-photo-date" value="{{ (journal_photo_posted or {}).get('entry_date') or today_iso }}" max="{{ today_iso }}"></label>
     <label class="field"><span>Photos</span><input type="file" name="file" accept="image/*" multiple required></label>
-    <label class="field"><span>Caption (optional)</span><input name="caption" maxlength="200"></label>
+    <label class="field"><span>Caption (optional)</span><input name="caption" maxlength="200" value="{{ (journal_photo_posted or {}).get('caption', '') }}"></label>
     <footer class="dialog-foot">
       <button type="button" class="btn" data-action="close-journal-photo">Cancel</button>
       <button type="submit" class="btn btn-primary">Upload</button>
