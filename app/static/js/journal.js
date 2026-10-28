@@ -27,8 +27,16 @@
     if (!btn) return;
     if (btn.dataset.action === "open-journal-photo") {
       const day = document.getElementById("journal-photo-date");
-      if (day && btn.dataset.date) day.value = btn.dataset.date;
+      const title = dialog.querySelector("[data-photo-day]");
+      const setDay = () => {
+        if (!day || !btn.dataset.date) return;
+        day.defaultValue = day.value = btn.dataset.date;
+        day.dispatchEvent(new Event("change", { bubbles: true }));
+        if (title) title.textContent = new Date(btn.dataset.date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      };
+      setDay();
       dialog.showModal();
+      setDay();                                    // again once the popup is showing: some phone browsers ignore a date set while it was closed
     } else if (btn.dataset.action === "close-journal-photo" && dialog.contains(btn)) dialog.close();
   });
   let mousedownOnBackdrop = false;

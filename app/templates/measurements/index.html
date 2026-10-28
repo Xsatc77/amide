@@ -437,7 +437,7 @@
 <dialog id="journal-photo-dialog" class="dialog"{{ ' data-open-on-load' if journal_photo_error }}>
   <form method="post" action="/journal/photos" enctype="multipart/form-data" class="settings-form">
     <header class="dialog-head">
-      <h2>Add A Photo</h2>
+      <h2>Add A Photo <span class="muted" data-photo-day></span></h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close-journal-photo" aria-label="Close">&times;</button>
     </header>
     <p class="muted small">A picture to keep with a day: something that caught your attention, a motivating photo, a scale report. Private to you; location and camera data are removed.</p>
