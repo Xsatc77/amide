@@ -443,8 +443,9 @@
     <p class="muted small">A picture to keep with a day: something that caught your attention, a motivating photo, a scale report. Private to you; location and camera data are removed.</p>
     {% if journal_photo_error %}<div class="alert" role="alert">Nothing was uploaded. {{ journal_photo_error }} Choose the photo again.</div>{% endif %}
     <label class="field"><span>Day</span><input type="date" name="entry_date" id="journal-photo-date" value="{{ (journal_photo_posted or {}).get('entry_date') or today_iso }}" max="{{ today_iso }}"></label>
-    <label class="field"><span>Photos</span><input type="file" name="file" accept="image/*" multiple required></label>
+    <label class="field"><span>Photos</span><input type="file" name="file" accept="image/*,.heic,.heif" multiple required></label>
     <label class="field"><span>Caption (optional)</span><input name="caption" maxlength="200" value="{{ (journal_photo_posted or {}).get('caption', '') }}"></label>
+    <p class="alert" role="alert" data-photo-upload-error hidden></p>
     <footer class="dialog-foot">
       <button type="button" class="btn" data-action="close-journal-photo">Cancel</button>
       <button type="submit" class="btn btn-primary">Upload</button>
