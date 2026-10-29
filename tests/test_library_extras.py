@@ -117,3 +117,30 @@ def test_the_learning_page_lists_all_my_notes_with_a_search(client, db, card):
     assert "Findable title" in page and "Learning Test Card" in page
     assert "needle" in html.unescape(client.get("/library/learning", params={"q": "needle"}).text)
     assert "Findable title" not in client.get("/library/learning", params={"q": "zzzzz"}).text
+
+
+def test_a_general_note_belongs_to_no_peptide_and_shows_on_the_learning_page(client, db):
+    r = client.post("/library/notes", data={"title": "General reading list", "url": "https://example.org/list", "body": "Things to look up"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/library/learning"
+    page = html.unescape(client.get("/library/learning").text)
+    assert "General reading list" in page and "General note" in page and "Things to look up" in page and 'href="https://example.org/list"' in page
+    assert "Add A General Note" in page and 'id="general-note-dialog"' in page
+    assert "General reading list" in html.unescape(client.get("/library/learning", params={"q": "general"}).text)
+    with SessionLocal() as s:
+        note = s.scalar(select(PeptideNote).where(PeptideNote.title == "General reading list"))
+        assert note.peptide_id is None
+        note_id = note.id
+    r = client.post(f"/library/notes/{note_id}/delete", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/library/learning"
+    assert "General reading list" not in client.get("/library/learning").text
+
+
+def test_a_general_note_needs_a_title_and_is_private(client, db):
+    assert client.post("/library/notes", data={"title": " ", "body": "x"}).status_code == 422
+    assert client.post("/library/notes", data={"title": "Bad link", "url": "javascript:alert(1)"}).status_code == 422
+    client.post("/library/notes", data={"title": "Only mine general"})
+    with other_client("learngeneral") as member:
+        assert "Only mine general" not in member.get("/library/learning").text
+    with SessionLocal() as s:
+        s.query(PeptideNote).filter_by(title="Only mine general").delete()
+        s.commit()

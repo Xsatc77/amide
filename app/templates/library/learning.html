@@ -5,9 +5,12 @@
 <div class="page-head">
   <div>
     <h1>Learning</h1>
-    <p class="muted">Your private notes and saved articles, across the library ({{ total }}). Add one from a peptide's library card.</p>
+    <p class="muted">Your private notes and saved articles ({{ total }}). Add one about a peptide from its library card, or a general note here.</p>
   </div>
-  <a class="btn btn-ghost" href="/library">Back to the library</a>
+  <div class="btn-row">
+    <button type="button" class="btn btn-primary" data-action="open-general-note">Add A General Note</button>
+    <a class="btn btn-ghost" href="/library">Back to the library</a>
+  </div>
 </div>
 <form method="get" action="/library/learning" class="lib-toolbar">
   <input type="search" name="q" value="{{ q }}" placeholder="Search your notes" aria-label="Search your notes">
@@ -17,11 +20,33 @@
 <ul class="note-list">
   {% for n in notes %}
   <li class="card">
-    <strong>{{ n.title }}</strong> <span class="muted small">on <a href="/library/{{ n.peptide_id }}#learning">{{ names.get(n.peptide_id, '?') }}</a>{% if n.created_at %} · {{ n.created_at | shortdate }}{% endif %}</span>
+    <strong>{{ n.title }}</strong>
+    <span class="muted small">{% if n.peptide_id %}on <a href="/library/{{ n.peptide_id }}#learning">{{ names.get(n.peptide_id, '?') }}</a>{% else %}General note{% endif %}{% if n.created_at %} · {{ n.created_at | shortdate }}{% endif %}</span>
     {% if n.url %}<div><a href="{{ n.url }}" target="_blank" rel="noopener noreferrer">{{ n.url }}</a></div>{% endif %}
     {% if n.body %}<p class="note-body">{{ n.body }}</p>{% endif %}
+    {% if not n.peptide_id %}<form method="post" action="/library/notes/{{ n.id }}/delete" class="inline" data-confirm="Delete this note?"><button type="submit" class="btn btn-ghost btn-danger">Delete</button></form>{% endif %}
   </li>
   {% endfor %}
 </ul>
 {% else %}<p class="muted">{{ 'Nothing matches your search.' if q else 'No notes yet.' }}</p>{% endif %}
+
+<dialog id="general-note-dialog" class="dialog">
+  <form method="post" action="/library/notes" class="settings-form">
+    <header class="dialog-head">
+      <h2>Add A General Note</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-general-note" aria-label="Close">×</button>
+    </header>
+    <label class="field"><span>Title</span><input name="title" maxlength="200" required></label>
+    <label class="field"><span>Web link (optional)</span><input name="url" type="url" maxlength="500" placeholder="https://..."></label>
+    <label class="field"><span>Note (optional)</span><textarea name="body" rows="5" maxlength="10000"></textarea></label>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-action="close-general-note">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save note</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('js/learning.js') }}" defer></script>
 {% endblock %}

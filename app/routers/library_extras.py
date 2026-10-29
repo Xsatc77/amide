@@ -64,10 +64,21 @@ def _clean_link(raw: str) -> str | None:
     return raw
 
 
+@router.post("/library/notes")
+async def add_general_note(request: Request, session: Session = Depends(get_session)):
+    await _save_note(request, session, None)
+    return RedirectResponse("/library/learning", status_code=303)
+
+
 @router.post("/library/{peptide_id}/notes")
 async def add_note(peptide_id: int, request: Request, session: Session = Depends(get_session)):
     if session.get(Peptide, peptide_id) is None:
         raise HTTPException(404, "Peptide not found")
+    await _save_note(request, session, peptide_id)
+    return RedirectResponse(f"/library/{peptide_id}#learning", status_code=303)
+
+
+async def _save_note(request: Request, session: Session, peptide_id: int | None) -> None:
     form = await request.form()
     title, body = str(form.get("title") or "").strip(), str(form.get("body") or "").strip()
     if not title or len(title) > 200:
@@ -80,7 +91,6 @@ async def add_note(peptide_id: int, request: Request, session: Session = Depends
         raise HTTPException(422, str(exc)) from None
     session.add(PeptideNote(owner_id=request.state.user.id, peptide_id=peptide_id, title=title, url=url, body=body or None))
     session.commit()
-    return RedirectResponse(f"/library/{peptide_id}#learning", status_code=303)
 
 
 @router.post("/library/notes/{note_id}/delete")
@@ -91,13 +101,13 @@ def delete_note(note_id: int, request: Request, session: Session = Depends(get_s
     peptide_id = note.peptide_id
     session.delete(note)
     session.commit()
-    return RedirectResponse(f"/library/{peptide_id}#learning", status_code=303)
+    return RedirectResponse(f"/library/{peptide_id}#learning" if peptide_id else "/library/learning", status_code=303)
 
 
 @router.get("/library/learning")
 def learning_page(request: Request, q: str = "", session: Session = Depends(get_session)):
     notes = session.scalars(select(PeptideNote).where(PeptideNote.owner_id == request.state.user.id).order_by(PeptideNote.created_at.desc(), PeptideNote.id.desc())).all()
-    names = {p.id: p.name for p in session.scalars(select(Peptide).where(Peptide.id.in_({n.peptide_id for n in notes} or {0})))}
+    names = {p.id: p.name for p in session.scalars(select(Peptide).where(Peptide.id.in_({n.peptide_id for n in notes if n.peptide_id} or {0})))}
     needle = q.strip().casefold()
-    shown = [n for n in notes if not needle or needle in " ".join([n.title, n.body or "", n.url or "", names.get(n.peptide_id, "")]).casefold()]
+    shown = [n for n in notes if not needle or needle in " ".join([n.title, n.body or "", n.url or "", names.get(n.peptide_id, "general")]).casefold()]
     return templates.TemplateResponse(request, "library/learning.html", {"notes": shown, "names": names, "q": q, "total": len(notes)})

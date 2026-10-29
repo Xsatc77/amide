@@ -404,7 +404,7 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 
 ![A library card](guide/img/25-library-card.png)
 
-- **My notes and saved articles** are private to you.
+- **My notes and saved articles** are private to you. On the **My notes** page, **Add A General Note** saves a note that belongs to no peptide, and a general note can be deleted from there.
 - **Goal stacks** lets you reorder each goal's suggested peptides.
 - File vitamins and prescriptions under **Vitamins and Supplements** or **Prescriptions**.
 - With a medicine listed in Settings, a flagged peptide shows caution tape and a note:
