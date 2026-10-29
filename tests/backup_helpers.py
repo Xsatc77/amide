@@ -112,7 +112,7 @@ def person_counts(db, uid: int, keys=None) -> dict[str, int]:
 def wipe_person(db, uid: int) -> None:
     """Delete one person's rows in every person section and every shared row the seed made (not accounts)."""
     for table in ("dose_logs", "protocols", "workout_logs", "workout_plans", "fitness_test_results", "body_measurements",
-                  "water_logs", "journal_entries", "lab_panels", "active_vials"):
+                  "water_logs", "journal_entries", "lab_panels", "active_vials", "saved_links", "peptide_notes"):
         db.execute(text(f"DELETE FROM {table} WHERE owner_id = :u"), {"u": uid})
     db.execute(text("DELETE FROM orders WHERE id IN (SELECT order_id FROM order_items)"))
     db.execute(text("DELETE FROM inventory_items WHERE owner_id = :u"), {"u": uid})

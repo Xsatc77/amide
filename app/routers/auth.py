@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app import config
+from app import config, links
 from app.auth import devices, passkeys, passwords, sessions, totp
 from app.db import get_session
 from app.models import InventoryItem, LoginSession, Passkey, Protocol, User
@@ -142,6 +142,7 @@ async def register(request: Request, db: Session = Depends(get_session)):
                 password_hash=passwords.hash_password(password), is_admin=first)
     db.add(user)
     db.flush()
+    links.add_starter_links(db, user.id)
     if first:
         # The first account takes over everything created before accounts existed.
         for model in (InventoryItem, Protocol):

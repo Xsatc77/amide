@@ -15,6 +15,24 @@ from html.parser import HTMLParser
 
 TYPES = ("Vendor", "Supplies", "Community", "Research", "Blog/Vlog", "Calculator", "Workouts", "Nutrition", "Other")
 MAX_NAME, MAX_URL, MAX_DESCRIPTION = 120, 500, 300
+
+# Saved for every new account (name, address, type). The person can edit or delete any of them; no description is written, so the site's own is read.
+STARTER_LINKS = (
+    ("Stairway To Gray", "https://www.stairwaytogray.com/", "Community"),
+    ("Peptigraph", "https://peptigraph.org/", "Community"),
+    ("Peptide List", "https://peptidelist.org/peptides", "Research"),
+    ("The Hunter Williams Podcast", "https://www.youtube.com/@TheHunterWilliamsPodcast", "Blog/Vlog"),
+    ("Muscle & Strength Workout Routines", "https://www.muscleandstrength.com/workout-routines", "Workouts"),
+    ("Janoshik", "https://janoshik.com/", "Other"),
+    ("Finnrick", "https://www.finnrick.com/", "Other"),
+)
+
+
+def add_starter_links(session, user_id: int) -> None:
+    """Give a new account the starter links (the caller commits)."""
+    from app.models import SavedLink
+    for name, url, kind in STARTER_LINKS:
+        session.add(SavedLink(owner_id=user_id, name=name, url=url, link_type=kind))
 SHORT = 200                       # a fetched description is cut to about this many characters
 MAX_BYTES = 262_144               # the first 256 KB of a page is plenty for its description
 TIMEOUT = 8

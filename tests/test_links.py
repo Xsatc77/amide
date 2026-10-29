@@ -147,3 +147,14 @@ def test_addresses_on_this_computer_or_a_private_network_are_never_fetched(host)
 def test_the_menu_has_a_links_item_and_the_page_loads(client, db):
     page = client.get("/links").text
     assert 'href="/links"' in page and "+ Add" in page and 'id="link-dialog"' in page
+
+
+def test_a_new_account_starts_with_the_starter_links(client, db, me):
+    from photo_helpers import other_client
+    with other_client("starterlinks") as member:
+        page = member.get("/links").text
+        for name, url, kind in links.STARTER_LINKS:
+            assert url in page, url
+        assert "https://peptidelist.org/peptides" in page
+        assert {k for _, _, k in links.STARTER_LINKS} == {"Community", "Research", "Blog/Vlog", "Workouts", "Other"}
+    assert rows(me) == []                      # the starter links are given to the new account only

@@ -440,7 +440,7 @@ The account menu has a **Learn** page: a tutorial for newcomers to gray-market p
 
 ## 12b. Links
 
-The **Links** page keeps the sites you use, grouped under their type (Vendor, Supplies, Community, Research, Blog/Vlog, Calculator, Workouts, Nutrition, Other) and sorted A to Z by site name. Only types you have links for get a section.
+The **Links** page keeps the sites you use, grouped under their type (Vendor, Supplies, Community, Research, Blog/Vlog, Calculator, Workouts, Nutrition, Other) and sorted A to Z by site name. Only types you have links for get a section. A new account starts with a short list of community, research, podcast, workout and lab-testing sites; edit or delete any of them.
 
 - **+ Add** opens a form: **Site name**, **URL**, **Type** and an optional **Description**.
 - Leave the description blank and Amide reads a short one from the site itself (its own description, else its first paragraph, else its title) and shows it under the link. This is one plain request to that site with nothing about you in it, never to an address on your own network. Your administrator can turn it off.

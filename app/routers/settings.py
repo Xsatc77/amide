@@ -12,7 +12,7 @@ import zoneinfo
 from datetime import date, timezone
 
 from app import clock
-from app import body_photos, config, reminders, units, uploads
+from app import body_photos, config, links, reminders, units, uploads
 from app.auth import devices, passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -556,8 +556,10 @@ async def admin_add_user(request: Request, session: Session = Depends(get_sessio
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
-    session.add(User(username=username, username_key=passwords.username_key(username),
-                     password_hash=passwords.hash_password(password)))
+    new_user = User(username=username, username_key=passwords.username_key(username), password_hash=passwords.hash_password(password))
+    session.add(new_user)
+    session.flush()
+    links.add_starter_links(session, new_user.id)
     session.commit()
     return RedirectResponse("/settings#admin", status_code=303)
 
