@@ -97,9 +97,9 @@ def test_the_orders_page_lists_my_orders_with_their_timeline_status_and_tracking
     make_order(me, item_name="Test Borealin", arrival_date=date.today(), shipped_date=date.today() - timedelta(days=3))
     page = client.get("/inventory/orders").text
     assert "Test Zorvex" in page and "In transit" in page and "Track on UPS" in page and "1Z999AA10123456784" in page
-    assert "Test Borealin" not in page                                       # checked-in orders are under their own tab
-    assert "Test Borealin" in client.get("/inventory/orders?status=checked_in").text
-    assert "Test Borealin" in client.get("/inventory/orders?status=all").text
+    assert "Test Borealin</a>" not in page                                       # checked-in orders are under their own tab
+    assert "Test Borealin</a>" in client.get("/inventory/orders?status=checked_in").text
+    assert "Test Borealin</a>" in client.get("/inventory/orders?status=all").text
 
 
 def test_the_orders_page_never_shows_another_persons_lines(client, me):

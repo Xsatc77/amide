@@ -68,6 +68,25 @@
     {% endfor %}
   </ul>
 
+  <details class="order-add-line">
+    <summary class="btn btn-ghost btn-small">Add item to this order</summary>
+    <form method="post" action="/inventory/orders/{{ o.id }}/lines" class="inline-form">
+      <p class="small muted">For an item that was left off when the order was entered.{% if o.arrival_date %} This order is already checked in, so the item is counted as received now; change the received amount if it was short.{% else %} Check the order in as usual when it arrives.{% endif %}</p>
+      {% set here = card.lines | map(attribute=0) | map(attribute='id') | list %}
+      <label class="field"><span>Item</span>
+        <select name="inventory_item_id" required>
+          <option value="">Choose an item</option>
+          {% for it in my_items if it.id not in here %}<option value="{{ it.id }}">{{ it.name }}</option>{% endfor %}
+        </select></label>
+      <label class="field"><span>Quantity</span><input name="quantity" inputmode="numeric" required></label>
+      {% if o.arrival_date %}<label class="field"><span>Received (leave blank for all)</span><input name="received_quantity" inputmode="numeric"></label>{% endif %}
+      <label class="field"><span>Cost ($, optional)</span><input name="cost" inputmode="decimal"></label>
+      <label class="field"><span>Lot number (optional)</span><input name="lot_number" maxlength="100"></label>
+      <label class="field"><span>Expiration date (optional)</span><input type="date" name="expiration_date"></label>
+      <button type="submit" class="btn btn-primary btn-small">Add to order</button>
+    </form>
+  </details>
+
   <div class="order-tracking">
     {% if o.tracking_number %}<span>Tracking: <code>{{ o.tracking_number }}</code></span>
       <button type="button" class="btn btn-ghost btn-small" data-copy="{{ o.tracking_number }}">Copy</button>{% endif %}

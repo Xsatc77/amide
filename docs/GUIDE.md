@@ -124,7 +124,7 @@ If the vendor cannot send one of the items and the order has not shipped yet, op
 
 ### Edit or delete an order
 
-On the **Orders** tab each item line has an **Edit** button, which opens that line's edit popup on the item's page (vendor, dates, tracking, tax, shipping, quantity, cost, lot, expiry and lab report). **Delete order** at the bottom of an order removes the whole order after you confirm: its lines, costs and lab reports go, the items stay in Inventory, and for a checked-in order the vials it added leave your stock.
+On the **Orders** tab each item line has an **Edit** button, which opens that line's edit popup on the item's page (vendor, dates, tracking, tax, shipping, quantity, cost, lot, expiry and lab report). **Add item to this order** puts an item you left off onto an order you already submitted: choose the item, quantity, cost, lot and expiry. On an order that has not arrived, check it in as usual; on one already checked in, the item is counted as received straight away (change the received amount with **Edit** if it was short). **Delete order** at the bottom of an order removes the whole order after you confirm: its lines, costs and lab reports go, the items stay in Inventory, and for a checked-in order the vials it added leave your stock.
 
 ### When a package arrives: Check in
 

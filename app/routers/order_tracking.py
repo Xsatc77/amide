@@ -48,10 +48,14 @@ def _cards(session: Session, uid: int, status: str) -> list[dict]:
     return cards
 
 
+def _my_items(session: Session, uid: int) -> list[InventoryItem]:
+    return list(session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid).order_by(InventoryItem.name.collate("NOCASE"))))
+
+
 def _page(request: Request, session: Session, uid: int, status: str, *, errors: dict | None = None, code: int = 200):
     status = status if status in {key for key, _ in TABS} else ""
     return templates.TemplateResponse(request, "inventory/orders.html", {
-        "cards": _cards(session, uid, status), "tabs": TABS, "status": status, "errors": errors or {}, "labels": STATUS_LABELS, "today_iso": clock.today().isoformat(),
+        "cards": _cards(session, uid, status), "my_items": _my_items(session, uid), "tabs": TABS, "status": status, "errors": errors or {}, "labels": STATUS_LABELS, "today_iso": clock.today().isoformat(),
     }, status_code=code)
 
 
@@ -110,6 +114,45 @@ async def remove_line(order_id: int, line_id: int, request: Request, session: Se
     uploads.delete_coa(line.coa_filename)
     order.items.remove(line)
     order.tax_cents, order.shipping_cents = tax, shipping
+    session.commit()
+    return RedirectResponse(f"/inventory/orders#order-{order_id}", status_code=303)
+
+
+@router.post("/inventory/orders/{order_id}/lines")
+async def add_line(order_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Put another of the caller's items on an order that was submitted without it, before or after the order is checked in. On a checked-in order the new line is
+    counted as received straight away (the amount can be corrected with Edit), since there is no second package to check in."""
+    from app.inventory import supply_stock
+    from app.routers.inventory import _parse_order_line_fields    # deferred: the inventory router imports this package's helpers at load time
+    order = _own_order(session, order_id, uid)
+    form = await request.form()
+    raw = {key: str(form.get(key) or "").strip() for key in ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")}
+    values, errors = _parse_order_line_fields(raw)
+    item = None
+    try:
+        item = session.get(InventoryItem, int(str(form.get("inventory_item_id") or "")))
+    except ValueError:
+        pass
+    if item is None or item.owner_id != uid:
+        errors["inventory_item_id"] = "Choose one of your items."
+    elif any(li.inventory_item_id == item.id for li in order.items):
+        errors["inventory_item_id"] = f"{item.name} is already in this order. Use its Edit button to change the quantity."
+    received = None
+    if order.arrival_date is not None and "quantity" not in errors:
+        text = str(form.get("received_quantity") or "").strip()
+        try:
+            received = int(text) if text else values["quantity"]
+        except ValueError:
+            errors["received_quantity"] = "Received must be a whole number."
+        else:
+            if not 0 <= received <= values["quantity"]:
+                errors["received_quantity"] = f"Received must be between 0 and the {values['quantity']} ordered."
+    if errors:
+        return _page(request, session, uid, "", errors={order_id: errors}, code=422)
+    line = OrderItem(**values, inventory_item_id=item.id, received_quantity=received)
+    order.items.append(line)
+    session.flush()
+    supply_stock.sync(line)
     session.commit()
     return RedirectResponse(f"/inventory/orders#order-{order_id}", status_code=303)
 

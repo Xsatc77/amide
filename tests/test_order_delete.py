@@ -71,3 +71,60 @@ def test_the_orders_tab_offers_edit_and_delete(client, me):
     page = client.get("/inventory/orders", params={"status": "all"}).text
     line = next(i for i in item_ids)
     assert f"/inventory/{line}?edit_order=" in page and f"/inventory/orders/{order_id}/delete" in page and "Delete order" in page
+
+
+def add_line(client, order_id, item_id, **form):
+    return client.post(f"/inventory/orders/{order_id}/lines", data={"inventory_item_id": str(item_id), "quantity": "3", **form}, follow_redirects=False)
+
+
+def spare(uid, category=Category.MEDICINE):
+    with SessionLocal() as s:
+        item = InventoryItem(name="Delorder spare", category=category, owner_id=uid, count=0, medium=Medium.LYOPHILIZED if category == Category.MEDICINE else None,
+                             vial_size_mg=10 if category == Category.MEDICINE else None)
+        s.add(item)
+        s.commit()
+        return item.id
+
+
+def test_an_item_left_off_can_be_added_to_an_order_that_has_not_arrived(client, me):
+    order_id, _ = make_order(me)
+    extra = spare(me)
+    r = add_line(client, order_id, extra, cost="12.50", lot_number="L9")
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        line = s.query(OrderItem).filter_by(order_id=order_id, inventory_item_id=extra).one()
+        assert (line.quantity, line.cost_cents, line.lot_number, line.received_quantity) == (3, 1250, "L9", None)
+
+
+def test_an_item_added_to_a_checked_in_order_counts_as_received_now(client, me):
+    order_id, _ = make_order(me, arrived=True)
+    extra = spare(me)
+    assert add_line(client, order_id, extra).status_code == 303
+    with SessionLocal() as s:
+        assert s.query(OrderItem).filter_by(order_id=order_id, inventory_item_id=extra).one().received_quantity == 3
+    short = spare(me)
+    with SessionLocal() as s:
+        s.get(InventoryItem, short).name = "Delorder short"
+        s.commit()
+    add_line(client, order_id, short, received_quantity="2")
+    with SessionLocal() as s:
+        assert s.query(OrderItem).filter_by(order_id=order_id, inventory_item_id=short).one().received_quantity == 2
+
+
+def test_a_supply_added_to_a_checked_in_order_adds_to_its_count(client, me):
+    order_id, _ = make_order(me, arrived=True)
+    supply = spare(me, Category.SUPPLY)
+    add_line(client, order_id, supply)
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, supply).count == 3
+
+
+def test_adding_a_line_refuses_a_repeat_a_bad_quantity_and_someone_elses_item(client, me):
+    order_id, (first, _) = make_order(me)
+    assert add_line(client, order_id, first).status_code == 422                     # already in the order
+    assert add_line(client, order_id, spare(me), quantity="0").status_code == 422
+    with other_client("delorderlines") as member:
+        assert add_line(client, order_id, 987654321).status_code == 422
+        assert add_line(member, order_id, first).status_code == 404                 # not their order
+    with SessionLocal() as s:
+        assert s.query(OrderItem).filter_by(order_id=order_id).count() == 2
