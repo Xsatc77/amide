@@ -52,6 +52,7 @@
   <ul class="order-lines">
     {% for item, li in card.lines %}
     <li><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}{% if li.received_quantity is not none %} <span class="muted small">(received {{ li.received_quantity }})</span>{% endif %}
+      <a class="btn btn-ghost btn-small" href="/inventory/{{ item.id }}?edit_order={{ li.id }}">Edit</a>
       {% if card.can_remove %}
       <details class="order-remove">
         <summary class="btn btn-ghost btn-small">Remove from order</summary>
@@ -99,6 +100,10 @@
     {% if t.status != 'checked_in' %}
     <a class="btn btn-primary btn-small" href="/inventory/{{ card.lines[0][0].id }}?checkin={{ o.id }}">Check in</a>
     {% endif %}
+    <form method="post" action="/inventory/orders/{{ o.id }}/delete" class="inline-form"
+          data-confirm="Delete this whole order{% if o.vendor %} from {{ o.vendor }}{% endif %}? Its {{ card.lines | length }} item line{{ '' if card.lines | length == 1 else 's' }}, costs and COA files go with it{% if t.status == 'checked_in' %}, and the vials it added leave your stock{% endif %}. The items themselves stay in Inventory.">
+      <button type="submit" class="btn btn-ghost btn-danger btn-small">Delete order</button>
+    </form>
   </div>
   {% for message in err.values() %}<small class="error">{{ message }}</small>{% endfor %}
 </article>

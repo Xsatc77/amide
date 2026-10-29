@@ -12,7 +12,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.inventory.tracking import DEFAULT_DELAY_DAYS, STATUS_LABELS, build_timeline, tracking_link
 from app import uploads
-from app.models import InventoryItem, Order, OrderItem, User
+from app.models import Category, InventoryItem, Order, OrderItem, User
 from app.templating import templates
 
 router = APIRouter()
@@ -112,6 +112,23 @@ async def remove_line(order_id: int, line_id: int, request: Request, session: Se
     order.tax_cents, order.shipping_cents = tax, shipping
     session.commit()
     return RedirectResponse(f"/inventory/orders#order-{order_id}", status_code=303)
+
+
+@router.post("/inventory/orders/{order_id}/delete")
+def delete_order(order_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Delete the order and every one of the caller's lines in it (and their COA files). Supplies already added to a count by check-in come back off it.
+    Lines that belong to someone else's items are theirs: if any remain, the order stays for them."""
+    order = _own_order(session, order_id, uid)
+    for line in [li for li in order.items if li.inventory_item.owner_id == uid]:
+        item = line.inventory_item
+        if item.category == Category.SUPPLY and line.stock_applied:
+            item.count = max((item.count or 0) - line.stock_applied, 0)
+        uploads.delete_coa(line.coa_filename)
+        order.items.remove(line)
+    if not order.items:
+        session.delete(order)
+    session.commit()
+    return RedirectResponse("/inventory/orders", status_code=303)
 
 
 @router.post("/inventory/orders/{order_id}/tracking")

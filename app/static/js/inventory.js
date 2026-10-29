@@ -247,6 +247,12 @@
     dialog.querySelector("[data-title]").textContent = "Edit order";
     dialog.showModal();
   }));
+  // Arrived from the Orders tab's Edit button: ?edit_order=<order line id> opens that line's edit popup.
+  const wantedLine = new URLSearchParams(window.location.search).get("edit_order");
+  if (wantedLine) {
+    const button = document.querySelector(`[data-action="edit-order"][data-order-id="${CSS.escape(wantedLine)}"]`);
+    if (button) button.click();
+  }
   dialog.querySelectorAll('[data-action="close-order"]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
 
   // Server re-rendered the page after an order validation error: the form's action/title/values
