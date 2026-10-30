@@ -42,7 +42,7 @@ def next_interval_due(session: Session, uid: int) -> date | None:
 
 def _milestones(session: Session, uid: int, first: date, last: date) -> list[tuple[str, date, Protocol]]:
     found = []
-    for p in session.scalars(select(Protocol).where(Protocol.owner_id == uid, Protocol.paused.is_(False))):          # a paused protocol is off the calendar
+    for p in session.scalars(select(Protocol).where(Protocol.owner_id == uid, Protocol.paused.is_(False), Protocol.ended_on.is_(None))):          # a paused or ended protocol is off the calendar
         for kind, day in (("start", p.start_date), ("end", p.end_date)):
             if day is not None and first <= day <= last:
                 found.append((kind, day, p))

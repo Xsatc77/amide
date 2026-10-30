@@ -205,6 +205,14 @@ def test_an_overdue_two_week_reminder_is_pushed_once_a_day(db, me):
     assert reminders.run_once(SessionLocal, at(9, day=DAY + timedelta(days=1)), send=send) == 1      # the next morning it asks again
 
 
+def test_an_ended_protocol_asks_for_no_photos(db, me):
+    protocol(db, me, DAY, DAY + timedelta(days=30))
+    db.query(Protocol).filter(Protocol.name == "Photoremind A").update({Protocol.ended_on: DAY})
+    db.commit()
+    assert active(db, me, DAY) == []
+    assert active(db, me, DAY + timedelta(days=30)) == []
+
+
 def test_a_paused_protocol_asks_for_no_photos(db, me):
     protocol(db, me, DAY)
     db.query(Protocol).filter(Protocol.name == "Photoremind A").update({Protocol.paused: True})
