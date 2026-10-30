@@ -7,7 +7,7 @@ import pytest
 
 from app.db import SessionLocal
 from app.inventory.runout import runs_out
-from app.models import (Category, DoseLog, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Peptide, PeptideSource, Protocol, ProtocolItem, Route)
+from app.models import (Category, DoseLog, DoseUnit, Frequency, InventoryItem, Medium, Order, OrderItem, Peptide, PeptideSource, Protocol, ProtocolItem, Route, TimeOfDay)
 
 TODAY = date.today()
 
@@ -33,9 +33,11 @@ def make(uid, *, medium=Medium.DROPS, units=60, size=5000.0, size_unit=DoseUnit.
         s.add(order)
         s.flush()
         order.items.append(OrderItem(inventory_item_id=item.id, quantity=units, received_quantity=units, lot_number="L1"))
-        pep = Peptide(name="Unitdose Peptide", source=PeptideSource.CUSTOM)
-        s.add(pep)
-        s.flush()
+        pep = s.query(Peptide).filter(Peptide.name == "Unitdose Peptide").first()
+        if pep is None:
+            pep = Peptide(name="Unitdose Peptide", source=PeptideSource.CUSTOM)
+            s.add(pep)
+            s.flush()
         p = Protocol(name="Unitdose Protocol", start_date=TODAY - timedelta(days=5), owner_id=uid)
         s.add(p)
         s.flush()
@@ -161,3 +163,74 @@ def test_migration_0066_adds_the_columns(tmp_path):
     command.downgrade(cfg, "0065")
     with sqlite3.connect(db) as c:
         assert "dosed_units" not in {r[1] for r in c.execute("pragma table_info(inventory_items)")}
+
+
+def left(*ids):
+    with SessionLocal() as s:
+        return tuple(s.get(InventoryItem, i).available_count for i in ids)
+
+
+def test_two_items_with_the_same_name_use_up_their_own_stock(client, me):
+    drops, drops_protocol, drops_line = make(me)
+    pills, pills_protocol, pills_line = make(me, medium=Medium.PILL, units=30)
+    powder, _, _ = make(me, medium=Medium.LYOPHILIZED, size=10.0, size_unit=DoseUnit.MG, dose=1.0, dose_unit=DoseUnit.MG)
+    assert log(client, drops_protocol, drops_line).status_code == 303
+    assert left(drops, pills, powder) == (59, 30, 60)
+    assert log(client, pills_protocol, pills_line).status_code == 303
+    assert left(drops, pills) == (59, 29)
+    with SessionLocal() as s:
+        log_id = s.query(DoseLog).filter(DoseLog.protocol_id == drops_protocol).one().id
+    client.post("/today/undo", data={"dose_log_id": str(log_id)}, follow_redirects=False)
+    assert left(drops, pills) == (60, 29)
+    page = client.get("/inventory")
+    assert page.status_code == 200 and page.text.count("Unitdose B12") >= 3
+    assert client.get("/today").status_code == 200
+
+
+def switch_line(client, protocol_id, peptide_id, new_item_id, *, route="oral"):
+    """Edit the protocol the way the builder does, pointing its one line at another inventory item."""
+    return client.post(f"/protocols/{protocol_id}", data={
+        "name": "Unitdose Protocol", "start_date": (TODAY - timedelta(days=5)).isoformat(), "weeks": "8", "goal": ["fat-loss"],
+        "items-0-peptide_id": str(peptide_id), "items-0-dose": "5000", "items-0-dose_unit": "mcg", "items-0-frequency": "daily",
+        "items-0-time_of_day": "am", "items-0-route": route, "items-0-inventory_item_id": str(new_item_id),
+    }, follow_redirects=False)
+
+
+def two_forms(me):
+    """Sublingual drops (linked) and a second same-named item to switch to; the line is set to the morning so an edit keeps its history."""
+    drops, protocol_id, line = make(me)
+    pills, _, _ = make(me, medium=Medium.PILL, units=30)
+    with SessionLocal() as s:
+        s.get(ProtocolItem, line).time_of_day = TimeOfDay.AM
+        peptide_id = s.get(ProtocolItem, line).peptide_id
+        s.commit()
+    return drops, pills, protocol_id, line, peptide_id
+
+
+def test_switching_a_line_to_the_other_form_takes_later_doses_from_it_and_keeps_the_history(client, me):
+    drops, pills, protocol_id, line, peptide_id = two_forms(me)
+    yesterday = TODAY - timedelta(days=1)
+    assert log(client, protocol_id, line, yesterday).status_code == 303
+    assert left(drops, pills) == (59, 30)
+    assert switch_line(client, protocol_id, peptide_id, pills).status_code == 303
+    with SessionLocal() as s:
+        [new_line] = s.get(Protocol, protocol_id).items
+        assert new_line.inventory_item_id == pills
+        old = s.query(DoseLog).one()
+        assert old.protocol_item_id == new_line.id and old.scheduled_date == yesterday      # the history follows the line
+        new_line_id = new_line.id
+    assert left(drops, pills) == (59, 30)                                                   # switching alone moves no stock
+    assert log(client, protocol_id, new_line_id).status_code == 303
+    assert left(drops, pills) == (59, 29)                                                   # today's dose comes out of the new form only
+
+
+@pytest.mark.xfail(strict=True, reason="a dose log does not record which item it drew from, so undo gives the unit to whatever the line points at now")
+def test_undoing_a_dose_logged_before_a_same_day_switch_gives_the_unit_back_to_the_form_it_came_from(client, me):
+    drops, pills, protocol_id, line, peptide_id = two_forms(me)
+    assert log(client, protocol_id, line).status_code == 303
+    assert left(drops, pills) == (59, 30)
+    switch_line(client, protocol_id, peptide_id, pills)
+    with SessionLocal() as s:
+        log_id = s.query(DoseLog).one().id
+    assert client.post("/today/undo", data={"dose_log_id": str(log_id)}, follow_redirects=False).status_code == 303
+    assert left(drops, pills) == (60, 30)
