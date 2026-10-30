@@ -494,7 +494,7 @@ def test_shipment_card_names_the_vendor_in_a_tab_on_the_left_edge(client, db):
         s.commit()
     card = _shipment_card(client)
     rows = card.split("<tbody>")[1].split("</tr>")[0]
-    assert re.search(r'<td class="ship-vendor"><span>Acme Labs</span></td>\s*<td>', rows)          # the vendor's own cell comes first in the row
+    assert re.search(r'<td class="ship-vendor"><span><a href="/inventory/orders#order-\d+"[^>]*>Acme Labs</a></span></td>\s*<td>', rows)          # the vendor's own cell comes first in the row
     assert "<th class=\"ship-vendor\"></th>" in card.split("</thead>")[0]
     css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
     rule = css.split(".ship-vendor {")[1].split("}")[0]

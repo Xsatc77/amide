@@ -328,6 +328,8 @@ form.inline { display: inline; }
 .inv-table { width: 100%; border-collapse: collapse; }
 /* Items In Shipment: the vendor sits in a yellow tab down the left edge of each order's row, in black, reading bottom to top */
 .inv-table td.ship-vendor { width: 2.4rem; padding: 0; text-align: center; vertical-align: middle; background: var(--ribbon); color: #000; border-bottom: 1px solid rgba(0, 0, 0, 0.3); writing-mode: vertical-rl; }
+.inv-table td.ship-vendor a { color: inherit; text-decoration: none; }
+.inv-table td.ship-vendor a:hover, .inv-table td.ship-vendor a:focus-visible { text-decoration: underline; }
 .inv-table td.ship-vendor span { display: inline-block; transform: rotate(180deg); padding: 10px 0; max-height: 9.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; }
 .inv-table th.ship-vendor { width: 2.4rem; padding: 0; background: transparent; }
 /* every other order in the Items In Shipment card gets the deeper yellow tab and a faint yellow wash, so the orders read as separate blocks */

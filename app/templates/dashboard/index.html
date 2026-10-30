@@ -324,7 +324,7 @@
       <tbody>
         {% for group in in_transit_groups %}
         <tr>
-          <td class="ship-vendor"><span>{{ group.order.vendor or 'No vendor' }}</span></td>
+          <td class="ship-vendor"><span><a href="/inventory/orders#order-{{ group.order.id }}" title="Open this order">{{ group.order.vendor or 'No vendor' }}</a></span></td>
           <td>
             {% for item, li in group.lines %}
             <div><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}</div>
