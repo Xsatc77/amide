@@ -224,7 +224,7 @@ def test_switching_a_line_to_the_other_form_takes_later_doses_from_it_and_keeps_
     assert left(drops, pills) == (59, 29)                                                   # today's dose comes out of the new form only
 
 
-@pytest.mark.xfail(strict=True, reason="a dose log does not record which item it drew from, so undo gives the unit to whatever the line points at now")
+
 def test_undoing_a_dose_logged_before_a_same_day_switch_gives_the_unit_back_to_the_form_it_came_from(client, me):
     drops, pills, protocol_id, line, peptide_id = two_forms(me)
     assert log(client, protocol_id, line).status_code == 303

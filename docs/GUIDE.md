@@ -188,6 +188,10 @@ For each peptide you set:
 - **Titration**: tick it to ramp a dose up in steps by week. "Fill the steps from a ramp" builds them from a start dose, an increase, weeks per step and a target.
 - **Cycle off** weeks that pause an item.
 
+### Switch a protocol to another form of the medicine
+
+Keep two forms of one medicine in Inventory (B-12 drops and B-12 vials, say, two items with the same name and different **Medium**) and a **Switch to ...** button appears under that peptide on its protocol card, and on its Active Vials card. It shows only when the medicine is stocked in two or more mediums. Open it, check the **route** and **dose** (an injectable is usually a different amount from a sublingual), and press **Switch**. From then on doses are taken from the other form; doses already logged are unchanged, and a pill or drops item you switch to is marked as in use. A titrated line keeps the doses of its steps. Ended protocols cannot be switched.
+
 ### Caution tape
 
 If you list your medicines in Settings ([section 12](#12-settings)), a peptide that is commonly flagged with one of them gets **red and black caution tape** in the library, on your protocol cards and in the builder, with the reason listed. It is a prompt to ask your prescriber or pharmacist. No tape does not mean no interaction.

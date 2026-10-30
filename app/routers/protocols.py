@@ -12,7 +12,7 @@ from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.library.price_lists.analysis import rematch_items
 from app.models import (
-    WEEKDAY_LETTERS, WEEKDAY_NAMES, UserMedicine, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Peptide, PeptideSource,
+    WEEKDAY_LETTERS, WEEKDAY_NAMES, UserMedicine, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Medium, Peptide, PeptideSource,
     Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
     User,
 )
@@ -23,7 +23,7 @@ from app.protocols.forms import (
 from app.library.conflicts import DISCLAIMER
 from app.library.interactions import cautions_for
 from app.protocols import alerts as alerts_mod
-from app.protocols import premade
+from app.protocols import premade, switching
 from app.protocols.tiers import builder_tiers
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
@@ -99,7 +99,7 @@ def _step_text(item: ProtocolItem, week: int | None) -> str | None:
     return f"Week {week} · step {number}: {_amount(step.dose, item.dose_unit)}"
 
 
-def _view(p: Protocol, today: date, owner_name: str | None = None) -> dict:
+def _view(p: Protocol, today: date, owner_name: str | None = None, inventory=None) -> dict:
     week = current_week(p.start_date, today)
     return {
         "p": p,
@@ -112,6 +112,8 @@ def _view(p: Protocol, today: date, owner_name: str | None = None) -> dict:
                 "dose_set": it.dose is not None,
                 "desc": describe_item(it),
                 "step": _step_text(it, week) if p.titration_enabled else None,
+                "line": it,
+                "switch": switching.options(it, inventory) if inventory else [],
             }
             for it in p.items
         ],
@@ -124,7 +126,8 @@ def _view(p: Protocol, today: date, owner_name: str | None = None) -> dict:
 def list_protocols(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
         uid: int = Depends(current_user_id)):
     protocols = session.scalars(_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
-    views = [_view(p, today) for p in protocols]
+    inventory = list(session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)))
+    views = [_view(p, today, inventory=inventory) for p in protocols]
     # Active, Paused, and Scheduled protocols all get a card in the Active Protocols section (each
     # its own banner color) -- only Ended protocols drop to Saved. Within the section, cards group
     # by status in this fixed order, each group sorted by start date.
@@ -159,6 +162,7 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
     return templates.TemplateResponse(request, "protocols/list.html",
                                       {"active_views": active, "saved_views": saved, "shared_views": shared_views,
                                        "goals": GOALS, "statuses": list(Status), "course_totals": course_totals,
+                                       "routes": list(Route), "dose_units": list(DoseUnit),
                                        "premade_groups": premade.groups(),
                                        "alert_counts": {p.id: len(alerts_mod.for_protocol(session, p, uid)) for p in protocols}})
 
@@ -492,6 +496,46 @@ async def update_protocol(protocol_id: int, request: Request, session: Session =
                                status_code=422)
     save_protocol(session, p, parsed)
     return RedirectResponse("/protocols", status_code=303)
+
+
+_SWITCH_BACK = {"/protocols", "/inventory#active-vials"}
+
+
+@router.post("/protocols/{protocol_id}/items/{item_id}/switch")
+def switch_item(protocol_id: int, item_id: int, inventory_item_id: int = Form(...), route: str = Form(...), dose: str = Form(""),
+                dose_unit: str = Form(""), back: str = Form("/protocols", alias="next"), session: Session = Depends(get_session),
+                today: date = Depends(get_today), uid: int = Depends(current_user_id)):
+    """Point one protocol line at another form of the same medicine, keeping every dose already logged."""
+    p = _get_protocol(session, protocol_id, uid)
+    line = next((i for i in p.items if i.id == item_id), None)
+    if line is None or protocol_status(p, today) is Status.ENDED:
+        raise HTTPException(404, "Protocol line not found")
+    inventory = list(session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)))
+    if inventory_item_id not in {o.item_id for o in switching.options(line, inventory)}:
+        raise HTTPException(422, "That medicine has no other form to switch to.")
+    try:
+        new_route = Route(route)
+    except ValueError:
+        raise HTTPException(422, "Choose a route.")
+    if not line.steps:                                                          # a titrated line keeps its steps' doses
+        try:
+            new_dose, new_unit = float(dose), DoseUnit(dose_unit)
+        except ValueError:
+            raise HTTPException(422, "Enter the dose and its unit.")
+        if not new_dose > 0 or new_dose == float("inf"):
+            raise HTTPException(422, "The dose must be more than zero.")
+        line.dose, line.dose_unit = new_dose, new_unit
+    old = session.get(InventoryItem, line.inventory_item_id) if line.inventory_item_id is not None else None
+    new = next(i for i in inventory if i.id == inventory_item_id)
+    line.inventory_item_id, line.route = new.id, new_route
+    session.flush()
+    if new.medium is not Medium.LYOPHILIZED:                                    # a pill or drops item in use shows on the Active Vials section
+        new.is_active = True
+    if old is not None and old.medium is not Medium.LYOPHILIZED and not session.scalar(
+            select(ProtocolItem.id).join(Protocol).where(Protocol.owner_id == uid, ProtocolItem.inventory_item_id == old.id).limit(1)):
+        old.is_active = False
+    session.commit()
+    return RedirectResponse(back if back in _SWITCH_BACK else "/protocols", status_code=303)
 
 
 @router.get("/protocols/{protocol_id}/repeat")

@@ -1,0 +1,21 @@
+{# One switch form per form of the medicine a line could move to. Needs: protocol, line, options, next_url. #}
+{% for o in options %}
+<details class="switch-form">
+  <summary class="btn btn-ghost btn-small">Switch{% if protocol_label %} {{ protocol.name }}{% endif %} to {{ o.medium }}</summary>
+  <form method="post" action="/protocols/{{ protocol.id }}/items/{{ line.id }}/switch" class="inline-form">
+    <input type="hidden" name="inventory_item_id" value="{{ o.item_id }}">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <p class="small muted">From now on {{ line.peptide.name }} is taken from {{ o.label }}. Doses already logged stay as they were.</p>
+    <label class="field"><span>Route</span>
+      <select name="route">{% for r in routes %}<option value="{{ r.value }}"{{ ' selected' if r.value == o.route }}>{{ r.label }}</option>{% endfor %}</select></label>
+    {% if line.steps %}
+    <p class="small muted">The dose follows this line's titration steps and is not changed here.</p>
+    {% else %}
+    <label class="field"><span>Dose</span><input name="dose" inputmode="decimal" value="{{ '%g' % line.dose if line.dose is not none else '' }}" required></label>
+    <label class="field"><span>Unit</span>
+      <select name="dose_unit">{% for u in dose_units %}<option value="{{ u.value }}"{{ ' selected' if u == line.dose_unit }}>{{ u.label }}</option>{% endfor %}</select></label>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-small">Switch</button>
+  </form>
+</details>
+{% endfor %}

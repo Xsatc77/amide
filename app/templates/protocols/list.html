@@ -38,6 +38,7 @@
         <li{% set cx = peptide_cautions(it.name) %}{% if cx %} class="caution-tape" title="Caution with {{ cx | map(attribute='medicine') | unique | join(', ') }}. See the peptide's page in the library."{% endif %}>
           <strong>{{ it.name }}</strong> — <span class="{{ '' if it.dose_set else 'muted' }}">{{ it.desc }}</span>
           {% if it.step %}<div class="small step">{{ it.step }}</div>{% endif %}
+          {% if it.switch %}{% with protocol=p, line=it.line, options=it.switch, next_url='/protocols', protocol_label=false %}{% include 'protocols/_switch.html' %}{% endwith %}{% endif %}
         </li>
         {% endfor %}
       </ul>

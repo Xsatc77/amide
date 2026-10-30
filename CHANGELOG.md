@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Protocols: switch a line to another form of the medicine.** When a medicine is stocked in two or more mediums (B-12 drops and B-12 vials, for example), a **Switch to ...** button appears under it on the protocol card and on its Active Vials card. It points the line at the other form, with the route and dose you confirm, and keeps every dose already logged. It does not appear when there is only one form, and ended protocols cannot be switched.
+- **Doses: undo now gives the unit back to the item it came from.** Undoing a drops or pills dose after the protocol line had been switched to another item used to return the unit to the new item and leave the old one short. Each logged dose now remembers the item it took from.
 - **Orders: Add item to this order.** An item left off an order that was already submitted can now be added from the Orders tab, whether or not the order has been checked in. On a checked-in order the new item is counted as received straight away, and a supply adds to its count.
 - **Orders: Edit and Delete order on the Orders tab.** Each item line has an **Edit** button that opens its edit popup, and **Delete order** removes the whole order after a confirmation (its lines, costs and lab reports; the items stay, and a checked-in supply order takes its stock back off the count). Editing was only on each item's own page before.
 - **Links: new accounts start with a list of sites.** Every new account is given seven starter links (two community sites, a peptide list under Research, a podcast, a workout-routine site and two lab-testing sites). They are the person's own to edit or delete, and accounts that already exist are not changed.

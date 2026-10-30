@@ -236,7 +236,7 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
         peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
         dose_unit=item.dose_unit, route=item.route.value, scheduled_date=scheduled_date,
         scheduled_time_of_day=item.time_of_day, status=status, logged_at=datetime.now(timezone.utc),
-        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken, supplies_used=supplies or None,
+        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken, stock_item_id=stock.id if units_taken else None, supplies_used=supplies or None,
         fiber_g=stock.fiber_g_per_dose if stock is not None and vial is None and stock.fiber_g_per_dose else None,
     ))
 
@@ -308,9 +308,12 @@ async def undo_dose(request: Request, session: Session = Depends(get_session),
             vial.volume_remaining_ml = round(vial.volume_remaining_ml + log.volume_ml, 4)
 
     consumption.give_back(session, uid, log.supplies_used)
-    if log.inventory_units and log.protocol_item_id is not None:
-        pitem = session.get(ProtocolItem, log.protocol_item_id)
-        stock = session.get(InventoryItem, pitem.inventory_item_id) if pitem is not None and pitem.inventory_item_id is not None else None
+    if log.inventory_units:
+        stock_id = log.stock_item_id
+        if stock_id is None and log.protocol_item_id is not None:           # a dose logged before the item was recorded: the line's item is the best guess
+            pitem = session.get(ProtocolItem, log.protocol_item_id)
+            stock_id = pitem.inventory_item_id if pitem is not None else None
+        stock = session.get(InventoryItem, stock_id) if stock_id is not None else None
         if stock is not None:
             unit_use.give_back(stock, log.inventory_units)
 

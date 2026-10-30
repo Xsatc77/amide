@@ -53,6 +53,7 @@
       <div class="vial-card-actions">
         <a class="btn btn-ghost" href="/inventory/{{ it.id }}">Details</a>
         <form method="post" action="/inventory/{{ it.id }}/active" class="inline"><input type="hidden" name="active" value=""><button type="submit" class="btn btn-ghost">Stop using</button></form>
+        {% for s in switch_lines.get(it.id, []) %}{% with protocol=s.protocol, line=s.line, options=s.options, next_url='/inventory#active-vials', protocol_label=true %}{% include 'protocols/_switch.html' %}{% endwith %}{% endfor %}
       </div>
     </article>
     {% endfor %}
@@ -92,6 +93,7 @@
       </div>
       {% if is_mine %}
       <div class="vial-card-actions">
+      {% for s in switch_lines.get(v.inventory_item_id, []) %}{% with protocol=s.protocol, line=s.line, options=s.options, next_url='/inventory#active-vials', protocol_label=true %}{% include 'protocols/_switch.html' %}{% endwith %}{% endfor %}
       {% if v.dispensing_method.value == 'syringe' and not is_bac %}
       <form method="post" action="/active-vials/{{ v.id }}/convert-to-pen" class="inline">
         <button type="submit" class="btn btn-ghost">Convert to peptide pen</button>

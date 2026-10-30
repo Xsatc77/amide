@@ -24,7 +24,7 @@ from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
 from app.inventory.vendors import resolve_vendor
 from app.models import (
-    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseLog, DoseStatus, DoseUnit, InventoryItem, Medium, ProtocolItem, SupplyType,
+    ActiveVial, Category, ContactMethodType, DispensingMethod, DoseLog, DoseStatus, DoseUnit, InventoryItem, Medium, ProtocolItem, Route, SupplyType,
     Order, OrderItem, PaymentMethodType, PurchasingUnit, Sale, Share, ShareCategory, StorageLocation,
     User, Vendor, VendorContact, VendorPaymentMethod,
 )
@@ -691,6 +691,15 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
     }
 
 
+def _switch_lines(session: Session, uid: int) -> dict[int, list[dict]]:
+    """For the Active Vials cards: the person's current protocol lines using each item that could switch to another form of the medicine."""
+    from app.protocols import switching
+    from app.routers.protocols import _protocol_query
+    protocols = session.scalars(_protocol_query(uid)).all()
+    inventory = list(session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)))
+    return switching.by_item(protocols, inventory, clock.today())
+
+
 def _active_items(session: Session, uid: int, items: list[InventoryItem]) -> list[dict]:
     """The person's own medicines that are not powder vials and are marked active, each with its gauge, picture and lot."""
     from app.inventory.gauge import _lot_in_use, item_gauges
@@ -764,6 +773,8 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "open_vials": open_vials,
             "active_vials": vials, "vial_gauges": vial_gauge_map, "vial_lots": vial_lot_map,
             "active_items": _active_items(session, uid, items),
+            "switch_lines": _switch_lines(session, uid),
+            "routes": list(Route), "dose_units": list(DoseUnit),
             "calibrate_vials": calibrate.dialog_vials(session, uid, request.query_params.get("calibrate"), calibrate_ids), "calibrate_errors": calibrate_errors or {},
             "vial_symbols": {v.id: symbol(vial_items[v.inventory_item_id].name) for v in vials if v.inventory_item_id in vial_items},
             "vial_items": vial_items,

@@ -158,6 +158,7 @@ REFS = {
     ("peptide_notes", "peptide_id"): ("peptides", ("name",)),
     ("protocol_items", "inventory_item_id"): ("inventory_items", ("name", "vial_size_mg", "vial_size_unit")),
     ("dose_logs", "peptide_id"): ("peptides", ("name",)),
+    ("dose_logs", "stock_item_id"): ("inventory_items", ("name", "vial_size_mg", "vial_size_unit")),
     ("food_logs", "food_id"): ("foods", ("name", "serving")),
     ("price_lists", "vendor_id"): ("vendors", ("name",)),
     ("ingest_sources", "vendor_id"): ("vendors", ("name",)),
