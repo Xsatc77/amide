@@ -52,15 +52,15 @@
   <ul class="order-lines">
     {% for item, li in card.lines %}
     <li><a href="/inventory/{{ item.id }}">{{ item.name }}</a> &times; {{ li.quantity }}{% if li.received_quantity is not none %} <span class="muted small">(received {{ li.received_quantity }})</span>{% endif %}
-      <a class="btn btn-ghost btn-small" href="/inventory/{{ item.id }}?edit_order={{ li.id }}">Edit</a>
+      <a class="btn" href="/inventory/{{ item.id }}?edit_order={{ li.id }}">Edit</a>
       {% if card.can_remove %}
       <details class="order-remove">
-        <summary class="btn btn-ghost btn-small">Remove from order</summary>
+        <summary class="btn">Remove from order</summary>
         <form method="post" action="/inventory/orders/{{ o.id }}/lines/{{ li.id }}/remove" class="inline-form" data-confirm="Remove {{ item.name }} from this order? The other items stay.">
           <p class="small muted">Use this when the vendor cannot send {{ item.name }}. Shipping stays what it is and is shared between the {{ card.lines | length - 1 }} item{{ '' if card.lines | length == 2 else 's' }} left. Tax{% if o.tax_cents is not none %} was ${{ '%.2f' | format(o.tax_cents / 100) }} for the whole order; this item's share (${{ '%.2f' | format(li.allocated_tax_cents / 100) }}) comes off{% else %} is left blank{% endif %}. Change either if the vendor charged you differently.</p>
           <label class="field"><span>Tax after removing</span><input name="tax" value="{{ '%.2f' | format((o.tax_cents - li.allocated_tax_cents) / 100) if o.tax_cents is not none else '' }}" inputmode="decimal"></label>
           <label class="field"><span>Shipping after removing</span><input name="shipping" value="{{ '%.2f' | format(o.shipping_cents / 100) if o.shipping_cents is not none else '' }}" inputmode="decimal"></label>
-          <button type="submit" class="btn btn-ghost btn-danger btn-small">Remove</button>
+          <button type="submit" class="btn btn-danger">Remove</button>
         </form>
       </details>
       {% endif %}
@@ -69,7 +69,7 @@
   </ul>
 
   <details class="order-add-line">
-    <summary class="btn btn-ghost btn-small">Add item to this order</summary>
+    <summary class="btn">Add item to this order</summary>
     <form method="post" action="/inventory/orders/{{ o.id }}/lines" class="inline-form">
       <p class="small muted">For an item that was left off when the order was entered.{% if o.arrival_date %} This order is already checked in, so the item is counted as received now; change the received amount if it was short.{% else %} Check the order in as usual when it arrives.{% endif %}</p>
       {% set here = card.lines | map(attribute=0) | map(attribute='id') | list %}
@@ -83,45 +83,45 @@
       <label class="field"><span>Cost ($, optional)</span><input name="cost" inputmode="decimal"></label>
       <label class="field"><span>Lot number (optional)</span><input name="lot_number" maxlength="100"></label>
       <label class="field"><span>Expiration date (optional)</span><input type="date" name="expiration_date"></label>
-      <button type="submit" class="btn btn-primary btn-small">Add to order</button>
+      <button type="submit" class="btn btn-primary">Add to order</button>
     </form>
   </details>
 
   <div class="order-tracking">
     {% if o.tracking_number %}<span>Tracking: <code>{{ o.tracking_number }}</code></span>
-      <button type="button" class="btn btn-ghost btn-small" data-copy="{{ o.tracking_number }}">Copy</button>{% endif %}
-    {% if card.link %}<a class="btn btn-primary btn-small" href="{{ card.link.url }}" target="_blank" rel="noopener"
+      <button type="button" class="btn" data-copy="{{ o.tracking_number }}">Copy</button>{% endif %}
+    {% if card.link %}<a class="btn btn-primary" href="{{ card.link.url }}" target="_blank" rel="noopener"
          {% if card.link.copy_first %}data-copy="{{ o.tracking_number }}"{% endif %}>{{ card.link.label }}</a>{% endif %}
     {% if not o.tracking_number and not card.link %}<span class="muted small">No tracking number yet.</span>{% endif %}
   </div>
 
   <div class="order-actions">
     <details>
-      <summary class="btn btn-ghost btn-small">{{ 'Edit tracking' if o.tracking_number or o.tracking_site else 'Add tracking' }}</summary>
+      <summary class="btn">{{ 'Edit tracking' if o.tracking_number or o.tracking_site else 'Add tracking' }}</summary>
       <form method="post" action="/inventory/orders/{{ o.id }}/tracking" class="inline-form">
         <label class="field"><span>Tracking number</span><input name="tracking_number" maxlength="100" value="{{ o.tracking_number or '' }}"></label>
         <label class="field"><span>Tracking site (optional; use {number} where the number goes)</span><input name="tracking_site" maxlength="500" value="{{ o.tracking_site or '' }}" placeholder="https://..."></label>
-        <button type="submit" class="btn btn-primary btn-small">Save</button>
+        <button type="submit" class="btn btn-primary">Save</button>
       </form>
     </details>
     {% if t.status == 'waiting' %}
     <form method="post" action="/inventory/orders/{{ o.id }}/ship" class="inline-form">
       <input type="date" name="shipped_date" value="{{ today_iso }}" aria-label="Shipped date">
-      <button type="submit" class="btn btn-ghost btn-small">Mark shipped</button>
+      <button type="submit" class="btn">Mark shipped</button>
     </form>
     {% endif %}
     {% if t.status in ('waiting', 'in_transit') %}
     <form method="post" action="/inventory/orders/{{ o.id }}/deliver" class="inline-form">
       <input type="date" name="delivered_date" value="{{ today_iso }}" aria-label="Delivered date">
-      <button type="submit" class="btn btn-ghost btn-small">Mark delivered</button>
+      <button type="submit" class="btn">Mark delivered</button>
     </form>
     {% endif %}
     {% if t.status != 'checked_in' %}
-    <a class="btn btn-primary btn-small" href="/inventory/{{ card.lines[0][0].id }}?checkin={{ o.id }}">Check in</a>
+    <a class="btn btn-primary" href="/inventory/{{ card.lines[0][0].id }}?checkin={{ o.id }}">Check in</a>
     {% endif %}
     <form method="post" action="/inventory/orders/{{ o.id }}/delete" class="inline-form"
           data-confirm="Delete this whole order{% if o.vendor %} from {{ o.vendor }}{% endif %}? Its {{ card.lines | length }} item line{{ '' if card.lines | length == 1 else 's' }}, costs and COA files go with it{% if t.status == 'checked_in' %}, and the vials it added leave your stock{% endif %}. The items themselves stay in Inventory.">
-      <button type="submit" class="btn btn-ghost btn-danger btn-small">Delete order</button>
+      <button type="submit" class="btn btn-danger">Delete order</button>
     </form>
   </div>
   {% for message in err.values() %}<small class="error">{{ message }}</small>{% endfor %}
