@@ -104,4 +104,4 @@ def test_each_point_on_the_dashboard_chart_carries_its_date_and_amount_for_the_h
     choices.save_choices(db, me, {"walking_running_distance"}, {"walking_running_distance"})
     page = client.get("/dashboard").text
     assert re.search(r'data-value="[0-9.]+ mi"', page)
-    assert 'id="apple-chart-slot"' in page and 'id="apple-chart-tooltip"' in page
+    assert 'id="apple-chart-slot"' in page

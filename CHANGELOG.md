@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Charts: hover or tap a point to see its date and value.** On every chart, hovering a point with a mouse shows a small popup with its date and value; on a phone, tapping near a point does the same (a tap picks the nearest point, since a fingertip is bigger than the dot) and tapping elsewhere closes it. One shared script now does this on all pages, replacing the two that covered only the Apple Health card and the Measurements overview.
 - **Dashboard: the vendor name in Items In Shipment opens the order.** The vendor tab beside each order now links to that order on the Orders tab.
 - **Protocols: switch a line to another form of the medicine.** When a medicine is stocked in two or more mediums (B-12 drops and B-12 vials, for example), a **Switch to ...** button appears under it on the protocol card and on its Active Vials card. It points the line at the other form, with the route and dose you confirm, and keeps every dose already logged. It does not appear when there is only one form, and ended protocols cannot be switched.
 - **Doses: undo now gives the unit back to the item it came from.** Undoing a drops or pills dose after the protocol line had been switched to another item used to return the unit to the new item and leave the old one short. Each logged dose now remembers the item it took from.

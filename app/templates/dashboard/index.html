@@ -362,7 +362,7 @@
       {% else %}<p class="muted">Nothing from today yet.</p>{% endif %}
       <p><a class="btn" href="/measurements?tab=apple">Open the Apple tab</a> <a class="btn btn-ghost" href="/settings#integrations">Settings</a></p>
     </div>
-    {% if apple_card.chart %}<div id="apple-chart-slot">{{ line_chart(apple_card.chart, 'Walking And Running Distance' ~ (' (' ~ apple_card.chart_unit ~ ')' if apple_card.chart_unit else ''), unit=apple_card.chart_unit) }}</div><div id="apple-chart-tooltip" class="chart-tooltip" hidden role="status"></div>{% endif %}
+    {% if apple_card.chart %}<div id="apple-chart-slot">{{ line_chart(apple_card.chart, 'Walking And Running Distance' ~ (' (' ~ apple_card.chart_unit ~ ')' if apple_card.chart_unit else ''), unit=apple_card.chart_unit) }}</div>{% endif %}
   </div>
   {% elif apple_card.state == 'waiting' %}
   <p class="muted">Your token is ready, but nothing has arrived from the phone yet. Run Manual Export in Health Auto Export to test.</p>
