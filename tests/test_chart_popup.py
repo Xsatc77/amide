@@ -11,3 +11,9 @@ def test_the_shared_chart_script_is_on_every_page(client, me):
 def test_the_script_serves_and_handles_hover_and_tap(client, me):
     js = client.get("/static/js/charts.js").text
     assert "pointerover" in js and "click" in js and "dataset.date" in js
+
+
+def test_chart_numbers_round_to_two_decimals_and_drop_trailing_zeros():
+    from app.templating import num
+    assert num(3.14159) == "3.14" and num(3.1) == "3.1" and num(4.0) == "4" and num(4) == "4" and num(0.005) == "0.01" and num(None) == ""
+    assert num(182.30000000000001) == "182.3" and num(1 / 3) == "0.33"

@@ -5,7 +5,7 @@
 {% macro y_grid(axis) %}{% if axis %}{% for t in axis.ticks %}<line class="grid" x1="{{ axis.left }}" x2="{{ axis.right }}" y1="{{ t.y }}" y2="{{ t.y }}"></line><text class="axis-label" x="{{ axis.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.value }}</text>{% endfor %}{% endif %}{% endmacro %}
 
 {# `whole`: show a whole number (a range end, a point's value) without its ".0" (the Apple tab asks for it; every other chart keeps its old output) #}
-{% macro _range_end(v, whole) %}{{ v|int if whole and v == v|int else v }}{% endmacro %}
+{% macro _range_end(v, whole) %}{{ v|int if whole and v == v|int else v | num }}{% endmacro %}
 
 {% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false, unit='') %}
 {% if chart %}

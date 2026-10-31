@@ -8,6 +8,7 @@
       {% if d in workout_dates %}<span class="cal-icon" title="Workout scheduled">🏋</span>{% endif %}
       {% if d in fitness_test_dates %}<span class="cal-icon" title="Fitness Test completed">🏆</span>{% endif %}
       {% if d in photo_marks %}<span class="cal-icon" title="{{ photo_marks[d] | join(' / ') }}">📷</span>{% endif %}
+      {% if d in journal_dates %}<a class="cal-icon cal-icon-link" href="/measurements?tab=journal&edit={{ d.isoformat() }}" title="Journal entry completed: open it" aria-label="Journal entry for {{ d | shortdate }}">📓</a>{% endif %}
     </a>
     {% endfor %}
   </div>

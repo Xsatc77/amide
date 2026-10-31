@@ -979,6 +979,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 }
 .cal-icon { line-height: 1; }
 .cal-icon-end { margin-left: auto; }
+.cal-icon-link { text-decoration: none; }
 .cal-more { font-size: 0.72rem; font-weight: 600; margin-left: 4px; }
 
 /* Week */

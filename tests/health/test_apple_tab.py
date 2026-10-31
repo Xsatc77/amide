@@ -121,7 +121,7 @@ def test_other_charts_keep_their_caption_format():
     from datetime import date
     chart = {"width": 10, "height": 10, "y_axis": [], "band": None, "markers": None, "poly": "", "points": [], "raw": [],
              "min_v": 5960.0, "max_v": 8860.0, "min_d": date(2024, 2, 1), "max_d": date(2024, 2, 2)}
-    assert "range 5960.0–8860.0" in str(macro(chart, "Weight"))          # the shared macro's default is unchanged
+    assert "5960.0" not in str(macro(chart, "Weight")) and "range 5960" in str(macro(chart, "Weight"))          # decimals are trimmed to two places on every chart
 
 
 def test_amount_shows_a_dash_for_nan_and_infinity():

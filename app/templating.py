@@ -97,6 +97,14 @@ def shortdate(value: date | None) -> str:
     return "" if value is None else f"{value:%m/%d/%Y}"   # standard US format, everywhere
 
 
+def num(value) -> str:
+    """A chart number to at most two decimal places, with no trailing zeros (3.10 -> 3.1, 4.0 -> 4)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return "" if value is None else str(value)
+    return f"{round(value, 2):.2f}".rstrip("0").rstrip(".")
+
+
+templates.env.filters["num"] = num
 templates.env.filters["money"] = money
 templates.env.filters["titled"] = title_case
 templates.env.filters["mg"] = mg

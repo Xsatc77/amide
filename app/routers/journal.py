@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone as dt_timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.datastructures import UploadFile
 from fastapi.responses import RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import clock, config, journal_compare, journal_photos
@@ -519,3 +519,11 @@ def delete_photo(photo_id: int, session: Session = Depends(get_session), uid: in
     session.commit()
     journal_photos.delete_file(name)
     return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
+def journal_logged_dates(session: Session, uid: int, start: date, end: date) -> set[date]:
+    """Days in [start, end] with a completed entry of the owner's own: one saved from the full form (a quick note alone leaves every rating empty). Used for the Calendar marker."""
+    rows = session.scalars(select(JournalEntry.entry_date).where(
+        JournalEntry.owner_id == uid, JournalEntry.entry_date.between(start, end),
+        or_(JournalEntry.mood.is_not(None), JournalEntry.energy.is_not(None), JournalEntry.sleep_quality.is_not(None), JournalEntry.appetite.is_not(None))))
+    return set(rows)
