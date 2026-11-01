@@ -38,6 +38,15 @@ def test_cardio_rows_ask_for_minutes_and_speed_or_grade(client, db, weigh_in):
     assert f'name="minutes_value[{plank.id}]"' in text and f'name="sets_value[{plank.id}]"' not in text
 
 
+def test_the_minutes_box_takes_any_amount_not_only_steps_from_a_tenth(client, db, weigh_in):
+    """A step of 0.5 counted from a minimum of 0.1 allowed only 0.1, 0.6, 1.1 ... and the browser refused 1.5."""
+    plan = plan_with(client, db, ["Plank"], name="Form Minutes Plan")
+    day = plan.days[0]
+    text = page(client, day)
+    box = re.search(rf'<input[^>]*name="minutes_value\[{day.exercises[0].id}\]"[^>]*>', text).group(0)
+    assert 'step="any"' in box
+
+
 def test_rep_rows_offer_a_compendium_category_and_implements_under_adjust(client, db, weigh_in):
     plan = plan_with(client, db, ["Bench Press"], name="Form Adjust Plan")
     ex = plan.days[0].exercises[0]
