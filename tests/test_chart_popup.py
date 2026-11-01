@@ -17,3 +17,9 @@ def test_chart_numbers_round_to_two_decimals_and_drop_trailing_zeros():
     from app.templating import num
     assert num(3.14159) == "3.14" and num(3.1) == "3.1" and num(4.0) == "4" and num(4) == "4" and num(0.005) == "0.01" and num(None) == ""
     assert num(182.30000000000001) == "182.3" and num(1 / 3) == "0.33"
+
+
+
+def test_the_script_shows_a_tap_tip_elements_title_on_touch(client, me):
+    js = client.get("/static/js/charts.js").text
+    assert "[data-tap-tip]" in js and 'getAttribute("title")' in js

@@ -91,8 +91,9 @@ def test_hovering_the_deficit_bubble_gives_the_weekly_estimate_like_the_nutritio
     db.commit()
     monkeypatch.setattr(day_overview, "burn_by_day", lambda session, uid: {DAY: 220.0})
     page = client.get("/measurements?tab=journal").text
-    title = re.search(r'class="deficit-pill[^"]*" title="([^"]+)"', page).group(1)
+    title = re.search(r'class="deficit-pill[^"]*" data-tap-tip tabindex="0" title="([^"]+)"', page).group(1)
     assert "TDEE + workout burn - eaten" in title and re.search(r"about \d+(\.\d+)? lb per week if every day were like this: an estimate", title)
+    assert "data-tap-tip" in page                                          # a tap on a phone shows it (charts.js), since a phone has no hover
 
 
 def test_a_day_with_nothing_logged_shows_a_dash(client, db, me):

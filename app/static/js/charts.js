@@ -13,6 +13,7 @@
   function textOf(el) {
     if (el.dataset.tip) return el.dataset.tip;
     if (el.dataset.date && el.dataset.value) return `${el.dataset.date}: ${el.dataset.value}`;
+    if (el.dataset.tapTip !== undefined && el.getAttribute("title")) return el.getAttribute("title");
     const title = Array.from(el.children).find((c) => c.tagName.toLowerCase() === "title");
     if (!title) return "";
     el.dataset.tip = title.textContent.trim();
@@ -38,8 +39,9 @@
 
   function show(el, x, y) {
     tip.textContent = textOf(el);
+    tip.style.whiteSpace = tip.textContent.length > 40 ? "normal" : "";             // a sentence wraps; a date and value stays on one line
     tip.hidden = false;
-    const r = el.tagName.toLowerCase() === "circle" ? el.getBoundingClientRect() : null;
+    const r = el.tagName.toLowerCase() === "circle" || el.dataset.tapTip !== undefined ? el.getBoundingClientRect() : null;
     const cx = r ? r.left + r.width / 2 : x, top = r ? r.top : y;
     const w = tip.offsetWidth;
     tip.style.left = `${Math.max(4, Math.min(window.innerWidth - w - 4, cx - w / 2))}px`;
@@ -56,6 +58,8 @@
   });
   document.addEventListener("click", (e) => {
     if (e.pointerType !== "touch" && e.detail !== 0 && !matchMedia("(hover: none)").matches) return;      // a mouse already has hover
+    const tapTip = e.target instanceof Element ? e.target.closest("[data-tap-tip]") : null;
+    if (tapTip) { if (!tip.hidden && tip.dataset.for === textOf(tapTip)) tip.hidden = true; else { show(tapTip, e.clientX, e.clientY); tip.dataset.for = textOf(tapTip); } return; }
     const svg = e.target instanceof Element ? e.target.closest("svg") : null;
     const el = svg && (pointAt(e.target) || nearest(svg, e.clientX, e.clientY));
     if (el) show(el, e.clientX, e.clientY); else tip.hidden = true;

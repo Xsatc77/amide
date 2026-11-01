@@ -1497,6 +1497,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .deficit-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--text);
   border: 1px solid var(--accent); white-space: nowrap; font-size: 0.92rem; }
 .deficit-pill.is-surplus { background: transparent; border-color: var(--danger, #b91c1c); }
+.deficit-pill { align-self: start; justify-self: start; cursor: help; }          /* on a phone the cell is a grid: do not stretch the pill to the row height */
+.chart-tooltip { max-width: min(320px, calc(100vw - 16px)); }
 .day-note { margin: 6px 0 0; max-width: 24ch; }
 
 /* Dose start/change markers on the body charts */

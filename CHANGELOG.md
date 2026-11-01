@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Journal: tap the Deficit or Surplus pill on a phone to see the estimated weight change.** The explanation (including the about-how-much-per-week estimate) that desktop shows on hover now pops up on a tap, and a second tap closes it. The pill also no longer stretches to the height of the row on a phone.
 - **Vendors: remove a Recommended tag with one button.** A Remove button beside the Recommended (or Don't recommend) tag, on the vendor page and in the vendor list, sets the vendor back to No opinion without opening the edit form.
 - **Orders: the action buttons match the rest of the app.** Mark shipped, Mark delivered, Edit tracking, Add item, Remove from order, Delete order and the rest are now the same full-size buttons as Back to Inventory, instead of the small grey ones.
 - **Calendar: a journal icon on days with a completed entry.** A 📓 appears on every day (past ones too) that has an entry saved from the full journal form, in the month, week and day views, and opens that day's entry. A day with only a quick note is not marked.
