@@ -1,7 +1,7 @@
 import re
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select
@@ -146,6 +146,18 @@ def unfavorite_vendor(vendor_id: int, next: str = "/vendors", session: Session =
     session.query(VendorFavorite).filter_by(user_id=uid, vendor_id=vendor_id).delete()
     session.commit()
     return RedirectResponse(next, status_code=303)
+
+
+@router.post("/vendors/{vendor_id}/clear-recommendation")
+def clear_recommendation(vendor_id: int, next: str = Form("/vendors"), session: Session = Depends(get_session),
+                         uid: int = Depends(current_user_id)):
+    """Take a vendor's Recommended (or Don't recommend) tag off, back to No opinion, without opening the edit form."""
+    vendor = session.get(Vendor, vendor_id)
+    if vendor is None:
+        raise HTTPException(404, "Vendor not found")
+    vendor.recommended = None
+    session.commit()
+    return RedirectResponse(next if next.startswith("/vendors") and not next.startswith("//") else "/vendors", status_code=303)
 
 
 @router.post("/vendors/{vendor_id}/delete")

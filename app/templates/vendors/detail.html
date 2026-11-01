@@ -42,6 +42,12 @@
       {% if vendor.recommended is true %}<span class="tag">Recommended</span>
       {% elif vendor.recommended is false %}<span class="tag">Don't recommend</span>
       {% else %}No opinion{% endif %}
+      {% if vendor.recommended is not none %}
+      <form method="post" action="/vendors/{{ vendor.id }}/clear-recommendation" class="inline">
+        <input type="hidden" name="next" value="/vendors/{{ vendor.id }}">
+        <button type="submit" class="btn btn-small" title="Go back to No opinion">Remove</button>
+      </form>
+      {% endif %}
     </dd>
     <dt>Notes</dt><dd>{{ vendor.notes or '—' }}</dd>
   </dl>

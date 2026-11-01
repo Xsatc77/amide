@@ -46,6 +46,12 @@
           {% if v.recommended is true %}<span class="tag">Recommended</span>
           {% elif v.recommended is false %}<span class="tag">Don't recommend</span>
           {% else %}&mdash;{% endif %}
+          {% if v.recommended is not none %}
+          <form method="post" action="/vendors/{{ v.id }}/clear-recommendation" class="inline">
+            <input type="hidden" name="next" value="/vendors?sort={{ sort }}">
+            <button type="submit" class="btn btn-small" title="Go back to No opinion" aria-label="Remove the recommendation tag">Remove</button>
+          </form>
+          {% endif %}
         </td>
         <td data-label="Most recent order">{{ recent_dates.get(v.id) | shortdate or '—' }}</td>
         <td class="actions">

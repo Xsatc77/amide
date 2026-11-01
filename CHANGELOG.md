@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Vendors: remove a Recommended tag with one button.** A Remove button beside the Recommended (or Don't recommend) tag, on the vendor page and in the vendor list, sets the vendor back to No opinion without opening the edit form.
 - **Orders: the action buttons match the rest of the app.** Mark shipped, Mark delivered, Edit tracking, Add item, Remove from order, Delete order and the rest are now the same full-size buttons as Back to Inventory, instead of the small grey ones.
 - **Calendar: a journal icon on days with a completed entry.** A 📓 appears on every day (past ones too) that has an entry saved from the full journal form, in the month, week and day views, and opens that day's entry. A day with only a quick note is not marked.
 - **Charts: point values show at most two decimals.** The popup and the range line on charts no longer print long decimals (3.10 shows as 3.1, 182.3000001 as 182.3).
