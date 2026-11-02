@@ -1,6 +1,7 @@
 """The Today view: what's due today, logging a dose (drawing down an Active Vial), skipping one."""
 
 from datetime import date, datetime, timezone
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -66,6 +67,17 @@ def _last_site_for_peptide(session: Session, uid: int, peptide_id: int) -> Injec
     return log.injection_site if log else None
 
 
+def _last_dose_for_peptide(session: Session, uid: int, peptide_id: int) -> str | None:
+    """The newest dose actually taken of this peptide, as "250 mcg on 10/28/2026" (None when none was ever logged with an amount)."""
+    log = session.scalar(
+        select(DoseLog)
+        .where(DoseLog.owner_id == uid, DoseLog.peptide_id == peptide_id, DoseLog.status.in_((DoseStatus.ON_TIME, DoseStatus.LATE)),
+               DoseLog.dose_value.is_not(None))
+        .order_by(DoseLog.scheduled_date.desc(), DoseLog.id.desc())
+    )
+    return f"{log.dose_value:g} {log.dose_unit.value} on {log.scheduled_date.strftime('%m/%d/%Y')}" if log else None
+
+
 def _effective_dose(item: ProtocolItem, protocol: Protocol, day: date) -> tuple[float | None, int | None]:
     """The titration-adjusted dose for `item` on `day`, computed the same way
     app.calendar.schedule._due_item() computes DueItem.dose for display -- falls back to the
@@ -124,11 +136,17 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     # eligible_sites()/recommend() key off of ("subq") -- .lower() bridges that; every current
     # Route label lowercases to exactly its value.
     site_data = {}
+    stocked = {pi.id: pi.inventory_item_id for p in protocols for pi in p.items}
     for occ, item in all_due:
         sites = eligible_sites(item.route.lower())
         if sites:
             last = _last_site_for_peptide(session, uid, item.peptide_id)
+            calc = {"dose_value": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit, "inventory_item_id": stocked.get(item.protocol_item_id) or ""}
             site_data[item.protocol_item_id] = {
+                "peptide": item.peptide,
+                "dose": f"{item.dose:g} {item.unit}" if item.dose else None,
+                "last_dose": _last_dose_for_peptide(session, uid, item.peptide_id),
+                "calc_url": "/calculator?" + urlencode({k: v for k, v in calc.items() if v != ""}),
                 "sites": [{"value": s.value, "label": s.label} for s in sites],
                 "last": last.value if last else None,
                 "recommended": recommend(last, item.route.lower()).value if recommend(last, item.route.lower()) else None,

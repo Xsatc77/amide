@@ -23,6 +23,14 @@
     });
   }
 
+  // The dose due now, the last one actually injected, and a way into the calculator, for the item whose picker is open
+  function fillInfo(itemId) {
+    const data = siteData[itemId] || {};
+    dialog.querySelector("[data-site-dose]").textContent = data.dose || "Not set";
+    dialog.querySelector("[data-site-last]").textContent = data.last_dose || "Never logged";
+    dialog.querySelector("[data-site-calc]").href = data.calc_url || "/calculator";
+  }
+
   // "Log dose" itself opens the picker for any item that needs a site -- picking one both fills
   // it in AND submits, so there's a single action per row instead of a separate "Pick site" button
   // easy to miss next to it (a real mis-click the owner ran into: hitting "Log dose" logged the
@@ -30,6 +38,7 @@
   document.querySelectorAll('[data-action="log-dose"][data-needs-site]').forEach((btn) => btn.addEventListener("click", () => {
     activeForm = btn.closest("form");
     paintDots(btn.dataset.itemId);
+    fillInfo(btn.dataset.itemId);
     dialog.showModal();
   }));
 

@@ -99,6 +99,11 @@
     <h2>Injection Site</h2>
     <button type="button" class="btn btn-ghost btn-icon" data-action="close-site" aria-label="Close">×</button>
   </header>
+  <div class="site-dose-info" data-site-info>
+    <p><span class="muted">Current dose</span> <strong data-site-dose></strong></p>
+    <p><span class="muted">Last injected</span> <strong data-site-last></strong></p>
+    <a class="btn btn-primary" href="/calculator" data-site-calc>Open the Calculator</a>
+  </div>
   <svg viewBox="0 0 320 440" class="body-silhouette" aria-label="Body diagram with injection sites">
     <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
     <circle data-site="arm_l" cx="{{ silhouette_shape.points.biceps.l[0] }}" cy="{{ silhouette_shape.points.biceps.l[1] }}" r="9"></circle>

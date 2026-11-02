@@ -781,3 +781,28 @@ def test_today_shows_a_due_workout_and_hides_it_once_logged(client, db, me):
     client.post(f"/workouts/day/{day.id}/log", data={"log_date": date.today().isoformat()})
     body_after = client.get("/today").text
     assert "Leg Day" not in body_after
+
+
+def _site_blob(client):
+    import json
+    page = client.get("/today").text
+    return json.loads(html.unescape(page.split('id="site-data">')[1].split("</script>")[0]))
+
+
+def test_the_site_picker_carries_the_current_dose_the_last_injected_dose_and_a_calculator_link(client, db):
+    protocol_id, pitem_id, _ = _setup_protocol_with_vial(client, db, dose=2.5)
+    page = client.get("/today").text
+    assert "data-site-dose" in page and "data-site-last" in page and "data-site-calc" in page
+    info = _site_blob(client)[str(pitem_id)]
+    assert info["dose"] == "2.5 mg" and info["last_dose"] is None                       # nothing injected yet
+    assert info["calc_url"].startswith("/calculator?dose_value=2.5&dose_unit=mg&inventory_item_id=")
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        peptide_id = s.scalar(select(Peptide.id).where(Peptide.name == "Retatrutide"))
+        for day, value, status in ((date.today() - timedelta(days=9), 1.0, DoseStatus.ON_TIME), (date.today() - timedelta(days=2), 2.0, DoseStatus.LATE),
+                                   (date.today() - timedelta(days=1), 3.0, DoseStatus.SKIPPED)):
+            s.add(DoseLog(owner_id=uid, protocol_id=protocol_id, protocol_item_id=pitem_id, peptide_id=peptide_id, peptide_name="Retatrutide", dose_value=value, dose_unit=DoseUnit.MG, route=Route.SUBQ, scheduled_date=day,
+                          scheduled_time_of_day=TimeOfDay.AM, status=status))
+        s.commit()
+    last = (date.today() - timedelta(days=2)).strftime("%m/%d/%Y")
+    assert _site_blob(client)[str(pitem_id)]["last_dose"] == f"2 mg on {last}"          # the newest dose actually taken; a skip is not an injection
