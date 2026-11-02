@@ -44,6 +44,7 @@
           <input type="hidden" name="protocol_id" value="{{ occ.protocol_id }}">
           <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
           <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
+          <label class="log-units">How Many Units? <input type="number" name="dose" step="any" min="0" inputmode="decimal" value="{{ '%g' | format(item.dose) if item.dose else '' }}" data-dose-input> <span class="muted">{{ item.unit }}</span></label>
           {% if item.protocol_item_id in site_data %}
           <input type="hidden" name="injection_site" value="{{ site_data[item.protocol_item_id].recommended or '' }}" data-site-input>
           <button type="button" class="btn btn-primary" data-action="log-dose" data-needs-site data-item-id="{{ item.protocol_item_id }}">Log dose</button>

@@ -1,4 +1,5 @@
 import html
+import re
 from datetime import date, timedelta
 
 from app.calendar.schedule import DueItem, Occurrence, missed_items
@@ -806,3 +807,28 @@ def test_the_site_picker_carries_the_current_dose_the_last_injected_dose_and_a_c
         s.commit()
     last = (date.today() - timedelta(days=2)).strftime("%m/%d/%Y")
     assert _site_blob(client)[str(pitem_id)]["last_dose"] == f"2 mg on {last}"          # the newest dose actually taken; a skip is not an injection
+
+
+def test_how_many_units_is_prefilled_with_the_protocol_dose_and_can_be_changed(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+    page = html.unescape(client.get("/today").text)
+    assert "How Many Units?" in page and re.search(r'name="dose"[^>]*value="2"', page)
+    client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id), "scheduled_date": date.today().isoformat(),
+                                    "dose": "1.5"}, follow_redirects=False)
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.dose_value == 1.5                                          # what was typed, not the protocol's 2
+        assert log.volume_ml == pytest.approx(0.3)                            # 1.5 mg at 5 mg/mL
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(1.7)
+
+
+def test_a_blank_dose_falls_back_to_the_protocol_and_a_bad_one_is_refused(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+    base = {"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id), "scheduled_date": date.today().isoformat()}
+    for bad in ("0", "-1", "lots", "nan", "inf"):
+        assert client.post("/today/log", data={**base, "dose": bad}, follow_redirects=False).status_code == 422
+    with SessionLocal() as s:
+        assert s.query(DoseLog).count() == 0 and s.get(ActiveVial, vial_id).volume_remaining_ml == 2.0
+    assert client.post("/today/log", data={**base, "dose": "  "}, follow_redirects=False).status_code == 303
+    with SessionLocal() as s:
+        assert s.scalars(select(DoseLog)).one().dose_value == 2.0

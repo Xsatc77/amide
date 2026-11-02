@@ -214,6 +214,15 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
     # _own_protocol_item already confirmed this protocol exists and is owned by uid.
     protocol = session.get(Protocol, protocol_id)
     effective_dose, _step_no = _effective_dose(item, protocol, scheduled_date)
+    typed = str(form.get("dose") or "").strip()                         # "How Many Units?": what was really taken, pre-filled with the protocol's dose
+    if typed:
+        try:
+            amount = float(typed)
+        except ValueError:
+            amount = 0.0
+        if not 0 < amount < 1_000_000:                                  # also rejects nan and inf
+            raise HTTPException(422, "Enter how many units as a number greater than 0.")
+        effective_dose = amount
 
     vial = None
     volume_ml = None

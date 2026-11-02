@@ -1698,3 +1698,5 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .site-dose-info { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 12px 20px 0; }
 .site-dose-info p { margin: 0; }
 .site-dose-info .btn { margin-left: auto; }
+.log-units { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 0.85rem; }
+.log-units input { width: 6em; }
