@@ -17,11 +17,12 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app import clock
-from app.goals import GOALS_BY_SLUG
+from app.goals import GOALS_BY_SLUG, SHORT_COURSE_GOAL
+from app.protocols.repeat import MAX_SHORT_DAYS, REPEAT_CHOICES
 from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, TimeOfDay
 
 ITEM_FIELDS = ("peptide_id", "new_name", "dose", "dose_unit", "frequency", "every_n_days",
-               "time_of_day", "route", "inventory_item_id", "notes")
+               "time_of_day", "route", "inventory_item_id", "notes", "start_day", "run_days")
 STEP_FIELDS = ("start_week", "end_week", "dose")
 CYCLE_OFF_FIELDS = ("start_week", "weeks")
 
@@ -58,6 +59,8 @@ class ParsedItem:
     notes: str | None
     steps: list[ParsedStep] = field(default_factory=list)
     cycle_offs: list["ParsedCycleOff"] = field(default_factory=list)
+    start_day: int | None = None          # short courses only: the protocol day this item starts on, and how many days it runs
+    run_days: int | None = None
 
 
 @dataclass
@@ -69,6 +72,8 @@ class ParsedProtocol:
     titration_enabled: bool
     goals: list[str]
     items: list[ParsedItem]
+    short_days: int | None = None         # short courses only: the length in days, and how often it comes round again (12, 6 or 3 months)
+    repeat_months: int | None = None
 
 
 # ---------------------------------------------------------------- state
@@ -84,7 +89,7 @@ def _num(v: float | None) -> str:
 
 def blank_state(goals: list[str], today: date) -> dict:
     return {"name": "", "start_date": today.isoformat(), "end_date": "", "weeks": "", "notes": "",
-            "titration": False, "goals": list(goals), "items": []}
+            "titration": False, "goals": list(goals), "items": [], "short_days": "", "repeat_months": "12"}
 
 
 def state_from_form(form: Mapping[str, list[str]]) -> dict:
@@ -127,6 +132,8 @@ def state_from_form(form: Mapping[str, list[str]]) -> dict:
         "titration": bool(_first(form, "titration")),
         "goals": [g.strip() for g in form.get("goal", []) if g.strip()],
         "items": out_items,
+        "short_days": _first(form, "short_days"),
+        "repeat_months": _first(form, "repeat_months") or "12",
     }
 
 
@@ -145,6 +152,8 @@ def state_from_protocol(p: Protocol, *, repeat: bool = False, today: date | None
         "weeks": "",
         "notes": p.notes or "",
         "titration": p.titration_enabled,
+        "short_days": "" if p.short_days is None else str(p.short_days),
+        "repeat_months": "12" if p.repeat_months is None else str(p.repeat_months),
         "goals": p.goal_slugs,
         "items": [
             {
@@ -159,6 +168,8 @@ def state_from_protocol(p: Protocol, *, repeat: bool = False, today: date | None
                 "route": it.route.value,
                 "inventory_item_id": "" if it.inventory_item_id is None else str(it.inventory_item_id),
                 "notes": it.notes or "",
+                "start_day": "" if it.start_day is None else str(it.start_day),
+                "run_days": "" if it.run_days is None else str(it.run_days),
                 "steps": [{"start_week": str(s.start_week), "end_week": "" if s.end_week is None else str(s.end_week),
                            "dose": _num(s.dose)} for s in it.steps],
                 "cycle_offs": [{"start_week": str(c.start_week), "weeks": str(c.end_week - c.start_week + 1)}
@@ -305,14 +316,28 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
     start = _parse_date(state["start_date"], "start_date", errors)
     if start is None and "start_date" not in errors:
         errors["start_date"] = "Start date is required."
-    end = _parse_date(state["end_date"], "end_date", errors)
-    weeks = _parse_int(state["weeks"], "weeks", errors, minimum=1, label="Length in weeks")
-    if end is None and weeks and start and "weeks" not in errors:
-        end = start + timedelta(days=weeks * 7 - 1)
-    if start and end and end < start:
-        errors["end_date"] = "End date can't be before the start date."
+    short_course = SHORT_COURSE_GOAL in goals
+    short_days = repeat_months = None
+    if short_course:                                   # the length is in days, the end date follows from it, and the course comes round again
+        short_days = _parse_int(state["short_days"], "short_days", errors, minimum=1, label="Length in days")
+        if short_days is None and "short_days" not in errors:
+            errors["short_days"] = "Pick how many days the course runs."
+        elif short_days is not None and short_days > MAX_SHORT_DAYS:
+            errors["short_days"] = f"A short course is at most {MAX_SHORT_DAYS} days."
+        asked = state["repeat_months"]
+        repeat_months = int(asked) if asked.isdigit() and int(asked) in dict(REPEAT_CHOICES) else None
+        if repeat_months is None:
+            errors["repeat_months"] = "Pick how often the course repeats."
+        end = start + timedelta(days=short_days - 1) if start and short_days and "short_days" not in errors else None
+    else:
+        end = _parse_date(state["end_date"], "end_date", errors)
+        weeks = _parse_int(state["weeks"], "weeks", errors, minimum=1, label="Length in weeks")
+        if end is None and weeks and start and "weeks" not in errors:
+            end = start + timedelta(days=weeks * 7 - 1)
+        if start and end and end < start:
+            errors["end_date"] = "End date can't be before the start date."
 
-    titration = state["titration"]
+    titration = False if short_course else state["titration"]
     items: list[ParsedItem] = []
     seen_peptides: set[tuple[int, str]] = set()          # a peptide can appear again at another time of day (a split dose), never at the same one
     for i, raw in enumerate(state["items"]):
@@ -361,6 +386,15 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             errors[f"{key}-notes"] = "Keep notes under 300 characters."
 
         steps = _parse_steps(raw, key, titration, errors)
+        start_day = run_days = None
+        if short_course:                               # each item runs inside the course: from its start day, for its run days (to the end when blank)
+            horizon = short_days or MAX_SHORT_DAYS
+            start_day = _parse_int(raw["start_day"], f"{key}-start_day", errors, minimum=1, label="Start day") or 1
+            if start_day > horizon:
+                errors[f"{key}-start_day"] = f"The course is only {horizon} days long."
+            run_days = _parse_int(raw["run_days"], f"{key}-run_days", errors, minimum=1, label="Run days") or max(1, horizon - start_day + 1)
+            if start_day <= horizon and start_day + run_days - 1 > horizon:
+                errors[f"{key}-run_days"] = f"From day {start_day} the course has only {horizon - start_day + 1} days left."
         items.append(ParsedItem(
             peptide_id=peptide_id,
             new_name=new_name,
@@ -373,12 +407,13 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             route=_parse_choice(Route, raw["route"], Route.SUBQ, f"{key}-route", errors),
             inventory_item_id=inventory_item_id,
             notes=notes,
-            steps=steps,
-            cycle_offs=_parse_cycle_offs(raw, key, errors),
+            steps=[] if short_course else steps,
+            cycle_offs=[] if short_course else _parse_cycle_offs(raw, key, errors),
+            start_day=start_day, run_days=run_days,
         ))
 
     if not items:
         errors["items"] = "Add at least one peptide."
 
     return ParsedProtocol(name=name, start_date=start, end_date=end, notes=state["notes"] or None,
-                          titration_enabled=titration, goals=goals, items=items), errors
+                          titration_enabled=titration, goals=goals, items=items, short_days=short_days, repeat_months=repeat_months), errors

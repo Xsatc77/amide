@@ -13,7 +13,7 @@ def test_the_two_new_goals_exist_with_a_colour_each():
         goal = GOALS_BY_SLUG[slug]
         assert goal.label == label and goal.color == slug
         assert f"--goal-{slug}:" in CSS
-    assert len({g.slug for g in GOALS}) == len(GOALS) == 10
+    assert len({g.slug for g in GOALS}) == len(GOALS) == 11
 
 
 def test_the_protocols_page_offers_both_cards(client, db):

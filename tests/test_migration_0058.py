@@ -74,5 +74,5 @@ def test_a_fresh_install_is_untouched_and_the_seed_has_no_old_names(tmp_path):
     db = tmp_path / "f.db"
     command.upgrade(cfg(db), "head")
     with sqlite3.connect(db) as c:
-        assert c.execute("select count(*) from peptides").fetchone()[0] == 105
+        assert c.execute("select count(*) from peptides").fetchone()[0] == 108
         assert c.execute("select count(*) from peptides where name in ('Epitalon', 'Octreotide', 'Amylin')").fetchone()[0] == 0

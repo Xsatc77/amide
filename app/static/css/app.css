@@ -41,6 +41,7 @@
   --goal-sleep-recovery: #3b82f6;
   --goal-supplements: #84cc16;
   --goal-prescriptions: #f43f5e;
+  --goal-annual-short-term: #14b8a6;
   /* All 8 goal colors above are mid-to-high-luminance hues where white text
      fails WCAG AA contrast (4.5:1) at tag-chip size -- confirmed by
      computing each one's white-text ratio (1.92:1 to 4.47:1, all below
@@ -1698,5 +1699,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .site-dose-info { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 12px 20px 0; }
 .site-dose-info p { margin: 0; }
 .site-dose-info .btn { margin-left: auto; }
+.short-course { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); }
+.short-course > p { flex: 1 0 100%; margin: 0; }
+.short-repeat { border: 0; padding: 0; margin: 0; display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; }
+.short-repeat legend { padding: 0; font-size: 0.85rem; }
+.short-on .titration-toggle { display: none; }
 .log-units { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 0.85rem; }
 .log-units input { width: 6em; }

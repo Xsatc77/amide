@@ -8,18 +8,21 @@
     goals: $("b-goals"), suggest: $("b-suggest"), items: $("b-items"), itemsEmpty: $("b-items-empty"),
     addInput: $("b-add-input"), addBtn: $("b-add-btn"), addMsg: $("b-add-msg"), addList: $("b-add-list"),
     name: $("b-name"), start: $("b-start"), end: $("b-end"), weeks: $("b-weeks"), titration: $("b-titration"),
+    short: $("b-short"), shortDays: $("b-short-days"), endLabel: $("b-end-label"), or: $("b-or"),
   };
+  const SHORT_GOAL = "annual-short-term";      // the goal that turns this into the short-course builder (days, per-item run days, repeats)
+  const MAX_SHORT_DAYS = 30;
 
   const peptideById = new Map(data.peptides.map((p) => [String(p.id), p]));
   const peptideByName = new Map(data.peptides.map((p) => [p.name.toLowerCase(), p]));
   const goalBySlug = new Map(data.goals.map((g) => [g.slug, g]));
   // Fields rendered by the server template show their own errors.
-  const SERVER_FIELDS = new Set(["name", "start_date", "end_date", "weeks"]);
+  const SERVER_FIELDS = new Set(["name", "start_date", "end_date", "weeks", "short_days", "repeat_months"]);
 
   let uid = 0;
   const newItem = (fields = {}) => ({
     uid: ++uid, peptide_id: "", new_name: "", dose: "", dose_unit: "mg", frequency: "daily", every_n_days: "",
-    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", steps: [], cycle_offs: [],
+    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", start_day: "", run_days: "", steps: [], cycle_offs: [],
     // Blank values from a re-shown form fall back to the defaults above.
     ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== "")),
   });
@@ -49,6 +52,10 @@
     return h("select", { name, onchange: (e) => onChange(e.target.value) },
       options.map(([v, label]) => h("option", { value: v, selected: v === value }, label)));
   }
+
+  const shortOn = () => goals.includes(SHORT_GOAL);
+  const shortHorizon = () => (shortOn() && parseInt(els.shortDays.value, 10)) || MAX_SHORT_DAYS;
+  const range = (n) => Array.from({ length: n }, (_, k) => k + 1);
 
   const itemName = (it) => (it.peptide_id ? peptideById.get(it.peptide_id)?.name ?? "Unknown peptide" : it.new_name);
   const hasPeptide = (id) => items.some((it) => it.peptide_id === String(id));
@@ -335,6 +342,19 @@
     const inventoryOptions = [["", "— Not linked —"], ...data.inventory.map((inv) => [String(inv.id),
       [inv.name, inv.vial_size_mg ? `${inv.vial_size_mg} mg` : null, inv.medium].filter(Boolean).join(" · ")])];
 
+    // A short course: each item says which days of the course it runs, from its own first day (to the end by default)
+    const horizon = shortHorizon();
+    const startDay = Math.min(Math.max(parseInt(it.start_day, 10) || 1, 1), horizon);
+    const remaining = horizon - startDay + 1;
+    const runDays = Math.min(parseInt(it.run_days, 10) || remaining, remaining);
+    const dayPlural = (n) => `${n} day${n > 1 ? "s" : ""}`;
+    const shortFields = shortOn() ? [
+      field("Starts on day", select(`${p}-start_day`, range(horizon).map((n) => [String(n), `Day ${n}`]), String(startDay),
+        (v) => { it.start_day = v; changed(); })),
+      field("Runs for", select(`${p}-run_days`, range(remaining).map((n) => [String(n), n === remaining ? `${dayPlural(n)} (to the end)` : dayPlural(n)]),
+        String(runDays), (v) => { it.run_days = Number(v) === remaining ? "" : v; })),
+    ] : null;
+
     const flagged = it.peptide_id ? data.cautions?.[it.peptide_id] : null;
     const card = h("div", { class: "item-card" + (flagged ? " caution-tape" : "") },
       h("div", { class: "item-card-head" },
@@ -363,12 +383,13 @@
         weekdays,
         field("Time of day", select(`${p}-time_of_day`, data.options.time_of_day, it.time_of_day, set("time_of_day"))),
         field("Route", select(`${p}-route`, data.options.route, it.route, set("route"))),
+        shortFields,
         field("Inventory item", select(`${p}-inventory_item_id`, inventoryOptions, it.inventory_item_id,
           set("inventory_item_id"))),
         field("Notes", h("input", { name: `${p}-notes`, maxlength: "300", value: it.notes,
           oninput: (e) => set("notes")(e.target.value) }), "span-2")),
-      splitHelper(it),
-      h("div", { class: "steps" },
+      shortOn() ? null : splitHelper(it),
+      shortOn() ? null : h("div", { class: "steps" },
         h("div", { class: "steps-head" }, h("strong", { class: "small", text: "Titration steps" })),
         it.steps.map((s, j) => stepRow(it, i, j, s, unitLabel)),
         h("button", { type: "button", class: "btn btn-ghost", onclick: () => {
@@ -378,7 +399,7 @@
           changed();
         } }, "+ Add step"),
         rampHelper(it)),
-      it.frequency === "as_needed" ? null : h("div", { class: "cycle-offs" },
+      it.frequency === "as_needed" || shortOn() ? null : h("div", { class: "cycle-offs" },
         h("div", { class: "steps-head" }, h("strong", { class: "small", text: "Cycle on/off" })),
         it.cycle_offs.map((c, j) => cycleOffRow(it, i, j, c)),
         h("button", { type: "button", class: "btn btn-ghost", onclick: () => {
@@ -431,8 +452,33 @@
     if (n >= 1 && els.start.value) els.end.value = addDays(els.start.value, n * 7 - 1);
   }
   els.weeks.addEventListener("input", fillEndFromWeeks);
-  els.start.addEventListener("change", () => { if (els.weeks.value) fillEndFromWeeks(); });
+  els.start.addEventListener("change", () => { if (shortOn()) syncShort(); else if (els.weeks.value) fillEndFromWeeks(); });
   els.end.addEventListener("input", () => { els.weeks.value = ""; });
+
+  // With the short-course goal on, section 4 counts in days: the length picked above fills the days box and the end date, and neither can be typed over.
+  let savedWeeks = els.weeks.value;
+  let wasShort = false;
+  function syncShort() {
+    const on = shortOn();
+    els.short.hidden = !on;
+    form.classList.toggle("short-on", on);
+    if (on) {
+      if (!wasShort) savedWeeks = els.weeks.value;
+      const n = parseInt(els.shortDays.value, 10);
+      els.weeks.value = n >= 1 ? String(n) : "";
+      els.end.value = n >= 1 && els.start.value ? addDays(els.start.value, n - 1) : "";
+    } else if (wasShort) {
+      els.weeks.value = savedWeeks;
+    }
+    els.weeks.disabled = on;
+    els.end.readOnly = on;
+    els.weeks.placeholder = on ? "days" : "weeks";
+    els.weeks.setAttribute("aria-label", on ? "Length in days" : "Length in weeks");
+    els.endLabel.firstChild.textContent = on ? "Ends " : "End date ";
+    els.or.hidden = on;
+    wasShort = on;
+  }
+  els.shortDays.addEventListener("change", () => { syncShort(); changed(); });
 
   const syncTitration = () => form.classList.toggle("titration-on", els.titration.checked);
   els.titration.addEventListener("change", syncTitration);
@@ -466,6 +512,7 @@
 
   // ------------------------------------------------------------ go
   function render() {
+    syncShort();
     renderGoals();
     renderSuggest();
     renderItems();

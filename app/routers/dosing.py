@@ -15,6 +15,7 @@ from app.db import get_session
 from app.dosing.site import eligible_sites, recommend
 from app.inventory import consumption, unit_use
 from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Protocol, ProtocolItem, User
+from app.protocols import repeat
 from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
 from app.auth.deps import current_user_id
@@ -117,6 +118,7 @@ def _existing_log(session: Session, uid: int, protocol_item_id: int, scheduled_d
 @router.get("/today")
 def today_page(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
               uid: int = Depends(current_user_id)):
+    repeat.roll_forward(session, uid, today)
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid).options(
             selectinload(Protocol.items).selectinload(ProtocolItem.peptide),

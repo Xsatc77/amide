@@ -26,10 +26,10 @@ def test_upgrade_from_0002_keeps_inventory_and_seeds(tmp_path):
     with sqlite3.connect(db) as c:
         assert c.execute("select name from inventory_items").fetchall() == [("Old",)]
         assert c.execute("select count(*) from peptides where source='card'").fetchone()[0] == 100
-        assert c.execute("select count(*) from peptides where source='starter'").fetchone()[0] == 5
+        assert c.execute("select count(*) from peptides where source='starter'").fetchone()[0] == 8
         assert c.execute("select card_number from peptides where name='BPC-157'").fetchone()[0] == 2
         goals = {g for (g,) in c.execute("select distinct goal from goal_peptides")}
-        assert len(goals) == 8
+        assert len(goals) == 9
         first = c.execute(
             "select p.name from goal_peptides g join peptides p on p.id=g.peptide_id "
             "where g.goal='fat-loss' order by g.position").fetchall()
@@ -79,11 +79,11 @@ def test_0005_repairs_missing_seed_and_keeps_owner_peptide(tmp_path):
                   "values (1, 7, 0, 'mg', 'weekly', 'any', 'subq')")
     command.upgrade(cfg, "head")
     with sqlite3.connect(db) as c:
-        assert c.execute("select count(*) from peptides").fetchone()[0] == 105
+        assert c.execute("select count(*) from peptides").fetchone()[0] == 108
         assert c.execute("select card_number, source from peptides where id=7").fetchone() == (43, "card")
         assert c.execute("select count(*) from peptides where lower(name)='retatrutide'").fetchone()[0] == 1
         assert c.execute("select peptide_id from protocol_items").fetchone()[0] == 7
-        assert len({g for (g,) in c.execute("select distinct goal from goal_peptides")}) == 8
+        assert len({g for (g,) in c.execute("select distinct goal from goal_peptides")}) == 9
         fat = [n for (n,) in c.execute("select p.name from goal_peptides g join peptides p on p.id=g.peptide_id "
                                        "where g.goal='fat-loss' order by g.position")]
         assert fat == ["Retatrutide", "Tirzepatide", "Tesamorelin", "AOD-9604", "MOTS-c"]
@@ -96,7 +96,7 @@ def test_0005_is_a_no_op_on_complete_database(tmp_path):
     with sqlite3.connect(db) as c:
         c.execute("delete from goal_peptides where goal='wellness'")  # owner removed a whole stack on purpose
         before = c.execute("select count(*) from peptides").fetchone()[0]
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0005")
     with sqlite3.connect(db) as c:
         assert c.execute("select count(*) from peptides").fetchone()[0] == before
         assert c.execute("select count(*) from goal_peptides where goal='wellness'").fetchone()[0] == 0

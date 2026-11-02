@@ -44,6 +44,12 @@ def is_due(item, start: date, day: date) -> bool:
     days = (day - start).days
     if days < 0:
         return False
+    run_days = getattr(item, "run_days", None)
+    if run_days is not None:                                  # an item of a short course: only its own days, counted from its own first day
+        first = (getattr(item, "start_day", None) or 1) - 1
+        if not first <= days < first + run_days:
+            return False
+        days -= first
     if is_cycled_off(item.cycle_offs, current_week(start, day)):
         return False
     freq = item.frequency

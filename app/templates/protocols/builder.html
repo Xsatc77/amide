@@ -89,6 +89,24 @@
     <h2 class="section-title"><span class="step-num">1</span> Goals</h2>
     <div id="b-goals" class="chips goal-chips"></div>
     <div data-err="goal"></div>
+    <div id="b-short" class="short-course" hidden>
+      <label class="field {{ 'has-error' if errors.short_days }}">
+        <span>Protocol length</span>
+        <select name="short_days" id="b-short-days">
+          <option value="">Pick the number of days</option>
+          {% for n in range(1, 31) %}<option value="{{ n }}"{{ ' selected' if state.short_days == n | string }}>{{ n }} day{{ 's' if n > 1 }}</option>{% endfor %}
+        </select>
+        {{ err('short_days') }}
+      </label>
+      <fieldset class="field short-repeat {{ 'has-error' if errors.repeat_months }}">
+        <legend>Repeats</legend>
+        {% for months, label in ((12, 'Annually'), (6, 'Semiannually'), (3, 'Quarterly')) %}
+        <label class="check"><input type="radio" name="repeat_months" value="{{ months }}"{{ ' checked' if (state.repeat_months or '12') == months | string }}> <span>{{ label }}</span></label>
+        {% endfor %}
+        {{ err('repeat_months') }}
+      </fieldset>
+      <p class="muted small">Each item below says which days of the course it runs. When a run ends the protocol moves on to its next run by itself, and the calendar counts down to it: 90 days (check stock), 60 (order missing stock), 30 (stock check), 14 (general reminder) and 7 (7 day water fast).</p>
+    </div>
   </section>
 
   <section class="builder-step">
@@ -127,10 +145,10 @@
         {{ err('start_date') }}
       </label>
       <div class="field {{ 'has-error' if errors.end_date or errors.weeks }}">
-        <span>End date <span class="muted">(blank = ongoing)</span></span>
+        <span id="b-end-label">End date <span class="muted">(blank = ongoing)</span></span>
         <div class="end-row">
           <input name="end_date" id="b-end" type="date" value="{{ state.end_date }}" aria-label="End date">
-          <span class="muted small">or</span>
+          <span class="muted small" id="b-or">or</span>
           <input name="weeks" id="b-weeks" type="number" min="1" step="1" inputmode="numeric" value="{{ state.weeks }}" placeholder="weeks" aria-label="Length in weeks">
         </div>
         {{ err('end_date') }}{{ err('weeks') }}

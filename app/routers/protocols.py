@@ -17,6 +17,7 @@ from app.models import (
     User,
 )
 from app.protocols.course_totals import compute_course_totals
+from app.protocols import repeat
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
@@ -125,6 +126,7 @@ def _view(p: Protocol, today: date, owner_name: str | None = None, inventory=Non
 @router.get("/protocols")
 def list_protocols(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
         uid: int = Depends(current_user_id)):
+    repeat.roll_forward(session, uid, today)                      # a finished repeating short course moves on to its next run before it is listed
     protocols = session.scalars(_protocol_query(uid).order_by(Protocol.created_at.desc(), Protocol.id.desc())).all()
     inventory = list(session.scalars(select(InventoryItem).where(InventoryItem.owner_id == uid)))
     views = [_view(p, today, inventory=inventory) for p in protocols]
@@ -372,6 +374,13 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
     p.end_date = parsed.end_date
     p.notes = parsed.notes
     p.titration_enabled = parsed.titration_enabled
+    p.short_days, p.repeat_months = parsed.short_days, parsed.repeat_months
+    if parsed.short_days and (p.anchor_start is None or p.id is None):
+        p.anchor_start, p.run_number = parsed.start_date, 1          # a new short course: its first run starts here
+    elif parsed.short_days and p.anchor_start != parsed.start_date and p.run_number == 1:
+        p.anchor_start = parsed.start_date                            # still on the first run: moving the start moves the whole series
+    elif not parsed.short_days:
+        p.anchor_start, p.run_number = None, 1
 
     logs_by_old_key: dict[tuple[int, TimeOfDay], list[int]] = {}
     if p.id is not None:
@@ -400,6 +409,7 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
             peptide_id=peptide_id, position=position, dose=it.dose, dose_unit=it.dose_unit,
             frequency=it.frequency, every_n_days=it.every_n_days, weekdays=it.weekdays,
             time_of_day=it.time_of_day, route=it.route, inventory_item_id=it.inventory_item_id, notes=it.notes,
+            start_day=it.start_day, run_days=it.run_days,
             steps=[TitrationStep(start_week=s.start_week, end_week=s.end_week, dose=s.dose) for s in it.steps],
             cycle_offs=[ProtocolItemCycleOff(start_week=c.start_week, end_week=c.end_week)
                        for c in it.cycle_offs],

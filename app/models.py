@@ -911,6 +911,12 @@ class Protocol(Base):
     titration_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    # A short course (the Annual Short Term Protocol goal): its length in days, how often it comes round again (12, 6 or 3 months), the
+    # start date of its first run, and which run this is. The start and end dates above always hold the current or next run.
+    short_days: Mapped[int | None] = mapped_column(Integer)
+    repeat_months: Mapped[int | None] = mapped_column(Integer)
+    anchor_start: Mapped[date | None] = mapped_column(Date)
+    run_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -953,6 +959,9 @@ class ProtocolItem(Base):
     route: Mapped[Route] = mapped_column(_enum_column(Route), default=Route.SUBQ)
     inventory_item_id: Mapped[int | None] = mapped_column(ForeignKey("inventory_items.id", ondelete="SET NULL"))
     notes: Mapped[str | None] = mapped_column(String(300))
+    # In a short course: the protocol day this item starts on and how many days it runs (None everywhere else).
+    start_day: Mapped[int | None] = mapped_column(Integer)
+    run_days: Mapped[int | None] = mapped_column(Integer)
 
     peptide: Mapped[Peptide] = relationship()
     inventory_item: Mapped[InventoryItem | None] = relationship()

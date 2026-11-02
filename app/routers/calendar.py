@@ -184,6 +184,8 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     ctx["journal_dates"] = journal_logged_dates(session, uid, first, last)
     from app import photo_reminders
     ctx["photo_marks"] = photo_reminders.calendar_dates(session, uid, first, last)
+    from app.protocols import repeat                  # deferred, like the ones above
+    ctx["course_marks"] = repeat.calendar_dates(session, uid, first, last)
 
     if view == "month":
         ctx["rows"] = month_rows(weeks, occs, colors)
