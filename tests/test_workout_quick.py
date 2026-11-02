@@ -1,5 +1,6 @@
 """Quick activity: a walk, run or machine session logged in one step (activity, minutes, distance, date), with calories from the encoded database."""
 
+import re
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -100,3 +101,12 @@ def test_the_log_page_keeps_the_screen_awake_and_shows_last_time_for_added_exerc
     assert "wakeLock.request" in awake and "visibilitychange" in awake
     log_js = (Path(__file__).parent.parent / "app" / "static" / "js" / "workout-log.js").read_text(encoding="utf-8")
     assert "/workouts/last" in log_js and "Last time" in log_js
+
+
+def test_part_minutes_are_accepted_by_the_server_and_the_dialog(client):
+    weigh_in()
+    r = client.post("/workouts/quick", data={"activity": "walk", "minutes": "1.5", "distance": "", "log_date": date.today().isoformat()}, follow_redirects=False)
+    assert r.status_code == 303
+    assert logs()[0][1][0].duration_min == 1.5
+    box = re.search(r'<input[^>]*name="minutes"[^>]*>', client.get("/workouts").text).group(0)
+    assert 'step="any"' in box

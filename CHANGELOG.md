@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Workouts: the quick-log Minutes box takes part minutes too.** It only took whole minutes; 1.5 was refused there as well. Every minutes box in the workout log and the quick log now takes any positive amount.
 - **Workouts: the Minutes box takes any amount.** It had a step of 0.5 counted from a minimum of 0.1, so only 0.1, 0.6, 1.1 and so on were accepted and the browser refused 1.5. Any positive number of minutes now saves.
 - **Journal: tap the Deficit or Surplus pill on a phone to see the estimated weight change.** The explanation (including the about-how-much-per-week estimate) that desktop shows on hover now pops up on a tap, and a second tap closes it. The pill also no longer stretches to the height of the row on a phone.
 - **Vendors: remove a Recommended tag with one button.** A Remove button beside the Recommended (or Don't recommend) tag, on the vendor page and in the vendor list, sets the vendor back to No opinion without opening the edit form.

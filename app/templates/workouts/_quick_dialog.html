@@ -16,7 +16,7 @@
     <div class="grid">
       <label class="field">
         <span>Minutes</span>
-        <input name="minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" required>
+        <input name="minutes" type="number" min="0.1" max="1440" step="any" inputmode="decimal" required>
       </label>
       <label class="field">
         <span>Distance ({{ 'km' if u.metric else 'miles' }}, optional)</span>
