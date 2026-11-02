@@ -72,6 +72,44 @@ FLOAT_FIELDS = (
     "quad_l_in", "quad_r_in", "calf_l_in", "calf_r_in",
 )
 INT_FIELDS = ("systolic", "diastolic", "heart_rate_bpm")
+# Every measurement a note can be attached to, in the order the note popup lists them.
+NOTE_FIELDS = (
+    ("weight_lbs", "Weight"), ("heart_rate_bpm", "Heart Rate"), ("systolic", "Systolic"), ("diastolic", "Diastolic"),
+    ("neck_in", "Neck"), ("waist_in", "Waist"), ("hips_in", "Hips"),
+    ("biceps_l_in", "Biceps L"), ("biceps_r_in", "Biceps R"), ("forearm_l_in", "Forearm L"), ("forearm_r_in", "Forearm R"),
+    ("quad_l_in", "Quad L"), ("quad_r_in", "Quad R"), ("calf_l_in", "Calf L"), ("calf_r_in", "Calf R"),
+)
+NOTE_LABELS = dict(NOTE_FIELDS)
+NOTE_MAX = 300
+
+
+def note_summary(entry) -> str:
+    """All of one entry's notes on one line, for the info icon on its row: "Waist: after lunch · Weight: fasted"."""
+    notes = getattr(entry, "notes", None) or {}
+    return " · ".join(f"{label}: {notes[field]}" for field, label in NOTE_FIELDS if notes.get(field))
+
+
+def _latest_note(entries, *fields: str) -> str:
+    """The note on the entry each field's current value came from (the newest entry with that field filled in); both sides of an averaged pair."""
+    found = []
+    for field in fields:
+        entry = next((e for e in entries if getattr(e, field, None) is not None), None)
+        text = ((getattr(entry, "notes", None) or {}).get(field) or "") if entry is not None else ""
+        if text:
+            found.append((NOTE_LABELS.get(field, field), text))
+    if len(found) == 1 or (len(found) == 2 and found[0][1] == found[1][1]):
+        return found[0][1]
+    return " · ".join(f"{label}: {text}" for label, text in found)
+
+
+def _prior_values(entries) -> dict:
+    """field -> {"value", "date"}: the last logged value of every measurement, from the newest entry that has it (entries are newest first)."""
+    prior = {}
+    for field, _ in NOTE_FIELDS:
+        entry = next((e for e in entries if getattr(e, field, None) is not None), None)
+        if entry is not None:
+            prior[field] = {"value": getattr(entry, field), "date": entry.measured_at}
+    return prior
 
 
 def display_entries(entries, u):
@@ -193,7 +231,7 @@ def _silhouette_points(entries: list[BodyMeasurement], unit: str = "in") -> dict
             # averaged value with that (earlier, more conservative) date.
             as_of_candidates = [d for d in (left_as_of, right_as_of) if d is not None]
             points[key] = {
-                "label": label,
+                "label": label, "note": _latest_note(entries, left_field, right_field),
                 "value": round((left_val + right_val) / 2, 2),
                 "prior": round(sum(priors) / len(priors), 2) if priors else None,
                 "delta": round(sum(deltas) / len(deltas), 2) if deltas else None,
@@ -201,18 +239,18 @@ def _silhouette_points(entries: list[BodyMeasurement], unit: str = "in") -> dict
                 "as_of": min(as_of_candidates) if as_of_candidates else None,
             }
         elif left_val is not None:
-            points[key] = {"label": label, "value": left_val, "prior": left_prior, "delta": left_delta,
+            points[key] = {"label": label, "value": left_val, "prior": left_prior, "delta": left_delta, "note": _latest_note(entries, left_field),
                           "side": "L", "chart_key": left_field, "as_of": left_as_of}
         elif right_val is not None:
-            points[key] = {"label": label, "value": right_val, "prior": right_prior, "delta": right_delta,
+            points[key] = {"label": label, "value": right_val, "prior": right_prior, "delta": right_delta, "note": _latest_note(entries, right_field),
                           "side": "R", "chart_key": right_field, "as_of": right_as_of}
         else:
-            points[key] = {"label": label, "value": None, "prior": None, "delta": None, "side": None,
+            points[key] = {"label": label, "value": None, "prior": None, "delta": None, "side": None, "note": "",
                           "chart_key": f"{key}_avg", "as_of": None}
 
     for field, label in UNILATERAL_LOCATIONS:
         value, prior, delta, as_of = _field_current_and_delta(entries, field)
-        points[field] = {"label": label, "value": value, "prior": prior, "delta": delta, "side": None,
+        points[field] = {"label": label, "value": value, "prior": prior, "delta": delta, "side": None, "note": _latest_note(entries, field),
                          "chart_key": field, "as_of": as_of}
 
     for key, pt in points.items():
@@ -582,6 +620,9 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "today": clock.today().isoformat(),
         "active_tab": tab,
         "silhouette": _silhouette_points(display_entries(own_entries, u), u.length_label),
+        "prior_values": _prior_values(display_entries(own_entries, u)),
+        "note_fields": NOTE_FIELDS,
+        "note_summary": note_summary,
         "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
         "water": water,
         "charts": _charts_context(own_windowed, me_user, range_key, u),
@@ -737,6 +778,7 @@ async def create_measurement(request: Request, session: Session = Depends(get_se
     if errors:
         return _render(request, session, uid, form=form_values, errors=errors, status_code=422)
 
-    session.add(BodyMeasurement(owner_id=uid, measured_at=measured_at, **values))
+    notes = {field: text[:NOTE_MAX] for field, _ in NOTE_FIELDS if (text := _raw(f"note__{field}"))}
+    session.add(BodyMeasurement(owner_id=uid, measured_at=measured_at, notes=notes or None, **values))
     session.commit()
     return RedirectResponse("/measurements", status_code=303)

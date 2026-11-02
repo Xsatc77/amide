@@ -196,10 +196,27 @@
 {% endif %}
 
 
-{% macro mini_input(name, pos, placeholder) %}
+{% macro note_icon(field) %}{% set n = form['note__' ~ field] %}<span class="note-icon" data-note-for="{{ field }}" data-tap-tip tabindex="0" role="button" aria-label="Show the note"{{ ' hidden' if not n }} title="{{ n or '' }}">ⓘ</span>{% endmacro %}
+
+{# The last logged value of a measurement, in grey: beside the box with a line to it (arms and legs, `edge` left or right), or just above or
+   below it (neck, waist, hips). `pos` is the box's place on the 320 by 440 outline. #}
+{% macro prior_tag(name, pos, edge) %}
+{% set p = prior_values.get(name) %}
+{% if p %}
+{% set x = (pos[0] / 320 * 100) | round(2) %}{% set y = (pos[1] / 440 * 100) | round(2) %}
+{% if edge == 'left' %}<span class="mini-prior-line" style="top: {{ y }}%; left: 10%; width: {{ x - 10 }}%;"></span>
+{% elif edge == 'right' %}<span class="mini-prior-line" style="top: {{ y }}%; left: {{ x }}%; width: {{ 90 - x }}%;"></span>{% endif %}
+<span class="mini-prior prior-{{ edge }}" data-prior-for="{{ name }}" style="top: {{ y }}%;{{ ' left: ' ~ x ~ '%;' if edge in ('above', 'below') else '' }}"
+  title="Last logged: {{ p.value | num }} on {{ p.date | shortdate }}">{{ p.value | num }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro mini_input(name, pos, placeholder, edge) %}
+{{ prior_tag(name, pos, edge) }}
 <label class="mini-field {{ 'has-error' if errors[name] }}" style="left: {{ (pos[0] / 320 * 100) | round(2) }}%; top: {{ (pos[1] / 440 * 100) | round(2) }}%;">
   <span class="sr-only">{{ placeholder }}</span>
   <input name="{{ name }}" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form[name] or '' }}" placeholder="{{ placeholder }}">
+  {{ note_icon(name) }}
 </label>
 {% endmacro %}
 
@@ -213,30 +230,35 @@
     <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
     {% endif %}
 
-    <label class="field {{ 'has-error' if errors.measured_at }}">
-      <span>Date</span>
-      <input name="measured_at" type="date" value="{{ form.measured_at or today }}">
-      {{ err('measured_at') }}
-    </label>
+    <div class="measurement-date-row">
+      <label class="field {{ 'has-error' if errors.measured_at }}">
+        <span>Date</span>
+        <input name="measured_at" type="date" value="{{ form.measured_at or today }}">
+        {{ err('measured_at') }}
+      </label>
+      <button type="button" class="btn small" data-action="open-note-dialog">Note</button>
+    </div>
+    {% for f, _ in note_fields %}<input type="hidden" name="note__{{ f }}" value="{{ form['note__' ~ f] or '' }}">
+    {% endfor %}
 
     <div class="measurement-entry-top-grid">
       <label class="field {{ 'has-error' if errors.weight_lbs }}">
-        <span>Weight ({{ u.weight_label }}) <span class="muted" title="Best to weigh within 1 hour of waking, at least once a week, no clothing.">ⓘ</span></span>
+        <span>Weight ({{ u.weight_label }}) <span class="muted" title="Best to weigh within 1 hour of waking, at least once a week, no clothing.">ⓘ</span> {{ note_icon('weight_lbs') }}{% if prior_values.get('weight_lbs') %}<small class="prior-inline" data-prior-for="weight_lbs" title="Last logged on {{ prior_values['weight_lbs'].date | shortdate }}">{{ prior_values['weight_lbs'].value | num }}</small>{% endif %}</span>
         <input name="weight_lbs" type="number" step="0.1" min="0" inputmode="decimal" value="{{ form.weight_lbs or '' }}">
         {{ err('weight_lbs') }}
       </label>
       <label class="field {{ 'has-error' if errors.heart_rate_bpm }}">
-        <span>Heart Rate (bpm)</span>
+        <span>Heart Rate (bpm) {{ note_icon('heart_rate_bpm') }}{% if prior_values.get('heart_rate_bpm') %}<small class="prior-inline" data-prior-for="heart_rate_bpm" title="Last logged on {{ prior_values['heart_rate_bpm'].date | shortdate }}">{{ prior_values['heart_rate_bpm'].value | num }}</small>{% endif %}</span>
         <input name="heart_rate_bpm" type="number" step="1" min="0" inputmode="numeric" value="{{ form.heart_rate_bpm or '' }}">
         {{ err('heart_rate_bpm') }}
       </label>
       <label class="field {{ 'has-error' if errors.systolic }}">
-        <span>Systolic</span>
+        <span>Systolic {{ note_icon('systolic') }}{% if prior_values.get('systolic') %}<small class="prior-inline" data-prior-for="systolic" title="Last logged on {{ prior_values['systolic'].date | shortdate }}">{{ prior_values['systolic'].value | num }}</small>{% endif %}</span>
         <input name="systolic" type="number" step="1" min="0" inputmode="numeric" value="{{ form.systolic or '' }}">
         {{ err('systolic') }}
       </label>
       <label class="field {{ 'has-error' if errors.diastolic }}">
-        <span>Diastolic</span>
+        <span>Diastolic {{ note_icon('diastolic') }}{% if prior_values.get('diastolic') %}<small class="prior-inline" data-prior-for="diastolic" title="Last logged on {{ prior_values['diastolic'].date | shortdate }}">{{ prior_values['diastolic'].value | num }}</small>{% endif %}</span>
         <input name="diastolic" type="number" step="1" min="0" inputmode="numeric" value="{{ form.diastolic or '' }}">
         {{ err('diastolic') }}
       </label>
@@ -246,17 +268,17 @@
       <svg viewBox="0 0 320 440" class="body-silhouette" aria-hidden="true">
         <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
       </svg>
-      {{ mini_input('neck_in', silhouette_shape.points.neck_in.l, 'Neck') }}
-      {{ mini_input('waist_in', silhouette_shape.points.waist_in.l, 'Waist') }}
-      {{ mini_input('hips_in', silhouette_shape.points.hips_in.l, 'Hips') }}
-      {{ mini_input('biceps_l_in', silhouette_shape.points.biceps.l, 'Biceps L') }}
-      {{ mini_input('biceps_r_in', silhouette_shape.points.biceps.r, 'Biceps R') }}
-      {{ mini_input('forearm_l_in', silhouette_shape.points.forearm.l, 'Forearm L') }}
-      {{ mini_input('forearm_r_in', silhouette_shape.points.forearm.r, 'Forearm R') }}
-      {{ mini_input('quad_l_in', silhouette_shape.points.quad.l, 'Quad L') }}
-      {{ mini_input('quad_r_in', silhouette_shape.points.quad.r, 'Quad R') }}
-      {{ mini_input('calf_l_in', silhouette_shape.points.calf.l, 'Calf L') }}
-      {{ mini_input('calf_r_in', silhouette_shape.points.calf.r, 'Calf R') }}
+      {{ mini_input('neck_in', silhouette_shape.points.neck_in.l, 'Neck', 'above') }}
+      {{ mini_input('waist_in', silhouette_shape.points.waist_in.l, 'Waist', 'above') }}
+      {{ mini_input('hips_in', silhouette_shape.points.hips_in.l, 'Hips', 'below') }}
+      {{ mini_input('biceps_l_in', silhouette_shape.points.biceps.l, 'Biceps L', 'left') }}
+      {{ mini_input('biceps_r_in', silhouette_shape.points.biceps.r, 'Biceps R', 'right') }}
+      {{ mini_input('forearm_l_in', silhouette_shape.points.forearm.l, 'Forearm L', 'left') }}
+      {{ mini_input('forearm_r_in', silhouette_shape.points.forearm.r, 'Forearm R', 'right') }}
+      {{ mini_input('quad_l_in', silhouette_shape.points.quad.l, 'Quad L', 'left') }}
+      {{ mini_input('quad_r_in', silhouette_shape.points.quad.r, 'Quad R', 'right') }}
+      {{ mini_input('calf_l_in', silhouette_shape.points.calf.l, 'Calf L', 'left') }}
+      {{ mini_input('calf_r_in', silhouette_shape.points.calf.r, 'Calf R', 'right') }}
     </div>
 
     <details class="scale-entry"{{ ' open' if scale_entry_open }}>
@@ -275,6 +297,27 @@
 
     <div class="dialog-submit-row">
       <button type="submit" class="btn btn-primary">Log A Measurement</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="note-dialog" class="dialog">
+  <form method="dialog" class="settings-form" id="note-form">
+    <header class="dialog-head">
+      <h2>Which Measurement</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="close-note" aria-label="Close">×</button>
+    </header>
+    <label class="field">
+      <span class="sr-only">Measurement</span>
+      <select id="note-field">{% for f, label in note_fields %}<option value="{{ f }}">{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">
+      <span class="sr-only">Note</span>
+      <textarea id="note-text" rows="3" maxlength="300" placeholder="A short note about this measurement"></textarea>
+    </label>
+    <div class="dialog-submit-row">
+      <button type="button" class="btn" data-action="close-note">Cancel</button>
+      <button type="button" class="btn btn-primary" data-action="save-note">Save Note</button>
     </div>
   </form>
 </dialog>
@@ -301,7 +344,7 @@
       <tbody>
         {% for m in entries %}
         <tr>
-          <td data-label="Date">{{ m.measured_at | shortdate }}</td>
+          <td data-label="Date">{{ m.measured_at | shortdate }}{% if note_summary(m) %} <span class="note-icon" data-tap-tip tabindex="0" role="button" aria-label="Show the notes" title="{{ note_summary(m) }}">ⓘ</span>{% endif %}</td>
           <td data-label="Weight ({{ u.weight_label }})">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
           <td data-label="Waist ({{ u.length_label }})">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
           <td data-label="Scale" class="small">{{ scale_summary(m) or '—' }}</td>

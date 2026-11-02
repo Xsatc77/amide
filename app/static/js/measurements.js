@@ -65,6 +65,34 @@
     if (entryDialog.hasAttribute("data-open-on-load")) entryDialog.showModal();
   }
 
+  // ---- Notes: the Note button asks which measurement and for a short comment; it rides along in a hidden box and shows as an info icon ----
+  const noteDialog = document.getElementById("note-dialog");
+  if (entryDialog && noteDialog) {
+    const field = document.getElementById("note-field");
+    const text = document.getElementById("note-text");
+    const hidden = (name) => entryDialog.querySelector(`input[type="hidden"][name="note__${name}"]`);
+    const loadNote = () => { const box = hidden(field.value); text.value = box ? box.value : ""; };
+    field.addEventListener("change", loadNote);
+    entryDialog.addEventListener("click", (e) => {
+      if (e.target.closest('[data-action="open-note-dialog"]')) { loadNote(); noteDialog.showModal(); }
+    });
+    noteDialog.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      if (btn.dataset.action === "close-note") noteDialog.close();
+      if (btn.dataset.action === "save-note") {
+        const note = text.value.trim();
+        const box = hidden(field.value);
+        if (box) box.value = note;
+        entryDialog.querySelectorAll(`.note-icon[data-note-for="${field.value}"]`).forEach((icon) => {
+          icon.title = note;
+          icon.hidden = !note;
+        });
+        noteDialog.close();
+      }
+    });
+  }
+
   // ---- Body silhouette: hover tooltip + click-through to the Overview chart ----
   const tooltip = document.getElementById("silhouette-tooltip");
   const wrap = document.querySelector(".silhouette-wrap");

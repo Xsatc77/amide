@@ -38,6 +38,8 @@
   }
 
   function show(el, x, y) {
+    const host = el.closest("dialog[open]") || document.body;                       // a modal dialog covers everything outside it, so the popup goes inside
+    if (tip.parentNode !== host) host.appendChild(tip);
     tip.textContent = textOf(el);
     tip.style.whiteSpace = tip.textContent.length > 40 ? "normal" : "";             // a sentence wraps; a date and value stays on one line
     tip.hidden = false;
@@ -59,7 +61,7 @@
   document.addEventListener("click", (e) => {
     if (e.pointerType !== "touch" && e.detail !== 0 && !matchMedia("(hover: none)").matches) return;      // a mouse already has hover
     const tapTip = e.target instanceof Element ? e.target.closest("[data-tap-tip]") : null;
-    if (tapTip) { if (!tip.hidden && tip.dataset.for === textOf(tapTip)) tip.hidden = true; else { show(tapTip, e.clientX, e.clientY); tip.dataset.for = textOf(tapTip); } return; }
+    if (tapTip) { e.preventDefault(); if (!tip.hidden && tip.dataset.for === textOf(tapTip)) tip.hidden = true; else { show(tapTip, e.clientX, e.clientY); tip.dataset.for = textOf(tapTip); } return; }
     const svg = e.target instanceof Element ? e.target.closest("svg") : null;
     const el = svg && (pointAt(e.target) || nearest(svg, e.clientX, e.clientY));
     if (el) show(el, e.clientX, e.clientY); else tip.hidden = true;

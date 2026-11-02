@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Body: the Log A Measurement box shows your last value beside every field, and a measurement can carry a note.** Each box shows the last logged value in grey: arms and legs with a line to the box, neck and waist above and hips below, weight and blood pressure under their labels. A new Note button asks Which Measurement and takes a short comment (up to 300 characters); an info icon then sits by that measurement in the box, on the body diagram and on the entry's row, and tapping or hovering it shows the note.
 - **Apple Health: a day's steps and distance no longer double.** Two exports had cut the same hours from different minutes (06:00 in one, 06:34 in another), both were stored, and the day added them together, so a 10,505-step day showed as 20,866 steps and 10.09 mi. A row now counts only when no newer row from the same source covers the same stretch of time. This applies to charts and totals straight away, with no re-import needed.
 - **Workouts: the quick-log Minutes box takes part minutes too.** It only took whole minutes; 1.5 was refused there as well. Every minutes box in the workout log and the quick log now takes any positive amount.
 - **Workouts: the Minutes box takes any amount.** It had a step of 0.5 counted from a minimum of 0.1, so only 0.1, 0.6, 1.1 and so on were accepted and the browser refused 1.5. Any positive number of minutes now saves.

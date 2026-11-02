@@ -1194,6 +1194,7 @@ class BodyMeasurement(Base):
     scale_bmr_kcal: Mapped[float | None] = mapped_column(Float)
     scale_metabolic_age: Mapped[float | None] = mapped_column(Float)
     scale_whr: Mapped[float | None] = mapped_column(Float)
+    notes: Mapped[dict | None] = mapped_column(JSON)       # a short comment per measurement, by field name: {"waist_in": "after lunch"}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

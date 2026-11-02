@@ -95,7 +95,7 @@
     {% endif %}
   {% endif %}
 {% endif %}
-<text x="{{ slot[0] }}" y="{{ slot[1] - 6 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-name">{{ pt.label }}</text>
+<text x="{{ slot[0] }}" y="{{ slot[1] - 6 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-name">{{ pt.label }}{% if pt.value is not none and pt.note %} <tspan class="silhouette-note" data-tap-tip tabindex="0" role="button" aria-label="Show the note" title="{{ pt.note }}">ⓘ</tspan>{% endif %}</text>
 <text x="{{ slot[0] }}" y="{{ slot[1] + 8 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-value {{ 'muted' if pt.value is none else 'trend-' ~ pt.trend if pt.trend else '' }}">{{ silhouette_text(pt) }}</text>
 {% if pt.as_of %}
 <text x="{{ slot[0] }}" y="{{ slot[1] + 20 }}" text-anchor="{{ slot[2] }}" class="silhouette-label-asof muted">as of {{ pt.as_of | shortdate }}</text>
