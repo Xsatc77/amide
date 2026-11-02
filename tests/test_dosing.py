@@ -812,7 +812,9 @@ def test_the_site_picker_carries_the_current_dose_the_last_injected_dose_and_a_c
 def test_how_many_units_is_prefilled_with_the_protocol_dose_and_can_be_changed(client, db):
     protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
     page = html.unescape(client.get("/today").text)
-    assert "How Many Units?" in page and re.search(r'name="dose"[^>]*value="2"', page)
+    assert "How Many Units?" in page and re.search(r'<input type="hidden" name="dose" value="2"[^>]*data-dose-hidden', page)       # an injection asks in the site picker
+    assert "data-site-units" in page and _site_blob(client)[str(pitem_id)]["dose_amount"] == "2"
+    assert 'data-dose-input' not in page                                                                                      # no second box on the row
     client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id), "scheduled_date": date.today().isoformat(),
                                     "dose": "1.5"}, follow_redirects=False)
     with SessionLocal() as s:

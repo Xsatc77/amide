@@ -29,6 +29,8 @@
     dialog.querySelector("[data-site-dose]").textContent = data.dose || "Not set";
     dialog.querySelector("[data-site-last]").textContent = data.last_dose || "Never logged";
     dialog.querySelector("[data-site-calc]").href = data.calc_url || "/calculator";
+    dialog.querySelector("[data-site-units]").value = data.dose_amount || "";                       // starts at the protocol's dose; change it to what is really injected
+    dialog.querySelector("[data-site-units-label]").textContent = data.dose_unit || "";
   }
 
   // "Log dose" itself opens the picker for any item that needs a site -- picking one both fills
@@ -46,6 +48,8 @@
     if (circle.classList.contains("site-dot-ineligible") || !activeForm) return;
     const input = activeForm.querySelector("[data-site-input]");
     if (input) input.value = circle.dataset.site;
+    const dose = activeForm.querySelector("[data-dose-hidden]");
+    if (dose) dose.value = dialog.querySelector("[data-site-units]").value;
     dialog.close();
     activeForm.submit();
   }));

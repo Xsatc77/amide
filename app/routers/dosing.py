@@ -145,6 +145,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
             site_data[item.protocol_item_id] = {
                 "peptide": item.peptide,
                 "dose": f"{item.dose:g} {item.unit}" if item.dose else None,
+                "dose_amount": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit,
                 "last_dose": _last_dose_for_peptide(session, uid, item.peptide_id),
                 "calc_url": "/calculator?" + urlencode({k: v for k, v in calc.items() if v != ""}),
                 "sites": [{"value": s.value, "label": s.label} for s in sites],
