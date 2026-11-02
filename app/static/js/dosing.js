@@ -31,6 +31,7 @@
     dialog.querySelector("[data-site-calc]").href = data.calc_url || "/calculator";
     dialog.querySelector("[data-site-units]").value = data.dose_amount || "";                       // starts at the protocol's dose; change it to what is really injected
     dialog.querySelector("[data-site-units-label]").textContent = data.dose_unit || "";
+    dialog.querySelector("[data-site-units-title]").textContent = data.on_syringe ? "How Many Units?" : "Amount";            // units on the syringe only when an open vial says how much to draw
   }
 
   // "Log dose" itself opens the picker for any item that needs a site -- picking one both fills

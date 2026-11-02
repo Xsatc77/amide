@@ -58,6 +58,21 @@ def _dose_volume_ml(dose_value: float | None, dose_unit: DoseUnit, vial: ActiveV
     return None if in_vial_unit is None else in_vial_unit / vial.concentration_mg_ml
 
 
+SYRINGE_UNITS_PER_ML = 100       # a U-100 insulin syringe: 100 units to the mL, so a unit is 0.01 mL whatever size the syringe is
+
+
+def _syringe_units(session: Session, pi: ProtocolItem | None, dose: float | None) -> float | None:
+    """What to draw to on the syringe for `dose` of this line's open syringe vial (2 mg at 5 mg/mL is 0.4 mL, 40 units). None when there is no
+    open syringe vial or the dose cannot be turned into a volume; pens have no units."""
+    if pi is None or pi.inventory_item_id is None or not dose:
+        return None
+    vial = _open_vial_for_item(session, pi.inventory_item_id)
+    if vial is None or vial.dispensing_method.value != "syringe":
+        return None
+    volume = _dose_volume_ml(dose, pi.dose_unit, vial)
+    return None if volume is None else round(volume * SYRINGE_UNITS_PER_ML, 1)
+
+
 def _last_site_for_peptide(session: Session, uid: int, peptide_id: int) -> InjectionSite | None:
     log = session.scalar(
         select(DoseLog)
@@ -137,6 +152,12 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     # Route label lowercases to exactly its value.
     site_data = {}
     stocked = {pi.id: pi.inventory_item_id for p in protocols for pi in p.items}
+    protocol_items_by_id = {pi.id: pi for p in protocols for pi in p.items}
+    syringe_units = {}                                    # protocol line -> units to draw to, for every line with an open syringe vial
+    for occ, item in all_due:
+        units = _syringe_units(session, protocol_items_by_id.get(item.protocol_item_id), item.dose)
+        if units is not None:
+            syringe_units[item.protocol_item_id] = f"{units:g}"
     for occ, item in all_due:
         sites = eligible_sites(item.route.lower())
         if sites:
@@ -144,8 +165,10 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
             calc = {"dose_value": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit, "inventory_item_id": stocked.get(item.protocol_item_id) or ""}
             site_data[item.protocol_item_id] = {
                 "peptide": item.peptide,
-                "dose": f"{item.dose:g} {item.unit}" if item.dose else None,
-                "dose_amount": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit,
+                "dose": (f"{item.dose:g} {item.unit}" + (f" ({syringe_units[item.protocol_item_id]} units)" if item.protocol_item_id in syringe_units else "")) if item.dose else None,
+                "dose_amount": syringe_units.get(item.protocol_item_id) or (f"{item.dose:g}" if item.dose else ""),
+                "dose_unit": "units" if item.protocol_item_id in syringe_units else item.unit,
+                "on_syringe": item.protocol_item_id in syringe_units,
                 "last_dose": _last_dose_for_peptide(session, uid, item.peptide_id),
                 "calc_url": "/calculator?" + urlencode({k: v for k, v in calc.items() if v != ""}),
                 "sites": [{"value": s.value, "label": s.label} for s in sites],
@@ -154,9 +177,6 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
             }
 
     volume_text = {}
-    protocol_items_by_id = {
-        pi.id: pi for p in protocols for pi in p.items
-    }
     for occ, item in due:
         pi = protocol_items_by_id.get(item.protocol_item_id)
         if pi is None or pi.inventory_item_id is None:
@@ -171,7 +191,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
         if vol is None:
             continue
         verb = "Dial the pen to" if vial.dispensing_method.value == "pen" else "Draw to"
-        volume_text[item.protocol_item_id] = f"{verb} {vol:.2f} mL"
+        volume_text[item.protocol_item_id] = f"{verb} {vol:.2f} mL" + (f" ({syringe_units[item.protocol_item_id]} units)" if item.protocol_item_id in syringe_units else "")
 
     # A dose that just emptied its vial (see log_dose's empty-vial redirect) surfaces a small
     # dismissible banner naming the vial, mirroring the existing expiry-prompt convention
@@ -186,7 +206,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
 
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
-        "volume_text": volume_text, "empty_vial": empty_vial, "workout_days_due": workout_days_due,
+        "volume_text": volume_text, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due,
         "logged_today": todays_logs, "silhouette_shape": silhouette_shape,
     })
 
@@ -215,22 +235,34 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
     # _own_protocol_item already confirmed this protocol exists and is owned by uid.
     protocol = session.get(Protocol, protocol_id)
     effective_dose, _step_no = _effective_dose(item, protocol, scheduled_date)
-    typed = str(form.get("dose") or "").strip()                         # "How Many Units?": what was really taken, pre-filled with the protocol's dose
-    if typed:
+    def _typed(field: str) -> float | None:
+        raw = str(form.get(field) or "").strip()
+        if not raw:
+            return None
         try:
-            amount = float(typed)
+            amount = float(raw)
         except ValueError:
             amount = 0.0
         if not 0 < amount < 1_000_000:                                  # also rejects nan and inf
             raise HTTPException(422, "Enter how many units as a number greater than 0.")
-        effective_dose = amount
+        return amount
+
+    typed_dose, typed_units = _typed("dose"), _typed("syringe_units")  # the amount really taken, pre-filled from the protocol: in the dose's unit, or units on the syringe
+    if typed_dose is not None:
+        effective_dose = typed_dose
 
     vial = None
     volume_ml = None
     if item.inventory_item_id is not None:
         vial = _open_vial_for_item(session, item.inventory_item_id)
         if vial is not None:
-            volume_ml = _dose_volume_ml(effective_dose, item.dose_unit, vial)
+            if typed_units is not None and vial.dispensing_method.value == "syringe" and vial.concentration_mg_ml:
+                volume_ml = typed_units / SYRINGE_UNITS_PER_ML          # what was drawn decides the dose: units -> mL -> the vial's unit -> the protocol's unit
+                taken = unit_math.convert(volume_ml * vial.concentration_mg_ml, vial.vial_unit or "mg", item.dose_unit.value, vial.iu_per_mg)
+                if taken is not None:
+                    effective_dose = round(taken, 6)
+            else:
+                volume_ml = _dose_volume_ml(effective_dose, item.dose_unit, vial)
 
     # Site parsing/recommendation runs whenever this item's route uses injection sites at all --
     # NOT only when a vial happens to be available -- so a user's explicit site choice is never

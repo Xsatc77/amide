@@ -795,7 +795,7 @@ def test_the_site_picker_carries_the_current_dose_the_last_injected_dose_and_a_c
     page = client.get("/today").text
     assert "data-site-dose" in page and "data-site-last" in page and "data-site-calc" in page
     info = _site_blob(client)[str(pitem_id)]
-    assert info["dose"] == "2.5 mg" and info["last_dose"] is None                       # nothing injected yet
+    assert info["dose"] == "2.5 mg (50 units)" and info["last_dose"] is None                       # nothing injected yet
     assert info["calc_url"].startswith("/calculator?dose_value=2.5&dose_unit=mg&inventory_item_id=")
     with SessionLocal() as s:
         uid = s.scalar(select(User.id).where(User.username_key == "tester"))
@@ -809,19 +809,33 @@ def test_the_site_picker_carries_the_current_dose_the_last_injected_dose_and_a_c
     assert _site_blob(client)[str(pitem_id)]["last_dose"] == f"2 mg on {last}"          # the newest dose actually taken; a skip is not an injection
 
 
-def test_how_many_units_is_prefilled_with_the_protocol_dose_and_can_be_changed(client, db):
-    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+def test_how_many_units_is_the_syringe_units_prefilled_from_the_protocol_dose(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)           # 2 mg at 5 mg/mL is 0.4 mL: 40 units on a U-100 syringe
     page = html.unescape(client.get("/today").text)
-    assert "How Many Units?" in page and re.search(r'<input type="hidden" name="dose" value="2"[^>]*data-dose-hidden', page)       # an injection asks in the site picker
-    assert "data-site-units" in page and _site_blob(client)[str(pitem_id)]["dose_amount"] == "2"
-    assert 'data-dose-input' not in page                                                                                      # no second box on the row
+    assert "How Many Units?" in page and re.search(r'<input type="hidden" name="syringe_units" value="40"[^>]*data-dose-hidden', page)      # an injection asks in the site picker
+    assert "Draw to 0.40 mL (40 units)" in page
+    info = _site_blob(client)[str(pitem_id)]
+    assert (info["dose_amount"], info["dose_unit"], info["on_syringe"]) == ("40", "units", True)
+    assert 'data-dose-input' not in page                                                                                                     # no second box on the row
+    client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id), "scheduled_date": date.today().isoformat(),
+                                    "syringe_units": "30"}, follow_redirects=False)
+    with SessionLocal() as s:
+        [log] = s.scalars(select(DoseLog)).all()
+        assert log.volume_ml == pytest.approx(0.3) and log.dose_value == pytest.approx(1.5)                  # 30 units is 0.3 mL, which is 1.5 mg at 5 mg/mL
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(1.7)
+
+
+def test_without_an_open_syringe_vial_the_box_is_an_amount_in_the_dose_unit(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+    with SessionLocal() as s:
+        s.get(ActiveVial, vial_id).volume_remaining_ml = 0.0
+        s.commit()
+    page = html.unescape(client.get("/today").text)
+    assert re.search(r'<input type="hidden" name="dose" value="2"[^>]*data-dose-hidden', page) and _site_blob(client)[str(pitem_id)]["on_syringe"] is False
     client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id), "scheduled_date": date.today().isoformat(),
                                     "dose": "1.5"}, follow_redirects=False)
     with SessionLocal() as s:
-        [log] = s.scalars(select(DoseLog)).all()
-        assert log.dose_value == 1.5                                          # what was typed, not the protocol's 2
-        assert log.volume_ml == pytest.approx(0.3)                            # 1.5 mg at 5 mg/mL
-        assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(1.7)
+        assert s.scalars(select(DoseLog)).one().dose_value == 1.5
 
 
 def test_a_blank_dose_falls_back_to_the_protocol_and_a_bad_one_is_refused(client, db):

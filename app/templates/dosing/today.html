@@ -45,11 +45,15 @@
           <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
           <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
           {% if item.protocol_item_id in site_data %}
-          <input type="hidden" name="dose" value="{{ '%g' | format(item.dose) if item.dose else '' }}" data-dose-hidden>     {# asked in the injection-site picker instead #}
+          <input type="hidden" name="{{ 'syringe_units' if item.protocol_item_id in syringe_units else 'dose' }}" value="{{ syringe_units.get(item.protocol_item_id) or ('%g' | format(item.dose) if item.dose else '') }}" data-dose-hidden>     {# asked in the injection-site picker instead #}
           <input type="hidden" name="injection_site" value="{{ site_data[item.protocol_item_id].recommended or '' }}" data-site-input>
           <button type="button" class="btn btn-primary" data-action="log-dose" data-needs-site data-item-id="{{ item.protocol_item_id }}">Log dose</button>
           {% else %}
-          <label class="log-units">How Many Units? <input type="number" name="dose" step="any" min="0" inputmode="decimal" value="{{ '%g' | format(item.dose) if item.dose else '' }}" data-dose-input> <span class="muted">{{ item.unit }}</span></label>
+          {% if item.protocol_item_id in syringe_units %}
+          <label class="log-units">How Many Units? <input type="number" name="syringe_units" step="any" min="0" inputmode="decimal" value="{{ syringe_units[item.protocol_item_id] }}" data-dose-input> <span class="muted">units</span></label>
+          {% else %}
+          <label class="log-units">Amount <input type="number" name="dose" step="any" min="0" inputmode="decimal" value="{{ '%g' | format(item.dose) if item.dose else '' }}" data-dose-input> <span class="muted">{{ item.unit }}</span></label>
+          {% endif %}
           <button type="submit" class="btn btn-primary" data-action="log-dose">Log dose</button>
           {% endif %}
         </form>
@@ -104,7 +108,7 @@
   <div class="site-dose-info" data-site-info>
     <p><span class="muted">Current dose</span> <strong data-site-dose></strong></p>
     <p><span class="muted">Last injected</span> <strong data-site-last></strong></p>
-    <label class="log-units">How Many Units? <input type="number" step="any" min="0" inputmode="decimal" data-site-units> <span class="muted" data-site-units-label></span></label>
+    <label class="log-units"><span data-site-units-title>How Many Units?</span> <input type="number" step="any" min="0" inputmode="decimal" data-site-units> <span class="muted" data-site-units-label></span></label>
     <a class="btn btn-primary" href="/calculator" data-site-calc>Open the Calculator</a>
   </div>
   <svg viewBox="0 0 320 440" class="body-silhouette" aria-label="Body diagram with injection sites">
