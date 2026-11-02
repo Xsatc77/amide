@@ -116,3 +116,20 @@ def test_nutrition_and_water_from_two_sources_add_up_but_activity_does_not(db, m
     assert series.daily_series(db, me, "step_count", *span) == [(date(2024, 2, 6), 4200.0)]
     assert series.adds_across_sources("dietary_zephyrium") and series.adds_across_sources("water")
     assert not series.adds_across_sources("step_count") and not series.adds_across_sources("active_energy")
+
+
+def test_an_older_hour_that_overlaps_a_newer_one_from_the_same_source_is_not_counted_twice(db, me):
+    """Two exports bucketed the same walking from different minutes (06:34 and 07:00); the newer row stands, the older overlapping row is dropped."""
+    add(db, me, "step_count", datetime(2024, 2, 6, 6, 34, 33), 71, source="")
+    add(db, me, "step_count", datetime(2024, 2, 6, 9, 34, 33), 276, source="")
+    add(db, me, "step_count", datetime(2024, 2, 6, 14, 0), 500, source="")            # an hour only the old export covered stays
+    add(db, me, "step_count", datetime(2024, 2, 6, 7, 0), 71, source="")
+    add(db, me, "step_count", datetime(2024, 2, 6, 10, 0), 276, source="")
+    assert series.daily_series(db, me, "step_count", date(2024, 2, 6), date(2024, 2, 6), "UTC") == [(date(2024, 2, 6), 847.0)]
+
+
+def test_hours_that_only_touch_are_both_counted_and_other_sources_are_left_alone(db, me):
+    add(db, me, "step_count", datetime(2024, 2, 6, 8), 100)
+    add(db, me, "step_count", datetime(2024, 2, 6, 9), 200)
+    add(db, me, "step_count", datetime(2024, 2, 6, 8, 30), 50, source="Other")
+    assert series.daily_series(db, me, "step_count", date(2024, 2, 6), date(2024, 2, 6), "UTC") == [(date(2024, 2, 6), 300.0)]    # the larger source, as before

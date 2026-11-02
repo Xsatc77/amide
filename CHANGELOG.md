@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Apple Health: a day's steps and distance no longer double.** Two exports had cut the same hours from different minutes (06:00 in one, 06:34 in another), both were stored, and the day added them together, so a 10,505-step day showed as 20,866 steps and 10.09 mi. A row now counts only when no newer row from the same source covers the same stretch of time. This applies to charts and totals straight away, with no re-import needed.
 - **Workouts: the quick-log Minutes box takes part minutes too.** It only took whole minutes; 1.5 was refused there as well. Every minutes box in the workout log and the quick log now takes any positive amount.
 - **Workouts: the Minutes box takes any amount.** It had a step of 0.5 counted from a minimum of 0.1, so only 0.1, 0.6, 1.1 and so on were accepted and the browser refused 1.5. Any positive number of minutes now saves.
 - **Journal: tap the Deficit or Surplus pill on a phone to see the estimated weight change.** The explanation (including the about-how-much-per-week estimate) that desktop shows on hover now pops up on a tap, and a second tap closes it. The pill also no longer stretches to the height of the row on a phone.

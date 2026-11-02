@@ -43,16 +43,49 @@ _GRAIN_RANK = {"point": 0, "second": 1, "minute": 2, "hour": 3, "day": 4}
 LIST_LIMIT = 100
 
 
+def _without_overlaps(rows: list) -> list:
+    """Drops an older reading whose time span overlaps a newer one from the same source and grain. Two exports can cut the same hours from
+    different minutes (06:00 in one, 06:34 in another); both are stored, and adding them would count that walking twice. The newest row
+    (highest id) stands. Rows that only touch end to end are not overlaps. Rows are (id, start_at, offset, grain, source, value)."""
+    groups: dict[tuple[str, str], list] = defaultdict(list)
+    for row in rows:
+        groups[(row[4], row[3])].append(row)
+    kept = []
+    for (_, grain), items in groups.items():
+        seconds = parse.GRAIN_SECONDS.get(grain, 0)
+        if not seconds or grain == "day":                               # a day row is matched by its local date instead (see daily_series)
+            kept += items
+            continue
+        span = timedelta(seconds=seconds)
+        items.sort(key=lambda r: r[1])
+        cluster, reach = [], None                                       # a run of rows that overlap one another, one after the next
+        for row in items + [None]:
+            if row is not None and cluster and row[1] < reach:
+                cluster.append(row)
+                reach = max(reach, row[1] + span)
+                continue
+            standing = []
+            for r in sorted(cluster, key=lambda r: r[0], reverse=True):
+                if all(abs(r[1] - o[1]) >= span for o in standing):
+                    standing.append(r)
+            kept += standing
+            cluster, reach = ([row], row[1] + span) if row is not None else ([], None)
+    return sorted(kept, key=lambda r: (r[1], r[0]))
+
+
 def daily_series(session: Session, owner_id: int, metric: str, start: date, end: date, zone: str | None) -> list[tuple[date, float]]:
     """(day, value) for each day from `start` to `end` that has data. A reading belongs to the phone's own day when it was taken (its
     stored UTC time plus its stored offset), so the viewer's zone (`zone`, kept for the callers) does not move it. A day uses only the
-    finest grain stored for it (two grains are never added together); cumulative metrics sum that day's readings (activity from one source,
+    finest grain stored for it (two grains are never added together; an older hour that overlaps a newer one from the same source is dropped); cumulative metrics sum that day's readings (activity from one source,
     nutrition and water from all, see adds_across_sources), the rest take the last one."""
     low, high = datetime.combine(start - timedelta(days=2), datetime.min.time()), datetime.combine(end + timedelta(days=3), datetime.min.time())
     rows = session.execute(select(HealthReading.id, HealthReading.start_at, HealthReading.offset_minutes, HealthReading.grain, HealthReading.source,
                                   HealthReading.value).where(
         HealthReading.owner_id == owner_id, HealthReading.metric == metric, HealthReading.value.is_not(None),
         HealthReading.start_at >= low, HealthReading.start_at < high).order_by(HealthReading.start_at, HealthReading.id)).all()
+    cumulative = is_cumulative(metric)
+    if cumulative:
+        rows = _without_overlaps(rows)
     by_day: dict[date, list[tuple[str, str, float]]] = defaultdict(list)
     day_rows: dict[tuple[date, str], tuple[int, float]] = {}     # (day, source) -> (id, value): one day row per local day, the newest
     for rid, at, offset, grain, source, value in rows:
@@ -66,7 +99,6 @@ def daily_series(session: Session, owner_id: int, metric: str, start: date, end:
         by_day[day].append((grain, source, value))
     for (day, source), (_, value) in day_rows.items():
         by_day[day].append(("day", source, value))
-    cumulative = is_cumulative(metric)
     out = []
     for day in sorted(by_day):
         finest = min(_GRAIN_RANK.get(g, 5) for g, _, _ in by_day[day])

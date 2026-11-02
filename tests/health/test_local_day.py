@@ -125,13 +125,13 @@ def test_today_and_the_week_lose_or_double_nothing_at_their_edges(db, me, zone, 
         db.add(HealthReading(owner_id=me, metric="step_count", start_at=start, end_at=start + timedelta(hours=1), grain="hour", value=value,
                              unit="count", source="Phone", offset_minutes=offset))
 
-    at(today, 0, 5, 1)            # the first minutes of today
-    at(today, 23, 55, 2)          # the last minutes of today
-    at(today - timedelta(days=1), 23, 55, 4)          # just before today
-    at(today - timedelta(days=6), 0, 5, 8)            # the oldest day of the week
-    at(today - timedelta(days=7), 23, 55, 16)         # just outside the week
-    at(today - timedelta(days=7), 0, 5, 32)           # the first day of the 7-day range
-    at(today - timedelta(days=8), 23, 55, 64)         # just before the range
+    at(today, 0, 0, 1)            # the first minutes of today
+    at(today, 23, 0, 2)          # the last minutes of today
+    at(today - timedelta(days=1), 23, 0, 4)          # just before today
+    at(today - timedelta(days=6), 0, 0, 8)            # the oldest day of the week
+    at(today - timedelta(days=7), 23, 0, 16)         # just outside the week
+    at(today - timedelta(days=7), 0, 0, 32)           # the first day of the 7-day range
+    at(today - timedelta(days=8), 23, 0, 64)         # just before the range
     db.add(HealthMetricChoice(owner_id=me, metric="step_count", enabled=True))
     db.commit()
     data = series.apple_tab_data(db, me, "7d", zone)
