@@ -16,6 +16,10 @@ COPY migrations ./migrations
 COPY app ./app
 COPY public ./public
 
+# The release this image was built from, shown in the footer and in Settings (the build passes it in).
+ARG AMIDE_VERSION=development
+ENV AMIDE_VERSION=$AMIDE_VERSION
+
 RUN useradd --create-home --uid 1000 amide && mkdir -p /data && chown amide:amide /data
 USER amide
 VOLUME ["/data"]

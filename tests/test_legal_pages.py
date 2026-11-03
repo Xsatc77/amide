@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 LEGAL_PATHS = ("/legal/terms", "/legal/disclaimer", "/legal/privacy")
-FOOTER = ('Amide — Copyright 2026 — XSATC — <a href="/legal/terms">Terms of Service</a> — '
+FOOTER = ('Amide development — Copyright 2026 — XSATC — <a href="/legal/terms">Terms of Service</a> — '
           '<a href="/legal/disclaimer">Disclaimer</a> — <a href="/legal/privacy">Privacy Policy</a>')
 EMAIL = "demigod_ruffle.00@icloud.com"
 

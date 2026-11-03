@@ -32,6 +32,7 @@ templates.env.globals["static_url"] = static_url
 templates.env.globals["demo_url"] = __import__("app.workouts.video", fromlist=["demo_url"]).demo_url
 templates.env.globals["quick_activities"] = __import__("app.workouts.quick", fromlist=["ACTIVITIES"]).ACTIVITIES
 templates.env.globals["clock_today"] = __import__("app.clock", fromlist=["today"]).today
+templates.env.globals["app_version"] = __import__("app.version", fromlist=["label"]).label
 
 
 

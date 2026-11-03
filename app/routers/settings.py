@@ -11,6 +11,7 @@ import secrets
 import zoneinfo
 from datetime import date, timezone
 
+from app import version
 from app import clock
 from app import body_photos, config, links, reminders, units, uploads
 from app.auth import devices, passwords, sessions
@@ -65,6 +66,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "medicines": session.scalars(select(UserMedicine).where(UserMedicine.owner_id == me.id)
                                      .order_by(UserMedicine.name.collate("NOCASE"))).all(),
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
+        "db_revision": version.database_revision(session),
         "ntfy_server": config.NTFY_SERVER,
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
         "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
