@@ -724,10 +724,17 @@
         <span>Units per package</span>
         <input name="lines-__I__-units_per_package" type="number" min="1" step="1">
       </label>
+      <label class="field span-2" data-new-field="purchasing_unit">
+        <span>Sold as</span>
+        <select name="lines-__I__-purchasing_unit">
+          {% for u in purchasing_units %}<option value="{{ u.value }}">{{ u.label }}</option>{% endfor %}
+        </select>
+        <small class="muted">A kit adds 10 vials to your stock for each one you order.</small>
+      </label>
     </div>
 
     <div class="grid">
-      <label class="field"><span>Quantity</span><input name="lines-__I__-quantity" type="number" min="1" step="1" value="1"></label>
+      <label class="field"><span>Quantity</span><input name="lines-__I__-quantity" type="number" min="1" step="1" value="1"><small class="muted">Kits, for a kit item</small></label>
       <label class="field"><span>Cost ($)</span><input name="lines-__I__-cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
       <label class="field"><span>Lot / Batch #</span><input name="lines-__I__-lot_number"></label>
       <label class="field"><span>Expiration date</span><input name="lines-__I__-expiration_date" type="date"></label>

@@ -71,7 +71,7 @@ def _group_contacts(form: dict[str, list[str]]) -> dict[int, dict[str, str]]:
 
 
 _NEW_LINE_ITEM_FIELDS = ("mode", "item_id", "name", "category", "supply_type", "medium", "vial_size_mg",
-                        "vial_size_unit", "volume_ml", "units_per_package", "storage", "notes",
+                        "vial_size_unit", "volume_ml", "units_per_package", "purchasing_unit", "storage", "notes",
                         "quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg",
                         "coa_purity_pct")
 
@@ -270,6 +270,17 @@ def _parse_supply_line_item(line_raw: dict[str, str], prefix: str, errors: dict)
     return {"category": Category.SUPPLY, "name": name, "supply_type": kind, "count": 0, "medium": None, "vial_size_mg": None, "vial_size_unit": DoseUnit.MG,
             "purchasing_unit": PurchasingUnit.INDIVIDUAL, "volume_ml": None, "units_per_package": None, "storage": None, "notes": None, "cost_cents": None,
             "vendor_id": None, "vendor": None, "bac_priority": None, "low_stock_threshold": None, "local_seller": False}
+
+
+KIT_VIALS = 10
+
+
+def _in_vials(line_values: dict, purchasing_unit) -> dict:
+    """The order line with its quantity counted in vials. Stock is counted in vials everywhere, so an order of kits of 10 is stored as ten vials for
+    each kit (1 kit ordered = 10 vials to check in). Anything sold singly is unchanged."""
+    if purchasing_unit != PurchasingUnit.KIT_OF_10 or not line_values.get("quantity"):
+        return line_values
+    return {**line_values, "quantity": line_values["quantity"] * KIT_VIALS}
 
 
 def _parse_order_line_fields(raw: dict[str, str], *, prefix: str = "") -> tuple[dict, dict]:
@@ -898,7 +909,7 @@ async def create_item(request: Request, session: Session = Depends(get_session),
     if category != Category.SUPPLY:
         order = Order(**order_header)
         session.add(order)
-        li = OrderItem(**order_line, coa_filename=coa_filename)
+        li = OrderItem(**_in_vials(order_line, item.purchasing_unit), coa_filename=coa_filename)
         item.order_items.append(li)
         order.items.append(li)
     session.add(item)
@@ -1061,7 +1072,7 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
             if item is None:
                 item = InventoryItem(**line["new_item_values"], owner_id=uid)
                 session.add(item)
-            li = OrderItem(**line["line_values"], coa_filename=coa_filenames[line["index"]])
+            li = OrderItem(**_in_vials(line["line_values"], item.purchasing_unit), coa_filename=coa_filenames[line["index"]])
             item.order_items.append(li)
             order.items.append(li)
     session.commit()
@@ -1263,7 +1274,7 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
 
     order = Order(**header_values)
     session.add(order)
-    li = OrderItem(**line_values, coa_filename=coa_filename)
+    li = OrderItem(**_in_vials(line_values, item.purchasing_unit), coa_filename=coa_filename)
     # item (unlike a freshly created item in create_item) is already persistent here, so the first
     # of these two appends that touches its not-yet-loaded order_items collection triggers a
     # premature autoflush -- before the *other* side of the association is wired up in memory --

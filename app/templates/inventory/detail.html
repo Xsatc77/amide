@@ -262,7 +262,7 @@
     <div class="alert" role="alert">Please fix the highlighted fields.</div>
     {% endif %}
     <div class="grid">
-      <label {{ ocls('quantity') }}><span>Quantity</span><input name="quantity" type="number" min="1" step="1" value="{{ of.quantity }}">{{ oerr('quantity') }}</label>
+      <label {{ ocls('quantity') }}><span>Quantity</span><input name="quantity" type="number" min="1" step="1" value="{{ of.quantity }}">{% if item.purchasing_unit.value == 'kit_of_10' %}<small class="muted">A new order counts kits, 10 vials each. An order you are editing shows vials.</small>{% endif %}{{ oerr('quantity') }}</label>
       <label {{ ocls('order_date') }}><span>Order date</span><input name="order_date" type="date" value="{{ of.order_date }}">{{ oerr('order_date') }}</label>
       <label {{ ocls('shipped_date') }}><span>Shipped date</span><input name="shipped_date" type="date" value="{{ of.shipped_date }}">{{ oerr('shipped_date') }}</label>
       <label {{ ocls('tracking_site') }}><span>Tracking site (URL)</span><input name="tracking_site" type="url" value="{{ of.tracking_site }}">{{ oerr('tracking_site') }}</label>
