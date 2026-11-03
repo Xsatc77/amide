@@ -53,9 +53,9 @@ def test_the_goal_suggests_its_five_peptides_in_order(client):
 def test_the_builder_page_offers_the_days_and_repeat_choices(client):
     page = html.unescape(client.get("/protocols/new?goal=annual-short-term").text)
     assert 'id="b-short"' in page and 'name="short_days"' in page
-    assert page.count('name="repeat_months"') == 3
-    for label in ("Annually", "Semiannually", "Quarterly"):
-        assert label in page
+    assert 'name="repeat_months"' not in page                                      # the repeat is chosen on each item, not for the whole protocol
+    options = json.loads(page.split('id="builder-data">')[1].split("</script>")[0])["options"]["repeat"]
+    assert options == [["12", "Annually"], ["6", "Semiannually"], ["3", "Quarterly"]]
     assert '<option value="30">30 days</option>' in page and '<option value="31"' not in page
 
 
@@ -82,8 +82,9 @@ def test_an_item_cannot_run_past_the_end_of_the_course_or_start_after_it():
 def test_the_length_and_the_repeat_are_checked():
     assert "short_days" in parse(form(short_days=""))[1]
     assert "at most 30" in parse(form(short_days="31"))[1]["short_days"]
-    assert "repeat_months" in parse(form(repeat_months="5"))[1]
+    assert "items-0-repeat_months" in parse(form(repeat_months="5"))[1]
     assert parse(form(repeat_months="3"))[0].repeat_months == 3
+    assert parse(form(**{"items-0-repeat_months": "12", "items-1-repeat_months": "6"}))[0].repeat_months == 6      # the shortest of the items
 
 
 def test_titration_and_cycle_off_are_dropped_for_a_short_course():

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import WEEKDAY_LETTERS, Frequency, TimeOfDay
+from app.protocols.repeat import item_in_run
 from app.protocols.status import current_step, current_week, is_cycled_off
 
 
@@ -97,7 +98,7 @@ def occurrences(protocols, first: date, last: date) -> list[Occurrence]:
         start, end = window
         lo, hi = max(first, start), min(last, end) if end else last
         for day in _days(lo, hi):
-            items = [_due_item(p, it, day) for it in p.items if is_due(it, p.start_date, day)]
+            items = [_due_item(p, it, day) for it in p.items if item_in_run(p, it) and is_due(it, p.start_date, day)]
             if items:
                 out.append(Occurrence(day, p.id, p.name, items))
     return sorted(out, key=lambda o: (o.date, o.protocol_name.lower(), o.protocol_id))
@@ -110,7 +111,7 @@ def as_needed(protocols, day: date) -> list[tuple[object, list[DueItem]]]:
         window = protocol_window(p)
         if window is None or day < window[0] or (window[1] and day > window[1]):
             continue
-        items = [_due_item(p, it, day) for it in p.items if it.frequency is Frequency.AS_NEEDED]
+        items = [_due_item(p, it, day) for it in p.items if it.frequency is Frequency.AS_NEEDED and item_in_run(p, it)]
         if items:
             out.append((p, items))
     return out

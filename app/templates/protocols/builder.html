@@ -98,14 +98,7 @@
         </select>
         {{ err('short_days') }}
       </label>
-      <fieldset class="field short-repeat {{ 'has-error' if errors.repeat_months }}">
-        <legend>Repeats</legend>
-        {% for months, label in ((12, 'Annually'), (6, 'Semiannually'), (3, 'Quarterly')) %}
-        <label class="check"><input type="radio" name="repeat_months" value="{{ months }}"{{ ' checked' if (state.repeat_months or '12') == months | string }}> <span>{{ label }}</span></label>
-        {% endfor %}
-        {{ err('repeat_months') }}
-      </fieldset>
-      <p class="muted small">Each item below says which days of the course it runs. When a run ends the protocol moves on to its next run by itself, and the calendar counts down to it: 90 days (check stock), 60 (order missing stock), 30 (stock check), 14 (general reminder) and 7 (7 day water fast).</p>
+      <p class="muted small">Each item below says which days of the course it runs and how often it comes round (Annually, Semiannually or Quarterly). The protocol repeats as often as its most frequent item, and each run includes only the items due. When a run ends the protocol moves on to its next run by itself, and the calendar counts down to it: 90 days (check stock), 60 (order missing stock), 30 (stock check), 14 (general reminder) and 7 (7 day water fast).</p>
     </div>
   </section>
 

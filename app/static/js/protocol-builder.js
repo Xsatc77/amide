@@ -17,12 +17,12 @@
   const peptideByName = new Map(data.peptides.map((p) => [p.name.toLowerCase(), p]));
   const goalBySlug = new Map(data.goals.map((g) => [g.slug, g]));
   // Fields rendered by the server template show their own errors.
-  const SERVER_FIELDS = new Set(["name", "start_date", "end_date", "weeks", "short_days", "repeat_months"]);
+  const SERVER_FIELDS = new Set(["name", "start_date", "end_date", "weeks", "short_days"]);
 
   let uid = 0;
   const newItem = (fields = {}) => ({
     uid: ++uid, peptide_id: "", new_name: "", dose: "", dose_unit: "mg", frequency: "daily", every_n_days: "",
-    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", start_day: "", run_days: "", steps: [], cycle_offs: [],
+    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", start_day: "", run_days: "", repeat_months: "12", steps: [], cycle_offs: [],
     // Blank values from a re-shown form fall back to the defaults above.
     ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== "")),
   });
@@ -353,6 +353,7 @@
         (v) => { it.start_day = v; changed(); })),
       field("Runs for", select(`${p}-run_days`, range(remaining).map((n) => [String(n), n === remaining ? `${dayPlural(n)} (to the end)` : dayPlural(n)]),
         String(runDays), (v) => { it.run_days = Number(v) === remaining ? "" : v; })),
+      field("Repeats", select(`${p}-repeat_months`, data.options.repeat, it.repeat_months || "12", set("repeat_months"))),
     ] : null;
 
     const flagged = it.peptide_id ? data.cautions?.[it.peptide_id] : null;

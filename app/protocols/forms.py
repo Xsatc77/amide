@@ -22,7 +22,7 @@ from app.protocols.repeat import MAX_SHORT_DAYS, REPEAT_CHOICES
 from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, TimeOfDay
 
 ITEM_FIELDS = ("peptide_id", "new_name", "dose", "dose_unit", "frequency", "every_n_days",
-               "time_of_day", "route", "inventory_item_id", "notes", "start_day", "run_days")
+               "time_of_day", "route", "inventory_item_id", "notes", "start_day", "run_days", "repeat_months")
 STEP_FIELDS = ("start_week", "end_week", "dose")
 CYCLE_OFF_FIELDS = ("start_week", "weeks")
 
@@ -61,6 +61,7 @@ class ParsedItem:
     cycle_offs: list["ParsedCycleOff"] = field(default_factory=list)
     start_day: int | None = None          # short courses only: the protocol day this item starts on, and how many days it runs
     run_days: int | None = None
+    repeat_months: int | None = None      # short courses only: how often this item joins in (12, 6 or 3 months)
 
 
 @dataclass
@@ -72,7 +73,7 @@ class ParsedProtocol:
     titration_enabled: bool
     goals: list[str]
     items: list[ParsedItem]
-    short_days: int | None = None         # short courses only: the length in days, and how often it comes round again (12, 6 or 3 months)
+    short_days: int | None = None         # short courses only: the length in days, and how often it comes round again (the shortest of its items')
     repeat_months: int | None = None
 
 
@@ -170,6 +171,7 @@ def state_from_protocol(p: Protocol, *, repeat: bool = False, today: date | None
                 "notes": it.notes or "",
                 "start_day": "" if it.start_day is None else str(it.start_day),
                 "run_days": "" if it.run_days is None else str(it.run_days),
+                "repeat_months": "" if it.repeat_months is None else str(it.repeat_months),
                 "steps": [{"start_week": str(s.start_week), "end_week": "" if s.end_week is None else str(s.end_week),
                            "dose": _num(s.dose)} for s in it.steps],
                 "cycle_offs": [{"start_week": str(c.start_week), "weeks": str(c.end_week - c.start_week + 1)}
@@ -324,10 +326,6 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             errors["short_days"] = "Pick how many days the course runs."
         elif short_days is not None and short_days > MAX_SHORT_DAYS:
             errors["short_days"] = f"A short course is at most {MAX_SHORT_DAYS} days."
-        asked = state["repeat_months"]
-        repeat_months = int(asked) if asked.isdigit() and int(asked) in dict(REPEAT_CHOICES) else None
-        if repeat_months is None:
-            errors["repeat_months"] = "Pick how often the course repeats."
         end = start + timedelta(days=short_days - 1) if start and short_days and "short_days" not in errors else None
     else:
         end = _parse_date(state["end_date"], "end_date", errors)
@@ -395,6 +393,12 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             run_days = _parse_int(raw["run_days"], f"{key}-run_days", errors, minimum=1, label="Run days") or max(1, horizon - start_day + 1)
             if start_day <= horizon and start_day + run_days - 1 > horizon:
                 errors[f"{key}-run_days"] = f"From day {start_day} the course has only {horizon - start_day + 1} days left."
+        item_months = None
+        if short_course:                               # how often this item joins in; a blank one takes the protocol-wide default (annually)
+            asked = raw["repeat_months"] or state["repeat_months"]
+            item_months = int(asked) if asked.isdigit() and int(asked) in dict(REPEAT_CHOICES) else None
+            if item_months is None:
+                errors[f"{key}-repeat_months"] = "Pick how often this one repeats."
         items.append(ParsedItem(
             peptide_id=peptide_id,
             new_name=new_name,
@@ -409,11 +413,13 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             notes=notes,
             steps=[] if short_course else steps,
             cycle_offs=[] if short_course else _parse_cycle_offs(raw, key, errors),
-            start_day=start_day, run_days=run_days,
+            start_day=start_day, run_days=run_days, repeat_months=item_months,
         ))
 
     if not items:
         errors["items"] = "Add at least one peptide."
+    if short_course:                                   # the protocol comes round as often as its most frequent item
+        repeat_months = min((i.repeat_months for i in items if i.repeat_months), default=None)
 
     return ParsedProtocol(name=name, start_date=start, end_date=end, notes=state["notes"] or None,
                           titration_enabled=titration, goals=goals, items=items, short_days=short_days, repeat_months=repeat_months), errors

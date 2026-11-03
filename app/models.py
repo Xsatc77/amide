@@ -962,6 +962,8 @@ class ProtocolItem(Base):
     # In a short course: the protocol day this item starts on and how many days it runs (None everywhere else).
     start_day: Mapped[int | None] = mapped_column(Integer)
     run_days: Mapped[int | None] = mapped_column(Integer)
+    # In a short course: how often this item joins in (12, 6 or 3 months). The protocol repeats at the shortest of its items' cadences.
+    repeat_months: Mapped[int | None] = mapped_column(Integer)
 
     peptide: Mapped[Peptide] = relationship()
     inventory_item: Mapped[InventoryItem | None] = relationship()

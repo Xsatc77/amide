@@ -28,8 +28,23 @@ def run_dates(anchor: date, months: int, days: int, run: int) -> tuple[date, dat
     return start, start + timedelta(days=days - 1)
 
 
+def joins_run(base_months: int | None, item_months: int | None, run: int) -> bool:
+    """Whether an item on its own cadence takes part in run number `run` of a protocol that repeats every `base_months` (the shortest of its items'
+    cadences). In a quarterly protocol a quarterly item is in every run, a semiannual one in every second, an annual one in every fourth."""
+    if not base_months or not item_months or item_months <= base_months:
+        return True
+    return (run - 1) % (item_months // base_months) == 0
+
+
+def item_in_run(p, item, run: int | None = None) -> bool:
+    """Whether `item` of protocol `p` is part of the run `p` is on now (or run number `run`). Everything is, outside a repeating short course."""
+    if not is_repeating(p):
+        return True
+    return joins_run(p.repeat_months, item.repeat_months, p.run_number if run is None else run)
+
+
 def is_repeating(p) -> bool:
-    return bool(p.short_days and p.repeat_months and p.anchor_start)
+    return bool(getattr(p, "short_days", None) and p.repeat_months and p.anchor_start)
 
 
 def _repeating(session: Session, uid: int, **conditions):
@@ -68,10 +83,11 @@ def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[
         for run in (p.run_number, p.run_number + 1):
             start, _ = run_dates(p.anchor_start, p.repeat_months, p.short_days, run)
             before_end = run_dates(p.anchor_start, p.repeat_months, p.short_days, run - 1)[1] if run > 1 else None
+            names = ", ".join(i.peptide.name for i in p.items if joins_run(p.repeat_months, i.repeat_months, run))
             for offset, text in REMINDERS:
                 day = start - timedelta(days=offset)
                 if before_end is not None and day <= before_end:
                     continue
                 if first <= day <= last:
-                    marks.setdefault(day, []).append(f"{p.name}: {text} ({offset} days to go)")
+                    marks.setdefault(day, []).append(f"{p.name}: {text} ({offset} days to go)" + (f" for {names}" if names else ""))
     return marks

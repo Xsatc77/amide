@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.protocols.course_totals import compute_course_totals
 from app.protocols import repeat
+from app.protocols.repeat import REPEAT_CHOICES
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
@@ -282,6 +283,7 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
             "time_of_day": choices(TimeOfDay),
             "route": choices(Route),
             "weekdays": [[d, WEEKDAY_NAMES[d]] for d in WEEKDAY_LETTERS],
+            "repeat": [[str(months), label] for months, label in REPEAT_CHOICES],
         },
     }
 
@@ -374,9 +376,12 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
     p.end_date = parsed.end_date
     p.notes = parsed.notes
     p.titration_enabled = parsed.titration_enabled
+    cadence_changed = p.repeat_months != parsed.repeat_months
     p.short_days, p.repeat_months = parsed.short_days, parsed.repeat_months
     if parsed.short_days and (p.anchor_start is None or p.id is None):
         p.anchor_start, p.run_number = parsed.start_date, 1          # a new short course: its first run starts here
+    elif parsed.short_days and cadence_changed:
+        p.anchor_start, p.run_number = parsed.start_date, 1          # the items now come round at another pace: count again from this run
     elif parsed.short_days and p.anchor_start != parsed.start_date and p.run_number == 1:
         p.anchor_start = parsed.start_date                            # still on the first run: moving the start moves the whole series
     elif not parsed.short_days:
@@ -409,7 +414,7 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
             peptide_id=peptide_id, position=position, dose=it.dose, dose_unit=it.dose_unit,
             frequency=it.frequency, every_n_days=it.every_n_days, weekdays=it.weekdays,
             time_of_day=it.time_of_day, route=it.route, inventory_item_id=it.inventory_item_id, notes=it.notes,
-            start_day=it.start_day, run_days=it.run_days,
+            start_day=it.start_day, run_days=it.run_days, repeat_months=it.repeat_months,
             steps=[TitrationStep(start_week=s.start_week, end_week=s.end_week, dose=s.dose) for s in it.steps],
             cycle_offs=[ProtocolItemCycleOff(start_week=c.start_week, end_week=c.end_week)
                        for c in it.cycle_offs],
