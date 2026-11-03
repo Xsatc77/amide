@@ -8,7 +8,6 @@ from app.main import app
 LEGAL_PATHS = ("/legal/terms", "/legal/disclaimer", "/legal/privacy")
 FOOTER = ('Amide development — Copyright 2026 — XSATC — <a href="/legal/terms">Terms of Service</a> — '
           '<a href="/legal/disclaimer">Disclaimer</a> — <a href="/legal/privacy">Privacy Policy</a>')
-EMAIL = "demigod_ruffle.00@icloud.com"
 
 
 @pytest.fixture
@@ -60,8 +59,9 @@ def test_terms_links_its_references_to_the_disclaimer_and_privacy_policy(client)
 
 
 @pytest.mark.parametrize("path", LEGAL_PATHS)
-def test_contact_email_is_a_mailto_link(client, path):
-    assert f'<a href="mailto:{EMAIL}">{EMAIL}</a>' in client.get(path).text
+def test_no_contact_email_is_published(client, path):
+    body = client.get(path).text.lower()                       # spam bots read these pages: no address and no mailto link, until the owner puts one back
+    assert "mailto:" not in body and "icloud" not in body and "demigod" not in body
 
 
 @pytest.mark.parametrize("path", LEGAL_PATHS)
