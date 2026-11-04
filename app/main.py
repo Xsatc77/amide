@@ -18,7 +18,7 @@ from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
     apple_health, auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, health_api, inventory, journal, labels, labs, learn, legal, price_correction, library, library_extras, links,
-    measurements, order_tracking, price_alerts, protocol_shop, protocols, settings, spending, vendors, workout_insights, workouts,
+    measurements, order_tracking, price_alerts, protocol_portfolio, protocol_shop, protocols, settings, spending, vendors, workout_insights, workouts,
 )
 
 
@@ -53,6 +53,7 @@ app.include_router(inventory.router)
 app.include_router(library_extras.router)     # before library: "/library/stacks" must not be read as a peptide id
 app.include_router(vendors.router)
 app.include_router(protocol_shop.router)
+app.include_router(protocol_portfolio.router)
 app.include_router(protocols.router)
 app.include_router(measurements.router)
 app.include_router(body_photos.router)

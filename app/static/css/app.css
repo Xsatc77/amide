@@ -658,6 +658,12 @@ section + section { margin-top: 36px; }
    Only the card version is positioned this way -- the Saved-table version sits inline in its
    actions cell alongside Edit/Repeat/Delete, same as every other action button there. */
 .protocol-card .totals-btn { position: absolute; bottom: 10px; right: 10px; }
+/* The cart bar carries the totals icon at its right end, so the icon is placed against the bar rather than the card's corner. */
+.protocol-card .shop-row { position: relative; display: flex; }
+.protocol-card .shop-row .shop-btn { flex: 1; }
+.protocol-card .shop-row .totals-btn { bottom: auto; top: 50%; transform: translateY(-50%); }
+.portfolio-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.portfolio-label { font-size: 0.9rem; font-weight: 600; }
 #course-totals-body table { margin-top: 12px; }
 
 /* 8 goals: two rows of four on wide screens, two columns on tablets, one on phones. */

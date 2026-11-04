@@ -191,13 +191,8 @@ def titration_steps(request: Request, uid: int = Depends(current_user_id)):
         raise HTTPException(422, str(exc)) from None
 
 
-@router.get("/protocols/{protocol_id}/print")
-def print_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
-                   uid: int = Depends(current_user_id)):
-    """A one-page printable view: the owner's protocol, or one shared with them."""
-    p = session.scalar(_protocol_query(uid).where(Protocol.id == protocol_id)) or session.scalar(_shared_protocol_query(uid).where(Protocol.id == protocol_id))
-    if p is None:
-        raise HTTPException(404, "Protocol not found")
+def print_items(p: Protocol) -> list[dict]:
+    """One protocol's lines as the print page and the Protocol Portfolio show them: name, dose and schedule, titration steps, off weeks, notes."""
     items = []
     for it in p.items:
         steps = []
@@ -207,7 +202,17 @@ def print_protocol(protocol_id: int, request: Request, session: Session = Depend
                 steps.append(f"{span}: {_amount(st.dose, it.dose_unit)}")
         items.append({"name": it.peptide.name, "desc": describe_item(it), "notes": it.notes, "steps": steps,
                       "off": [f"Off in weeks {c.start_week}-{c.end_week}" if c.end_week != c.start_week else f"Off in week {c.start_week}" for c in it.cycle_offs]})
-    return templates.TemplateResponse(request, "protocols/print.html", {"p": p, "items": items, "status": protocol_status(p, today), "goals": [g for g in GOALS if g.slug in p.goal_slugs]})
+    return items
+
+
+@router.get("/protocols/{protocol_id}/print")
+def print_protocol(protocol_id: int, request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+                   uid: int = Depends(current_user_id)):
+    """A one-page printable view: the owner's protocol, or one shared with them."""
+    p = session.scalar(_protocol_query(uid).where(Protocol.id == protocol_id)) or session.scalar(_shared_protocol_query(uid).where(Protocol.id == protocol_id))
+    if p is None:
+        raise HTTPException(404, "Protocol not found")
+    return templates.TemplateResponse(request, "protocols/print.html", {"p": p, "items": print_items(p), "status": protocol_status(p, today), "goals": [g for g in GOALS if g.slug in p.goal_slugs]})
 
 
 def _alert_protocol(session: Session, protocol_id: int, uid: int) -> Protocol:

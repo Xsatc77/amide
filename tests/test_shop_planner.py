@@ -177,3 +177,15 @@ def test_as_needed_items_take_part_in_vendor_choice_like_any_other():
     offers = [offer("Alpha", "a", 5, 10, 100), offer("Alpha", "b", 10, 10, 200), offer("Beta", "b", 10, 10, 120)]
     result = plan_protocol(needs, offers, SHIP)
     assert [s.vendor_name for s in result.plan.sources] == ["Alpha"] and result.plan.total == pytest.approx(360.0)
+
+
+def test_top_lines_gives_each_sources_best_line_cheapest_first_and_at_most_n():
+    from app.shopping.planner import top_lines
+    need = Need("1", "Zorvex", 10.0, "mg")
+    def offer(vendor, price, warehouse="china", vendor_id=None):
+        return Offer(vendor_id, vendor, warehouse, date(2026, 1, 1), "1", 10.0, "10 mg", 10, price)
+    offers = [offer("A", 300, vendor_id=1), offer("A", 250, vendor_id=1), offer("B", 120, vendor_id=2), offer("C", 200, vendor_id=3), offer("D", 90, vendor_id=4)]
+    best = top_lines(need, offers, 3)
+    assert [(l.offer.vendor_name, l.cost) for l in best] == [("D", 90), ("B", 120), ("C", 200)]            # A's own best (250) is not listed twice, and it is fourth
+    assert [l.offer.vendor_name for l in top_lines(need, offers, 5)] == ["D", "B", "C", "A"]
+    assert top_lines(need, [], 3) == []

@@ -111,6 +111,15 @@ def _source_key(offer: Offer):
     return (offer.vendor_id if offer.vendor_id is not None else offer.vendor_name.casefold(), offer.warehouse)
 
 
+def top_lines(need: Need, offers: list[Offer], n: int = 3) -> list[Line]:
+    """The `n` cheapest ways to cover `need`, each from a different source (a vendor's warehouse): every source's own best line, cheapest first."""
+    by_source: dict[tuple, list[Offer]] = {}
+    for o in offers:
+        by_source.setdefault(_source_key(o), []).append(o)
+    lines = [l for l in (best_line(need, group) for group in by_source.values()) if l is not None]
+    return sorted(lines, key=lambda l: (l.cost, l.leftover_vials, l.covered, l.offer.vendor_name.casefold()))[:n]
+
+
 def _source_plan(lines: list[Line], shipping: dict) -> SourcePlan:
     first = lines[0].offer
     items = round(sum(l.cost for l in lines), 2)
