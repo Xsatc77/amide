@@ -5,7 +5,7 @@ when that medicine is stocked in two or more mediums, and only to a medium other
 
 from dataclasses import dataclass
 
-from app.inventory.groups import group_items
+from app.inventory.groups import use_first
 from app.models import Category, Medium, Route
 from app.protocols.status import Status, protocol_status
 
@@ -42,7 +42,7 @@ def options(line, inventory) -> list[Option]:
         return []
     now = current.medium if current is not None else None
     chosen = {}
-    for item in group_items(medicines)[0].items:               # use-first order, so the form offered is the one with stock to spare
+    for item in use_first(medicines):                          # use-first order, so the form offered is the one with stock to spare
         if item.medium != now and item.medium not in chosen:
             chosen[item.medium] = item
     return [Option(i.id, i.medium.value, _label(i), DEFAULT_ROUTE.get(i.medium, Route.OTHER).value) for i in chosen.values()]

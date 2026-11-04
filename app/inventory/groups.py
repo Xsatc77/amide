@@ -1,4 +1,4 @@
-"""One inventory row per peptide: the lines of the same peptide (any vial size) are grouped, and each line's lots are listed soonest-expiry first.
+"""One inventory row per peptide and medium: the lines of the same peptide in the same medium (any vial size) are grouped, and each line's lots are listed soonest-expiry first.
 
 A lot is a checked-in order line. Amide counts what has been used per line (reconstituted and sold), not per lot, so the use is taken
 from the lots in use-first order (nearest expiration, then the oldest arrival), the order the Peptides list already sorts by. That makes the
@@ -49,11 +49,22 @@ def _unique(values) -> list[str]:
     return list(dict.fromkeys(v for v in values if v))
 
 
+def medium_of(item) -> str | None:
+    medium = getattr(item, "medium", None)
+    return getattr(medium, "value", medium)
+
+
+def use_first(items) -> list:
+    """The lines in the order to use them: stocked before empty, nearest expiration, oldest arrival."""
+    return sorted(items, key=_item_key)
+
+
 def group_items(items) -> list[StockGroup]:
-    """Groups by owner and peptide name (case-insensitive), sorted by name; the lines inside each group are in use-first order."""
+    """Groups by owner, peptide name (case-insensitive) and medium, sorted by name; the lines inside each group are in use-first order.
+    A medicine in two mediums (sublingual drops and an injectable) is two groups: their counts are not the same kind of thing."""
     buckets: dict[tuple, list] = {}
     for item in items:
-        buckets.setdefault((item.owner_id, item.name.casefold().strip()), []).append(item)
+        buckets.setdefault((item.owner_id, item.name.casefold().strip(), medium_of(item)), []).append(item)
     groups = []
     for key, members in buckets.items():
         name = members[0].name                           # shown as first listed, whatever the capitalisation of the other lines
@@ -65,7 +76,7 @@ def group_items(items) -> list[StockGroup]:
             earliest_expiration=min(dated) if dated else None, first_arrival=min(arrivals) if arrivals else None,
             sizes=_unique(_size(m) for m in members), mediums=_unique(m.medium.value if m.medium else None for m in members),
             storages=_unique(m.storage.label if m.storage else None for m in members)))
-    return sorted(groups, key=lambda g: g.name.casefold())
+    return sorted(groups, key=lambda g: (g.name.casefold(), g.mediums[0] if g.mediums else ""))
 
 
 def sort_use_first(groups: list[StockGroup]) -> list[StockGroup]:

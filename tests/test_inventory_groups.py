@@ -3,7 +3,7 @@
 from datetime import date
 from types import SimpleNamespace as NS
 
-from app.inventory.groups import group_items, lots, sort_use_first
+from app.inventory.groups import group_items, lots, sort_use_first, use_first
 
 D = date
 
@@ -66,3 +66,24 @@ def test_groups_sort_use_first_with_empty_and_undated_last():
     undated = item("C", lines=[line(1)], iid=3)
     empty = item("D", lines=[line(1, D(2026, 1, 1))], used=1, iid=4)
     assert [g.name for g in sort_use_first(group_items([empty, undated, later, soon]))] == ["A", "B", "C", "D"]
+
+
+def test_the_same_peptide_in_different_mediums_is_never_one_group():
+    drops = item("B-12", size=5000, unit="mcg", medium="Drops", lines=[line(59), line(60)], iid=1)
+    vial = item("B-12", size=10, medium="Liquid", lines=[line(1)], iid=2)
+    groups = group_items([drops, vial])
+    assert sorted((g.mediums[0], g.total) for g in groups) == [("Drops", 119), ("Liquid", 1)]       # not 120 of one thing
+
+
+def test_different_sizes_of_one_medium_stay_together_and_unset_mediums_group_with_each_other():
+    a = item("TB-500", size=5, lines=[line(2)], iid=1)
+    b = item("TB-500", size=10, lines=[line(3)], iid=2)
+    assert len(group_items([a, b])) == 1
+    c, d = item("Odd", medium=None, lines=[line(1)], iid=3), item("Odd", medium=None, lines=[line(1)], iid=4)
+    assert len(group_items([c, d])) == 1
+
+
+def test_use_first_orders_lines_across_mediums():
+    later = item("B-12", medium="Drops", lines=[line(1, D(2028, 1, 1))], iid=1)
+    sooner = item("B-12", medium="Liquid", lines=[line(1, D(2026, 9, 1))], iid=2)
+    assert [i.id for i in use_first([later, sooner])] == [2, 1]

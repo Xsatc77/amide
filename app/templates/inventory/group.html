@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <p class="muted small"><a class="btn btn-ghost btn-small" href="/inventory">&larr; Inventory</a></p>
-    <h1>{{ group.name }}</h1>
+    <h1>{{ group.name }}{% for m in group.mediums %} <span class="tag">{{ m }}</span>{% endfor %}</h1>
     <p class="muted">
       <strong>{{ group.total }}</strong> on hand{% if group.sizes %} ({{ group.sizes | join(', ') }}){% endif %}
       {% if group.earliest_expiration %} &middot; use first: expires <strong>{{ group.earliest_expiration | shortdate }}</strong>{% endif %}

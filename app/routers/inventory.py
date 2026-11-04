@@ -18,7 +18,7 @@ from app.inventory.consumption import apply_plan, plan_pen_conversion
 from app.inventory import calibrate, supply_stock
 from app.inventory.gauge import vial_gauges
 from app.inventory.symbol import symbol
-from app.inventory.groups import group_items, lot_covering, lots, single_rows, sort_use_first
+from app.inventory.groups import group_items, lot_covering, lots, medium_of, single_rows, sort_use_first
 from app.inventory.labels import labels_for_order
 from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
@@ -735,7 +735,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
                                            i.first_arrival or far, i.name.casefold()))
     bac_water_items = [i for i in items if i.category == Category.BAC_WATER]
     supply_items = [i for i in items if i.category == Category.SUPPLY]
-    medicine_groups = group_items(medicine_items)                  # one row per peptide, whatever the vial size
+    medicine_groups = group_items(medicine_items)                  # one row per peptide and medium, whatever the vial size
     if sort == "use_first":
         medicine_groups = sort_use_first(medicine_groups)
     in_transit_lines = [
@@ -849,14 +849,14 @@ async def set_low_stock_level(item_id: int, request: Request, session: Session =
 
 @router.get("/inventory/stock/{item_id}")
 def stock_breakdown(item_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    """All the stock of one peptide: every line (vial size) and, under each, its lots soonest expiry first. Opened from the one-row-per-peptide list."""
+    """All the stock of one peptide in one medium: every line (vial size) and, under each, its lots soonest expiry first. Opened from the one-row-per-peptide list."""
     item = _visible_item(session, item_id, uid)
     if item is None:
         raise HTTPException(404, "Inventory item not found")
     siblings = session.scalars(select(InventoryItem).where(
         InventoryItem.owner_id == item.owner_id, InventoryItem.category == item.category,
         func.lower(InventoryItem.name) == item.name.lower())).all()
-    group = group_items(siblings)[0]
+    group = group_items([s for s in siblings if medium_of(s) == medium_of(item)])[0]               # the same medium only: drops and vials are counted apart
     rows = [{"item": line, "lot": lot} for line in group.items for lot in lots(line)]
     rows.sort(key=lambda r: (r["lot"].expiration is None, r["lot"].expiration or date.max, r["lot"].arrival or date.max))      # soonest expiry first, across sizes
     on_the_way = [(line, li) for line in group.items for li in line.order_items if li.order.arrival_date is None]

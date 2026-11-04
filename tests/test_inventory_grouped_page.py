@@ -71,3 +71,30 @@ def test_someone_elses_group_is_a_404(client, stock):
     with other_client("grpother") as stranger:
         assert stranger.get(f"/inventory/stock/{stock[0]}").status_code == 404
     assert client.get("/inventory/stock/999999").status_code == 404
+
+
+def test_the_same_peptide_in_two_mediums_is_two_rows_with_their_own_stock(client, me):
+    ids = []
+    with SessionLocal() as s:
+        for medium, qty in ((Medium.DROPS, 59), (Medium.LIQUID, 1)):
+            item = InventoryItem(name="Mediumsplit B12", category=Category.MEDICINE, owner_id=me, count=0, medium=medium,
+                                 vial_size_mg=5000 if medium == Medium.DROPS else 10, vial_size_unit=DoseUnit.MCG if medium == Medium.DROPS else DoseUnit.MG)
+            s.add(item)
+            s.flush()
+            order = Order(order_date=date(2026, 10, 1), arrival_date=date(2026, 10, 1))
+            s.add(order)
+            s.flush()
+            order.items.append(OrderItem(inventory_item_id=item.id, quantity=qty, received_quantity=qty))
+            ids.append(item.id)
+        s.commit()
+    try:
+        text = page(client, "/inventory")
+        assert len(re.findall(r">Mediumsplit B12<", text)) == 2                       # one row each, not "2 lines in stock"
+        assert "2 lines in stock" not in text.split("Mediumsplit B12")[1][:400]
+        breakdown = page(client, f"/inventory/stock/{ids[0]}")
+        assert "Drops" in breakdown and "Liquid" not in breakdown.split("<h1>")[1].split("</section>")[0]
+    finally:
+        with SessionLocal() as s:
+            s.query(InventoryItem).filter(InventoryItem.id.in_(ids)).delete(synchronize_session=False)
+            s.query(Order).filter(~Order.items.any()).delete(synchronize_session=False)
+            s.commit()
