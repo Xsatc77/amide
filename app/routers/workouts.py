@@ -283,7 +283,8 @@ def workouts_last(name: str = "", session: Session = Depends(get_session), uid: 
         elif last.duration_min:
             parts.append(f"{last.duration_min:g} min")
         log_date = last.last_date
-        out = {"text": " · ".join(parts), "date": log_date.isoformat() if log_date else None}
+        out = {"text": " · ".join(parts), "date": log_date.isoformat() if log_date else None,
+               "stalled_weeks": workout_logging.stalled_weeks(session, uid, exercise.name if exercise else None, typed, clock.today())}
     return JSONResponse({"name": exercise.name if exercise else None, "last": out}, headers={"Cache-Control": "no-store"})
 
 
@@ -452,7 +453,7 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
         select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
     saved = existing.exercise_logs if existing else []
     prior = {el.exercise_id: el for el in saved if el.exercise_id is not None}
-    rows = [workout_logging.form_row(session, uid, ex, prior.get(ex.id)) for ex in day.exercises]
+    rows = [workout_logging.form_row(session, uid, ex, prior.get(ex.id), log_date) for ex in day.exercises]
     body_weight = next((el.body_weight_lb for el in saved if el.body_weight_lb), None)         or workout_logging.latest_body_weight(session, uid)
     net = sum(el.net_kcal for el in saved if el.net_kcal)
     gross = sum(el.gross_kcal for el in saved if el.gross_kcal)

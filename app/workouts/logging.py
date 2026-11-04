@@ -240,15 +240,50 @@ def last_performance(session: Session, uid: int, db_exercise: str | None, name: 
     return row
 
 
-def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExerciseLog | None) -> dict:
+def stalled_weeks(session: Session, uid: int, db_exercise: str | None, name: str | None, as_of: date_type) -> int | None:
+    """Whole weeks, up to `as_of`, since this exercise's weight or reps last went up; None when it has not stalled for a week yet.
+
+    Same matching as `last_performance`. Each day counts once, as its best set (heaviest load, then most reps at it; kg and lb compared
+    as the same load). A day is an increase when it beats every earlier day that way. The count runs from the first day the current best
+    was reached, and needs at least one later day at it: a single session, or a session that just set a new best, has nothing to report."""
+    keys = []
+    if db_exercise:
+        keys.append(WorkoutExerciseLog.db_exercise == db_exercise)
+    if name and name.strip():
+        keys.append(func.lower(WorkoutExerciseLog.name) == name.strip().lower())
+    if not keys:
+        return None
+    rows = session.execute(
+        select(WorkoutExerciseLog, WorkoutLog.log_date).join(WorkoutLog, WorkoutExerciseLog.workout_log_id == WorkoutLog.id)
+        .where(WorkoutLog.owner_id == uid, or_(*keys), or_(WorkoutExerciseLog.weight_value.is_not(None), WorkoutExerciseLog.reps_value.is_not(None)))
+        .order_by(WorkoutLog.log_date)).all()
+    days: dict[date_type, tuple[float, int]] = {}
+    for row, log_date in rows:
+        load = row.weight_value * (calories.LB_PER_KG if row.weight_unit == WeightUnit.KG else 1) if row.weight_value is not None else 0.0
+        best = (round(load, 1), row.reps_value or 0)
+        if best > days.get(log_date, (-1.0, -1)):
+            days[log_date] = best
+    top, since, last_day = None, None, None
+    for day in sorted(days):
+        if top is None or days[day] > top:
+            top, since = days[day], day
+        last_day = day
+    if since is None or last_day == since:
+        return None
+    weeks = (max(as_of, last_day) - since).days // 7
+    return weeks if weeks >= 1 else None
+
+
+def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExerciseLog | None, as_of: date_type | None = None) -> dict:
     """What the log form needs to draw one plan exercise: its database match, this date's saved log (if any), the
     last time the exercise was logged anywhere, and the values to show in the inputs."""
     db = resolve_db(ex)
     last = None if prior is not None else last_performance(session, uid, db.name if db else None, ex.name)
     source = prior or last
-    table = exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None
+    stalled = stalled_weeks(session, uid, db.name if db else None, ex.name, as_of or date_type.today()) if last is not None else None
+    table =exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None
     return {
-        "ex": ex, "db": db, "prior": prior, "last": last, "speed_basis": table.basis if table else None,
+        "ex": ex, "db": db, "prior": prior, "last": last, "stalled_weeks": stalled, "speed_basis": table.basis if table else None,
         "speed_label": table.unit_label if table else None, "table": table,
         "shown": {
             "weight_value": source.weight_value if source else None, "weight_unit": source.weight_unit if source else None,

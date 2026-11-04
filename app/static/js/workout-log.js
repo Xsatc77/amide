@@ -29,7 +29,11 @@
     fetch("/workouts/last?name=" + encodeURIComponent(name), { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        note.textContent = data && data.last && data.last.text ? "Last time: " + data.last.text : "";
+        const last = data && data.last && data.last.text ? data.last : null;
+        const weeks = last && last.stalled_weeks;
+        note.textContent = last ? "Last time: " + last.text : "";
+        if (weeks) note.textContent += "\nNo increase in " + weeks + " week" + (weeks === 1 ? "" : "s") + " (weight or reps)";
+        note.style.whiteSpace = "pre-line";
       })
       .catch(() => { note.textContent = ""; });
   }
