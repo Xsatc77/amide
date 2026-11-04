@@ -119,3 +119,22 @@ def test_the_button_is_on_the_saved_protocols_table_as_well_as_the_cards(client,
     page = client.get("/protocols").text
     saved = page[page.index('id="saved-heading"'):]
     assert f'data-portfolio-url="/protocols/{pid}/portfolio.pdf"' in saved
+
+
+def test_a_powder_with_no_vial_size_on_file_still_gets_bac_water_from_the_vials_it_buys(client, db, me):
+    with SessionLocal() as s:
+        c = Peptide(name="Portpowder", source=PeptideSource.CUSTOM)
+        s.add(c)
+        s.commit()
+        pid = c.id
+    make_list(db, make_vendor(db, "Echo Supply"), TODAY, item("Portpowder", 10, 100, card=db.get(Peptide, pid)))
+    text = pdf_text(client.get(f"/protocols/{protocol(me, [pid], days=40)}/portfolio.pdf"))     # 10 mg for the course: 2 vials of 10 mg
+    assert "This course needs no BAC water" not in text
+    assert "3.0 mL over 40 days" in text
+
+
+def test_a_peptide_with_no_price_at_all_assumes_five_mg_vials_and_says_so(client, db, me):
+    pid = peptide("Portunpriced")
+    text = pdf_text(client.get(f"/protocols/{protocol(me, [pid], days=40)}/portfolio.pdf"))     # 10 mg for the course: 3 assumed 5 mg vials
+    assert "This course needs no BAC water" not in text
+    assert "Portunpriced: the water assumes 5 mg vials" in text.replace("\n", " ")

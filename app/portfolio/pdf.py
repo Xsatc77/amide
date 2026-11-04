@@ -164,6 +164,9 @@ def _cost_pages(prices, protocol, today, st, width) -> list:
     else:
         out.append(_p(f"About {bac['ml']} mL over {days} days: {bac['bottles']} bottle{'s' if bac['bottles'] != 1 else ''} of 30 mL "
                       "(an opened bottle is good for 28 days).", st["body"]))
+        if bac.get("assumed"):
+            out.append(_p("No vial size is known for " + ", ".join(bac["assumed"]) + ": the water assumes 5 mg vials. "
+                          "Link an inventory item or set the Library's usual vial size for a firmer figure.", st["small"]))
         buy = bac.get("buy")
         if buy:
             where = "US warehouse" if buy["warehouse"] == "us" else "China warehouse"

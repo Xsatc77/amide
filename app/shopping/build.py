@@ -12,7 +12,7 @@ from app.library.price_lists.analysis import current_lists
 from app.library.price_lists.premixed import strength_mg_per_ml, vial_mg
 from app.models import Category, Frequency, InventoryItem, Peptide, PriceListItem, PurchasingUnit, User
 from app.shopping.bac import BacOffer, is_bac_water, plan_bac, rank_for
-from app.protocols.course_totals import compute_course_totals
+from app.protocols.course_totals import _BAC_WATER_ML_PER_VIAL, compute_course_totals
 from app.shopping.planner import Need, Offer, Plan, plan_protocol
 
 DEFAULT_SHIPPING = {"china": 60.0, "us": 30.0}
@@ -22,6 +22,7 @@ BAC_DAYS_OPEN = 28            # an opened BAC water bottle is good for 28 days a
 _HARD = re.compile(r"testosterone|\btrt\b|\bhgh\b|somatropin|growth hormone", re.IGNORECASE)
 _SIZE_UNITS = ("mg", "mcg", "IU")
 _OIL = re.compile(r"testosterone|\btrt\b", re.IGNORECASE)
+OIL_MG_PER_ML = 50                 # a peptide liquid is a few mg/mL; an oil suspension (testosterone) is 100 to 600
 CONCENTRATION_UNIT = "mg/ml"          # an oil sold by strength (250 mg/ml): the sheet does not say how much is in a vial
 
 
@@ -30,7 +31,8 @@ def _concentration_ids(session: Session, lists) -> set[int]:
     if not lists:
         return set()
     return {pid for pid in session.scalars(select(PriceListItem.peptide_id).where(
-        PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit == CONCENTRATION_UNIT, PriceListItem.peptide_id.is_not(None)))}
+        PriceListItem.price_list_id.in_(list(lists)), PriceListItem.vial_unit == CONCENTRATION_UNIT,
+        PriceListItem.vial_amount >= OIL_MG_PER_ML, PriceListItem.peptide_id.is_not(None)))}
 
 
 def is_hard_to_find(name: str) -> bool:
@@ -209,6 +211,38 @@ def _bac_buy(session: Session, uid: int, bac_ml: float, plan: Plan | None, shipp
     return plan_bac(bac_ml, offers, [(s.vendor_id, s.warehouse) for s in plan.sources] if plan else [], shipping, min_units)
 
 
+ASSUMED_VIAL_MG = 5.0       # when nothing says how big the vial is, a 5 mg vial (the usual one)
+
+
+def _bac_ml(protocol, totals, peptides_by_id, skip: set, plan) -> tuple[float, list[str]]:
+    """BAC water mL for the course, and the peptides whose vial count had to be assumed. A lyophilized powder is reconstituted whatever the
+    shop's packaging says, so a peptide with no vial size on file counts the vials of the plan that buys it, else assumed 5 mg vials."""
+    bought: dict[int, int] = {}
+    for source in (plan.sources if plan else []):
+        for line in source.lines:
+            bought[int(line.need.key)] = bought.get(int(line.need.key), 0) + line.vials
+    ml, assumed, seen = 0.0, [], set()
+    for item, total in zip(protocol.items, totals):
+        peptide = peptides_by_id.get(item.peptide_id) or item.peptide
+        if item.peptide_id in skip or _OIL.search(peptide.name):
+            continue
+        if total.bac_water_ml is not None:
+            ml += total.bac_water_ml
+            continue
+        if item.frequency is Frequency.AS_NEEDED or total.total_amount is None or item.peptide_id in seen:
+            continue
+        seen.add(item.peptide_id)
+        vials = bought.get(item.peptide_id)
+        if vials is None:
+            amount, unit = _base(total.total_amount, item.dose_unit.value)
+            if unit != "mg":
+                continue
+            vials = max(1, math.ceil(amount * 1.05 / ASSUMED_VIAL_MG - 1e-9))
+            assumed.append(peptide.name)
+        ml += vials * _BAC_WATER_ML_PER_VIAL
+    return ml, assumed
+
+
 def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, sizes: dict | None = None, strengths: dict | None = None) -> dict:
     """The JSON the Shopping plan dialog shows. `sizes` is {peptide id: (mL per vial, vials per box)} for oil products the lists
     sell by strength only; without it those are returned under `needs_volume` for the dialog to ask about."""
@@ -227,10 +261,8 @@ def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, size
     offers, needs_volume, needs_strength = _offers(session, needs, factors, sizes, strengths)
     result = plan_protocol(needs, offers, shipping)
     bought_premixed = {int(l.need.key) for s in result.plan.sources for l in s.lines if l.offer.premixed} if result.plan else set()
-    if bought_premixed:                                              # ready to use: those items need no BAC water
-        bac_ml = sum(t.bac_water_ml or 0.0 for it, t in zip(protocol.items, totals)
-                     if it.peptide_id not in bought_premixed and it.peptide_id not in no_bac and not _OIL.search((peptides_by_id.get(it.peptide_id) or it.peptide).name))
-        base["bac"] = {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units)} if bac_ml > 0 else None
+    bac_ml, assumed = _bac_ml(protocol, totals, peptides_by_id, bought_premixed | no_bac, result.plan)     # ready to use items need no water
+    base["bac"] = {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units), "assumed": assumed} if bac_ml > 0 else None
     asking = {a["name"] for a in needs_volume + needs_strength}
     unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable
                            if n.name not in asking]
