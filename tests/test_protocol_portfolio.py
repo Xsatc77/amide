@@ -109,3 +109,13 @@ def test_someone_elses_protocol_is_a_404(client, db, me):
     with other_client("portother") as stranger:
         assert stranger.get(f"/protocols/{pid}/portfolio.pdf").status_code == 404
     assert client.get("/protocols/999999/portfolio.pdf").status_code == 404
+
+
+def test_the_button_is_on_the_saved_protocols_table_as_well_as_the_cards(client, db, me):
+    pid = protocol(me, [peptide("Portbutton")], name="Portfolio Button Check")
+    with SessionLocal() as s:
+        s.get(Protocol, pid).end_date = TODAY - timedelta(days=1)         # ended: listed in Saved Protocols
+        s.commit()
+    page = client.get("/protocols").text
+    saved = page[page.index('id="saved-heading"'):]
+    assert f'data-portfolio-url="/protocols/{pid}/portfolio.pdf"' in saved
