@@ -194,7 +194,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             DEFAULT_RANGE, RANGE_DAYS, _chart, _field_current_and_delta, _silhouette_points, weight_changes,
             _silhouette_shape, display_entries,
         )
-        from app.measurements.calculations import water_goal_oz, water_pace
+        from app.measurements.calculations import water_goal_oz, water_pace, weight_since_start
         entries = session.scalars(
             select(BodyMeasurement).where(BodyMeasurement.owner_id == effective_uid)
             .order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())).all()
@@ -222,7 +222,16 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         shown_windowed = display_entries(windowed, u)
         weight_chart = _chart([(e.measured_at, e.weight_lbs) for e in shown_windowed if e.weight_lbs is not None])
         weight_changes(weight_chart, shown_windowed)
+        first_start = session.scalar(select(func.min(func.coalesce(Protocol.anchor_start, Protocol.start_date))).where(Protocol.owner_id == effective_uid))
+        since = weight_since_start([(e.measured_at, e.weight_lbs) for e in reversed(display_entries(entries, u)) if e.weight_lbs is not None], first_start)
+        ribbon = None
+        if since is not None:
+            change, baseline_date = since
+            ribbon = {"cls": "down" if change < 0 else "up" if change > 0 else "flat",
+                      "text": "No change" if not change else f"{'Lost' if change < 0 else 'Gained'} {abs(change):.1f} {u.weight_label}",
+                      "title": f"Since the first protocol started ({first_start:%m/%d/%Y}); weighed {baseline_date:%m/%d/%Y} at the start."}
         body_panel = {
+            "ribbon": ribbon,
             "chart": weight_chart,
             "silhouette": _silhouette_points(display_entries(entries, u), u.length_label) if entries else None,
             "silhouette_shape": _silhouette_shape(viewer.sex.value if viewer and viewer.sex else None),

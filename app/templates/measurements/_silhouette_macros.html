@@ -7,9 +7,10 @@
 {# `whole`: show a whole number (a range end, a point's value) without its ".0" (the Apple tab asks for it; every other chart keeps its old output) #}
 {% macro _range_end(v, whole) %}{{ v|int if whole and v == v|int else v | num }}{% endmacro %}
 
-{% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false, unit='') %}
+{% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false, unit='', ribbon=none) %}
 {% if chart %}
-<div class="card">
+<div class="card{{ ' has-ribbon' if ribbon }}">
+  {% if ribbon %}<div class="weight-ribbon {{ ribbon.cls }}" title="{{ ribbon.title }}">{{ ribbon.text }}</div>{% endif %}
   <h3>{{ label | titled }}</h3>
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
     {{ y_grid(chart.y_axis) }}

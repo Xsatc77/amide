@@ -95,3 +95,18 @@ def body_fat_pct(sex: BiologicalSex, height_in: float, neck_in: float, waist_in:
         denom = (1.29579 - 0.35004 * math.log10(log_arg)
                 + 0.22100 * math.log10(height_in))
     return 495 / denom - 450
+
+
+def weight_since_start(points: list, start) -> tuple[float, object] | None:
+    """The change in weight from the weigh-in at `start` to the latest one, as (change, the baseline's date); None when it cannot be said.
+
+    `points` are (date, weight) pairs in the order recorded. The baseline is the last weigh-in on or before `start`, or, if there is none,
+    the first one after it. Several weigh-ins on one day count as the last one recorded. Nothing to compare when the baseline is the latest."""
+    if not points or start is None:
+        return None
+    ordered = sorted(points, key=lambda p: p[0])
+    before = [p for p in ordered if p[0] <= start]
+    baseline, latest = (before[-1] if before else ordered[0]), ordered[-1]
+    if baseline[0] >= latest[0]:
+        return None
+    return round(latest[1] - baseline[1], 1), baseline[0]

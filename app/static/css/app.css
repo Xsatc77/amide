@@ -545,6 +545,12 @@ section + section { margin-top: 36px; }
    sitting at a fixed size with dead space around it, capped so it never overruns the card. */
 .dash-silhouette { width: 100%; max-width: 640px; margin: 0 auto; }
 .dash-chart-slot .card { height: 100%; margin: 0; box-sizing: border-box; }
+/* The corner sash on the weight chart: total lost or gained since the first protocol. Clipped by the card's own rounded corner. */
+.card.has-ribbon { position: relative; overflow: hidden; }
+.weight-ribbon { position: absolute; top: 22px; right: -46px; width: 170px; padding: 4px 0; transform: rotate(45deg); text-align: center; font-size: 13px; font-weight: 700; color: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); pointer-events: none; }
+.weight-ribbon.down { background: #15803d; }
+.weight-ribbon.up { background: #b45309; }
+.weight-ribbon.flat { background: #64748b; }
 
 /* The Journal quick-capture form fills the rest of its (now row-matched, often taller) card
    instead of leaving dead space below one short input -- the textarea grows to take up whatever
