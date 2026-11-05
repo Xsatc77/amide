@@ -223,7 +223,8 @@
 
 {% if water %}
 <section class="card dash-panel water-panel dash-area-water" data-water-level="{{ water.level }}" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info); --water-pct: {{ water.pct }}%;">
-  <div class="water-fill"></div>
+  <div class="water-fill">{% if water.pct %}<span class="water-wave" aria-hidden="true"></span><span class="water-wave" aria-hidden="true"></span>
+    <span class="water-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>{% endif %}</div>
   <div class="water-panel-content">
     <div class="panel-head">
       {{ panel_icon('droplet') }}

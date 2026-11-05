@@ -578,6 +578,28 @@ section + section { margin-top: 36px; }
 /* Blue below half the goal, yellow from half, green once the goal is reached. */
 .water-panel[data-water-level="half"] .water-fill { background: color-mix(in srgb, var(--goal-wellness) 28%, transparent); }
 .water-panel[data-water-level="full"] .water-fill { background: color-mix(in srgb, var(--goal-muscle-recovery) 28%, transparent); }
+/* The surface ripples (two wave layers drifting at different speeds, drawn with a mask so they take the fill's own colour) and a few bubbles
+   rise through the water. Reduced-motion users get the still shapes (the global rule above stops every animation). */
+.water-fill { --water-color: color-mix(in srgb, var(--panel-accent, var(--info)) 22%, transparent); background: var(--water-color); }
+.water-panel[data-water-level="half"] .water-fill { --water-color: color-mix(in srgb, var(--goal-wellness) 28%, transparent); background: var(--water-color); }
+.water-panel[data-water-level="full"] .water-fill { --water-color: color-mix(in srgb, var(--goal-muscle-recovery) 28%, transparent); background: var(--water-color); }
+.water-wave { position: absolute; left: 0; right: 0; top: -9px; height: 9px; background: var(--water-color); pointer-events: none;
+  -webkit-mask: var(--wave) repeat-x 0 0 / 44px 9px; mask: var(--wave) repeat-x 0 0 / 44px 9px; animation: water-drift 5s linear infinite;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 9' preserveAspectRatio='none'%3E%3Cpath d='M0 5 Q11 0 22 5 T44 5 V9 H0Z'/%3E%3C/svg%3E"); }
+.water-wave + .water-wave { top: -6px; height: 7px; opacity: 0.8; -webkit-mask-size: 30px 7px; mask-size: 30px 7px; animation: water-drift-back 3.4s linear infinite; }
+@keyframes water-drift { to { -webkit-mask-position: 44px 0; mask-position: 44px 0; } }
+@keyframes water-drift-back { to { -webkit-mask-position: -30px 0; mask-position: -30px 0; } }
+.water-bubbles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.water-bubbles i { position: absolute; bottom: -12px; width: 8px; height: 8px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--panel-accent, var(--info)) 55%, white);
+  background: rgba(255, 255, 255, 0.25); animation: water-rise 6s ease-in infinite; }
+.water-bubbles i:nth-child(1) { left: 8%;  width: 6px;  height: 6px;  animation-duration: 5.2s; animation-delay: 0s; }
+.water-bubbles i:nth-child(2) { left: 22%; width: 10px; height: 10px; animation-duration: 7.1s; animation-delay: 1.3s; }
+.water-bubbles i:nth-child(3) { left: 37%; width: 5px;  height: 5px;  animation-duration: 4.6s; animation-delay: 2.4s; }
+.water-bubbles i:nth-child(4) { left: 55%; width: 9px;  height: 9px;  animation-duration: 6.4s; animation-delay: 0.7s; }
+.water-bubbles i:nth-child(5) { left: 71%; width: 6px;  height: 6px;  animation-duration: 5.6s; animation-delay: 3.1s; }
+.water-bubbles i:nth-child(6) { left: 86%; width: 8px;  height: 8px;  animation-duration: 6.8s; animation-delay: 1.9s; }
+@keyframes water-rise { 0% { bottom: -12px; opacity: 0; transform: translateX(0); } 12% { opacity: 1; } 50% { transform: translateX(5px); }
+  85% { opacity: 0.8; } 100% { bottom: calc(100% - 6px); opacity: 0; transform: translateX(-3px); } }
 .water-panel-content { position: relative; z-index: 1; }
 .water-quick-picks { display: flex; gap: 8px; margin-bottom: 12px; }
 

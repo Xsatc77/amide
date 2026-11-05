@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import compliance, units
+from app.calculator import units as unit_math
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
 from app.inventory import calibrate
@@ -22,7 +23,7 @@ from app.calendar.schedule import occurrences
 from app.db import get_session
 from app.models import (
     TIME_ORDER, ActiveVial, BodyMeasurement, Category, DashboardDismissal, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
-    Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, WorkoutExerciseLog, WorkoutLog, naive_utcnow,
+    Medium, Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, WorkoutExerciseLog, WorkoutLog, naive_utcnow,
 )
 from app.protocols.status import Status, protocol_status
 from app.routers.protocols import get_today
@@ -129,6 +130,16 @@ def _in_transit_groups(session: Session, uid: int) -> list[dict]:
     return [{"order": lines[0][1].order, "lines": lines} for lines in by_order.values()]
 
 
+def _unit_dose_cost(it, cost_per_unit: float) -> float | None:
+    """Cost of one dose of something that is not mixed from powder (drops, pills, a powder scoop): each unit holds `vial_size_mg` of its own unit,
+    so a dose of the protocol's amount is that share of a unit. None when the dose or unit size is missing or the units do not convert."""
+    inv = it.inventory_item
+    if inv is None or inv.medium is Medium.LYOPHILIZED or not inv.vial_size_mg or not it.dose:
+        return None
+    amount = unit_math.convert(it.dose, it.dose_unit.value, inv.vial_size_unit.value, inv.iu_per_mg or unit_math.default_iu_per_mg(inv.name))
+    return None if amount is None else cost_per_unit * amount / inv.vial_size_mg
+
+
 def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:
     protocols = session.scalars(
         select(Protocol).where(Protocol.owner_id == uid).options(
@@ -156,7 +167,7 @@ def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:
             select(ActiveVial).where(ActiveVial.inventory_item_id == it.inventory_item_id,
                                      ActiveVial.discarded_at.is_(None))
             .order_by(ActiveVial.id.desc()))
-        cost_per_dose = cost_per_vial / vial.doses_total if vial and vial.doses_total else None
+        cost_per_dose = cost_per_vial / vial.doses_total if vial and vial.doses_total else _unit_dose_cost(it, cost_per_vial)
         rows.append({"peptide": it.peptide.name, "cost_per_vial": cost_per_vial,
                     "cost_per_dose": cost_per_dose})
     return rows
