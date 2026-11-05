@@ -21,7 +21,7 @@ from app.inventory.symbol import symbol
 from app.inventory.groups import group_items, lot_covering, lots, medium_of, single_rows, sort_use_first
 from app.inventory.labels import labels_for_order
 from app.inventory.runout import runs_out
-from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, required_fields_for
+from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, optional_fields_for, required_fields_for
 from app.inventory.vendors import resolve_vendor
 from app.models import (
     ActiveVial, Category, ContactMethodType, DispensingMethod, DoseLog, DoseStatus, DoseUnit, InventoryItem, Medium, ProtocolItem, Route, SupplyType,
@@ -684,7 +684,7 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
         "purchasing_units": list(PurchasingUnit),
         "medium_rules": {
             m.value: {
-                "required": sorted(required_fields_for(m)),
+                "required": sorted(required_fields_for(m)), "optional": sorted(optional_fields_for(m)),
                 "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
             }
             for m in Medium
@@ -801,7 +801,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "supply_types": list(SupplyType),
             "medium_rules": {
                 m.value: {
-                    "required": sorted(required_fields_for(m)),
+                    "required": sorted(required_fields_for(m)), "optional": sorted(optional_fields_for(m)),
                     "labels": {f: field_label(f, m) for f in ("vial_size_mg", "units_per_package")},
                 }
                 for m in Medium

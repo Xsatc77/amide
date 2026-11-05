@@ -10,10 +10,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import compliance, units
-from app.calculator import units as unit_math
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
-from app.inventory import calibrate
+from app.inventory import calibrate, unit_use
 from app.inventory.runout import ALERT_DAYS as RUNOUT_ALERT_DAYS, runs_out
 from app import photo_reminders
 from app.health import dashboard as apple_dashboard
@@ -131,13 +130,13 @@ def _in_transit_groups(session: Session, uid: int) -> list[dict]:
 
 
 def _unit_dose_cost(it, cost_per_unit: float) -> float | None:
-    """Cost of one dose of something that is not mixed from powder (drops, pills, a powder scoop): each unit holds `vial_size_mg` of its own unit,
-    so a dose of the protocol's amount is that share of a unit. None when the dose or unit size is missing or the units do not convert."""
+    """Cost of one dose of something that is not mixed from powder (drops, pills, a powder scoop): the share of a bottle one dose uses, times what
+    a bottle cost. None when the dose or the unit size is missing or the units do not convert."""
     inv = it.inventory_item
-    if inv is None or inv.medium is Medium.LYOPHILIZED or not inv.vial_size_mg or not it.dose:
+    if inv is None or inv.medium is Medium.LYOPHILIZED or not it.dose:
         return None
-    amount = unit_math.convert(it.dose, it.dose_unit.value, inv.vial_size_unit.value, inv.iu_per_mg or unit_math.default_iu_per_mg(inv.name))
-    return None if amount is None else cost_per_unit * amount / inv.vial_size_mg
+    share = unit_use.dose_share(inv, it.dose, it.dose_unit)
+    return None if share is None else cost_per_unit * share
 
 
 def _cost_snapshot(session: Session, uid: int, today: date) -> list[dict]:

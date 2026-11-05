@@ -17,6 +17,11 @@ REQUIRED_FIELDS: dict[Medium, set[str]] = {
     Medium.DUAL_CHAMBER: {"vial_size_mg"},
 }
 
+# Fields a medium may fill in but need not: shown, not required.
+OPTIONAL_FIELDS: dict[Medium, set[str]] = {
+    Medium.DROPS: {"units_per_package"},
+}
+
 # Shown next to the field, and used in "X is required for <medium>" error messages.
 FIELD_LABELS: dict[str, str] = {
     "vial_size_mg": "Amount",
@@ -29,12 +34,17 @@ FIELD_LABELS: dict[str, str] = {
 FIELD_LABEL_OVERRIDES: dict[Medium, dict[str, str]] = {
     Medium.AUTOINJECTOR: {"units_per_package": "Doses per pen"},
     Medium.PILL: {"vial_size_mg": "Amount per pill", "units_per_package": "Pills per bottle"},
+    Medium.DROPS: {"units_per_package": "Doses per bottle (optional: then Amount is one dose)"},
     Medium.DUAL_CHAMBER: {"vial_size_mg": "Amount per cartridge"},
 }
 
 
 def required_fields_for(medium: Medium | None) -> set[str]:
     return REQUIRED_FIELDS.get(medium, set()) if medium is not None else set()
+
+
+def optional_fields_for(medium: Medium | None) -> set[str]:
+    return OPTIONAL_FIELDS.get(medium, set()) if medium is not None else set()
 
 
 def field_label(field: str, medium: Medium | None) -> str:

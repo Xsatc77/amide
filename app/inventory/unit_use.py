@@ -10,13 +10,23 @@ def tracks_units(item: InventoryItem | None) -> bool:
     return item is not None and item.category == Category.MEDICINE and item.medium != Medium.LYOPHILIZED and bool(item.vial_size_mg)
 
 
-def units_for_dose(item: InventoryItem, dose_value: float | None, dose_unit: DoseUnit) -> float | None:
-    """The share of one unit a dose of `dose_value` takes, or None when it cannot be worked out (no dose, or a unit that does not convert)."""
-    if dose_value is None or not tracks_units(item):
+def dose_share(item: InventoryItem, dose_value: float | None, dose_unit: DoseUnit) -> float | None:
+    """The share of one purchased unit (a bottle) a dose takes. Without `units_per_package` each unit holds `vial_size_mg` of its own unit, so the share
+    is dose / unit-size. Drops and pills that say how many doses (drops) or pills (pills) a bottle holds have `vial_size_mg` as the amount of one dose or
+    pill, so the share is the dose in those, over how many the bottle holds. None when it cannot be worked out."""
+    if dose_value is None or not item.vial_size_mg:
         return None
     factor = item.iu_per_mg or unit_math.default_iu_per_mg(item.name)
     amount = unit_math.convert(dose_value, dose_unit.value, item.vial_size_unit.value, factor)
-    return None if amount is None else amount / item.vial_size_mg
+    if amount is None:
+        return None
+    share = amount / item.vial_size_mg
+    return share / item.units_per_package if item.units_per_package and item.medium in (Medium.DROPS, Medium.PILL) else share
+
+
+def units_for_dose(item: InventoryItem, dose_value: float | None, dose_unit: DoseUnit) -> float | None:
+    """The share of one unit a dose of `dose_value` takes, or None when it cannot be worked out (no dose, or a unit that does not convert)."""
+    return dose_share(item, dose_value, dose_unit) if tracks_units(item) else None
 
 
 def take(item: InventoryItem, units: float) -> float:

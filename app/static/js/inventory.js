@@ -34,10 +34,11 @@
 
   function syncMediumFields() {
     const medium = mediumSelect.value;
-    const rule = rules[medium] || { required: [], labels: {} };
+    const rule = rules[medium] || { required: [], optional: [], labels: {} };
+    const shown = (field) => rule.required.includes(field) || (rule.optional || []).includes(field);
     // Volume and units-per-package only matter once a medium says so; Amount is always shown.
     fieldWrappers.volume_ml.hidden = !rule.required.includes("volume_ml");
-    fieldWrappers.units_per_package.hidden = !rule.required.includes("units_per_package");
+    fieldWrappers.units_per_package.hidden = !shown("units_per_package");
     const hideActive = !medium || medium === "Lyophilized" || form.querySelector('input[name="category"]:checked')?.value !== "Medicine";
     form.querySelectorAll("[data-active-field]").forEach((el) => { el.hidden = hideActive; });      // a medicine that is not a powder vial can be marked active and can carry fiber
     for (const [field, wrapper] of Object.entries(fieldWrappers)) {

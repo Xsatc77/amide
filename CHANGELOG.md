@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Inventory: drops can say how many doses a bottle holds.** A new optional "Doses per bottle" field on Drops: when it is filled in, Amount is one dose, a logged dose uses one bottle's worth divided by that count, and the dashboard's Cost Snapshot divides the bottle's cost by it (a $6.48 bottle of 70 doses is about 9 cents a dose). Pills already had Pills per bottle and now use it the same way. Without it, a bottle is still one Amount, as before.
 - **Dashboard: the Water Goal fill has rippling waves on top and rising bubbles.** Two wave layers drift across the surface and six bubbles float up through the water; both appear only once some water is logged, and they hold still for anyone who has asked their device to reduce motion.
 - **Dashboard: Cost Snapshot shows a cost per dose for drops, pills and powders too.** It used to need an opened powder vial to count doses, so B-12 and Psyllium Husk showed a dash. Anything not mixed from powder now takes its cost per unit and the share of a unit one dose uses.
 - **Dashboard: the Workouts This Week card shows the weight lifted this week.** Under the week strip, in large bold numbers, the total volume (load × implements × reps × sets) of everything logged Monday to Sunday, in your own units (lb or kg), with the average per workout day beneath it. The numbers wrap rather than run past the card's edge, even at seven digits.
