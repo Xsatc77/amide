@@ -584,6 +584,12 @@ section + section { margin-top: 36px; }
 .workout-week-row { display: flex; justify-content: space-between; gap: 4px; }
 .workout-week-summary { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 6px; }
 .workout-week-summary p { margin: 0; }
+.workout-lifted { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 2px; min-width: 0; }
+.workout-lifted p { margin: 0; overflow-wrap: anywhere; }
+.workout-lifted-total { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; line-height: 1.1; }
+.workout-lifted-total strong { font-size: clamp(2rem, 4.2vw, 2.9rem); font-weight: 800; letter-spacing: -0.02em; }
+.workout-lifted-total span { font-size: 1rem; font-weight: 700; color: var(--muted); }
+.workout-lifted-none strong { color: var(--muted); }
 .workout-week-meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
 .workout-week-meter i { display: block; height: 100%; background: var(--tier-beginner); border-radius: 4px; }
 .workout-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }

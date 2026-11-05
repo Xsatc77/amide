@@ -175,6 +175,16 @@
     <p class="small muted">Nothing scheduled this week. Give a workout day its weekdays in the plan editor to see it here.</p>
     {% endif %}
   </div>
+  <div class="workout-lifted" aria-label="Weight lifted this week">
+    {% if lifted and lifted.total %}
+    <p class="workout-lifted-total"><strong>{{ '{:,}'.format(lifted.total) }}</strong> <span>{{ lifted.unit }}</span></p>
+    <p class="small muted">lifted this week, Monday to Sunday</p>
+    <p class="small muted">Average {{ '{:,}'.format(lifted.average) }} {{ lifted.unit }} per workout ({{ lifted.days }} {{ 'day' if lifted.days == 1 else 'days' }})</p>
+    {% else %}
+    <p class="workout-lifted-total workout-lifted-none"><strong>0</strong> <span>{{ lifted.unit if lifted else 'lb' }}</span></p>
+    <p class="small muted">lifted this week, Monday to Sunday</p>
+    {% endif %}
+  </div>
 </section>
 {% endif %}
 

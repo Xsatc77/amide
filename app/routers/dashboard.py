@@ -22,13 +22,29 @@ from app.calendar.schedule import occurrences
 from app.db import get_session
 from app.models import (
     TIME_ORDER, ActiveVial, BodyMeasurement, Category, DashboardDismissal, DoseLog, DoseStatus, InventoryItem, Order, OrderItem,
-    Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, naive_utcnow,
+    Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, WorkoutExerciseLog, WorkoutLog, naive_utcnow,
 )
 from app.protocols.status import Status, protocol_status
 from app.routers.protocols import get_today
 from app.templating import templates
 
 router = APIRouter()
+
+
+def week_lifted(session: Session, user, today: date) -> dict:
+    """Weight lifted this calendar week (Mon-Sun): the total volume (load x implements x reps x sets) of the exercises logged, in the user's own
+    units, and the average per logged workout day. `total` is None when nothing with a load was logged."""
+    monday = today - timedelta(days=today.weekday())
+    rows = session.execute(
+        select(WorkoutLog.log_date, func.sum(WorkoutExerciseLog.volume_lb)).join(WorkoutExerciseLog, WorkoutExerciseLog.workout_log_id == WorkoutLog.id)
+        .where(WorkoutLog.owner_id == user.id, WorkoutLog.log_date >= monday, WorkoutLog.log_date <= monday + timedelta(days=6),
+               WorkoutExerciseLog.volume_lb.is_not(None)).group_by(WorkoutLog.log_date)).all()
+    days = [lb for _, lb in rows if lb]
+    metric = user.units == "metric"
+    factor = 1 / units.LB_PER_KG if metric else 1.0
+    total = sum(days) * factor if days else None
+    return {"total": round(total) if total is not None else None, "average": round(total / len(days)) if days else None,
+            "days": len(days), "unit": "kg" if metric else "lb"}
 
 
 def _resolve_viewer(session: Session, uid: int, viewer_id: int | None) -> tuple[int, set[ShareCategory]]:
@@ -172,6 +188,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     water = None
     body_panel = None
     workout_week = None
+    lifted = None
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
         window = compliance.parse_window(request.query_params.get("compliance"))
@@ -185,6 +202,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         # (a day stays visible with its outcome instead of vanishing once it's logged).
         from app.routers.workouts import week_status
         workout_week = week_status(session, effective_uid, today)
+        lifted = week_lifted(session, session.get(User, effective_uid), today)
 
         # Same computation as the Macros tab's own Water goal, plus the same Weight chart/Body
         # Silhouette the Measurements page's Overview row shows -- reused via deferred import
@@ -310,6 +328,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "water": water,
         "body_panel": body_panel,
         "workout_week": workout_week,
+        "lifted": lifted,
         "today": today,
         "viewer_id": effective_uid,
         "in_transit_groups": in_transit_groups,
