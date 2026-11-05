@@ -225,7 +225,7 @@
   const orderFields = [
     "quantity", "order_date", "shipped_date", "arrival_date", "tracking_site", "tracking_number",
     "vendor", "lot_number", "cost", "tax", "shipping", "expiration_date",
-    "coa_vial_size_mg", "coa_purity_pct", "received_quantity",
+    "coa_vial_size_mg", "coa_purity_pct", "received_quantity", "line_medium",
   ];
 
   document.querySelectorAll('[data-action="add-order"]').forEach((btn) => btn.addEventListener("click", () => {
@@ -242,6 +242,8 @@
     }
     const receivedGroup = form.querySelector('[data-field="received_quantity"]');
     if (receivedGroup) receivedGroup.hidden = !order.arrived;
+    const mediumGroup = form.querySelector('[data-field="line_medium"]');
+    if (mediumGroup) mediumGroup.hidden = false;
     const arrivalGroup = form.querySelector('[data-field="arrival_date"]');
     if (arrivalGroup) arrivalGroup.hidden = !order.arrived;
     form.action = `${window.location.pathname}/orders/${btn.dataset.orderId}`;
@@ -312,69 +314,95 @@
     dialog.querySelectorAll("[data-error]").forEach((el) => { el.hidden = true; el.textContent = ""; });
   }
 
+  // One block per item in the order: how many arrived, how many of those were damaged, the lot,
+  // the expiration, the medium and a note. Every field is named <field>_<line id>.
   function buildLines(orderId, prefill) {
     linesContainer.innerHTML = "";
     const lines = checkinData[orderId] || [];
-    for (const line of lines) {
-      const posted = prefill && prefill.form ? prefill.form[`received_quantity_${line.id}`] : null;
-      const postedNote = prefill && prefill.form ? prefill.form[`received_note_${line.id}`] : null;
-      const err = prefill && prefill.errors ? prefill.errors[`received_quantity_${line.id}`] : null;
+    const mediumSource = document.getElementById("edit-item-medium");
+    const form_ = prefill && prefill.form ? prefill.form : {};
+    const errors_ = prefill && prefill.errors ? prefill.errors : {};
 
-      const row = document.createElement("div");
-      row.className = "grid";
-
-      const nameDiv = document.createElement("div");
-      nameDiv.className = "field span-2";
-      const nameSpan = document.createElement("span");
-      nameSpan.textContent = `${line.item_name} (ordered ${line.quantity})`;
-      nameDiv.appendChild(nameSpan);
-
-      const qtyLabel = document.createElement("label");
-      qtyLabel.className = `field ${err ? "has-error" : ""}`;
-      const qtySpan = document.createElement("span");
-      qtySpan.textContent = "Received";
-      const qtyInput = document.createElement("input");
-      qtyInput.name = `received_quantity_${line.id}`;
-      qtyInput.type = "number";
-      qtyInput.min = "0";
-      qtyInput.max = String(line.quantity * 2);
-      qtyInput.step = "1";
-      qtyInput.value = posted != null && posted !== "" ? posted : String(line.quantity);
-      qtyLabel.append(qtySpan, qtyInput);
+    function field(label, name, input, line) {
+      const err = errors_[`${name}_${line.id}`];
+      const wrap = document.createElement("label");
+      wrap.className = `field ${err ? "has-error" : ""}`;
+      const span = document.createElement("span");
+      span.textContent = label;
+      input.name = `${name}_${line.id}`;
+      wrap.append(span, input);
       if (err) {
         const small = document.createElement("small");
         small.className = "error";
         small.textContent = err;
-        qtyLabel.appendChild(small);
+        wrap.appendChild(small);
+      }
+      return { wrap, span, input };
+    }
+    const posted = (name, line, fallback) => {
+      const v = form_[`${name}_${line.id}`];
+      return v != null && v !== "" ? v : fallback;
+    };
+
+    lines.forEach((line, index) => {
+      const block = document.createElement("fieldset");
+      block.className = "checkin-line";
+      const legend = document.createElement("legend");
+      legend.textContent = `${index + 1} of ${lines.length}: ${line.item_name} (ordered ${line.quantity})`;
+      block.appendChild(legend);
+      const row = document.createElement("div");
+      row.className = "grid";
+
+      const qty = document.createElement("input");
+      qty.type = "number"; qty.min = "0"; qty.max = String(line.quantity * 2); qty.step = "1";
+      qty.value = posted("received_quantity", line, String(line.quantity));
+      const received = field("Received", "received_quantity", qty, line);
+
+      const dmg = document.createElement("input");
+      dmg.type = "number"; dmg.min = "0"; dmg.step = "1"; dmg.placeholder = "0";
+      dmg.value = posted("damaged_quantity", line, "");
+      const damaged = field("Damaged (of those received)", "damaged_quantity", dmg, line);
+
+      const lot = document.createElement("input");
+      lot.maxLength = 100;
+      lot.value = posted("lot_number", line, line.lot_number);
+      const lotField = field("Lot / batch number", "lot_number", lot, line);
+
+      const exp = document.createElement("input");
+      exp.type = "date";
+      exp.value = posted("expiration_date", line, line.expiration_date);
+      const expField = field("Expiration date", "expiration_date", exp, line);
+
+      row.append(received.wrap, damaged.wrap, lotField.wrap, expField.wrap);
+
+      if (line.is_medicine && mediumSource) {
+        const sel = document.createElement("select");
+        for (const opt of mediumSource.options) {
+          const o = document.createElement("option");
+          o.value = opt.value; o.textContent = opt.textContent;
+          sel.appendChild(o);
+        }
+        sel.value = posted("medium", line, line.medium);
+        row.appendChild(field("Medium", "medium", sel, line).wrap);
       }
 
-      const noteErr = prefill && prefill.errors ? prefill.errors[`received_note_${line.id}`] : null;
-      const noteLabel = document.createElement("label");
-      noteLabel.className = `field ${noteErr ? "has-error" : ""}`;
-      const noteSpan = document.createElement("span");
-      const noteInput = document.createElement("input");
-      noteInput.name = `received_note_${line.id}`;
-      noteInput.maxLength = 300;
-      noteInput.value = postedNote || "";
+      const note = document.createElement("input");
+      note.maxLength = 300;
+      note.value = posted("received_note", line, "");
+      const noteField = field("Note", "received_note", note, line);
       // More than ordered (up to double) needs a note saying why; short or damaged is optional.
       const syncNote = () => {
-        const over = Number(qtyInput.value) > line.quantity;
-        noteInput.required = over;
-        noteSpan.textContent = over ? "Note (required: more than ordered)" : "Note (if short or damaged)";
+        const over = Number(qty.value) > line.quantity;
+        note.required = over;
+        noteField.span.textContent = over ? "Note (required: more than ordered)" : "Note (if short or damaged)";
       };
-      qtyInput.addEventListener("input", syncNote);
+      qty.addEventListener("input", syncNote);
       syncNote();
-      noteLabel.append(noteSpan, noteInput);
-      if (noteErr) {
-        const small = document.createElement("small");
-        small.className = "error";
-        small.textContent = noteErr;
-        noteLabel.appendChild(small);
-      }
+      row.appendChild(noteField.wrap);
 
-      row.append(nameDiv, qtyLabel, noteLabel);
-      linesContainer.appendChild(row);
-    }
+      block.appendChild(row);
+      linesContainer.appendChild(block);
+    });
   }
 
   document.querySelectorAll('[data-action="check-in"]').forEach((btn) => btn.addEventListener("click", () => {

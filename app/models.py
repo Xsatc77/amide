@@ -573,6 +573,7 @@ class OrderItem(Base):
     received_quantity: Mapped[int | None] = mapped_column(Integer)
     stock_applied: Mapped[int] = mapped_column(Integer, default=0, server_default="0")   # supplies: how much of this line is already in the item's count (app/inventory/supply_stock.py)
     received_note: Mapped[str | None] = mapped_column(String(300))
+    damaged_quantity: Mapped[int] = mapped_column(Integer, default=0, server_default="0")   # arrived unusable at check-in; received_quantity is the usable rest
     cost_cents: Mapped[int | None] = mapped_column(Integer)
     lot_number: Mapped[str | None] = mapped_column(String(100))
     expiration_date: Mapped[date | None] = mapped_column(Date)

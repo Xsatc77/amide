@@ -694,7 +694,11 @@ def _detail_context(session: Session, item: InventoryItem, uid: int) -> dict:
         "today_iso": clock.today().isoformat(),
         "checkin_data": {
             li.order_id: [
-                {"id": sib.id, "quantity": sib.quantity, "item_name": sib.inventory_item.name}
+                {"id": sib.id, "quantity": sib.quantity, "item_name": sib.inventory_item.name,
+                 "item_id": sib.inventory_item_id, "lot_number": sib.lot_number or "",
+                 "expiration_date": sib.expiration_date.isoformat() if sib.expiration_date else "",
+                 "medium": sib.inventory_item.medium.value if sib.inventory_item.medium else "",
+                 "is_medicine": sib.inventory_item.category == Category.MEDICINE}
                 for sib in li.order.items
             ]
             for li in item.order_items if li.order.arrival_date is None
@@ -1185,6 +1189,45 @@ def _parse_arrival_date(order_date: date, shipped_date: date | None, raw_value: 
     return arrival_date
 
 
+CHECKIN_LINE_FIELDS = ("received_quantity", "damaged_quantity", "received_note", "lot_number", "expiration_date", "medium")
+
+
+def _parse_line_medium(li: OrderItem, raw_value: str, field: str, errors: dict) -> Medium | None:
+    """The medium picked for one order line, or None to leave the line with its item. Medium belongs to the
+    item, so a different medium means a different item: see _item_for_line_medium."""
+    if not raw_value or li.inventory_item.category != Category.MEDICINE:
+        return None
+    try:
+        medium = Medium(raw_value)
+    except ValueError:
+        errors[field] = "Pick an option from the list."
+        return None
+    return None if medium == li.inventory_item.medium else medium
+
+
+_SPLIT_COPIED = ("name", "vial_size_mg", "vial_size_unit", "purchasing_unit", "volume_ml", "units_per_package",
+                 "storage", "cost_cents", "vendor", "vendor_id", "notes", "local_seller", "category", "iu_per_mg",
+                 "fiber_g_per_dose", "owner_id")
+
+
+def _item_for_line_medium(session: Session, li: OrderItem, medium: Medium) -> InventoryItem:
+    """The item this line belongs to once it is `medium`: the person's own item of the same name in that medium,
+    or a new one copied from the line's current item (not active, nothing used yet). The original item and
+    its other lines are left exactly as they were."""
+    item = li.inventory_item
+    mine = session.scalars(select(InventoryItem).where(
+        InventoryItem.owner_id == item.owner_id, InventoryItem.category == Category.MEDICINE,
+        InventoryItem.medium == medium)).all()
+    for other in mine:
+        if other.name.casefold() == item.name.casefold():
+            return other
+    twin = InventoryItem(medium=medium, count=1, is_active=False,
+                         **{f: getattr(item, f) for f in _SPLIT_COPIED})
+    session.add(twin)
+    session.flush()
+    return twin
+
+
 @router.post("/inventory/{item_id}/orders/{order_id}/check-in")
 async def check_in_order(item_id: int, order_id: int, request: Request,
                          session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
@@ -1195,29 +1238,44 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
     form = await request.form()
     raw = {"arrival_date": str(form.get("arrival_date") or "").strip()}
     for li in order.items:
-        raw[f"received_quantity_{li.id}"] = str(form.get(f"received_quantity_{li.id}") or "").strip()
-        raw[f"received_note_{li.id}"] = str(form.get(f"received_note_{li.id}") or "").strip()
+        for prefix in CHECKIN_LINE_FIELDS:
+            raw[f"{prefix}_{li.id}"] = str(form.get(f"{prefix}_{li.id}") or "").strip()
 
     errors: dict[str, str] = {}
     arrival_date = _parse_arrival_date(order.order_date, order.shipped_date, raw["arrival_date"], errors)
 
-    received: dict[int, tuple[int, str | None]] = {}
+    received: dict[int, dict] = {}
     for li in order.items:
         field = f"received_quantity_{li.id}"
         raw_qty = raw[field]
         try:
-            qty = int(raw_qty) if raw_qty else li.quantity
+            arrived = int(raw_qty) if raw_qty else li.quantity
         except ValueError:
             errors[field] = "Must be a whole number."
             continue
-        if not 0 <= qty <= li.quantity * 2:
+        if not 0 <= arrived <= li.quantity * 2:
             errors[field] = f"Must be between 0 and {li.quantity * 2} (double the {li.quantity} ordered)."
             continue
         note = raw[f"received_note_{li.id}"] or None
-        if qty > li.quantity and not note:
+        if arrived > li.quantity and not note:
             errors[f"received_note_{li.id}"] = f"Say why you received more than the {li.quantity} ordered."
             continue
-        received[li.id] = (qty, note)
+        damaged_field = f"damaged_quantity_{li.id}"
+        try:
+            damaged = int(raw[damaged_field]) if raw[damaged_field] else 0
+        except ValueError:
+            errors[damaged_field] = "Must be a whole number."
+            continue
+        if damaged < 0 or damaged > arrived:
+            errors[damaged_field] = f"More damaged than arrived: pick 0 to {arrived}."
+            continue
+        before = len(errors)
+        expiration = _parse_date(raw[f"expiration_date_{li.id}"], f"expiration_date_{li.id}", errors)
+        medium = _parse_line_medium(li, raw[f"medium_{li.id}"], f"medium_{li.id}", errors)
+        if len(errors) > before:
+            continue
+        received[li.id] = {"usable": arrived - damaged, "damaged": damaged, "note": note,
+                           "lot": raw[f"lot_number_{li.id}"] or None, "expiration": expiration, "medium": medium}
 
     if errors:
         item = _own_item(session, item_id, uid)
@@ -1232,9 +1290,16 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
 
     order.arrival_date = arrival_date
     for li in order.items:
-        qty, note = received[li.id]
-        li.received_quantity = qty
-        li.received_note = note
+        got = received[li.id]
+        li.received_quantity = got["usable"]
+        li.damaged_quantity = got["damaged"]
+        li.received_note = got["note"]
+        if got["lot"] is not None:
+            li.lot_number = got["lot"]
+        if got["expiration"] is not None:
+            li.expiration_date = got["expiration"]
+        if got["medium"] is not None:
+            li.inventory_item = _item_for_line_medium(session, li, got["medium"])
         supply_stock.sync(li)
     session.commit()
     back = f"/inventory/{item_id}"
@@ -1375,6 +1440,8 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
                 and received_quantity > line_values["quantity"] and not li.received_note):
             errors["received_quantity"] = "Over the ordered quantity needs a note: check the order in again to add one."
 
+    new_medium = _parse_line_medium(li, str((await request.form()).get("line_medium") or "").strip(), "line_medium", errors)
+
     new_coa = None
     if not errors and coa:
         try:
@@ -1403,8 +1470,11 @@ async def update_order(item_id: int, order_item_id: int, request: Request,
     if new_coa or remove_coa:
         uploads.delete_coa(li.coa_filename)
         li.coa_filename = new_coa
+    if new_medium is not None:
+        li.inventory_item = _item_for_line_medium(session, li, new_medium)
+        supply_stock.sync(li)
     session.commit()
-    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
+    return RedirectResponse(f"/inventory/{li.inventory_item_id}", status_code=303)
 
 
 @router.get("/inventory/{item_id}/orders/{order_item_id}/coa")
