@@ -1750,3 +1750,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* Check-in dialog: one boxed block per item in the order */
 .checkin-line { border: 1px solid var(--border, #3a3f4b); border-radius: 10px; padding: 10px 12px 12px; margin: 10px 0; min-width: 0; }
 .checkin-line legend { font-weight: 600; padding: 0 6px; }
+
+/* A short golden streak that runs along the body outline on the dashboard, round and round. */
+.body-trace { stroke: #f5c542; stroke-dasharray: 9 91; stroke-dashoffset: 0; pointer-events: none; filter: drop-shadow(0 0 3px rgba(245, 197, 66, 0.85)); animation: body-trace-run 9s linear infinite; }
+@keyframes body-trace-run { to { stroke-dashoffset: -100; } }

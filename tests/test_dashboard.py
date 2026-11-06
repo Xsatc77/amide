@@ -571,3 +571,10 @@ def test_shipment_orders_alternate_two_shades_of_yellow():
     css = (Path(__file__).resolve().parents[1] / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
     assert "tbody tr:nth-child(even) td.ship-vendor { background: #ca8a04; }" in css                       # the deeper tab on every second order
     assert ".dash-area-shipment .inv-table tbody tr:nth-child(even) td:not(.ship-vendor)" in css          # and a faint wash across its row
+
+
+def test_dashboard_body_outline_has_a_golden_trace_running_along_it(client, db):
+    t = client.get("/dashboard").text
+    assert 'class="body-trace"' in t and 'pathLength="100"' in t
+    css = client.get("/static/css/app.css").text
+    assert ".body-trace" in css and "body-trace-run" in css

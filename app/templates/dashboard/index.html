@@ -75,6 +75,7 @@
     <div class="silhouette-wrap dash-silhouette">
       <svg viewBox="80 0 312 440" class="body-silhouette" aria-label="Body measurement diagram">
         <path d="{{ body_panel.silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path class="body-trace" d="{{ body_panel.silhouette_shape.body_path }}" pathLength="100" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"/>
         {% for key, pt in (body_panel.silhouette or {}).items() %}
           {{ silhouette_point(key, pt, body_panel.silhouette_shape) }}
         {% endfor %}
