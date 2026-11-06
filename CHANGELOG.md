@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Inventory: "Start using" / "Stop using" on the item page.** A drops, pill or other non-powder item can be made the Active one with a single button on its page, instead of ticking Active inside Edit.
 - **Inventory: "Taken so far" can be corrected on drops, pills and the like.** An item that shows a negative Available because doses were counted against it (after its order lines were split, say) now lists Taken among its stock numbers, and Edit has a "Taken so far (units)" field to put the right number back.
 - **Dashboard: a golden glint travels along the body outline.** A short gold streak runs round the Body card's white outline without stopping (one lap every nine seconds), and holds still for anyone who has asked their device to reduce motion.
 - **Inventory: every order line is its own entry on the list.** Two bottles of B-12 drops and a kit of B-12 injections are three rows, one medicine per row, even when the name and medium match. A new order for something you already stock, or an order added from an item's page, creates its own item (copied from the first, nothing used yet, not active) instead of adding a line to the old one. Items that already held several order lines are split once on update: the earliest line stays on the original item with its use so far, its Active state and its protocol links, and each later line gets its own new item. Changing the Medium of an order at check-in or in Edit order now changes that order's item.

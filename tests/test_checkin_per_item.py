@@ -144,3 +144,16 @@ def test_taken_so_far_can_be_corrected_on_a_drops_item(client, db):
     assert r.status_code == 303
     with SessionLocal() as s:
         assert s.get(InventoryItem, iid).dosed_units == 0 and s.get(InventoryItem, iid).available_count == 10
+
+
+def test_a_drops_item_can_be_started_from_its_page(client, db):
+    uid = _uid(client)
+    with SessionLocal() as s:
+        it = InventoryItem(name="Drop Start", medium=Medium.DROPS, vial_size_mg=5.0, owner_id=uid)
+        s.add(it); s.commit(); iid = it.id
+    page = html.unescape(client.get(f"/inventory/{iid}").text)
+    assert "data-active-toggle" in page and ">Start using<" in page
+    assert client.post(f"/inventory/{iid}/active", data={"active": "1"}, follow_redirects=False).status_code == 303
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, iid).is_active
+    assert ">Stop using<" in html.unescape(client.get(f"/inventory/{iid}").text)

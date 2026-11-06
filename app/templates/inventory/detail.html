@@ -31,6 +31,9 @@
   </dl>
   {% if is_owner %}
   <button type="button" class="btn btn-ghost" data-action="edit-item">Edit</button>
+  {% if item.category.value == 'Medicine' and item.medium.value != 'Lyophilized' %}
+  <form method="post" action="/inventory/{{ item.id }}/active" class="inline" data-active-toggle><input type="hidden" name="active" value="{{ '' if item.is_active else '1' }}"><button type="submit" class="btn btn-ghost">{{ 'Stop using' if item.is_active else 'Start using' }}</button></form>
+  {% endif %}
   {% endif %}
 </section>
 
