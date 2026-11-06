@@ -98,6 +98,14 @@
         <input name="units_per_package" type="number" min="1" step="1" inputmode="numeric" value="{{ ef.units_per_package }}">
         {{ ierr('units_per_package') }}
       </label>
+      {% if item.category.value == 'Medicine' and item.medium and item.medium.value != 'Lyophilized' %}
+      <label {{ icls('dosed_units') }}>
+        <span>Taken so far (units)</span>
+        <input name="dosed_units" type="number" min="0" step="any" inputmode="decimal" value="{{ ef.dosed_units }}">
+        <small class="muted">How many units' worth of doses have come out of this item. Correct it here if the count is off.</small>
+        {{ ierr('dosed_units') }}
+      </label>
+      {% endif %}
       {% endif %}
 
       {% if item.category.value == 'Supply' %}
@@ -186,6 +194,7 @@
     <dt>Arrived</dt><dd>{{ arrived }}</dd>
     <dt>Reconstituted</dt><dd>{{ item.reconstituted_count }}</dd>
     <dt>Sold</dt><dd>{{ item.sold_count }}</dd>
+    {% if item.dosed_units %}<dt>Taken</dt><dd>{{ '%g' % (item.dosed_units | round(2)) }}</dd>{% endif %}
     <dt>Available</dt><dd id="inv-available-count"><strong>{{ item.available_count }}</strong></dd>
   </dl>
   {% endif %}

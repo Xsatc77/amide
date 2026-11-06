@@ -35,7 +35,7 @@ router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium",
-              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active", "fiber_g_per_dose")
+              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active", "fiber_g_per_dose", "dosed_units")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 RECON_FIELDS = ("supply_type", "bac_priority", "bac_volume")      # what a Supply item is; how BAC water is ranked and how big its bottle is
@@ -219,6 +219,15 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
                     errors["units_per_package"] = "Units per package must be greater than 0."
             except ValueError:
                 errors["units_per_package"] = "Units per package must be a whole number."
+        if raw["dosed_units"]:                                   # edit only: correct how many units' worth of doses were taken (drops, pills...)
+            try:
+                taken = float(raw["dosed_units"])
+                if taken < 0:
+                    errors["dosed_units"] = "Taken so far can't be below 0."
+                else:
+                    values["dosed_units"] = taken
+            except ValueError:
+                errors["dosed_units"] = "Taken so far must be a number."
         for field in required_fields_for(values["medium"]):
             if values.get(field) is None and field not in errors:
                 errors[field] = f"{field_label(field, values['medium'])} is required for {values['medium'].value}."
@@ -556,6 +565,7 @@ def _form_values(item: InventoryItem) -> dict:
         "purchasing_unit": item.purchasing_unit.value,
         "medium": item.medium.value if item.medium else "",
         "volume_ml": num(item.volume_ml),
+        "dosed_units": num(round(item.dosed_units or 0.0, 4)),
         "supply_type": item.supply_type.value if item.supply_type else "",
         "bac_priority": "" if item.bac_priority is None else str(item.bac_priority),
         "bac_volume": num(item.volume_ml) if item.category == Category.BAC_WATER else "",

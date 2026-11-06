@@ -126,3 +126,21 @@ def test_the_list_has_one_row_per_item_even_with_the_same_name_and_medium(client
     client.post(f"/inventory/{a}/orders", data={"quantity": "4", "order_date": "2026-08-05"})
     t = html.unescape(client.get("/inventory").text)
     assert t.count("Alpha Test</a>") >= 2
+
+
+def test_taken_so_far_can_be_corrected_on_a_drops_item(client, db):
+    uid = _uid(client)
+    with SessionLocal() as s:
+        it = InventoryItem(name="Drop Test", medium=Medium.DROPS, vial_size_mg=5.0, owner_id=uid, dosed_units=22.0)
+        s.add(it); s.flush()
+        o = Order(order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 2)); s.add(o); s.flush()
+        s.add(OrderItem(order_id=o.id, inventory_item_id=it.id, quantity=10, received_quantity=10)); s.commit()
+        iid = it.id
+        assert it.available_count == -12
+    page = html.unescape(client.get(f"/inventory/{iid}").text)
+    assert 'name="dosed_units"' in page and "<dt>Taken</dt>" in page
+    r = client.post(f"/inventory/{iid}", data={"name": "Drop Test", "category": "Medicine", "medium": "Drops", "vial_size_mg": "5",
+                                               "vial_size_unit": "mg", "dosed_units": "0"}, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        assert s.get(InventoryItem, iid).dosed_units == 0 and s.get(InventoryItem, iid).available_count == 10
