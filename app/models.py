@@ -453,6 +453,12 @@ class InventoryItem(Base):
         back_populates="inventory_item", order_by="Sale.sale_date.desc()", cascade="all, delete-orphan")
 
     @property
+    def lot_label(self) -> str:
+        """The lot of the latest arrived order line that has one, so two items of one name tell apart in a list."""
+        lots = [li.lot_number.strip() for li in self.order_items if li.lot_number and li.lot_number.strip()]
+        return lots[-1] if lots else ""
+
+    @property
     def available_count(self) -> int:
         """Medicine/BAC Water: received quantity (from checked-in orders only) minus
         reconstituted/sold. Supply: the plain count column. A short or damaged receipt caught at

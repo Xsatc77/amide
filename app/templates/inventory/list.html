@@ -681,7 +681,7 @@
         <select name="lines-__I__-item_id" data-line-item-select>
           <option value="">— Select —</option>
           {% for i in (medicine_items + bac_water_items + supply_items) | selectattr('owner_id', 'equalto', viewer_id) %}
-          <option value="{{ i.id }}" data-name="{{ i.name }}">{{ i.name }} ({{ i.category.value }})</option>
+          <option value="{{ i.id }}" data-name="{{ i.name }}">{{ i.name }} ({{ i.category.value }}{% if i.lot_label %}, lot {{ i.lot_label }}{% endif %})</option>
           {% endfor %}
         </select>
       </label>

@@ -157,3 +157,34 @@ def test_a_drops_item_can_be_started_from_its_page(client, db):
     with SessionLocal() as s:
         assert s.get(InventoryItem, iid).is_active
     assert ">Stop using<" in html.unescape(client.get(f"/inventory/{iid}").text)
+
+
+def test_switch_button_on_the_inventory_card_names_the_medicine_not_the_protocol(client, db):
+    from app.models import Peptide, Protocol, ProtocolItem
+    uid = _uid(client)
+    with SessionLocal() as s:
+        drops = InventoryItem(name="Vit Test", medium=Medium.DROPS, vial_size_mg=5.0, owner_id=uid, is_active=True)
+        liq = InventoryItem(name="Vit Test", medium=Medium.LIQUID, vial_size_mg=10.0, volume_ml=1.0, owner_id=uid)
+        pep = Peptide(name="Vit Test", owner_id=uid) if "owner_id" in Peptide.__table__.c else Peptide(name="Vit Test")
+        s.add_all([drops, liq, pep]); s.flush()
+        p = Protocol(name="Zzz Stack Name", owner_id=uid, start_date=date(2026, 1, 1))
+        s.add(p); s.flush()
+        s.add(ProtocolItem(protocol_id=p.id, peptide_id=pep.id, inventory_item_id=drops.id, dose=1, dose_unit="mg"))
+        s.commit()
+    t = html.unescape(client.get("/inventory").text)
+    assert "Switch Vit Test to Liquid" in t and "Switch Zzz Stack Name" not in t
+
+
+def test_dropdowns_tell_two_items_of_one_name_apart_by_lot(client, db):
+    uid = _uid(client)
+    with SessionLocal() as s:
+        a = InventoryItem(name="Lot Pick", medium=Medium.DROPS, vial_size_mg=5.0, owner_id=uid)
+        s.add(a); s.flush()
+        o = Order(order_date=date(2026, 8, 1), arrival_date=date(2026, 8, 3)); s.add(o); s.flush()
+        s.add(OrderItem(order_id=o.id, inventory_item_id=a.id, quantity=1, received_quantity=1, lot_number="LOT-XY7")); s.commit()
+        assert a.lot_label == "LOT-XY7"
+    from app.protocols import switching
+    with SessionLocal() as s:
+        items = [i for i in s.scalars(select(InventoryItem).where(InventoryItem.name == "Lot Pick"))]
+        assert "lot LOT-XY7" in switching._label(items[0])
+    assert "lot" in client.get("/static/js/protocol-builder.js").text.lower()

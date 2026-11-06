@@ -340,7 +340,7 @@
     };
 
     const inventoryOptions = [["", "— Not linked —"], ...data.inventory.map((inv) => [String(inv.id),
-      [inv.name, inv.vial_size_mg ? `${inv.vial_size_mg} mg` : null, inv.medium].filter(Boolean).join(" · ")])];
+      [inv.name, inv.vial_size_mg ? `${inv.vial_size_mg} mg` : null, inv.medium, inv.lot ? `Lot ${inv.lot}` : null].filter(Boolean).join(" · ")])];
 
     // A short course: each item says which days of the course it runs, from its own first day (to the end by default)
     const horizon = shortHorizon();

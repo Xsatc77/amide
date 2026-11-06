@@ -191,13 +191,13 @@ def test_the_button_is_on_the_active_card_of_a_drops_item_and_of_an_open_vial(cl
     drops = stock(me, Medium.DROPS, active=True)
     powder = stock(me, Medium.LYOPHILIZED, size=10.0, unit=DoseUnit.MG)
     pid, line = protocol(me, drops)
-    assert "Switchmed Protocol to Lyophilized" in active_section(client)
+    assert "Switchmed B12 to Lyophilized" in active_section(client)
     switch(client, pid, line, powder, route="subq", dose="1", dose_unit="mg")
     with SessionLocal() as s:
         s.add(ActiveVial(owner_id=me, inventory_item_id=powder, concentration_mg_ml=5.0, water_ml=2.0, dose_value=1.0, dose_unit=DoseUnit.MG, doses_total=5,
                          date_mixed=TODAY, discard_by=TODAY + timedelta(days=28), volume_remaining_ml=2.0))
         s.commit()
-    assert "Switchmed Protocol to Drops" in active_section(client)                                      # on the open vial's card, back the other way
+    assert "Switchmed B12 to Drops" in active_section(client)                                      # on the open vial's card, back the other way
     back = client.post(f"/protocols/{pid}/items/{line}/switch", data={"inventory_item_id": str(drops), "route": "oral", "dose": "5000", "dose_unit": "mcg",
                                                                       "next": "/inventory#active-vials"}, follow_redirects=False)
     assert back.headers["location"] == "/inventory#active-vials"

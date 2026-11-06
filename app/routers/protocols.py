@@ -279,7 +279,7 @@ def _builder_data(session: Session, state: dict, errors: dict, *, is_new: bool, 
         "peptides": [{"id": pp.id, "name": pp.name, "aliases": pp.aliases, "card_class": pp.card_class,
                       "card_number": pp.card_number, "library_specifications": pp.library_specifications} for pp in peptides],
         "inventory": [
-            {"id": i.id, "name": i.name, "vial_size_mg": i.vial_size_mg, "medium": i.medium.value if i.medium else None}
+            {"id": i.id, "name": i.name, "vial_size_mg": i.vial_size_mg, "medium": i.medium.value if i.medium else None, "lot": i.lot_label}
             for i in inventory
         ],
         "options": {

@@ -30,7 +30,8 @@ def _key(name: str) -> str:
 
 def _label(item) -> str:
     size = f" {item.vial_size_mg:g} {item.vial_size_unit.value}" if item.vial_size_mg else ""
-    return f"{item.medium.value}: {item.name}{size} ({item.available_count} left)"
+    lot = f", lot {item.lot_label}" if item.lot_label else ""
+    return f"{item.medium.value}: {item.name}{size}{lot} ({item.available_count} left)"
 
 
 def options(line, inventory) -> list[Option]:

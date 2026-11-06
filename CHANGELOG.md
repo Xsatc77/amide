@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Inventory: items of one name show their lot in dropdowns.** The protocol builder's item picker, the Switch option, the order item picker and the add-order item list now add the lot (for example "Lot ABC123") so two B-12 drops can be told apart.
+- **Inventory: the "Switch ... to ..." button names the medicine.** On an Active card it said "Switch <protocol name> to Liquid", so a B-12 line in a protocol called Retatrutide read as "Switch Retatrutide". It now says "Switch B-12 to Liquid".
 - **Inventory: "Start using" / "Stop using" on the item page.** A drops, pill or other non-powder item can be made the Active one with a single button on its page, instead of ticking Active inside Edit.
 - **Inventory: "Taken so far" can be corrected on drops, pills and the like.** An item that shows a negative Available because doses were counted against it (after its order lines were split, say) now lists Taken among its stock numbers, and Edit has a "Taken so far (units)" field to put the right number back.
 - **Dashboard: a golden glint travels along the body outline.** A short gold streak runs round the Body card's white outline without stopping (one lap every nine seconds), and holds still for anyone who has asked their device to reduce motion.

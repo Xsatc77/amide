@@ -76,7 +76,7 @@
       <label class="field"><span>Item</span>
         <select name="inventory_item_id" required>
           <option value="">Choose an item</option>
-          {% for it in my_items if it.id not in here %}<option value="{{ it.id }}">{{ it.name }}</option>{% endfor %}
+          {% for it in my_items if it.id not in here %}<option value="{{ it.id }}">{{ it.name }}{% if it.lot_label %} ({{ it.lot_label }}){% endif %}</option>{% endfor %}
         </select></label>
       <label class="field"><span>Quantity</span><input name="quantity" inputmode="numeric" required></label>
       {% if o.arrival_date %}<label class="field"><span>Received (leave blank for all)</span><input name="received_quantity" inputmode="numeric"></label>{% endif %}
