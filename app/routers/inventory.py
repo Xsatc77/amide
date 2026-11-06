@@ -739,7 +739,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
                                            i.first_arrival or far, i.name.casefold()))
     bac_water_items = [i for i in items if i.category == Category.BAC_WATER]
     supply_items = [i for i in items if i.category == Category.SUPPLY]
-    medicine_groups = group_items(medicine_items)                  # one row per peptide and medium, whatever the vial size
+    medicine_groups = group_items(medicine_items, per_item=True)   # one row per item, and every order line is its own item
     if sort == "use_first":
         medicine_groups = sort_use_first(medicine_groups)
     in_transit_lines = [
@@ -1076,6 +1076,8 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
             if item is None:
                 item = InventoryItem(**line["new_item_values"], owner_id=uid)
                 session.add(item)
+            else:
+                item = _item_for_new_line(session, item)
             li = OrderItem(**_in_vials(line["line_values"], item.purchasing_unit), coa_filename=coa_filenames[line["index"]])
             item.order_items.append(li)
             order.items.append(li)
@@ -1202,7 +1204,16 @@ def _parse_line_medium(li: OrderItem, raw_value: str, field: str, errors: dict) 
     except ValueError:
         errors[field] = "Pick an option from the list."
         return None
-    return None if medium == li.inventory_item.medium else medium
+    item = li.inventory_item
+    if medium == item.medium:
+        return None
+    if len(item.order_items) <= 1:                  # it changes this item, so the item must already have what that medium needs
+        missing = [f for f in sorted(required_fields_for(medium)) if getattr(item, f, None) in (None, "")]
+        if missing:
+            errors[field] = (f"{item.name} needs {', '.join(field_label(f, medium) for f in missing)} "
+                             f"before it can be {medium.value}: edit the item first.")
+            return None
+    return medium
 
 
 _SPLIT_COPIED = ("name", "vial_size_mg", "vial_size_unit", "purchasing_unit", "volume_ml", "units_per_package",
@@ -1210,22 +1221,31 @@ _SPLIT_COPIED = ("name", "vial_size_mg", "vial_size_unit", "purchasing_unit", "v
                  "fiber_g_per_dose", "owner_id")
 
 
-def _item_for_line_medium(session: Session, li: OrderItem, medium: Medium) -> InventoryItem:
-    """The item this line belongs to once it is `medium`: the person's own item of the same name in that medium,
-    or a new one copied from the line's current item (not active, nothing used yet). The original item and
-    its other lines are left exactly as they were."""
-    item = li.inventory_item
-    mine = session.scalars(select(InventoryItem).where(
-        InventoryItem.owner_id == item.owner_id, InventoryItem.category == Category.MEDICINE,
-        InventoryItem.medium == medium)).all()
-    for other in mine:
-        if other.name.casefold() == item.name.casefold():
-            return other
-    twin = InventoryItem(medium=medium, count=1, is_active=False,
+def _twin_item(session: Session, item: InventoryItem, medium: Medium | None = None) -> InventoryItem:
+    """A fresh copy of `item` for one more order line: same details, nothing used, not active. Every order line
+    is its own entry on the Inventory list (two bottles of B-12 drops and a kit of B-12 injections are three)."""
+    twin = InventoryItem(medium=medium or item.medium, count=1, is_active=False,
                          **{f: getattr(item, f) for f in _SPLIT_COPIED})
     session.add(twin)
     session.flush()
     return twin
+
+
+def _item_for_new_line(session: Session, item: InventoryItem) -> InventoryItem:
+    """The item a new order line goes on: this one while it has no line yet, otherwise a copy of it (supplies count by item, so they keep one)."""
+    if item.category == Category.SUPPLY or not item.order_items:
+        return item
+    return _twin_item(session, item)
+
+
+def _item_for_line_medium(session: Session, li: OrderItem, medium: Medium) -> InventoryItem:
+    """The item this line belongs to once it is `medium`. A line that is the only one on its item just changes that item's medium; one
+    from an older item that still holds several lines is split off to a copy so the others are left exactly as they were."""
+    item = li.inventory_item
+    if len(item.order_items) <= 1:
+        item.medium = medium
+        return item
+    return _twin_item(session, item, medium)
 
 
 @router.post("/inventory/{item_id}/orders/{order_id}/check-in")
@@ -1339,6 +1359,7 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
 
     order = Order(**header_values)
     session.add(order)
+    item = _item_for_new_line(session, item)
     li = OrderItem(**_in_vials(line_values, item.purchasing_unit), coa_filename=coa_filename)
     # item (unlike a freshly created item in create_item) is already persistent here, so the first
     # of these two appends that touches its not-yet-loaded order_items collection triggers a
@@ -1349,7 +1370,7 @@ async def add_order(item_id: int, request: Request, session: Session = Depends(g
         item.order_items.append(li)
         order.items.append(li)
     session.commit()
-    return RedirectResponse(f"/inventory/{item_id}", status_code=303)
+    return RedirectResponse(f"/inventory/{item.id}", status_code=303)
 
 
 @router.post("/inventory/{item_id}/sales")

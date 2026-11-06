@@ -538,8 +538,10 @@ def test_add_order_creates_a_second_order_and_updates_available_count(client, db
 
     with SessionLocal() as s:
         item = s.get(InventoryItem, item_id)
-        assert len(item.order_items) == 2
-        assert item.available_count == 10  # the new order hasn't arrived yet
+        assert len(item.order_items) == 1                      # the new order is its own item
+        assert item.available_count == 10
+        both = s.scalars(select(InventoryItem).where(InventoryItem.name == "Retatrutide")).all()
+        assert len(both) == 2 and sum(i.available_count for i in both) == 10  # the new order hasn't arrived yet
 
 
 def test_checking_in_an_order_line_via_raw_write_updates_available_count(client, db):
@@ -638,7 +640,7 @@ def test_tracking_site_must_be_http_url(client, db):
     assert r.status_code == 303
     with SessionLocal() as s:
         assert any(li.order.tracking_site == "https://track.example.com/x"
-                  for li in s.get(InventoryItem, item_id).order_items)
+                  for i in s.scalars(select(InventoryItem).where(InventoryItem.name == "Retatrutide")) for li in i.order_items)
 
 
 def test_add_order_requires_ownership(client, db):
@@ -1567,8 +1569,9 @@ def test_new_order_can_restock_an_existing_item_alongside_a_new_one(client, db):
     }, follow_redirects=False)
     assert r.status_code == 303
     with SessionLocal() as s:
-        item = s.get(InventoryItem, item_id)
-        assert len(item.order_items) == 2  # the original solo order, plus this new shared one
+        assert len(s.get(InventoryItem, item_id).order_items) == 1      # the original solo order stays on its item
+        items = s.scalars(select(InventoryItem).where(InventoryItem.name == "Retatrutide")).all()
+        assert len(items) == 2 and all(len(i.order_items) == 1 for i in items)    # this new shared order is its own item
 
 
 def test_new_order_requires_at_least_one_line(client, db):
@@ -1777,10 +1780,12 @@ def test_order_history_sorted_newest_first(client, db):
     with SessionLocal() as s:
         item_id = s.scalar(select(InventoryItem.id).where(InventoryItem.name == "Retatrutide"))
 
-    r = client.post(f"/inventory/{item_id}/orders", data={
-        "quantity": "5", "order_date": "2026-09-20", "tracking_number": "NEWEST1",
-    }, follow_redirects=False)
-    assert r.status_code == 303
+    with SessionLocal() as s:            # an item that still holds two lines (older data): newest first
+        from app.models import Order, OrderItem
+        o = Order(order_date=date(2026, 9, 20), tracking_number="NEWEST1")
+        s.add(o); s.flush()
+        s.add(OrderItem(order_id=o.id, inventory_item_id=item_id, quantity=5))
+        s.commit()
 
     t = html.unescape(client.get(f"/inventory/{item_id}").text)
     assert t.index("NEWEST1") < t.index("OLDEST1")

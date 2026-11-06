@@ -43,19 +43,17 @@ def page(client, path):
     return html.unescape(client.get(path).text)
 
 
-def test_the_list_has_one_row_for_the_peptide_and_a_direct_link_for_a_single_line(client, stock):
+def test_the_list_has_one_row_per_item_each_linking_to_its_own_page(client, stock):
     text = page(client, "/inventory")
-    assert len(re.findall(r">Groupr Peptide<", text)) == 1
-    assert f'href="/inventory/stock/{stock[0]}"' in text or f'href="/inventory/stock/{stock[1]}"' in text
-    assert f'href="/inventory/{stock[2]}"' in text and f'href="/inventory/stock/{stock[2]}"' not in text
+    assert len(re.findall(r">Groupr Peptide<", text)) == 2                  # two items of one name are two rows
+    assert f'href="/inventory/{stock[0]}"' in text and f'href="/inventory/{stock[1]}"' in text and f'href="/inventory/{stock[2]}"' in text
 
 
-def test_the_group_row_totals_the_stock_and_shows_the_earliest_expiry(client, stock):
-    row = re.search(r'<tr class="stock-group">(?:(?!</tr>).)*Groupr Peptide(?:(?!</tr>).)*</tr>', page(client, "/inventory"), re.S).group(0)
-    cells = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
-    assert cells[1] == "8"                                       # 3 received - 1 used on the 5 mg line, plus 2 + 4 on the 10 mg line
-    assert "5 mg" in cells[2] and "10 mg" in cells[2]
-    assert "09/01/2026" in " ".join(cells)                       # the earliest expiry across the lines
+def test_each_row_shows_its_own_stock_and_expiry(client, stock):
+    rows = re.findall(r"<tr>(?:(?!</tr>).)*>Groupr Peptide<(?:(?!</tr>).)*</tr>", page(client, "/inventory"), re.S)
+    cells = [[re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)] for r in rows]
+    assert sorted(c[1] for c in cells) == ["2", "6"]                         # 3 received - 1 used on the 5 mg item; 2 + 4 on the 10 mg item
+    assert "09/01/2026" in " ".join(" ".join(c) for c in cells)
 
 
 def test_the_breakdown_page_lists_every_line_and_lot_soonest_expiry_first(client, stock):

@@ -30,6 +30,12 @@ def stored(name):
         return item.purchasing_unit.value, [li.quantity for li in item.order_items], item.id
 
 
+def all_quantities(name):
+    """Each order line is its own item, so a restock adds an item: the quantities across every item of that name."""
+    with SessionLocal() as s:
+        return sorted(li.quantity for i in s.scalars(select(InventoryItem).where(InventoryItem.name == name)) for li in i.order_items)
+
+
 def test_one_kit_on_the_new_order_form_is_ten_vials(client):
     r = client.post("/inventory/orders", data=line(**{"lines-0-purchasing_unit": "kit_of_10"}), follow_redirects=False)
     assert r.status_code == 303
@@ -58,14 +64,14 @@ def test_restocking_a_kit_item_counts_kits_too(client):
     _, _, item_id = stored("Kitorder D")
     again = {"order_date": "2026-09-10", "lines-0-mode": "existing", "lines-0-item_id": str(item_id), "lines-0-quantity": "1", "lines-0-cost": "100.00"}
     assert client.post("/inventory/orders", data=again, follow_redirects=False).status_code == 303
-    assert stored("Kitorder D")[1] == [10, 10]
+    assert all_quantities("Kitorder D") == [10, 10]
 
 
 def test_the_item_page_order_form_counts_kits_as_well(client):
     client.post("/inventory/orders", data=line(**{"lines-0-name": "Kitorder E", "lines-0-purchasing_unit": "kit_of_10"}), follow_redirects=False)
     _, _, item_id = stored("Kitorder E")
     client.post(f"/inventory/{item_id}/orders", data={"quantity": "1", "order_date": "2026-09-11", "cost": "100.00"}, follow_redirects=False)
-    assert stored("Kitorder E")[1] == [10, 10]
+    assert all_quantities("Kitorder E") == [10, 10]
 
 
 def test_the_new_order_form_offers_sold_as(client):

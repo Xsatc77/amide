@@ -90,33 +90,39 @@ def _mine(client, a, b):
         s.commit()
 
 
-def test_a_different_medium_at_check_in_moves_only_that_line_to_its_own_item(client, db):
+def test_a_different_medium_at_check_in_changes_the_item_when_it_holds_only_that_line(client, db):
     a, b, o, la, lb = _two_line_order(db)
     _mine(client, a, b)
+    r = client.post(f"/inventory/{a}/orders/{o}/check-in", data={
+        "arrival_date": "2026-08-10", f"medium_{la}": "Liquid"})
+    assert r.status_code == 422                       # a liquid needs a volume the item does not have yet
+    with SessionLocal() as s:
+        s.get(InventoryItem, a).volume_ml = 10.0
+        s.commit()
     r = client.post(f"/inventory/{a}/orders/{o}/check-in", data={
         "arrival_date": "2026-08-10", f"medium_{la}": "Liquid"}, follow_redirects=False)
     assert r.status_code == 303
     with SessionLocal() as s:
-        moved = s.get(OrderItem, la).inventory_item
-        assert moved.id != a and moved.medium == Medium.LIQUID and moved.name == "Alpha Test"
-        assert s.get(InventoryItem, a).medium == Medium.LYOPHILIZED       # the original item is untouched
-        assert s.get(OrderItem, lb).inventory_item_id == b
+        assert s.get(InventoryItem, a).medium == Medium.LIQUID
+        assert s.get(InventoryItem, b).medium == Medium.LYOPHILIZED
 
 
-def test_editing_an_order_can_split_it_off_by_medium_and_reuses_the_split_item(client, db):
+def test_a_second_order_for_an_item_becomes_its_own_item(client, db):
     a, b, o, la, lb = _two_line_order(db)
     _mine(client, a, b)
-    base = {"quantity": "10", "order_date": "2026-08-01", "line_medium": "Liquid"}
-    r = client.post(f"/inventory/{a}/orders/{la}", data=base, follow_redirects=False)
+    r = client.post(f"/inventory/{a}/orders", data={"quantity": "4", "order_date": "2026-08-05"}, follow_redirects=False)
     assert r.status_code == 303
     with SessionLocal() as s:
-        first = s.get(OrderItem, la).inventory_item_id
-        assert first != a and r.headers["location"] == f"/inventory/{first}"
-        o2 = Order(order_date=date(2026, 8, 2))
-        s.add(o2); s.flush()
-        l2 = OrderItem(order_id=o2.id, inventory_item_id=a, quantity=3)
-        s.add(l2); s.commit()
-        l2_id = l2.id
-    client.post(f"/inventory/{a}/orders/{l2_id}", data={**base, "quantity": "3", "order_date": "2026-08-02"})
-    with SessionLocal() as s:
-        assert s.get(OrderItem, l2_id).inventory_item_id == first          # same medium, same item
+        items = s.scalars(select(InventoryItem).where(InventoryItem.name == "Alpha Test")).all()
+        assert len(items) == 2 and all(len(i.order_items) == 1 for i in items)
+        new = next(i for i in items if i.id != a)
+        assert r.headers["location"] == f"/inventory/{new.id}"
+        assert new.vial_size_mg == 5.0 and new.medium == Medium.LYOPHILIZED and not new.is_active
+
+
+def test_the_list_has_one_row_per_item_even_with_the_same_name_and_medium(client, db):
+    a, b, o, la, lb = _two_line_order(db)
+    _mine(client, a, b)
+    client.post(f"/inventory/{a}/orders", data={"quantity": "4", "order_date": "2026-08-05"})
+    t = html.unescape(client.get("/inventory").text)
+    assert t.count("Alpha Test</a>") >= 2
