@@ -219,9 +219,9 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
                     errors["units_per_package"] = "Units per package must be greater than 0."
             except ValueError:
                 errors["units_per_package"] = "Units per package must be a whole number."
-        if raw["dosed_units"]:                                   # edit only: correct how many units' worth of doses were taken (drops, pills...)
+        if raw.get("dosed_units"):                                   # edit only: correct how many units' worth of doses were taken (drops, pills...)
             try:
-                taken = float(raw["dosed_units"])
+                taken = float(raw.get("dosed_units"))
                 if taken < 0:
                     errors["dosed_units"] = "Taken so far can't be below 0."
                 else:
