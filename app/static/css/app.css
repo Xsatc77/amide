@@ -1769,7 +1769,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .water-fish svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .water-fish-a { top: 38%; animation: fish-swim-right 38s linear infinite; animation-delay: 4s; }
 .water-fish-b { top: 66%; animation: fish-swim-left 47s linear infinite; animation-delay: 19s; }
-.water-fish-b svg { transform: scaleX(-1); }
+.water-fish-a svg { transform: scaleX(-1); }            /* drawn facing left: the one swimming right is flipped, so each swims nose first */
 .water-fish .fish-body { fill: #ff8a3d; } .water-fish .fish-tail { fill: #ffb067; } .water-fish .fish-stripe { stroke: #fff; stroke-width: 2.4; opacity: .9; }
 .water-fish-b .fish-body { fill: #35c4d8; } .water-fish-b .fish-tail { fill: #7fe0ec; }
 .water-fish svg { animation: fish-wiggle .7s ease-in-out infinite alternate; }
@@ -1788,4 +1788,4 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* Charts with a travelling light (Apple Health, Weight): the script adds .chart-trace-line and pulses each point as the light reaches it. */
 .chart-trace-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 3px currentColor); }
 .chart-point.chart-energized { transform-box: fill-box; transform-origin: center; animation: node-energize 1.3s ease-out; }
-@keyframes node-energize { 0% { transform: scale(1); filter: none; } 18% { transform: scale(2.6); fill: #e6f4ff; filter: drop-shadow(0 0 7px #4aa8ff) drop-shadow(0 0 3px #fff); } 100% { transform: scale(1); filter: none; } }
+@keyframes node-energize { 0% { transform: scale(1); filter: none; } 18% { transform: scale(2.6); fill: #e6f4ff; filter: drop-shadow(0 0 7px var(--pulse, #4aa8ff)) drop-shadow(0 0 3px #fff); } 100% { transform: scale(1); filter: none; } }

@@ -648,7 +648,8 @@ def test_the_alert_triangle_and_expiry_words_flash_and_the_charts_carry_a_trace(
     assert "alert-flash-icon" in t
     assert 'src="/static/js/chart-trace.js' in t or "chart-trace.js" in t
     css = client.get("/static/css/app.css").text
-    for name in ("alert-flash-soon", "alert-flash-expired", "node-energize", "fish-swim-right"):
+    for name in ("alert-flash-soon", "alert-flash-expired", "node-energize", "fish-swim-right", ".water-fish-a svg { transform: scaleX(-1)"):
         assert name in css
     js = client.get("/static/js/chart-trace.js").text
     assert '"direction"' in js and "GREEN" in js and "RED" in js and "BLUE" in js
+    assert 'mode === "blue") { const c' not in js and '"--pulse"' in js        # the Weight chart's points pulse too, in the light's colour

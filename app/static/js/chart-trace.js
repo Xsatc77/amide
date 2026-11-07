@@ -1,6 +1,7 @@
 // Dashboard charts marked data-trace: a short light runs along the data line, a little slower than the body outline's.
 //   data-trace="blue"       Apple Health: a blue light; each data point pulses bright as the light reaches it, then fades.
-//   data-trace="direction"  Weight: one light, green while the line falls, red while it rises (the colour changes mid-run, the motion does not).
+//   data-trace="direction"  Weight: one light, green while the line falls, red while it rises (the colour changes mid-run, the motion does not);
+//                           its points pulse the same way, in the light's own colour.
 (() => {
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduce) return;
@@ -45,7 +46,7 @@
       trace.setAttribute("stroke-dasharray", `${Math.max(0, to - from)} ${total * 2}`);
       trace.setAttribute("stroke-dashoffset", String(-from));
       while (nextDot < dots.length && cum[nextDot] <= to) {      // the light reached this point: energize it
-        if (mode === "blue") { const c = dots[nextDot]; c.classList.remove("chart-energized"); void c.getBoundingClientRect(); c.classList.add("chart-energized"); }
+        { const c = dots[nextDot]; c.style.setProperty("--pulse", colour); c.classList.remove("chart-energized"); void c.getBoundingClientRect(); c.classList.add("chart-energized"); }
         nextDot++;
       }
       requestAnimationFrame(frame);

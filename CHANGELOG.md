@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Dashboard: the Weight chart's points pulse like the Apple Health ones.** Each point flares as the light reaches it, green where the line falls and red where it rises.
+- **Dashboard: the tropical fish swim nose first.** Both were facing the wrong way for the direction they swam.
 - **Dashboard: living cards.** The Water Goal pace now shows what it takes to reach the goal from the current level over the waking hours left (and "Goal reached for today" at 100%, when a tropical fish now and then swims through the water). The Alerts triangle flashes red with a glow, "expiring soon" flashes yellow and "expired" red. The Apple Health chart gets a slow blue light along its line that energizes each data point as it arrives, and the Weight chart gets one light that runs green where the line falls and red where it rises.
 - **Protocols: a price the maths cannot work out no longer costs you the whole Portfolio PDF.** The PDF is made anyway, with a note on the cost page, and the error is logged on the server.
 - **Dashboard: the Workouts This Week card has a light trace on today only.** Today's circle gets a light running round it: green while the workout is still to do, red on a day with nothing scheduled, white once it is done. Other days have no trace, and a day's light goes out when it passes. Days with no workout scheduled show a bold red X in place of the circle.
