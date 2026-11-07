@@ -88,7 +88,7 @@
 {% if show_inventory %}
 <section class="card dash-panel dash-area-alerts" aria-labelledby="alerts-heading" style="--panel-accent: var(--danger);">
   <div class="panel-head">
-    {{ panel_icon('alert') }}
+    <span class="alert-flash-icon">{{ panel_icon('alert') }}</span>
     <h2 id="alerts-heading" class="section-title"><a class="panel-title-link" href="/inventory">Alerts</a></h2>
   </div>
   {% macro new_peptide_line(n, can_ignore) %}
@@ -118,7 +118,7 @@
     <li><a href="/inventory">{{ a.name }}</a> — runs out in {{ a.days }} day{{ '' if a.days == 1 else 's' }} ({{ a.date | shortdate }}) at your current doses</li>
     {% endfor %}
     {% for a in alerts.expiration %}
-    <li><a href="/inventory#active-vials">{{ a.name }}</a> — {{ 'expired' if a.severity == 'expired' else 'expiring soon' }}</li>
+    <li><a href="/inventory#active-vials">{{ a.name }}</a> — <span class="alert-flash {{ 'alert-flash-expired' if a.severity == 'expired' else 'alert-flash-soon' }}">{{ 'expired' if a.severity == 'expired' else 'expiring soon' }}</span></li>
     {% endfor %}
     {% for a in alerts.shipment %}
     <li>Order from {{ a.vendor or 'vendor' }} — {{ a.days }} days, no arrival yet</li>
@@ -228,7 +228,9 @@
 {% if water %}
 <section class="card dash-panel water-panel dash-area-water" data-water-level="{{ water.level }}" aria-labelledby="dash-water-heading" style="--panel-accent: var(--info); --water-pct: {{ water.pct }}%;">
   <div class="water-fill">{% if water.pct %}<span class="water-wave" aria-hidden="true"></span><span class="water-wave" aria-hidden="true"></span>
-    <span class="water-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>{% endif %}</div>
+    <span class="water-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>{% endif %}
+    {% if water.pct >= 100 %}<span class="water-fish water-fish-a" aria-hidden="true"><svg viewBox="0 0 44 22"><path class="fish-tail" d="M30 11 L42 3 L39 11 L42 19 Z"/><ellipse class="fish-body" cx="18" cy="11" rx="14" ry="8"/><path class="fish-stripe" d="M14 3.5 Q17 11 14 18.5 M21 3.8 Q24 11 21 18.2" fill="none"/><circle cx="8" cy="9" r="1.7" fill="#fff"/><circle cx="7.6" cy="9" r=".8" fill="#111"/></svg></span>
+    <span class="water-fish water-fish-b" aria-hidden="true"><svg viewBox="0 0 44 22"><path class="fish-tail" d="M30 11 L42 3 L39 11 L42 19 Z"/><ellipse class="fish-body" cx="18" cy="11" rx="14" ry="8"/><path class="fish-stripe" d="M14 3.5 Q17 11 14 18.5 M21 3.8 Q24 11 21 18.2" fill="none"/><circle cx="8" cy="9" r="1.7" fill="#fff"/><circle cx="7.6" cy="9" r=".8" fill="#111"/></svg></span>{% endif %}</div>
   <div class="water-panel-content">
     <div class="panel-head">
       {{ panel_icon('droplet') }}
@@ -237,7 +239,11 @@
     {% if water.goal_oz %}
     <p class="panel-stat">{{ u.volume(water.goal_oz) }} <span class="panel-stat-sub small">{{ u.volume_label }}/day</span></p>
     <p class="muted panel-stat-sub">{{ '%g'|format(u.volume(water.consumed_oz)) }} {{ u.volume_label }} logged today ({{ water.pct }}%)</p>
-    <p class="muted panel-stat-sub">about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr</p>
+    {% if water.pace.done %}
+    <p class="muted panel-stat-sub water-pace">Goal reached for today.</p>
+    {% else %}
+    <p class="muted panel-stat-sub water-pace">to reach the goal from here: about {{ '%.2f'|format(water.pace.cups_per_hour) }} cups/hr or {{ '%.2f'|format(water.pace.bottles_per_hour) }} bottles/hr over the next {{ '%g'|format(water.pace.hours_left | round(1)) }} hours</p>
+    {% endif %}
     {% else %}
     <p class="panel-stat">{{ '%g'|format(u.volume(water.consumed_oz)) }} <span class="panel-stat-sub small">{{ u.volume_label }} logged today</span></p>
     <p class="muted panel-stat-sub">Log a <a href="/measurements?tab=measurements">weigh-in</a> to get a daily goal.</p>
@@ -319,7 +325,7 @@
 {% if body_panel %}
 <section class="dash-chart-slot dash-area-weight" aria-labelledby="weight-chart-heading">
   {% if body_panel.chart %}
-  {{ line_chart(body_panel.chart, 'Weight (' ~ u.weight_label ~ ')', 'currentColor', true, ribbon=body_panel.ribbon) }}
+  {{ line_chart(body_panel.chart, 'Weight (' ~ u.weight_label ~ ')', 'currentColor', true, ribbon=body_panel.ribbon, trace='direction') }}
   {% else %}
   <div class="card"><h3 id="weight-chart-heading">Weight ({{ u.weight_label }})</h3><p class="muted">No weight logged yet.</p></div>
   {% endif %}
@@ -377,7 +383,7 @@
       {% else %}<p class="muted">Nothing from today yet.</p>{% endif %}
       <p><a class="btn" href="/measurements?tab=apple">Open the Apple tab</a> <a class="btn btn-ghost" href="/settings#integrations">Settings</a></p>
     </div>
-    {% if apple_card.chart %}<div id="apple-chart-slot">{{ line_chart(apple_card.chart, 'Walking And Running Distance' ~ (' (' ~ apple_card.chart_unit ~ ')' if apple_card.chart_unit else ''), unit=apple_card.chart_unit) }}</div>{% endif %}
+    {% if apple_card.chart %}<div id="apple-chart-slot">{{ line_chart(apple_card.chart, 'Walking And Running Distance' ~ (' (' ~ apple_card.chart_unit ~ ')' if apple_card.chart_unit else ''), unit=apple_card.chart_unit, trace='blue') }}</div>{% endif %}
   </div>
   {% elif apple_card.state == 'waiting' %}
   <p class="muted">Your token is ready, but nothing has arrived from the phone yet. Run Manual Export in Health Auto Export to test.</p>
@@ -394,4 +400,5 @@
 
 {% block scripts %}
 <script src="{{ static_url('js/dashboard.js') }}" defer></script>
+<script src="{{ static_url('js/chart-trace.js') }}" defer></script>
 {% endblock %}

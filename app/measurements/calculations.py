@@ -67,6 +67,16 @@ def water_pace(goal_oz: int, awake_hours: int = 16) -> dict:
     }
 
 
+def water_pace_left(goal_oz: float, consumed_oz: float, hour: float, awake_until: int = 22) -> dict:
+    """What it takes to reach the goal from the CURRENT level: the ounces still to drink over the waking hours that are left today
+    (the day's drinking window ends at `awake_until`; the last hour is never counted as less than one so the figure stays sane late at night)."""
+    remaining = max(0.0, goal_oz - consumed_oz)
+    hours_left = min(16.0, max(1.0, awake_until - hour))
+    oz_per_hour = remaining / hours_left
+    return {"done": remaining <= 0, "remaining_oz": remaining, "hours_left": hours_left, "oz_per_hour": oz_per_hour,
+            "cups_per_hour": oz_per_hour / 8, "bottles_per_hour": oz_per_hour / 16.9}
+
+
 def bmi(weight_lbs: float, height_in: float | None) -> float | None:
     """Returns None when height is missing or non-positive -- there is no valid BMI without a
     real height, never divide by zero/negative and crash the caller."""

@@ -1763,3 +1763,29 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* A short golden streak that runs along the body outline on the dashboard, round and round. */
 .body-trace { stroke: #f5c542; stroke-dasharray: 9 91; stroke-dashoffset: 0; pointer-events: none; filter: drop-shadow(0 0 3px rgba(245, 197, 66, 0.85)); animation: body-trace-run 9s linear infinite; }
 @keyframes body-trace-run { to { stroke-dashoffset: -100; } }
+
+/* Water card at 100%: now and then a tropical fish swims through the water (one way, then the other). */
+.water-fish { position: absolute; width: 44px; height: 22px; left: -60px; pointer-events: none; opacity: 0; z-index: 1; }
+.water-fish svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.water-fish-a { top: 38%; animation: fish-swim-right 38s linear infinite; animation-delay: 4s; }
+.water-fish-b { top: 66%; animation: fish-swim-left 47s linear infinite; animation-delay: 19s; }
+.water-fish-b svg { transform: scaleX(-1); }
+.water-fish .fish-body { fill: #ff8a3d; } .water-fish .fish-tail { fill: #ffb067; } .water-fish .fish-stripe { stroke: #fff; stroke-width: 2.4; opacity: .9; }
+.water-fish-b .fish-body { fill: #35c4d8; } .water-fish-b .fish-tail { fill: #7fe0ec; }
+.water-fish svg { animation: fish-wiggle .7s ease-in-out infinite alternate; }
+@keyframes fish-swim-right { 0% { left: -60px; opacity: 0; } 3% { opacity: 1; } 20% { opacity: 1; } 24% { left: calc(100% + 20px); opacity: 0; } 100% { left: calc(100% + 20px); opacity: 0; } }
+@keyframes fish-swim-left { 0% { left: calc(100% + 20px); opacity: 0; } 3% { opacity: 1; } 20% { opacity: 1; } 24% { left: -60px; opacity: 0; } 100% { left: -60px; opacity: 0; } }
+@keyframes fish-wiggle { from { translate: 0 -2px; } to { translate: 0 2px; } }
+
+/* Alerts card: the triangle flashes red with a glow; "expiring soon" flashes yellow, "expired" red. */
+.alert-flash-icon { display: inline-flex; color: #ef4444; animation: alert-glow-red 1.4s ease-in-out infinite; }
+.alert-flash { font-weight: 700; animation-duration: 1.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.alert-flash-soon { color: #facc15; animation-name: alert-glow-yellow; }
+.alert-flash-expired { color: #ef4444; animation-name: alert-glow-red; }
+@keyframes alert-glow-red { 0%, 100% { opacity: .55; filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0)); } 50% { opacity: 1; filter: drop-shadow(0 0 6px rgba(239, 68, 68, .95)); } }
+@keyframes alert-glow-yellow { 0%, 100% { opacity: .55; text-shadow: none; } 50% { opacity: 1; text-shadow: 0 0 8px rgba(250, 204, 21, .95); } }
+
+/* Charts with a travelling light (Apple Health, Weight): the script adds .chart-trace-line and pulses each point as the light reaches it. */
+.chart-trace-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 3px currentColor); }
+.chart-point.chart-energized { transform-box: fill-box; transform-origin: center; animation: node-energize 1.3s ease-out; }
+@keyframes node-energize { 0% { transform: scale(1); filter: none; } 18% { transform: scale(2.6); fill: #e6f4ff; filter: drop-shadow(0 0 7px #4aa8ff) drop-shadow(0 0 3px #fff); } 100% { transform: scale(1); filter: none; } }

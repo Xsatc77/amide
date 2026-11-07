@@ -7,12 +7,12 @@
 {# `whole`: show a whole number (a range end, a point's value) without its ".0" (the Apple tab asks for it; every other chart keeps its old output) #}
 {% macro _range_end(v, whole) %}{{ v|int if whole and v == v|int else v | num }}{% endmacro %}
 
-{% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false, unit='', ribbon=none) %}
+{% macro line_chart(chart, label, stroke='currentColor', change=false, whole=false, unit='', ribbon=none, trace=none) %}
 {% if chart %}
 <div class="card{{ ' has-ribbon' if ribbon }}">
   {% if ribbon %}<div class="weight-ribbon {{ ribbon.cls }}" title="{{ ribbon.title }}">{{ ribbon.text }}</div>{% endif %}
   <h3>{{ label | titled }}</h3>
-  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time">
+  <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="measurement-chart" role="img" aria-label="{{ label }} over time"{% if trace %} data-trace="{{ trace }}"{% endif %}>
     {{ y_grid(chart.y_axis) }}
     {% if chart.band %}<polygon points="{{ chart.band }}" fill="{{ stroke }}" opacity="0.12"></polygon>{% endif %}
     {% for m in chart.markers or () %}<line class="dose-marker" x1="{{ m.x }}" x2="{{ m.x }}" y1="12" y2="{{ chart.height - 16 }}"></line>{% endfor %}

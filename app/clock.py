@@ -34,6 +34,12 @@ def local_date(moment: datetime, zone_name: str | None) -> date:
         return moment.astimezone(timezone.utc).date()
 
 
+def now() -> datetime:
+    """The person's own wall-clock time (the server's when no zone is known)."""
+    zone = _zone.get()
+    return datetime.now(zone) if zone else datetime.now()
+
+
 def today() -> date:
     zone = _zone.get()
     return datetime.now(zone).date() if zone else date.today()

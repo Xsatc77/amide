@@ -612,3 +612,43 @@ def test_only_today_on_the_workout_card_has_a_light_trace_and_its_colour_follows
         assert t.count('class="wk-x"') == (7 if not scheduled else 0)   # every rest day is a bold red X
     finally:
         _drop_week(plan_id, day_id)
+
+
+def test_water_pace_is_what_it_takes_from_the_current_level():
+    from app.measurements.calculations import water_pace_left
+    p = water_pace_left(100, 40, 14.0)               # 60 oz still to drink, 8 waking hours left (until 10 PM)
+    assert p["hours_left"] == 8 and p["oz_per_hour"] == pytest.approx(7.5) and p["cups_per_hour"] == pytest.approx(7.5 / 8)
+    assert not p["done"]
+    assert water_pace_left(100, 100, 14.0)["done"] and water_pace_left(100, 130, 14.0)["done"]
+    assert water_pace_left(100, 0, 23.5)["hours_left"] == 1          # late at night the figure stays sane
+    assert water_pace_left(100, 0, 3.0)["hours_left"] == 16
+
+
+def test_the_water_card_shows_fish_only_at_one_hundred_percent_and_the_pace_from_here(client, db):
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        s.add(BodyMeasurement(owner_id=uid, measured_at=date.today(), weight_lbs=200)); s.commit()
+    try:
+        t = client.get("/dashboard").text
+        assert "water-fish" not in t.split("</style>")[-1] and "to reach the goal from here" in t
+        client.post("/dashboard/water/log", data={"ounces": "100"})
+        t = client.get("/dashboard").text
+        assert 'class="water-fish water-fish-a"' in t and "Goal reached for today" in t
+    finally:
+        with SessionLocal() as s:
+            from app.models import WaterLog
+            s.query(WaterLog).filter_by(owner_id=uid).delete()
+            s.query(BodyMeasurement).filter_by(owner_id=uid).delete()
+            s.commit()
+
+
+def test_the_alert_triangle_and_expiry_words_flash_and_the_charts_carry_a_trace(client, db):
+    t = client.get("/dashboard").text
+    assert "alert-flash-icon" in t
+    assert 'src="/static/js/chart-trace.js' in t or "chart-trace.js" in t
+    css = client.get("/static/css/app.css").text
+    for name in ("alert-flash-soon", "alert-flash-expired", "node-energize", "fish-swim-right"):
+        assert name in css
+    js = client.get("/static/js/chart-trace.js").text
+    assert '"direction"' in js and "GREEN" in js and "RED" in js and "BLUE" in js

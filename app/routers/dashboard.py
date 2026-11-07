@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app import compliance, units
+from app import clock, compliance, units
 from app.alerts import expiration_alerts, low_stock_alerts, shipment_alerts
 from app.ingest.alerts import dismiss as dismiss_alert, group_gone_alerts, new_list_alerts
 from app.inventory import calibrate, unit_use
@@ -222,7 +222,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
             DEFAULT_RANGE, RANGE_DAYS, _chart, _field_current_and_delta, _silhouette_points, weight_changes,
             _silhouette_shape, display_entries,
         )
-        from app.measurements.calculations import water_goal_oz, water_pace, weight_since_start
+        from app.measurements.calculations import water_goal_oz, water_pace_left, weight_since_start
         entries = session.scalars(
             select(BodyMeasurement).where(BodyMeasurement.owner_id == effective_uid)
             .order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())).all()
@@ -233,7 +233,8 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
                 WaterLog.owner_id == effective_uid, WaterLog.logged_at == today)) or 0
         if latest_weight is not None:
             goal_oz = water_goal_oz(latest_weight, viewer.water_goal_oz if viewer else None)
-            water = {"goal_oz": goal_oz, "pace": water_pace(goal_oz), "weight_as_of": weight_as_of,
+            _now = clock.now()
+            water = {"goal_oz": goal_oz, "pace": water_pace_left(goal_oz, consumed_oz, _now.hour + _now.minute / 60), "weight_as_of": weight_as_of,
                     "consumed_oz": consumed_oz,
                     "pct": min(100, round(100 * consumed_oz / goal_oz)) if goal_oz else 0,
                     "level": "full" if goal_oz and consumed_oz >= goal_oz * compliance.WATER_SHARE - 1e-9 else "half" if goal_oz and consumed_oz * 2 >= goal_oz else "low"}
