@@ -133,6 +133,9 @@ def _cost_pages(prices, protocol, today, st, width) -> list:
     out = [PageBreak(), _p("Cost Breakdown", st["title"]),
            _p(f"{protocol['name']} - prices from each vendor's newest price list, as of {_us(today)}", st["small"]),
            Spacer(1, 4), HRFlowable(width="100%", color=_RULE, thickness=0.6)]
+    if prices["status"] == "error":
+        out += [Spacer(1, 8), _p("The prices for this protocol could not be worked out this time, so the cost page is left empty. The rest of the portfolio is complete. Check the Shopping plan for this protocol, or try again later.", st["body"])]
+        return out
     if prices["status"] == "no_end_date":
         out += [Spacer(1, 8), _p("This protocol has no end date, so there is no course total to price and no BAC water to estimate. Give it an end date and make the portfolio again.", st["body"])]
         return out

@@ -154,3 +154,14 @@ def test_a_protocol_that_has_not_started_says_when_it_starts_not_day_none(client
         s.commit()
     t = client.get("/protocols").text
     assert "Day None" not in t and "Starts " in t
+
+
+def test_a_pricing_failure_still_gives_a_pdf_with_a_note_on_the_cost_page(client, db, me, monkeypatch):
+    import app.routers.protocol_portfolio as mod
+
+    def boom(*a, **k):
+        raise RuntimeError("price maths broke")
+    monkeypatch.setattr(mod, "portfolio_prices", boom)
+    pid = peptide("Brokezine")
+    response = client.get(f"/protocols/{protocol(me, [pid])}/portfolio.pdf")
+    assert "could not be worked out" in pdf_text(response)

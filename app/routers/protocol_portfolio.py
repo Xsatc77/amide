@@ -1,5 +1,6 @@
 """Protocol Portfolio: one PDF with the protocol, each of its peptides' Library pages (without the dosing chart) and a cost breakdown."""
 
+import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +22,7 @@ from app.routers.protocols import print_items
 from app.shopping.build import saved_shipping
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 @router.get("/protocols/{protocol_id}/portfolio.pdf")
@@ -47,7 +49,13 @@ def protocol_portfolio(protocol_id: int, session: Session = Depends(get_session)
     status = protocol_status(protocol, today)
     summary = {"name": protocol.name, "status": status.label, "start": protocol.start_date, "end": protocol.end_date, "notes": protocol.notes,
                "goals": [g.label for g in GOALS if g.slug in protocol.goal_slugs], "items": print_items(protocol)}
-    pdf = build_portfolio(summary, pages, portfolio_prices(session, protocol, uid, saved_shipping(session.get(User, uid))), today)
+    shipping = saved_shipping(session.get(User, uid))
+    try:
+        prices = portfolio_prices(session, protocol, uid, shipping)
+    except Exception:                                                 # a price the maths cannot work out must not cost the person the whole PDF
+        log.exception("Protocol Portfolio: pricing failed for protocol %s", protocol_id)
+        prices = {"status": "error", "shipping": shipping, "peptides": [], "unpriced": [], "bac": None}
+    pdf = build_portfolio(summary, pages, prices, today)
     slug = re.sub(r"[^a-z0-9]+", "-", protocol.name.lower()).strip("-") or "protocol"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="protocol-portfolio-{slug}.pdf"',
                                                                 "Cache-Control": "no-store"})
