@@ -1,5 +1,6 @@
 """The shopping planner: the cheapest way to cover a protocol's needs from vendor price lists, with at most two vendors."""
 
+import zlib
 from datetime import date
 
 import pytest
@@ -11,7 +12,7 @@ SHIP = {"china": 60.0, "us": 30.0}
 
 
 def offer(vendor, need_key, size, pack_size, pack_price, warehouse="china", vendor_id=None, pack_type="kit"):
-    return Offer(vendor_id=vendor_id if vendor_id is not None else hash(vendor) % 10_000, vendor_name=vendor, warehouse=warehouse, list_date=DAY,
+    return Offer(vendor_id=vendor_id if vendor_id is not None else zlib.crc32(vendor.encode()) % 10_000, vendor_name=vendor, warehouse=warehouse, list_date=DAY,
                  need_key=need_key, size=size, size_label=f"{size:g} mg", pack_size=pack_size, pack_price=pack_price, pack_type=pack_type)
 
 

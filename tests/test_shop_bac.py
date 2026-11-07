@@ -1,5 +1,6 @@
 """BAC water in the shopping plan: found on the price lists by name, ranked by the user's brand order, added to an order or bought alone."""
 
+import zlib
 import pytest
 
 from app.shopping.bac import BacOffer, is_bac_water, plan_bac, rank_for
@@ -8,7 +9,7 @@ SHIP = {"china": 60.0, "us": 30.0}
 
 
 def offer(vendor="Acme", warehouse="us", product="Bacteriostatic Water", size=30.0, pack=1, price=18.0, rank=1, vendor_id=None):
-    return BacOffer(vendor_id=vendor_id if vendor_id is not None else hash(vendor) % 10_000, vendor_name=vendor, warehouse=warehouse, product=product,
+    return BacOffer(vendor_id=vendor_id if vendor_id is not None else zlib.crc32(vendor.encode()) % 10_000, vendor_name=vendor, warehouse=warehouse, product=product,
                     size_ml=size, pack_size=pack, pack_price=price, rank=rank)
 
 
