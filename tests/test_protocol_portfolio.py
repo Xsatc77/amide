@@ -138,3 +138,8 @@ def test_a_peptide_with_no_price_at_all_assumes_five_mg_vials_and_says_so(client
     text = pdf_text(client.get(f"/protocols/{protocol(me, [pid], days=40)}/portfolio.pdf"))     # 10 mg for the course: 3 assumed 5 mg vials
     assert "This course needs no BAC water" not in text
     assert "Portunpriced: the water assumes 5 mg vials" in text.replace("\n", " ")
+
+
+def test_the_button_says_why_the_pdf_failed(client, db, me):
+    js = client.get("/static/js/protocol-portfolio.js").text
+    assert "Server error" in js and "no answer from the server" in js
