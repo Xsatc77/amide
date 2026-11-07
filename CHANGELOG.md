@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Dashboard: the Workouts This Week card has a light trace on today only.** Today's circle gets a light running round it: green while the workout is still to do, red on a day with nothing scheduled, white once it is done. Other days have no trace, and a day's light goes out when it passes. Days with no workout scheduled show a bold red X in place of the circle.
 - **Protocols: a protocol that has not started no longer says "Day None".** Its card says "Starts" and the start date until the first day arrives.
 - **Protocols: the Portfolio button says why it failed.** "Could Not Make The PDF" now adds the server's error code, or "no answer from the server" when the connection dropped, so a failure on a phone can be traced.
 - **Inventory: items of one name show their lot in dropdowns.** The protocol builder's item picker, the Switch option, the order item picker and the add-order item list now add the lot (for example "Lot ABC123") so two B-12 drops can be told apart.

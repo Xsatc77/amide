@@ -1,3 +1,4 @@
+import pytest
 import re
 import html
 from datetime import date, datetime, timedelta, timezone
@@ -578,3 +579,36 @@ def test_dashboard_body_outline_has_a_golden_trace_running_along_it(client, db):
     assert 'class="body-trace"' in t and 'pathLength="100"' in t
     css = client.get("/static/css/app.css").text
     assert ".body-trace" in css and "body-trace-run" in css
+
+
+def _week_with_plan(me, weekdays, logged_today):
+    from app.models import WorkoutLog, WorkoutPlan, WorkoutPlanDay, WorkoutSource
+    with SessionLocal() as s:
+        plan = WorkoutPlan(owner_id=me, name="Trace Plan", source=WorkoutSource.MANUAL, started_on=date.today() - timedelta(days=30))
+        s.add(plan); s.flush()
+        day = WorkoutPlanDay(plan_id=plan.id, position=0, label="Full body", weekdays=weekdays)
+        s.add(day); s.flush()
+        if logged_today:
+            s.add(WorkoutLog(owner_id=me, plan_day_id=day.id, log_date=date.today()))
+        s.commit()
+        return plan.id, day.id
+
+
+def _drop_week(plan_id, day_id):
+    from app.models import WorkoutLog, WorkoutPlan, WorkoutPlanDay
+    with SessionLocal() as s:
+        s.query(WorkoutLog).filter_by(plan_day_id=day_id).delete()
+        s.query(WorkoutPlanDay).filter_by(plan_id=plan_id).delete()
+        s.query(WorkoutPlan).filter_by(id=plan_id).delete()
+        s.commit()
+
+
+@pytest.mark.parametrize("scheduled,logged,trace", [("MTWRFSU", False, "wk-trace-go"), ("MTWRFSU", True, "wk-trace-done"), ("", False, "wk-trace-rest")])
+def test_only_today_on_the_workout_card_has_a_light_trace_and_its_colour_follows_the_day(client, db, me, scheduled, logged, trace):
+    plan_id, day_id = _week_with_plan(me, scheduled, logged)
+    try:
+        t = client.get("/dashboard").text
+        assert t.count('class="wk-trace ') == 1 and f"wk-trace {trace}" in t
+        assert t.count('class="wk-x"') == (7 if not scheduled else 0)   # every rest day is a bold red X
+    finally:
+        _drop_week(plan_id, day_id)

@@ -616,12 +616,21 @@ section + section { margin-top: 36px; }
 .workout-week-meter i { display: block; height: 100%; background: var(--tier-beginner); border-radius: 4px; }
 .workout-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .workout-day-label { font-size: 0.7rem; color: var(--muted); }
-.workout-day-dot { width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; }
-.workout-day-rest { border: 2px dashed var(--border); color: var(--muted); }
-.workout-day-upcoming { border: 2px solid var(--border); }
+.workout-day-dot { position: relative; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; }
+.workout-day-rest { color: #ef4444; }
+.workout-day-upcoming { box-shadow: inset 0 0 0 2px var(--border); }
 .workout-day-done { background: var(--tier-beginner); }
 .workout-day-missed { background: var(--danger); }
-.workout-day-today .workout-day-dot { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
+/* A rest day is a bold red X; only today carries a light running round its circle: green for a workout still to do, red on a rest day, white once it is done. */
+.wk-x { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.wk-ring { position: absolute; inset: -5px; width: 28px; height: 28px; overflow: visible; pointer-events: none; transform: rotate(-90deg); }
+.wk-ring circle { fill: none; stroke-width: 2; }
+.wk-ring-base { stroke: var(--border); }
+.wk-trace { stroke-dasharray: 22 78; stroke-dashoffset: 0; stroke-linecap: round; animation: wk-trace-run 1.6s linear infinite; }
+.wk-trace-go { stroke: #3ddc6f; filter: drop-shadow(0 0 3px rgba(61, 220, 111, 0.9)); }
+.wk-trace-rest { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.9)); }
+.wk-trace-done { stroke: #ffffff; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.85)); }
+@keyframes wk-trace-run { to { stroke-dashoffset: -100; } }
 .workout-day-today .workout-day-label { color: var(--text); font-weight: 600; }
 .measurement-chart { display: block; width: 100%; height: auto; color: var(--accent-fg, var(--accent)); }
 .measurement-chart .grid { stroke: var(--border); stroke-width: 1; }
