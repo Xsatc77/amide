@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Shopping plan and Portfolio: a vendor with no vendor record no longer crashes the price comparison.** When a price list's vendor is not linked to a vendor page and another vendor tied it on price, the plan compared a number to a name and failed; that was why the Protocol Portfolio could not be made.
 - **Dashboard: the Weight chart's points pulse like the Apple Health ones.** Each point flares as the light reaches it, green where the line falls and red where it rises.
 - **Dashboard: the tropical fish swim nose first.** Both were facing the wrong way for the direction they swam.
 - **Dashboard: living cards.** The Water Goal pace now shows what it takes to reach the goal from the current level over the waking hours left (and "Goal reached for today" at 100%, when a tropical fish now and then swims through the water). The Alerts triangle flashes red with a glow, "expiring soon" flashes yellow and "expired" red. The Apple Health chart gets a slow blue light along its line that energizes each data point as it arrives, and the Weight chart gets one light that runs green where the line falls and red where it rises.

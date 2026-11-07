@@ -165,7 +165,7 @@ def plan_protocol(needs: list[Need], offers: list[Offer], shipping: dict) -> Res
         for n in shoppable:
             options = [per_source[k][n.key] for k in (a, b) if n.key in per_source[k]]
             if options:
-                chosen[n.key] = min(options, key=lambda l: (l.cost, _source_key(l.offer)))
+                chosen[n.key] = min(options, key=lambda l: (l.cost, str(_source_key(l.offer))))      # str: a vendor with no id is keyed by name, one with an id by number, and those do not compare
         sides = [[l for l in chosen.values() if _source_key(l.offer) == k] for k in (a, b)]
         if not all(sides):
             return None

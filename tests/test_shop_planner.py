@@ -1,5 +1,6 @@
 """The shopping planner: the cheapest way to cover a protocol's needs from vendor price lists, with at most two vendors."""
 
+import dataclasses
 import zlib
 from datetime import date
 
@@ -190,3 +191,13 @@ def test_top_lines_gives_each_sources_best_line_cheapest_first_and_at_most_n():
     assert [(l.offer.vendor_name, l.cost) for l in best] == [("D", 90), ("B", 120), ("C", 200)]            # A's own best (250) is not listed twice, and it is fourth
     assert [l.offer.vendor_name for l in top_lines(need, offers, 5)] == ["D", "B", "C", "A"]
     assert top_lines(need, [], 3) == []
+
+
+def test_a_vendor_without_an_id_and_one_with_an_id_can_tie_on_price_without_crashing():
+    """A price list whose vendor is not linked to a vendor record has no id, only a name; an equal-cost tie against a linked vendor compared the two."""
+    needs = [need("a", 10), need("b", 10), need("c", 10)]
+    unlinked = lambda key: dataclasses.replace(offer("Unlinked", key, 10, 10, 100), vendor_id=None)
+    offers = [offer("Linked", "a", 10, 10, 100, vendor_id=7), offer("Linked", "b", 10, 10, 100, vendor_id=7),
+              unlinked("a"), unlinked("b"), offer("Other", "c", 10, 10, 100, vendor_id=9)]
+    result = plan_protocol(needs, offers, SHIP)
+    assert result.plan is not None
