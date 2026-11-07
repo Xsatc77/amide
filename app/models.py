@@ -1534,6 +1534,37 @@ class WorkoutExerciseLog(Base):
     weight_value: Mapped[float | None] = mapped_column(Float)
     weight_unit: Mapped[WeightUnit | None] = mapped_column(_enum_column(WeightUnit))
     reps_value: Mapped[int | None] = mapped_column(Integer)    # reps per set, an exact whole number
+    set_weights: Mapped[str | None] = mapped_column(String(600))   # JSON list, one weight per set, when each set had its own; weight_value is then the heaviest
+    set_reps: Mapped[str | None] = mapped_column(String(600))      # JSON list, the reps of each set, alongside set_weights; reps_value is the reps of the heaviest set
+    to_failure: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")   # every set went to failure; reps_value is what was reached
+
+    @staticmethod
+    def _numbers(text: str | None) -> list[float]:
+        import json
+        try:
+            values = json.loads(text) if text else []
+        except ValueError:
+            return []
+        return [float(v) for v in values] if isinstance(values, list) else []
+
+    @property
+    def set_weight_list(self) -> list[float]:
+        return self._numbers(self.set_weights)
+
+    @property
+    def set_pairs(self) -> list[tuple[float, int]]:
+        """(weight, reps) of each set, for the log form."""
+        return list(zip(self.set_weight_list, self.set_rep_list))
+
+    @property
+    def set_rep_list(self) -> list[int]:
+        return [int(v) for v in self._numbers(self.set_reps)]
+
+    @property
+    def set_weights_text(self) -> str:
+        """"135 × 8, 155 × 6": each set's weight and reps as shown to the person, or "" when the sets shared one weight."""
+        reps = self.set_rep_list
+        return ", ".join(f"{w:g} × {reps[i]}" if i < len(reps) else f"{w:g}" for i, w in enumerate(self.set_weight_list))
 
     name: Mapped[str | None] = mapped_column(String(200))        # the exercise as logged
     db_exercise: Mapped[str | None] = mapped_column(String(200)) # its canonical name in the exercise database

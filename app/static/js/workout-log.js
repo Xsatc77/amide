@@ -1,3 +1,47 @@
+// "Weight & reps each set": ticking the box swaps the single weight for one box per set (as many as the Sets field says).
+// Field names come from the checkbox's own name: "per_set[12]" gives "set_weight_1[12]", "extra-3-per_set" gives "extra-3-set_weight_1".
+function syncSetWeights(row) {
+  const box = row.querySelector("[data-per-set]");
+  const holder = row.querySelector("[data-set-weights]");
+  if (!box || !holder) return;
+  const single = row.querySelector('input[name^="weight_value"], input[name$="-weight_value"]');
+  const sets = row.querySelector('input[name^="sets_value"], input[name$="-sets_value"]');
+  const reps = row.querySelector('input[name^="reps_value"], input[name$="-reps_value"]');
+  holder.hidden = !box.checked;
+  if (single) single.style.display = box.checked ? "none" : "";
+  if (reps) reps.style.display = box.checked ? "none" : "";
+  if (!box.checked) return;
+  const want = Math.min(50, Math.max(1, parseInt(sets && sets.value, 10) || 1));
+  const have = [...holder.querySelectorAll("label")];
+  for (let k = have.length + 1; k <= want; k++) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "number"; input.step = "0.1"; input.min = "0"; input.style.width = "5em";
+    input.name = box.name.replace("per_set", "set_weight_" + k);
+    input.setAttribute("aria-label", "Weight, set " + k);
+    const rep = document.createElement("input");
+    rep.type = "number"; rep.step = "1"; rep.min = "1"; rep.max = "200"; rep.style.width = "4em";
+    rep.name = box.name.replace("per_set", "set_reps_" + k);
+    rep.setAttribute("aria-label", "Reps, set " + k);
+    const before = have.length ? holder.querySelectorAll("label") : [];
+    const last = before.length ? before[before.length - 1].querySelectorAll("input") : [];
+    input.value = (last[0] ? last[0].value : single && single.value) || "";
+    rep.value = (last[1] ? last[1].value : reps && reps.value) || "";
+    label.append("Set " + k + " ", input, " × ", rep);
+    holder.appendChild(label);
+  }
+  holder.querySelectorAll("label").forEach((label, i) => { if (i >= want) label.remove(); });
+}
+function wireSetWeights(row) {
+  const box = row.querySelector("[data-per-set]");
+  if (!box) return;
+  const sets = row.querySelector('input[name^="sets_value"], input[name$="-sets_value"]');
+  box.addEventListener("change", () => syncSetWeights(row));
+  if (sets) sets.addEventListener("input", () => syncSetWeights(row));
+  syncSetWeights(row);
+}
+document.querySelectorAll("[data-per-set]").forEach((box) => wireSetWeights(box.closest("tr")));
+
 // Workout log form: rows for exercises added on the day, from a <template> with the "__I__" index placeholder
 // (same convention as the plan editor and the vendor contact rows). Nothing is stored in the browser.
 (() => {
@@ -54,6 +98,7 @@
     count += 1;
     rows.appendChild(fragment);
     wire(row);
+    wireSetWeights(row);
     row.querySelector("input").focus();
   });
 })();

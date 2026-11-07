@@ -277,11 +277,13 @@ def workouts_last(name: str = "", session: Session = Depends(get_session), uid: 
     if last is not None:
         parts = []
         if last.weight_value is not None:
-            parts.append(f"{last.weight_value:g} {last.weight_unit.value if last.weight_unit else 'lb'}")
+            parts.append(f"{last.set_weights_text or format(last.weight_value, 'g')} {last.weight_unit.value if last.weight_unit else 'lb'}")
         if last.sets and last.reps_value:
             parts.append(f"{last.sets} × {last.reps_value}")
         elif last.duration_min:
             parts.append(f"{last.duration_min:g} min")
+        if last.to_failure:
+            parts.append("to failure")
         log_date = last.last_date
         out = {"text": " · ".join(parts), "date": log_date.isoformat() if log_date else None,
                "stalled_weeks": workout_logging.stalled_weeks(session, uid, exercise.name if exercise else None, typed, clock.today())}

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import WorkoutLog
 
 HEADERS = ("Date", "Plan", "Workout", "Exercise", "Done", "Sets", "Reps", "Weight", "Unit", "Minutes", "Speed mph", "Grade %", "Watts", "MET",
-           "Body weight lb", "Gross kcal", "Net kcal", "Volume lb", "Note")
+           "Body weight lb", "Gross kcal", "Net kcal", "Volume lb", "Note", "Weight and reps each set", "To failure")
 
 
 def workout_log_xlsx(session: Session, uid: int) -> bytes:
@@ -23,7 +23,7 @@ def workout_log_xlsx(session: Session, uid: int) -> bytes:
         for e in log.exercise_logs:
             sheet.append([log.log_date.isoformat(), log.plan_name or "", log.day_label or "", e.name or e.db_exercise or "", "Yes" if e.completed else "No", e.sets, e.reps_value,
                           e.weight_value, e.weight_unit.value if e.weight_unit else None, e.duration_min, e.speed_mph, e.grade_pct, e.watts, e.met, e.body_weight_lb,
-                          e.gross_kcal, e.net_kcal, e.volume_lb, e.kcal_note])
+                          e.gross_kcal, e.net_kcal, e.volume_lb, e.kcal_note, e.set_weights_text or None, "Yes" if e.to_failure else None])
     for column in sheet.columns:
         sheet.column_dimensions[column[0].column_letter].width = max(8, min(30, max(len(str(c.value or "")) for c in column) + 2))
     out = io.BytesIO()

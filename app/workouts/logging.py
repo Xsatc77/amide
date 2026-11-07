@@ -5,6 +5,7 @@ non-negative, a category must be one of the Compendium rows offered, and an exer
 exercise. A ticked exercise with a database match is estimated when it has what the calculation needs; otherwise it
 is saved anyway with a note saying what is missing, so a log is never refused for lack of calorie inputs."""
 
+import json
 import math
 import re
 from dataclasses import dataclass
@@ -49,12 +50,23 @@ class ParsedRow:
     effort: str | None
     category: str | None
     implements: int
+    set_loads: list[float] | None = None     # one weight per set, when each set had its own; `load` is then the heaviest
+    set_reps: list[int] | None = None        # and its reps, set by set; `reps` is then the reps of the heaviest set
+    to_failure: bool = False
 
     @property
     def load_lb(self) -> float | None:
         if self.load is None:
             return None
-        return self.load * calories.LB_PER_KG if self.unit == WeightUnit.KG else self.load
+        return self.load * self._to_lb
+
+    @property
+    def set_loads_lb(self) -> list[float] | None:
+        return [w * self._to_lb for w in self.set_loads] if self.set_loads else None
+
+    @property
+    def _to_lb(self) -> float:
+        return calories.LB_PER_KG if self.unit == WeightUnit.KG else 1.0
 
 
 @dataclass
@@ -104,6 +116,22 @@ def _whole(raw, key: str, label: str, maximum: int = MAX_SETS) -> int | None:
     return int(text)
 
 
+def _per_set(raw, key, name: str, sets: int | None) -> tuple[list[float], list[int]] | None:
+    """The weight and reps of each set, when the person ticked "weight and reps each set". With the number of sets given, every set needs
+    both; without it, the sets are as many as were filled in. Nothing filled in is the same as not ticking the box."""
+    def filled(n):
+        return _text(raw, key(f"set_weight_{n}")) or _text(raw, key(f"set_reps_{n}"))
+    count = sets or max((n for n in range(1, MAX_SETS + 1) if filled(n)), default=0)
+    loads = [_number(raw, key(f"set_weight_{n}"), f"Weight for set {n} of {name}") for n in range(1, count + 1)]
+    reps = [_whole(raw, key(f"set_reps_{n}"), f"Reps for set {n} of {name}", MAX_REPS) for n in range(1, count + 1)]
+    if all(w is None for w in loads) and all(r is None for r in reps):
+        return None
+    for n, (w, r) in enumerate(zip(loads, reps), 1):
+        if w is None or r is None:
+            raise HTTPException(422, f"Enter the weight and the reps for set {n} of {name}, or untick weight and reps each set.")
+    return loads, reps
+
+
 def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise | None, completed: bool, u=None) -> ParsedRow:
     get = lambda field: _text(raw, f"{field}{suffix}")           # noqa: E731 -- suffix is "[ID]" or "" with a prefix
     key = lambda field: f"{field}{suffix}"                       # noqa: E731
@@ -113,6 +141,16 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
     except ValueError:
         raise HTTPException(422, f"Unknown weight unit for {name}.")
     load = _number(raw, key("weight_value"), f"Weight for {name}")
+    sets = _whole(raw, key("sets_value"), f"Sets for {name}", MAX_SETS)
+    set_loads, set_reps, to_failure, top_reps = None, None, False, None
+    if not (db and db.is_duration):                      # sets and weights mean nothing for a timed exercise
+        to_failure = get("to_failure") == "on"
+        if get("per_set") == "on":
+            if (each := _per_set(raw, key, name, sets)) is not None:
+                set_loads, set_reps = each
+                load = max(set_loads)
+                sets = len(set_loads)
+                top_reps = max(r for w, r in zip(set_loads, set_reps) if w == load)
     category = get("category_value") or None
     if category and exercise_db.category(category) is None:
         raise HTTPException(422, f"Unknown Compendium category for {name}.")
@@ -123,8 +161,8 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
     return ParsedRow(
         exercise_id=exercise_id, name=name, db=db, completed=completed, load=load,
         unit=(unit or WeightUnit.LB) if load is not None else unit,
-        sets=_whole(raw, key("sets_value"), f"Sets for {name}", MAX_SETS),
-        reps=_whole(raw, key("reps_value"), f"Reps for {name}", MAX_REPS),
+        sets=sets, set_loads=set_loads, set_reps=set_reps, to_failure=to_failure,
+        reps=top_reps if set_reps else _whole(raw, key("reps_value"), f"Reps for {name}", MAX_REPS),
         minutes=_number(raw, key("minutes_value"), f"Minutes for {name}", positive=True, maximum=MAX_MINUTES),
         speed=(u or units.Units()).speed_in(_number(raw, key("speed_value"), f"Speed for {name}", positive=True,
                                                     maximum=MAX_SPEED_MPH * (units.KMH_PER_MPH if u and u.metric else 1))),
@@ -197,7 +235,9 @@ def build_exercise_log(row: ParsedRow, body_weight_lb: float | None) -> WorkoutE
         weight_unit=row.unit, reps_value=row.reps, sets=row.sets, duration_min=row.minutes, speed_mph=row.speed,
         grade_pct=row.grade, implements=row.implements, body_weight_lb=body_weight_lb,
         db_exercise=ex.name if ex else None, area=ex.area if ex else None, equipment=ex.equipment if ex else None,
-        watts=row.watts,
+        watts=row.watts, to_failure=row.to_failure,
+        set_weights=json.dumps(row.set_loads) if row.set_loads else None,
+        set_reps=json.dumps(row.set_reps) if row.set_reps else None,
         sec_per_rep=ex.sec_per_rep if ex else None, rest_min=ex.rest_min if ex else None)
     if not row.completed:
         return log
@@ -207,7 +247,7 @@ def build_exercise_log(row: ParsedRow, body_weight_lb: float | None) -> WorkoutE
     burn, missing = calories.estimate(
         ex, body_weight_lb=body_weight_lb, sets=row.sets, reps=row.reps, load_lb=row.load_lb,
         implements=row.implements, category=row.category, minutes=row.minutes, speed_mph=row.speed,
-        grade_pct=row.grade, watts=row.watts, effort=row.effort)
+        grade_pct=row.grade, watts=row.watts, effort=row.effort, set_loads_lb=row.set_loads_lb, set_reps=row.set_reps)
     if burn is None:
         log.kcal_note = "Enter " + " and ".join(missing) + " for a calorie estimate."
         return log
@@ -296,5 +336,7 @@ def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExer
             "category": (source.compendium_code if source and exercise_db.category(source.compendium_code) else None)
                         or (db.code if db and exercise_db.category(db.code) else None),
             "implements": (source.implements if source and source.implements else 1),
+            "set_weights": source.set_pairs if source else [],
+            "to_failure": bool(source and source.to_failure),
         },
     }

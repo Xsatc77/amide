@@ -4,9 +4,22 @@
 
 {#- "27.5 kg · 3 × 8" / "30 min": what a past log of the same exercise recorded. -#}
 {% macro last_text(l) -%}
-  {%- if l.weight_value is not none %}{{ '%g' | format(l.weight_value) }} {{ l.weight_unit.value if l.weight_unit else 'lb' }}{% endif -%}
+  {%- if l.weight_value is not none %}{{ l.set_weights_text or ('%g' | format(l.weight_value)) }} {{ l.weight_unit.value if l.weight_unit else 'lb' }}{% endif -%}
   {%- if l.sets and l.reps_value %} · {{ l.sets }} × {{ l.reps_value }}{% elif l.duration_min %} · {{ '%g' | format(l.duration_min) }} min{% endif -%}
+  {%- if l.to_failure %} · to failure{% endif -%}
 {%- endmacro %}
+
+{#- "Weight & reps each set" and "To failure" for one exercise. `n` is the field-name prefix ("" for a plan exercise, "extra-N-" for one
+    added on the day), `sfx` its suffix ("[ID]" or ""); `weights` the saved (weight, reps) of each set. workout-log.js adds or drops the per-set boxes. -#}
+{% macro per_set_box(n, sfx, weights) %}
+<label class="log-check"><input type="checkbox" name="{{ n }}per_set{{ sfx }}" data-per-set{% if weights %} checked{% endif %}> Weight &amp; reps each set</label>
+<div class="log-set-weights" data-set-weights{% if not weights %} hidden{% endif %}>
+  {% for w, r in weights %}<label>Set {{ loop.index }} <input type="number" step="0.1" min="0" name="{{ n }}set_weight_{{ loop.index }}{{ sfx }}" value="{{ '%g' | format(w) }}" style="width: 5em" aria-label="Weight, set {{ loop.index }}"> &times; <input type="number" min="1" max="200" step="1" name="{{ n }}set_reps_{{ loop.index }}{{ sfx }}" value="{{ r }}" style="width: 4em" aria-label="Reps, set {{ loop.index }}"></label>{% endfor %}
+</div>
+{% endmacro %}
+{% macro to_failure_box(n, sfx, on) %}
+<label class="log-check"><input type="checkbox" name="{{ n }}to_failure{{ sfx }}"{% if on %} checked{% endif %}> To failure</label>
+{% endmacro %}
 
 {#- One exercise added on the day. `i` is its index (the literal "__I__" inside the row template, which workout-log.js
     replaces). Fields are named extra-N-field and always submit, blank or not; a blank exercise name drops the row. -#}
@@ -20,9 +33,11 @@
     <select name="extra-{{ i }}-weight_unit" aria-label="Unit">
       {% for u in units %}<option value="{{ u.value }}"{% if el and el.weight_unit == u %} selected{% endif %}>{{ u.label }}</option>{% endfor %}
     </select>
+    {{ per_set_box("extra-" ~ i ~ "-", "", el.set_pairs if el else []) }}
   </td>
   <td><input type="number" min="1" max="50" step="1" name="extra-{{ i }}-sets_value" value="{{ el.sets if el and el.sets else '' }}" style="width: 4em" aria-label="Sets"></td>
-  <td><input type="number" min="1" max="200" step="1" name="extra-{{ i }}-reps_value" value="{{ el.reps_value if el and el.reps_value else '' }}" style="width: 4em" aria-label="Reps per set"></td>
+  <td><input type="number" min="1" max="200" step="1" name="extra-{{ i }}-reps_value" value="{{ el.reps_value if el and el.reps_value else '' }}" style="width: 4em" aria-label="Reps per set">
+    {{ to_failure_box("extra-" ~ i ~ "-", "", el.to_failure if el else false) }}</td>
   <td>
     <input type="number" min="0.1" step="any" name="extra-{{ i }}-minutes_value" value="{{ '%g' | format(el.duration_min) if el and el.duration_min else '' }}" style="width: 4.5em" placeholder="min" aria-label="Minutes (cardio)">
     <input type="number" min="0.1" step="0.1" name="extra-{{ i }}-speed_value" value="{{ '%g' | format(u.speed(el.speed_mph)) if el and el.speed_mph else '' }}" style="width: 4.5em" placeholder="{{ u.speed_label }}" aria-label="Speed in {{ u.speed_label }}">
@@ -87,6 +102,7 @@
           <select name="weight_unit[{{ ex.id }}]">
             {% for u in units %}<option value="{{ u.value }}"{% if sh.weight_unit == u %} selected{% endif %}>{{ u.label }}</option>{% endfor %}
           </select>
+          {% if not (db and db.is_duration) %}{{ per_set_box("", "[" ~ ex.id ~ "]", sh.set_weights) }}{% endif %}
         </td>
         {% if db and db.is_duration %}
         <td colspan="2">
@@ -107,7 +123,8 @@
         </td>
         {% else %}
         <td><input type="number" min="1" max="50" step="1" name="sets_value[{{ ex.id }}]" value="{{ sh.sets if sh.sets else '' }}" style="width: 4em"></td>
-        <td><input type="number" min="1" max="200" step="1" name="reps_value[{{ ex.id }}]" value="{{ sh.reps if sh.reps is not none else '' }}" style="width: 4em"></td>
+        <td><input type="number" min="1" max="200" step="1" name="reps_value[{{ ex.id }}]" value="{{ sh.reps if sh.reps is not none else '' }}" style="width: 4em">
+          {{ to_failure_box("", "[" ~ ex.id ~ "]", sh.to_failure) }}</td>
         {% endif %}
         <td class="log-estimate">
           {% if p and p.net_kcal %}≈ {{ p.net_kcal | round | int }} kcal<small class="muted"> net, estimated</small>

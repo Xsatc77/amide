@@ -75,8 +75,10 @@ def _table_band(ex: Exercise, *, speed_mph, grade_pct, watts, effort) -> tuple[S
 def estimate(ex: Exercise, *, body_weight_lb: float | None, sets: int | None = None, reps: int | None = None,
              load_lb: float | None = None, implements: int = 1, category: str | None = None,
              minutes: float | None = None, speed_mph: float | None = None, grade_pct: float | None = None,
-             watts: float | None = None, effort: str | None = None) -> tuple[Burn | None, list[str]]:
-    """(Burn, []) when everything needed is present, else (None, [names of what is missing])."""
+             watts: float | None = None, effort: str | None = None,
+             set_loads_lb: list[float] | None = None, set_reps: list[int] | None = None) -> tuple[Burn | None, list[str]]:
+    """(Burn, []) when everything needed is present, else (None, [names of what is missing]).
+    `set_loads_lb` and `set_reps`, when each set had its own weight and reps, replace `load_lb`, `sets` and `reps`: every set at its own load and count."""
     missing = []
     if not _positive(body_weight_lb):
         missing.append("body weight")
@@ -107,9 +109,13 @@ def estimate(ex: Exercise, *, body_weight_lb: float | None, sets: int | None = N
     if missing:
         return None, missing
     kg = kg_from_lb(body_weight_lb)
-    active = sets * reps * ex.sec_per_rep / 60
+    total_reps = sum(set_reps) if set_reps else sets * reps
+    active = total_reps * ex.sec_per_rep / 60
     rest = max(sets - 1, 0) * (ex.rest_min or 0.0)
     gross = _kcal_per_min(met, kg) * active + _kcal_per_min(REST_MET, kg) * rest
     net = _kcal_per_min(met - 1, kg) * active + _kcal_per_min(REST_MET - 1, kg) * rest
-    volume = load_lb * max(implements, 1) * reps * sets if _positive(load_lb) else None
+    if set_loads_lb:
+        volume = sum(w * r for w, r in zip(set_loads_lb, set_reps or [reps] * len(set_loads_lb)) if w > 0) * max(implements, 1) or None
+    else:
+        volume = load_lb * max(implements, 1) * reps * sets if _positive(load_lb) else None
     return Burn(met, active, rest, gross, net, volume, code), []
