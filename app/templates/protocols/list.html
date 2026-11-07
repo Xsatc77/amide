@@ -43,7 +43,7 @@
         {% endfor %}
       </ul>
       <p class="small muted protocol-dates">
-        Day {{ v.day }} · started {{ p.start_date | shortdate }}<br>
+        {% if v.day %}Day {{ v.day }} · started {{ p.start_date | shortdate }}{% else %}Starts {{ p.start_date | shortdate }}{% endif %}<br>
         {% if p.end_date %}Ends {{ p.end_date | shortdate }}{% else %}Ongoing{% endif %}
       </p>
       <footer class="protocol-card-actions">

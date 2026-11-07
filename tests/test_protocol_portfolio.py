@@ -143,3 +143,14 @@ def test_a_peptide_with_no_price_at_all_assumes_five_mg_vials_and_says_so(client
 def test_the_button_says_why_the_pdf_failed(client, db, me):
     js = client.get("/static/js/protocol-portfolio.js").text
     assert "Server error" in js and "no answer from the server" in js
+
+
+def test_a_protocol_that_has_not_started_says_when_it_starts_not_day_none(client, db, me):
+    pid = peptide("Futurezine")
+    with SessionLocal() as s:
+        p = Protocol(name="Future Course", start_date=TODAY + timedelta(days=30), owner_id=me)
+        s.add(p); s.flush()
+        s.add(ProtocolItem(protocol_id=p.id, peptide_id=pid, dose=1, dose_unit=DoseUnit.MG, frequency=Frequency.DAILY, route=Route.SUBQ))
+        s.commit()
+    t = client.get("/protocols").text
+    assert "Day None" not in t and "Starts " in t
