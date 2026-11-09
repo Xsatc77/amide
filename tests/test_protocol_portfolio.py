@@ -82,14 +82,14 @@ def test_the_best_three_buys_per_peptide_cheapest_first_and_the_dearest_left_off
 
 def test_the_bac_water_estimate_for_the_whole_protocol_is_on_the_last_page(client, db, me):
     pid = peptide("Portwater", normally_supplied_amount=10, normally_supplied_unit=DoseUnit.MG)
-    last = PdfReader(BytesIO(client.get(f"/protocols/{protocol(me, [pid], days=60)}/portfolio.pdf").content)).pages[-1].extract_text()
-    assert "BAC Water For The Full Protocol" in last and "mL over 60 days" in last and "bottles of 30 mL" in last
+    last = PdfReader(BytesIO(client.get(f"/protocols/{protocol(me, [pid], days=200)}/portfolio.pdf").content)).pages[-1].extract_text()
+    assert "BAC Water For The Full Protocol" in last and "mL over 200 days" in last and "bottles of 30 mL" in last
 
 
 def test_a_ranked_brand_of_bac_water_is_priced_on_the_last_page(client, db, me):
     pid = bac_world(db, me)                                                  # a ranked brand on a price list; a 40-day course
     text = pdf_text(client.get(f"/protocols/{pid}/portfolio.pdf"))
-    assert "Acme Hospira Bacteriostatic Water" in text and "Sterile Supply Co" in text and "$66.00" in text
+    assert "Acme Hospira Bacteriostatic Water" in text and "Sterile Supply Co" in text and "$48.00" in text
 
 
 def test_a_protocol_without_an_end_date_says_why_there_are_no_prices(client, db, me):

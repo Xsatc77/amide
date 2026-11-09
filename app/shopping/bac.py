@@ -50,7 +50,7 @@ def _pack_label(pack_size: int) -> str:
 def plan_bac(ml: float, offers: list[BacOffer], plan_sources: list[tuple], shipping: dict, min_units: int = 1) -> dict | None:
     """The BAC water to buy for `ml` mL: the best-ranked brand offered, then the lowest extra cost (water from a vendor and
     warehouse already in the plan adds no shipping; any other source is its own order with its shipping). None when no ranked brand is offered."""
-    in_plan = set(plan_sources)          # min_units: an opened bottle is good for 28 days, so a long course needs at least one per 28 days
+    in_plan = set(plan_sources)          # min_units: an opened bottle is good for 90 days, so a long course needs at least one per 90 days
     best = None
     for o in offers:
         if o.rank >= UNRANKED or o.size_ml <= 0 or o.pack_size <= 0 or o.pack_price <= 0:

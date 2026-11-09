@@ -14,6 +14,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import HRFlowable, KeepTogether, ListFlowable, ListItem, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from app.inventory.consumption import BAC_BOTTLE_DAYS
+
 _GREEK = {"α": "alpha", "β": "beta", "γ": "gamma", "δ": "delta", "ε": "epsilon", "κ": "kappa", "λ": "lambda", "μ": "mu", "Δ": "Delta", "Ω": "Omega",
           "→": "->", "←": "<-", "≥": ">=", "≤": "<=", "−": "-", "–": "-", "—": "-", "…": "...", "′": "'", "×": "x", "≈": "~", "•": "-"}
 _INK, _MUTED, _RULE, _SOFT = colors.HexColor("#1f2937"), colors.HexColor("#6b7280"), colors.HexColor("#d1d5db"), colors.HexColor("#f3f4f6")
@@ -166,7 +168,7 @@ def _cost_pages(prices, protocol, today, st, width) -> list:
         out.append(_p("This course needs no BAC water.", st["body"]))
     else:
         out.append(_p(f"About {bac['ml']} mL over {days} days: {bac['bottles']} bottle{'s' if bac['bottles'] != 1 else ''} of 30 mL "
-                      "(an opened bottle is good for 28 days).", st["body"]))
+                      f"(an opened bottle is good for {BAC_BOTTLE_DAYS} days).", st["body"]))
         if bac.get("assumed"):
             out.append(_p("No vial size is known for " + ", ".join(bac["assumed"]) + ": the water assumes 5 mg vials. "
                           "Link an inventory item or set the Library's usual vial size for a firmer figure.", st["small"]))

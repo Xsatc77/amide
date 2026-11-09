@@ -770,3 +770,35 @@ def test_0028_adds_purchasing_unit(tmp_path):
     with sqlite3.connect(db) as c:
         cols = {r[1] for r in c.execute("pragma table_info(inventory_items)")}
     assert "purchasing_unit" not in cols
+
+
+def _insert(con, table, **given):
+    """Insert a row, filling every other NOT NULL column that has no default with a dummy value."""
+    cols = {r[1]: r for r in con.execute(f"PRAGMA table_info({table})")}
+    row = dict(given)
+    for name, (_, _, typ, notnull, default, pk) in cols.items():
+        if name not in row and notnull and default is None and not pk:
+            row[name] = "2026-01-01" if "DATE" in typ.upper() else (1 if "INT" in typ.upper() or "BOOL" in typ.upper() or "FLOAT" in typ.upper() or "NUMERIC" in typ.upper() else "x")
+    con.execute(f"INSERT INTO {table} ({','.join(row)}) VALUES ({','.join('?' * len(row))})", list(row.values()))
+    return con.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def test_0092_extends_open_bac_water_bottles_to_90_days(tmp_path):
+    db = tmp_path / "m.db"
+    command.upgrade(_cfg(db), "0091")
+    con = sqlite3.connect(db)
+    con.execute("PRAGMA foreign_keys=OFF")
+    bac = _insert(con, "inventory_items", category="BAC Water")
+    med = _insert(con, "inventory_items", category="Medicine")
+    old = _insert(con, "active_vials", inventory_item_id=bac, date_mixed="2026-10-01", discard_by="2026-10-29")
+    by_hand = _insert(con, "active_vials", inventory_item_id=bac, date_mixed="2026-10-01", discard_by="2026-10-15")
+    done = _insert(con, "active_vials", inventory_item_id=bac, date_mixed="2026-10-01", discard_by="2026-10-29", discarded_at="2026-10-20 00:00:00")
+    peptide = _insert(con, "active_vials", inventory_item_id=med, date_mixed="2026-10-01", discard_by="2026-10-29")
+    con.commit()
+    con.close()
+    command.upgrade(_cfg(db), "0092")
+    con = sqlite3.connect(db)
+    got = {i: d for i, d in con.execute("SELECT id, discard_by FROM active_vials")}
+    assert got[old] == "2026-12-30"                                    # open, still on the old 28 days: now 90
+    assert got[by_hand] == "2026-10-15" and got[done] == "2026-10-29"  # a date set by hand, and a discarded bottle, are left alone
+    assert got[peptide] == "2026-10-29"                                # a mixed peptide vial keeps its 28 days

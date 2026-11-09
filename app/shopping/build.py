@@ -11,6 +11,7 @@ from app.calculator import units as unit_math
 from app.library.price_lists.analysis import current_lists
 from app.library.price_lists.premixed import strength_mg_per_ml, vial_mg
 from app.models import Category, Frequency, InventoryItem, Peptide, PriceListItem, PurchasingUnit, User
+from app.inventory.consumption import BAC_BOTTLE_DAYS
 from app.shopping.bac import BacOffer, is_bac_water, plan_bac, rank_for
 from app.protocols.course_totals import _BAC_WATER_ML_PER_VIAL, compute_course_totals
 from app.shopping.planner import Need, Offer, Plan, plan_protocol
@@ -18,7 +19,7 @@ from app.shopping.planner import Need, Offer, Plan, plan_protocol
 DEFAULT_SHIPPING = {"china": 60.0, "us": 30.0}
 MAX_FEE = 10_000.0
 BAC_BOTTLE_ML = 30
-BAC_DAYS_OPEN = 28            # an opened BAC water bottle is good for 28 days at room temperature
+BAC_DAYS_OPEN = BAC_BOTTLE_DAYS   # an opened BAC water bottle is good for 90 days
 _HARD = re.compile(r"testosterone|\btrt\b|\bhgh\b|somatropin|growth hormone", re.IGNORECASE)
 _SIZE_UNITS = ("mg", "mcg", "IU")
 _OIL = re.compile(r"testosterone|\btrt\b", re.IGNORECASE)
