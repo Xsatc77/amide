@@ -211,7 +211,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
 
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
-        "volume_text": volume_text, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due, "workout_move_dates": workout_move_dates,
+        "volume_text": volume_text, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due, "workout_move_dates": workout_move_dates, "workouts_coming_up": workout_moves.coming_up(session, uid, today),
         "logged_today": todays_logs, "silhouette_shape": silhouette_shape,
     })
 

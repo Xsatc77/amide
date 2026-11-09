@@ -123,6 +123,23 @@
 </section>
 {% endif %}
 
+{% if workouts_coming_up %}
+<section class="lib-section">
+  <h2 class="section-title">Workouts Coming Up</h2>
+  <ul class="plain-list">
+    {% for d, day in workouts_coming_up %}
+    <li>{{ day.label }} <span class="muted">{{ d.strftime('%A') }}, {{ d | shortdate }}</span>
+      <form method="post" action="/workouts/day/{{ day.id }}/move" class="inline" data-confirm="Do this session today instead of {{ d.strftime('%A') }}?">
+        <input type="hidden" name="from_date" value="{{ d.isoformat() }}">
+        <input type="hidden" name="to_date" value="{{ today }}">
+        <button type="submit" class="btn btn-small">Do Today</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <dialog id="site-dialog" class="dialog" data-injection-site-picker>
   <header class="dialog-head">
     <h2>Injection Site</h2>

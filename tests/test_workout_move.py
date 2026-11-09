@@ -152,3 +152,31 @@ def test_the_dashboard_shows_a_missed_day_as_a_black_pulsing_x_with_a_white_trac
 def test_cancelling_a_day_that_is_not_due_is_refused(client, db, me):
     day = _plan(me, "Mover M", _letter(1))
     assert client.post(f"/workouts/day/{day}/cancel", data={"from_date": clock.today().isoformat()}).status_code == 422
+
+
+def _today_post(client, day_id, frm):
+    return client.post(f"/workouts/day/{day_id}/move", data={"from_date": frm.isoformat(), "to_date": clock.today().isoformat()},
+                       follow_redirects=False)
+
+
+def test_a_coming_session_can_be_done_today_for_that_one_session(client, db, me):
+    day = _plan(me, "Early A", _letter(2))
+    t = clock.today()
+    assert f"/workouts/day/{day}/move" in client.get("/today").text and "Do Today" in client.get("/today").text
+    assert _today_post(client, day, t + timedelta(days=2)).status_code == 303
+    with SessionLocal() as s:
+        assert [d.id for d in workouts_due_today(s, me, t)] == [day]
+        dates = scheduled_workout_dates(s, me, t, t + timedelta(days=9))
+        assert t in dates and t + timedelta(days=2) not in dates and t + timedelta(days=9) in dates   # next week untouched
+
+
+def test_a_session_cannot_be_pulled_onto_a_day_that_already_has_a_workout(client, db, me):
+    day = _plan(me, "Early B", _letter() + _letter(2))
+    t = clock.today()
+    assert "Do Today" not in client.get("/today").text
+    assert _today_post(client, day, t + timedelta(days=2)).status_code == 422
+
+
+def test_pulling_forward_needs_a_session_that_is_due_that_day(client, db, me):
+    day = _plan(me, "Early C", _letter(2))
+    assert _today_post(client, day, clock.today() + timedelta(days=3)).status_code == 422

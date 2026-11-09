@@ -66,6 +66,27 @@ def free_dates(session: Session, uid: int, today: date, origin: date | None = No
     return [first + timedelta(days=n) for n in range((end - first).days + 1) if first + timedelta(days=n) not in busy]
 
 
+def today_is_free(session: Session, uid: int, today: date) -> bool:
+    """No workout is due today (cancelled ones still count) and none is logged."""
+    return today not in due_by_date(session, uid, today, today) and session.scalar(
+        select(WorkoutLog.id).where(WorkoutLog.owner_id == uid, WorkoutLog.log_date == today).limit(1)) is None
+
+
+def coming_up(session: Session, uid: int, today: date) -> list[tuple[date, WorkoutPlanDay]]:
+    """Sessions due in the next MAX_DAYS_AHEAD days that could be done today instead; empty when today is taken."""
+    if not today_is_free(session, uid, today):
+        return []
+    end = today + timedelta(days=MAX_DAYS_AHEAD)
+    due = due_by_date(session, uid, today + timedelta(days=1), end)
+    by_id = {d.id: d for d in active_days(session, uid)}
+    out = []
+    for d in sorted(due):
+        for i in sorted(due[d], key=lambda i: (by_id[i].plan_id, by_id[i].position)):
+            if today <= origin_date(session, uid, i, d) + timedelta(days=MAX_DAYS_AHEAD):
+                out.append((d, by_id[i]))
+    return out
+
+
 def cancelled_ids(session: Session, uid: int, on_date: date) -> set[int]:
     return set(session.scalars(select(WorkoutCancel.plan_day_id).where(WorkoutCancel.owner_id == uid, WorkoutCancel.on_date == on_date)).all())
 
@@ -85,7 +106,11 @@ def move_session(session: Session, uid: int, day_id: int, from_date: date, to_da
     """Move the session of `day_id` due on `from_date` to `to_date`. Returns the reason it cannot be done, else None."""
     if day_id not in due_by_date(session, uid, from_date, from_date).get(from_date, set()):
         return "That workout is not due on that day."
-    if to_date not in free_dates(session, uid, today, origin_date(session, uid, day_id, from_date)):
+    origin = origin_date(session, uid, day_id, from_date)
+    if to_date == today and from_date > today:                       # "Do Today": pull a coming session forward onto a free today
+        if not today_is_free(session, uid, today) or today > origin + timedelta(days=MAX_DAYS_AHEAD):
+            return "Today already has a workout, so this session can’t be done today."
+    elif to_date not in free_dates(session, uid, today, origin):
         return (f"Pick one of the days offered: a day after today with no workout on it, within {MAX_DAYS_AHEAD} days of the original session "
                 "(later than that it would train the same body groups twice).")
     arrived = session.scalar(select(WorkoutMove).where(
