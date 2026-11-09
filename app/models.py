@@ -1489,6 +1489,17 @@ class WorkoutPlanDay(Base):
         cascade="all, delete-orphan", passive_deletes=True, order_by="WorkoutExercise.position")
 
 
+class WorkoutMove(Base):
+    """One session of a plan day moved to another date, this once: the day's weekdays are unchanged."""
+    __tablename__ = "workout_moves"
+    __table_args__ = (UniqueConstraint("plan_day_id", "from_date", name="uq_workout_move_day_from"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    plan_day_id: Mapped[int] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="CASCADE"), index=True)
+    from_date: Mapped[date] = mapped_column(Date)
+    to_date: Mapped[date] = mapped_column(Date, index=True)
+
+
 class WorkoutExercise(Base):
     __tablename__ = "workout_exercises"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

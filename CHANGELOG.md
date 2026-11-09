@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Today: a Move button beside each workout due today.** It asks which day and lists only the days in the next two weeks with no workout on them. Only that one session moves; the plan's weekdays are unchanged, the Dashboard week, the Calendar and the missed-workout count follow the move, and the session is logged on whatever day you do it.
 - **Workout log: "Weight & reps each set" and "To failure" checkboxes.** Tick the first and each set gets its own weight and its own reps (the heaviest set stands in for the exercise in history and progress; volume adds every set at its own weight and reps). Tick To Failure to mark that the sets went to failure, the reps being what you reached. Both show under "Last time", in the export, and work for exercises added on the day.
 - **Shopping plan and Portfolio: a vendor with no vendor record no longer crashes the price comparison.** When a price list's vendor is not linked to a vendor page and another vendor tied it on price, the plan compared a number to a name and failed; that was why the Protocol Portfolio could not be made.
 - **Dashboard: the Weight chart's points pulse like the Apple Health ones.** Each point flares as the light reaches it, green where the line falls and red where it rises.

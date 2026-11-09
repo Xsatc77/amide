@@ -138,6 +138,8 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
 
     from app.routers.workouts import workouts_due_today
     workout_days_due = workouts_due_today(session, uid, today)
+    from app.workouts import moves as workout_moves
+    workout_move_dates = workout_moves.free_dates(session, uid, today) if workout_days_due else []
 
     # Same traced body outline the Body page uses (not a bespoke shape here) -- the owner asked
     # for the injection-site picker to stop drawing its own crude blob and match the real figure.
@@ -208,7 +210,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
 
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
-        "volume_text": volume_text, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due,
+        "volume_text": volume_text, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due, "workout_move_dates": workout_move_dates,
         "logged_today": todays_logs, "silhouette_shape": silhouette_shape,
     })
 

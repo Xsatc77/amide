@@ -1252,6 +1252,9 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .log-table td { vertical-align: top; }
 .log-adjust { margin-top: .35rem; font-size: .85rem; }
 .log-adjust label, .log-inline { display: inline-flex; gap: .35rem; align-items: center; margin-right: .75rem; }
+.move-pick { display: inline-block; margin-left: .75rem; vertical-align: middle; }
+.move-pick summary { cursor: pointer; list-style: none; }
+.move-pick form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .4rem; }
 .log-check { display: flex; gap: .35rem; align-items: center; margin-top: .3rem; font-size: .85rem; white-space: nowrap; }
 .log-set-weights { display: flex; flex-wrap: wrap; gap: .3rem .6rem; margin-top: .3rem; font-size: .85rem; }
 .log-set-weights[hidden] { display: none; }

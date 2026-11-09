@@ -86,6 +86,7 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
             share_null=("source_pdf_filename",)),
         Tbl("workout_plan_days", f"plan_id IN ({_PLANS})"),
         Tbl("workout_exercises", f"day_id IN ({_DAYS})"),
+        Tbl("workout_moves", "owner_id = :uid", share_drop=True),
         Tbl("workout_logs", "owner_id = :uid", share_drop=True),
         Tbl("workout_exercise_logs", "workout_log_id IN (SELECT id FROM workout_logs WHERE owner_id = :uid)",
             share_drop=True),

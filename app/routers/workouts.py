@@ -27,7 +27,7 @@ from app.models import (
 )
 from app.templating import templates
 from app.uploads import UploadError, save_workout_pdf
-from app.workouts import exercise_db
+from app.workouts import exercise_db, moves
 from app.workouts.export import workout_log_xlsx
 from app.workouts.exercise_match import match_exercise
 from app.workouts import logging as workout_logging
@@ -40,19 +40,14 @@ _WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")  # parallel t
 
 
 def workouts_due_today(session: Session, uid: int, today: date_type) -> list[WorkoutPlanDay]:
-    """Active plans' days scheduled for today's weekday, excluding any already logged today."""
-    letter = WEEKDAY_LETTERS[today.weekday()]
-    days = session.scalars(
-        select(WorkoutPlanDay).join(WorkoutPlan)
-        .where(WorkoutPlan.owner_id == uid, WorkoutPlan.ended_on.is_(None),
-              WorkoutPlanDay.weekdays.isnot(None))
-    ).all()
-    due = [d for d in days if letter in d.weekdays]
+    """Active plans' days scheduled for today (a session moved here counts, one moved away does not), excluding any already logged today."""
+    ids = moves.due_by_date(session, uid, today, today).get(today, set())
     logged_day_ids = {
         wl.plan_day_id for wl in session.scalars(
             select(WorkoutLog).where(WorkoutLog.owner_id == uid, WorkoutLog.log_date == today))
     }
-    return [d for d in due if d.id not in logged_day_ids]
+    days = [session.get(WorkoutPlanDay, i) for i in sorted(ids - logged_day_ids)]
+    return sorted((d for d in days if d is not None), key=lambda d: (d.plan_id, d.position))
 
 
 def week_status(session: Session, uid: int, today: date_type) -> list[dict]:
@@ -87,19 +82,7 @@ def scheduled_workout_dates(session: Session, uid: int, start: date_type, end: d
     """Every date in [start, end] on which an Active plan has a day scheduled -- regardless of
     whether it's already been logged (unlike workouts_due_today, which is specifically "still
     pending today"). Used only for a plain calendar marker, not for the Today list."""
-    days = session.scalars(
-        select(WorkoutPlanDay).join(WorkoutPlan)
-        .where(WorkoutPlan.owner_id == uid, WorkoutPlan.ended_on.is_(None),
-              WorkoutPlanDay.weekdays.isnot(None))
-    ).all()
-    dates = set()
-    d = start
-    while d <= end:
-        letter = WEEKDAY_LETTERS[d.weekday()]
-        if any(letter in day.weekdays for day in days):
-            dates.add(d)
-        d += timedelta(days=1)
-    return dates
+    return set(moves.due_by_date(session, uid, start, end))
 
 
 def _get_own_plan(session: Session, plan_id: int, uid: int) -> WorkoutPlan:
@@ -555,3 +538,18 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
     session.add(log)
     session.commit()
     return RedirectResponse("/measurements?tab=journal" if raw.get("return_to") == "journal" else "/today", status_code=303)       # only the Journal may be asked for
+
+
+@router.post("/workouts/day/{plan_day_id}/move")
+async def workouts_move(plan_day_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Today: move this workout session, once, to another day with no workout on it."""
+    day = _get_own_day(session, plan_day_id, uid)
+    form = await request.form()
+    try:
+        from_date, to_date = date_type.fromisoformat(str(form.get("from_date"))), date_type.fromisoformat(str(form.get("to_date")))
+    except ValueError:
+        raise HTTPException(422, "Pick the day to move the workout to.")
+    problem = moves.move_session(session, uid, day.id, from_date, to_date, clock.today())
+    if problem:
+        raise HTTPException(422, problem)
+    return RedirectResponse("/today", status_code=303)
