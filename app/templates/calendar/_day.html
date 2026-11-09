@@ -9,6 +9,22 @@
     {% if anchor in journal_dates %}<a class="tag tag-plain" href="/measurements?tab=journal&edit={{ anchor.isoformat() }}"><span class="cal-icon" aria-hidden="true">📓</span> Journal entry completed</a>{% endif %}
   </div>
   {% endif %}
+  {% if workouts_early %}
+  <section class="cal-day-section">
+    <h2 class="section-title">Workouts</h2>
+    <ul class="plain-list">
+      {% for day in workouts_early %}
+      <li>{{ day.label }}
+        <form method="post" action="/workouts/day/{{ day.id }}/move" class="inline" data-confirm="Do this session today instead of {{ anchor.strftime('%A') }}?">
+          <input type="hidden" name="from_date" value="{{ anchor.isoformat() }}">
+          <input type="hidden" name="to_date" value="{{ today.isoformat() }}">
+          <button type="submit" class="btn btn-small">Do Today</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
   {% if nothing %}
   <div class="empty"><p><strong>Nothing due.</strong></p><p class="muted">No active or scheduled protocol has a dose on this day.</p></div>
   {% endif %}

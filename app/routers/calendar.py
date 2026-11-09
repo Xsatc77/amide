@@ -179,6 +179,8 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     from app.routers.fitness_test import fitness_test_logged_dates  # deferred: mirrors workouts' own
     from app.routers.workouts import scheduled_workout_dates  # deferred imports, same reasoning
     ctx["workout_dates"] = scheduled_workout_dates(session, uid, first, last)
+    from app.workouts import moves as workout_moves  # deferred, like the imports above
+    ctx["workouts_early"] = workout_moves.coming_on(session, uid, anchor, today) if view == "day" else []
     ctx["fitness_test_dates"] = fitness_test_logged_dates(session, uid, first, last)
     from app.routers.journal import journal_logged_dates  # deferred, like the two above
     ctx["journal_dates"] = journal_logged_dates(session, uid, first, last)

@@ -72,6 +72,16 @@ def today_is_free(session: Session, uid: int, today: date) -> bool:
         select(WorkoutLog.id).where(WorkoutLog.owner_id == uid, WorkoutLog.log_date == today).limit(1)) is None
 
 
+def coming_on(session: Session, uid: int, day: date, today: date) -> list[WorkoutPlanDay]:
+    """Sessions due on a later `day` that could be done today instead (within MAX_DAYS_AHEAD days of their original date)."""
+    if day <= today:
+        return []
+    by_id = {d.id: d for d in active_days(session, uid)}
+    ids = due_by_date(session, uid, day, day).get(day, set())
+    return [by_id[i] for i in sorted(ids, key=lambda i: (by_id[i].plan_id, by_id[i].position))
+            if today <= origin_date(session, uid, i, day) + timedelta(days=MAX_DAYS_AHEAD)]
+
+
 def coming_up(session: Session, uid: int, today: date) -> list[tuple[date, WorkoutPlanDay]]:
     """Sessions due in the next MAX_DAYS_AHEAD days that could be done today instead; empty when today is taken."""
     if not today_is_free(session, uid, today):
@@ -107,9 +117,9 @@ def move_session(session: Session, uid: int, day_id: int, from_date: date, to_da
     if day_id not in due_by_date(session, uid, from_date, from_date).get(from_date, set()):
         return "That workout is not due on that day."
     origin = origin_date(session, uid, day_id, from_date)
-    if to_date == today and from_date > today:                       # "Do Today": pull a coming session forward onto a free today
-        if not today_is_free(session, uid, today) or today > origin + timedelta(days=MAX_DAYS_AHEAD):
-            return "Today already has a workout, so this session can’t be done today."
+    if to_date == today and from_date > today:                       # "Do Today": pull a coming session onto today, even if today already has one
+        if today > origin + timedelta(days=MAX_DAYS_AHEAD):
+            return "That session is more than 7 days from its original day, so it can’t be done today."
     elif to_date not in free_dates(session, uid, today, origin):
         return (f"Pick one of the days offered: a day after today with no workout on it, within {MAX_DAYS_AHEAD} days of the original session "
                 "(later than that it would train the same body groups twice).")

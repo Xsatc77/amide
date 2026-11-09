@@ -170,11 +170,39 @@ def test_a_coming_session_can_be_done_today_for_that_one_session(client, db, me)
         assert t in dates and t + timedelta(days=2) not in dates and t + timedelta(days=9) in dates   # next week untouched
 
 
-def test_a_session_cannot_be_pulled_onto_a_day_that_already_has_a_workout(client, db, me):
+def test_a_session_can_be_pulled_onto_a_day_that_already_has_a_workout(client, db, me):
     day = _plan(me, "Early B", _letter() + _letter(2))
     t = clock.today()
-    assert "Do Today" not in client.get("/today").text
-    assert _today_post(client, day, t + timedelta(days=2)).status_code == 422
+    assert "Do Today" not in client.get("/today").text                      # the Today list is only for a free day
+    assert _today_post(client, day, t + timedelta(days=2)).status_code == 303
+    with SessionLocal() as s:
+        assert [d.id for d in workouts_due_today(s, me, t)] == [day]         # same plan day: its own session today, once
+
+
+def test_two_different_sessions_can_share_today(client, db, me):
+    with SessionLocal() as s:
+        for p in s.scalars(select(WorkoutPlan).where(WorkoutPlan.owner_id == me)).all():
+            s.delete(p)
+        s.commit()
+        plan = WorkoutPlan(owner_id=me, name="Two", source=WorkoutSource.MANUAL, started_on=clock.today() - timedelta(days=30))
+        plan.days.append(WorkoutPlanDay(position=0, label="Now", weekdays=_letter()))
+        plan.days.append(WorkoutPlanDay(position=1, label="Later", weekdays=_letter(2)))
+        s.add(plan)
+        s.commit()
+        later = plan.days[1].id
+    t = clock.today()
+    assert _today_post(client, later, t + timedelta(days=2)).status_code == 303
+    with SessionLocal() as s:
+        assert sorted(d.label for d in workouts_due_today(s, me, t)) == ["Later", "Now"]
+
+
+def test_the_calendar_day_offers_do_today_for_a_coming_session(client, db, me):
+    day = _plan(me, "Cal A", _letter(2))
+    t = clock.today()
+    url = f"/calendar?view=day&date={(t + timedelta(days=2)).isoformat()}"
+    text = client.get(url).text
+    assert f"/workouts/day/{day}/move" in text and "Do Today" in text
+    assert f"/workouts/day/{day}/move" not in client.get(f"/calendar?view=day&date={t.isoformat()}").text
 
 
 def test_pulling_forward_needs_a_session_that_is_due_that_day(client, db, me):
