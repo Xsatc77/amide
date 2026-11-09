@@ -139,7 +139,8 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     from app.routers.workouts import workouts_due_today
     workout_days_due = workouts_due_today(session, uid, today)
     from app.workouts import moves as workout_moves
-    workout_move_dates = workout_moves.free_dates(session, uid, today) if workout_days_due else []
+    workout_move_dates = {day.id: workout_moves.free_dates(session, uid, today, workout_moves.origin_date(session, uid, day.id, today))
+                          for day in workout_days_due}
 
     # Same traced body outline the Body page uses (not a bespoke shape here) -- the owner asked
     # for the injection-site picker to stop drawing its own crude blob and match the real figure.

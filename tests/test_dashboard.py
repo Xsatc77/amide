@@ -608,8 +608,10 @@ def test_only_today_on_the_workout_card_has_a_light_trace_and_its_colour_follows
     plan_id, day_id = _week_with_plan(me, scheduled, logged)
     try:
         t = client.get("/dashboard").text
-        assert t.count('class="wk-trace ') == 1 and f"wk-trace {trace}" in t
-        assert t.count('class="wk-x"') == (7 if not scheduled else 0)   # every rest day is a bold red X
+        from app import clock
+        missed = clock.today().weekday() if scheduled else 0            # earlier days of the week that were due and not done
+        assert t.count('class="wk-trace ') == 1 + missed and f"wk-trace {trace}" in t   # today's light, plus a white ring on each missed day
+        assert t.count('class="wk-x"') == (7 if not scheduled else missed)   # every rest day is a bold red X, every missed day a black one
     finally:
         _drop_week(plan_id, day_id)
 

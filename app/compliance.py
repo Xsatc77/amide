@@ -141,7 +141,9 @@ def _workout_bar(session: Session, uid: int, today: date, window: int) -> dict:
     scheduled = scheduled_workout_dates(session, uid, since, today)
     logged = {d for d in session.scalars(select(WorkoutLog.log_date).where(WorkoutLog.owner_id == uid, WorkoutLog.log_date >= since,
                                                                            WorkoutLog.log_date <= today))}
-    scheduled = {d for d in scheduled if d < today or d in logged}         # today's workout still to do is not missed yet
+    from app.workouts import moves
+    cancelled = moves.cancelled_dates(session, uid, since, today)
+    scheduled = {d for d in scheduled if d < today or d in logged or d in cancelled}         # today's workout still to do is not missed yet
     if not scheduled:
         return _bar("workout", "Workout", 0, 0, "No workout days scheduled yet")
     return _bar("workout", "Workout", len(scheduled & logged), len(scheduled), "Scheduled workout days completed")

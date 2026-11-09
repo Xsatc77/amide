@@ -157,8 +157,9 @@
     {% for day in workout_week %}
     <div class="workout-day {{ 'workout-day-today' if day.is_today }}" title="{{ day.date.strftime('%b') }} {{ day.date.day }}: {{ day.status }}">
       <span class="workout-day-dot workout-day-{{ day.status }}">
-        {% if day.status == 'rest' %}<svg class="wk-x" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3L11 11M11 3L3 11"/></svg>{% endif %}
-        {% if day.is_today %}<svg class="wk-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="wk-ring-base" cx="12" cy="12" r="10.5"/><circle class="wk-trace wk-trace-{{ 'rest' if day.status == 'rest' else ('done' if day.status == 'done' else 'go') }}" cx="12" cy="12" r="10.5" pathLength="100"/></svg>{% endif %}
+        {% if day.status in ('rest', 'missed') %}<svg class="wk-x" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3L11 11M11 3L3 11"/></svg>{% endif %}
+        {% if day.status == 'missed' %}<svg class="wk-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="wk-ring-base" cx="12" cy="12" r="10.5"/><circle class="wk-trace wk-trace-done" cx="12" cy="12" r="10.5" pathLength="100"/></svg>{% endif %}
+        {% if day.is_today and day.status != 'missed' %}<svg class="wk-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="wk-ring-base" cx="12" cy="12" r="10.5"/><circle class="wk-trace wk-trace-{{ 'rest' if day.status == 'rest' else ('done' if day.status == 'done' else 'go') }}" cx="12" cy="12" r="10.5" pathLength="100"/></svg>{% endif %}
       </span>
       <span class="workout-day-label">{{ day.label }}</span>
     </div>

@@ -95,21 +95,28 @@
   <ul class="plain-list">
     {% for day in workout_days_due %}
     <li><a href="/workouts/day/{{ day.id }}/log">{{ day.label }}</a>
-      {% if workout_move_dates %}
+      {% set options = workout_move_dates[day.id] %}
+      {% if options %}
       <details class="move-pick">
         <summary class="btn btn-small">Move</summary>
         <form method="post" action="/workouts/day/{{ day.id }}/move">
           <input type="hidden" name="from_date" value="{{ today }}">
           <label>Move this session to
             <select name="to_date" required>
-              {% for d in workout_move_dates %}<option value="{{ d.isoformat() }}">{{ d.strftime('%A') }}, {{ d | shortdate }}</option>{% endfor %}
+              {% for d in options %}<option value="{{ d.isoformat() }}">{{ d.strftime('%A') }}, {{ d | shortdate }}</option>{% endfor %}
             </select>
           </label>
           <button type="submit" class="btn btn-primary btn-small">Move</button>
-          <span class="muted small">Only this session moves; the schedule stays as it is.</span>
+          <span class="muted small">Only this session moves, and only within 7 days of its original day so the same body groups are not trained twice.</span>
         </form>
       </details>
+      {% else %}
+      <span class="muted small">Can&rsquo;t be moved: no free day within 7 days of this session (later would double up the same body groups), so it counts as missed if it isn&rsquo;t done.</span>
       {% endif %}
+      <form method="post" action="/workouts/day/{{ day.id }}/cancel" class="inline" data-confirm="Cancel this session? It will be counted as missed.">
+        <input type="hidden" name="from_date" value="{{ today }}">
+        <button type="submit" class="btn btn-small btn-ghost btn-danger">Cancel Session</button>
+      </form>
     </li>
     {% endfor %}
   </ul>

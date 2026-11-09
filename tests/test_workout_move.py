@@ -87,3 +87,68 @@ def test_a_logged_day_is_not_offered(client, db, me):
         s.add(WorkoutLog(owner_id=me, plan_day_id=None, day_label="Free", log_date=other))
         s.commit()
     assert _move(client, day, other).status_code == 422
+
+
+def test_a_session_moves_at_most_seven_days_from_its_original_day(client, db, me):
+    day = _plan(me, "Mover G", _letter())
+    t = clock.today()
+    assert _move(client, day, t + timedelta(days=8)).status_code == 422
+    assert _move(client, day, t + timedelta(days=6)).status_code == 303   # day 7 is the plan's own next session
+    options = {d.isoformat() for d in __import__("app.workouts.moves", fromlist=["x"]).free_dates(SessionLocal(), me, t, t)}
+    assert max(options, default="") <= (t + timedelta(days=7)).isoformat()
+
+
+def test_moving_again_is_still_limited_to_seven_days_from_the_original(client, db, me):
+    day = _plan(me, "Mover H", _letter())
+    t = clock.today()
+    _move(client, day, t + timedelta(days=5))
+    # on the new day, only up to day 7 from the ORIGINAL date remains
+    assert _move(client, day, t + timedelta(days=8), frm=t + timedelta(days=5)).status_code == 422
+    assert _move(client, day, t + timedelta(days=6), frm=t + timedelta(days=5)).status_code == 303
+
+
+def test_with_no_free_day_in_the_week_the_page_says_it_cannot_be_moved(client, db, me):
+    day = _plan(me, "Mover I", "MTWRFSU")                                  # a workout every day: nowhere to go
+    text = html.unescape(client.get("/today").text)
+    assert "Can’t be moved" in text and "counts as missed" in text
+    assert f"/workouts/day/{day}/move" not in text and f"/workouts/day/{day}/cancel" in text
+    assert _move(client, day, clock.today() + timedelta(days=1)).status_code == 422
+
+
+def test_cancel_session_marks_it_missed_and_takes_it_off_today(client, db, me):
+    from app.routers.workouts import week_status
+    day = _plan(me, "Mover J", _letter())
+    t = clock.today()
+    assert client.post(f"/workouts/day/{day}/cancel", data={"from_date": t.isoformat()}, follow_redirects=False).status_code == 303
+    with SessionLocal() as s:
+        assert workouts_due_today(s, me, t) == []
+        assert t in scheduled_workout_dates(s, me, t, t)                   # still a scheduled day, so it counts against the stat
+        assert [w["status"] for w in week_status(s, me, t) if w["is_today"]] == ["missed"]
+    assert f"/workouts/day/{day}/log" not in client.get("/today").text
+
+
+def test_a_cancelled_day_is_a_missed_day_in_the_workout_stat(client, db, me):
+    from app import compliance
+    day = _plan(me, "Mover K", _letter())
+    t = clock.today()
+    with SessionLocal() as s:
+        before = compliance._workout_bar(s, me, t, 7)
+    client.post(f"/workouts/day/{day}/cancel", data={"from_date": t.isoformat()})
+    with SessionLocal() as s:
+        after = compliance._workout_bar(s, me, t, 7)
+    assert after["total"] == before["total"] + 1 and after["good"] == before["good"]
+
+
+def test_the_dashboard_shows_a_missed_day_as_a_black_pulsing_x_with_a_white_trace_ring(client, db, me):
+    day = _plan(me, "Mover L", _letter())
+    client.post(f"/workouts/day/{day}/cancel", data={"from_date": clock.today().isoformat()})
+    text = client.get("/").text
+    missed = re.search(r'workout-day-dot workout-day-missed">(.*?)</span>', text, re.S).group(1)
+    assert 'class="wk-x"' in missed and "wk-trace-done" in missed
+    css = client.get("/static/css/app.css").text
+    assert ".workout-day-missed .wk-x" in css and "wk-x-pulse" in css
+
+
+def test_cancelling_a_day_that_is_not_due_is_refused(client, db, me):
+    day = _plan(me, "Mover M", _letter(1))
+    assert client.post(f"/workouts/day/{day}/cancel", data={"from_date": clock.today().isoformat()}).status_code == 422

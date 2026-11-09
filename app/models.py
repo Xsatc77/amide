@@ -1500,6 +1500,16 @@ class WorkoutMove(Base):
     to_date: Mapped[date] = mapped_column(Date, index=True)
 
 
+class WorkoutCancel(Base):
+    """A session of a plan day cancelled on a date: counted as missed, and no longer offered on Today."""
+    __tablename__ = "workout_cancels"
+    __table_args__ = (UniqueConstraint("plan_day_id", "on_date", name="uq_workout_cancel_day_date"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    plan_day_id: Mapped[int] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="CASCADE"), index=True)
+    on_date: Mapped[date] = mapped_column(Date, index=True)
+
+
 class WorkoutExercise(Base):
     __tablename__ = "workout_exercises"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

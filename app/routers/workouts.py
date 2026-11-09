@@ -41,7 +41,7 @@ _WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")  # parallel t
 
 def workouts_due_today(session: Session, uid: int, today: date_type) -> list[WorkoutPlanDay]:
     """Active plans' days scheduled for today (a session moved here counts, one moved away does not), excluding any already logged today."""
-    ids = moves.due_by_date(session, uid, today, today).get(today, set())
+    ids = moves.due_by_date(session, uid, today, today).get(today, set()) - moves.cancelled_ids(session, uid, today)
     logged_day_ids = {
         wl.plan_day_id for wl in session.scalars(
             select(WorkoutLog).where(WorkoutLog.owner_id == uid, WorkoutLog.log_date == today))
@@ -58,6 +58,7 @@ def week_status(session: Session, uid: int, today: date_type) -> list[dict]:
     monday = today - timedelta(days=today.weekday())
     week_end = monday + timedelta(days=6)
     scheduled = scheduled_workout_dates(session, uid, monday, week_end)
+    cancelled = moves.cancelled_dates(session, uid, monday, week_end)
     logged_dates = {
         wl.log_date for wl in session.scalars(
             select(WorkoutLog).where(WorkoutLog.owner_id == uid,
@@ -70,7 +71,7 @@ def week_status(session: Session, uid: int, today: date_type) -> list[dict]:
             status = "rest"
         elif d in logged_dates:
             status = "done"
-        elif d < today:
+        elif d < today or d in cancelled:
             status = "missed"
         else:
             status = "upcoming"
@@ -550,6 +551,21 @@ async def workouts_move(plan_day_id: int, request: Request, session: Session = D
     except ValueError:
         raise HTTPException(422, "Pick the day to move the workout to.")
     problem = moves.move_session(session, uid, day.id, from_date, to_date, clock.today())
+    if problem:
+        raise HTTPException(422, problem)
+    return RedirectResponse("/today", status_code=303)
+
+
+@router.post("/workouts/day/{plan_day_id}/cancel")
+async def workouts_cancel(plan_day_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Today: cancel this workout session; it is counted as missed."""
+    day = _get_own_day(session, plan_day_id, uid)
+    form = await request.form()
+    try:
+        on_date = date_type.fromisoformat(str(form.get("from_date")))
+    except ValueError:
+        raise HTTPException(422, "Which day's session?")
+    problem = moves.cancel_session(session, uid, day.id, on_date)
     if problem:
         raise HTTPException(422, problem)
     return RedirectResponse("/today", status_code=303)
