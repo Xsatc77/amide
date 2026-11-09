@@ -1262,6 +1262,21 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .log-set-weights[hidden] { display: none; }
 .log-set-weights label { display: inline-flex; gap: .3rem; align-items: center; }
 .log-estimate { white-space: nowrap; }
+/* Phones: each exercise becomes a card, so no input slides off the screen */
+@media (max-width: 720px) {
+  .log-table, .log-table tbody { display: block; width: 100%; }
+  .log-table thead { display: none; }
+  .log-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem .75rem; padding: .9rem 0; border-bottom: 1px solid var(--border); }
+  .log-table td { display: block; padding: 0; border: 0; min-width: 0; }
+  .log-table td.log-wide { grid-column: 1 / -1; }
+  .log-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: .2rem; font-size: .75rem; color: var(--muted, #888); }
+  .log-table td.log-done { display: flex; align-items: center; gap: .5rem; grid-column: 1 / -1; }
+  .log-table td.log-done::before { margin: 0; order: 2; font-size: .9rem; }
+  .log-table td.log-half input { width: 100% !important; }
+  .log-table input[list] { width: 100%; }
+  .log-table .log-estimate { white-space: normal; }
+  .log-check, .log-set-weights { white-space: normal; }
+}
 
 .match-cell { min-width: 14rem; }
 .btn-small, .btn.small { padding: .15rem .5rem; font-size: .8rem; }

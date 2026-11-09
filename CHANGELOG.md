@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Workout log on a phone: each exercise is now a card.** Load, Sets, Reps per set, the per-set boxes and the estimate stack inside the screen width instead of sliding off the side of the table.
 - **Calendar: a Do Today button on a coming day's workouts.** Open a later day in the Calendar's day view and each workout due there can be done today instead, even when today already has a workout. Only that session moves, within 7 days of its original day.
 - **Today: a "Workouts Coming Up" list with a Do Today button.** When today has no workout, a session due later in the week can be pulled onto today for that one session only; the plan's weekdays are unchanged and next week is untouched. It keeps the 7-day limit from the original day.
 - **Workouts: a session moves at most 7 days from its original day, and Today has a Cancel Session button.** Later than a week would train the same body groups twice, so only free days within 7 days are offered; with none free the page says the session cannot be moved and counts as missed if not done. Cancel Session marks it missed at once. A missed day on the Dashboard workout card is now a bold black pulsing X with a white light circling it.
