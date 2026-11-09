@@ -1705,6 +1705,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .scale-cell dt { font-size: .8rem; color: var(--muted); }
 .scale-cell dd { margin: 0; }
 .scale-import { margin-top: 12px; }
+.scale-import-form { display: flex; flex-direction: column; align-items: stretch; gap: .8rem; margin-top: .8rem; max-width: 34rem; }
+.scale-import-form input[type="file"] { width: 100%; padding: .6rem; min-height: 2.75rem; font-size: 1rem; }
+.scale-import-form .btn-primary { min-height: 2.75rem; }
+.scale-import-form textarea { width: 100%; margin-top: .5rem; font-family: ui-monospace, monospace; font-size: .8rem; }
+.scale-paste summary { cursor: pointer; color: var(--muted); }
 .scale-entry { margin: 12px 0; }
 .scale-entry summary { cursor: pointer; font-weight: 600; }
 .scale-entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; margin-top: 8px; }

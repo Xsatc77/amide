@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -690,11 +691,29 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     return templates.TemplateResponse(request, "measurements/index.html", context, status_code=status_code)
 
 
+def _entry_form(row: BodyMeasurement, u) -> dict:
+    """An entry's values as the Log A Measurement form shows them (the person's units), for editing."""
+    shown = display_entries([row], u)[0]
+    form = {"measured_at": row.measured_at.isoformat()}
+    for field in (*FLOAT_FIELDS, *INT_FIELDS, *(f for f, _, _ in scale_view.SCALE_FIELDS)):
+        value = getattr(shown, field, None)
+        if value is not None:
+            form[field] = f"{value:g}"
+    for field, text in (row.notes or {}).items():
+        form[f"note__{field}"] = text
+    return form
+
+
 @router.get("/measurements")
 def list_measurements(request: Request, tab: str = "measurements",
                       range_param: str | None = Query(None, alias="range"),
-                      as_of_param: str | None = Query(None, alias="as_of"),
+                      as_of_param: str | None = Query(None, alias="as_of"), edit_entry: int | None = None,
                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    if edit_entry is not None:            # the Edit button on an entry: the form opens filled with that entry's values
+        row = session.scalar(select(BodyMeasurement).where(BodyMeasurement.id == edit_entry, BodyMeasurement.owner_id == uid))
+        if row is None:
+            raise HTTPException(404, "Measurement not found")
+        return _render(request, session, uid, tab="measurements", form=_entry_form(row, units.for_user(request.state.user)), extra={"edit_id": row.id})
     if tab == "macros":                    # the old Macros tab is now the Food tab
         return RedirectResponse("/measurements?tab=food", status_code=303)
     if range_param is None and tab == "labs":          # labs are drawn a few times a year: show all of them unless a range is picked
@@ -714,14 +733,22 @@ def delete_measurement(measurement_id: int, session: Session = Depends(get_sessi
 
 
 @router.post("/measurements/import-scale")
-async def import_scale(request: Request, file: UploadFile = File(...), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    """Load a body-composition scale's export (Renpho CSV): one measurement per reading, the scale's numbers kept in their own fields."""
+async def import_scale(request: Request, file: UploadFile | None = File(None), text: str = Form(""), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Load a body-composition scale's export (Renpho CSV): one measurement per reading, the scale's numbers kept in their own fields. The file, or its text pasted in."""
     from app.measurements import renpho
+
+    def _refuse(message: str):
+        return _render(request, session, uid, tab="measurements", errors={"scale_import": message}, status_code=422)
+
+    raw = text
+    if not raw.strip() and file is not None and file.filename:
+        raw = (await file.read(renpho._MAX_BYTES + 1)).decode("utf-8-sig", errors="replace")
+    if not raw.strip():
+        return _refuse("No file came through. Choose the CSV again, or paste its text. A file kept in iCloud Drive has to be downloaded to the device first.")
     try:
-        text = (await file.read(renpho._MAX_BYTES + 1)).decode("utf-8-sig", errors="replace")
-        parsed = renpho.parse(text)
+        parsed = renpho.parse(raw)
     except renpho.ImportError_ as exc:
-        return _render(request, session, uid, tab="measurements", errors={"scale_import": str(exc)}, status_code=422)
+        return _refuse(str(exc))
     if not parsed.readings:
         return _render(request, session, uid, tab="measurements", errors={"scale_import": "No weigh-ins could be read from that file." + (" " + parsed.errors[0] if parsed.errors else "")}, status_code=422)
     result = renpho.import_readings(session, uid, parsed)
@@ -729,10 +756,17 @@ async def import_scale(request: Request, file: UploadFile = File(...), session: 
     return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&skipped={result.skipped}&unread={len(result.errors)}", status_code=303)
 
 
-@router.post("/measurements")
-async def create_measurement(request: Request, session: Session = Depends(get_session),
-                             uid: int = Depends(current_user_id)):
-    form = await request.form()
+@dataclass
+class _Submission:
+    measured_at: date
+    values: dict
+    notes: dict
+    errors: dict
+    form_values: dict
+
+
+def _parse_submission(form, request: Request) -> _Submission:
+    """Read the Log A Measurement form: the date, every number (typed in the person's units, stored in US units), the notes, and what was wrong."""
     form_values = {key: str(form.get(key, "")) for key in form.keys()}
     errors: dict[str, str] = {}
 
@@ -790,10 +824,40 @@ async def create_measurement(request: Request, session: Session = Depends(get_se
             value = None
         values[field] = u.weight_in(value) if kind == "mass" else value
 
-    if errors:
-        return _render(request, session, uid, form=form_values, errors=errors, status_code=422)
+    notes = {}
+    if not errors:
+        notes = {field: text[:NOTE_MAX] for field, _ in NOTE_FIELDS if (text := _raw(f"note__{field}"))}
+    return _Submission(measured_at, values, notes, errors, form_values)
 
-    notes = {field: text[:NOTE_MAX] for field, _ in NOTE_FIELDS if (text := _raw(f"note__{field}"))}
-    session.add(BodyMeasurement(owner_id=uid, measured_at=measured_at, notes=notes or None, **values))
+
+@router.post("/measurements")
+async def create_measurement(request: Request, session: Session = Depends(get_session),
+                             uid: int = Depends(current_user_id)):
+    form = await request.form()
+    parsed = _parse_submission(form, request)
+    if parsed.errors:
+        return _render(request, session, uid, form=parsed.form_values, errors=parsed.errors, status_code=422)
+    session.add(BodyMeasurement(owner_id=uid, measured_at=parsed.measured_at, notes=parsed.notes or None, **parsed.values))
     session.commit()
     return RedirectResponse("/measurements", status_code=303)
+
+
+@router.post("/measurements/{measurement_id}/edit")
+async def edit_measurement(measurement_id: int, request: Request, session: Session = Depends(get_session),
+                           uid: int = Depends(current_user_id)):
+    """Change one of the signed-in person's own entries: every box on the form replaces what was stored (a box left empty clears that value)."""
+    row = session.scalar(select(BodyMeasurement).where(BodyMeasurement.id == measurement_id, BodyMeasurement.owner_id == uid))
+    if row is None:
+        raise HTTPException(404, "Measurement not found")
+    form = await request.form()
+    parsed = _parse_submission(form, request)
+    if parsed.errors:
+        return _render(request, session, uid, form=parsed.form_values, errors=parsed.errors, status_code=422, extra={"edit_id": row.id})
+    row.measured_at = parsed.measured_at
+    row.notes = parsed.notes or None
+    for field, value in parsed.values.items():
+        setattr(row, field, value)
+    session.commit()
+    return RedirectResponse("/measurements?tab=measurements", status_code=303)
+
+

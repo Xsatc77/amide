@@ -160,10 +160,16 @@
   {% endif %}
   <details class="scale-import">
     <summary class="btn btn-ghost">Import from a scale (Renpho CSV)</summary>
-    <form method="post" action="/measurements/import-scale" enctype="multipart/form-data" class="inline-form">
-      <label class="field"><span>Export file (.csv)</span><input type="file" name="file" accept=".csv,text/csv" required></label>
+    <form method="post" action="/measurements/import-scale" enctype="multipart/form-data" class="scale-import-form" data-scale-import>
+      <p class="muted small">Export your readings from the Renpho app as a CSV, save it on this device, then choose it here.</p>
+      <label class="field"><span>CSV file</span><input type="file" name="file" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel"></label>
+      <details class="scale-paste">
+        <summary class="small">Can&rsquo;t choose the file? Paste its text instead</summary>
+        <textarea name="text" rows="6" placeholder="No.,Date,Time,Weight(lb),&hellip;" aria-label="The CSV file's text"></textarea>
+      </details>
+      <p class="alert" role="alert" data-scale-import-msg hidden></p>
       <button type="submit" class="btn btn-primary">Import</button>
-      <p class="muted small">Each weigh-in becomes a measurement on its date. A reading that is already in Amide is skipped, so importing the same file again is safe. Percentages and masses are the scale's own estimates, kept separate from anything Amide works out.</p>
+      <p class="muted small">Each weigh-in becomes a measurement on its date. A reading that is already in Amide is skipped, so importing the same file again is safe. Percentages and masses are the scale&rsquo;s own estimates, kept separate from anything Amide works out.</p>
     </form>
   </details>
 </section>
@@ -220,10 +226,10 @@
 </label>
 {% endmacro %}
 
-<dialog id="measurement-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors }}>
-  <form method="post" action="/measurements" class="settings-form" novalidate>
+<dialog id="measurement-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors or edit_id }}>
+  <form method="post" action="{{ '/measurements/' ~ edit_id ~ '/edit' if edit_id else '/measurements' }}" class="settings-form" novalidate>
     <header class="dialog-head">
-      <h2>Log A Measurement</h2>
+      <h2>{{ 'Edit Measurement' if edit_id else 'Log A Measurement' }}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
     {% if errors %}
@@ -296,7 +302,7 @@
     </details>
 
     <div class="dialog-submit-row">
-      <button type="submit" class="btn btn-primary">Log A Measurement</button>
+      <button type="submit" class="btn btn-primary">{{ 'Save Changes' if edit_id else 'Log A Measurement' }}</button>
     </div>
   </form>
 </dialog>
@@ -348,7 +354,7 @@
           <td data-label="Weight ({{ u.weight_label }})">{{ m.weight_lbs if m.weight_lbs is not none else '—' }}</td>
           <td data-label="Waist ({{ u.length_label }})">{{ m.waist_in if m.waist_in is not none else '—' }}</td>
           <td data-label="Scale" class="small">{{ scale_summary(m) or '—' }}</td>
-          <td class="actions"><form method="post" action="/measurements/{{ m.id }}/delete" class="inline" data-confirm="Delete the {{ m.measured_at | shortdate }} entry? This cannot be undone. Your water goal and calorie targets are worked out from your latest weight, so deleting your only weigh-in removes them until you log a new one."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ m.measured_at | shortdate }} entry">Delete</button></form></td>
+          <td class="actions"><a class="btn btn-ghost small" href="/measurements?tab=measurements&edit_entry={{ m.id }}" aria-label="Edit the {{ m.measured_at | shortdate }} entry">Edit</a> <form method="post" action="/measurements/{{ m.id }}/delete" class="inline" data-confirm="Delete the {{ m.measured_at | shortdate }} entry? This cannot be undone. Your water goal and calorie targets are worked out from your latest weight, so deleting your only weigh-in removes them until you log a new one."><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ m.measured_at | shortdate }} entry">Delete</button></form></td>
         </tr>
         {% endfor %}
       </tbody>

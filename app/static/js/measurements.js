@@ -149,3 +149,18 @@
 // Delete buttons on this page (measurements, journal entries, water entries) ask first.
 document.querySelectorAll("form[data-confirm]").forEach((f) =>
   f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));
+
+// Scale import: say so on the spot when no readable file was chosen (an iCloud file that has not been downloaded arrives empty), instead of posting an empty form.
+document.querySelectorAll("form[data-scale-import]").forEach((form) => {
+  const msg = form.querySelector("[data-scale-import-msg]");
+  const say = (text) => { if (msg) { msg.textContent = text; msg.hidden = !text; } };
+  const input = form.querySelector('input[type="file"]');
+  const paste = form.querySelector("textarea");
+  if (input) input.addEventListener("change", () => say(input.files[0] && input.files[0].size === 0 ? "That file is empty. If it is in iCloud Drive, download it to this device first, or paste its text below." : ""));
+  form.addEventListener("submit", (event) => {
+    const file = input && input.files[0];
+    if ((paste && paste.value.trim()) || (file && file.size > 0)) return;
+    event.preventDefault();
+    say(file ? "That file is empty. If it is in iCloud Drive, download it to this device first, or paste its text below." : "Choose the CSV file first, or paste its text below.");
+  });
+});

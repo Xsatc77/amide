@@ -129,3 +129,84 @@ def test_the_overview_weight_chart_has_the_lost_or_gained_sash_and_other_metrics
     weight = next(p for p in panels if p.startswith(' data-metric="weight_lbs"'))
     assert 'class="weight-ribbon down"' in weight and "Lost 4.5 lbs" in weight
     assert all("weight-ribbon" not in p.split("</svg>")[0] for p in panels if not p.startswith(' data-metric="weight_lbs"'))
+
+
+RENPHO_HEADER = ("No.,Date,Time,Weight(lb),BMI,Body Fat Percentage(%),Body Fat Mass(lb),Muscle Percentage(%),Muscle Mass(lb),Skeletal Muscle Percentage(%),"
+                 "Skeletal Muscle Mass(lb),Bone Percentage(%),Bone Mass(lb),Protein Percentage(%),Protein Mass(lb),Body Water Percentage(%),Body Water Mass(lb),"
+                 "Fat-Free Mass(lb),Subcutaneous Fat(%),Visceral Fat,BMR(kcal),Metabolic Age,WHR (Waist-to-Hip Ratio),Optimal Weight(lb),Weight Level,Body Type,"
+                 "Target to optimal weight(lb),Target to optimal muscle mass(lb),Target to optimal fat mass(lb),Remarks\n")
+RENPHO_ROW = "1,2026.11.09,14:03:58,200.5,30.1,30.0,60.1,60.0,120.3,40.0,80.2,3.0,6.0,14.0,28.1,46.0,92.2,140.4,25.0,12,1800,40,--,--,--,--,--,--,--,--\n"
+
+
+def test_a_renpho_export_with_the_apps_own_layout_imports(client, db, me):
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    r = client.post("/measurements/import-scale", files={"file": ("export.csv", (RENPHO_HEADER + RENPHO_ROW + "\n").encode(), "text/csv")}, follow_redirects=False)
+    assert r.status_code == 303 and "imported=1" in r.headers["location"]
+    with SessionLocal() as s:
+        [m] = s.query(BodyMeasurement).filter_by(owner_id=me).all()
+        assert (m.weight_lbs, m.scale_bmi, m.scale_body_fat_pct, m.scale_visceral_fat) == (200.5, 30.1, 30.0, 12.0)
+
+
+def test_pasted_csv_text_imports_when_a_file_cannot_be_chosen(client, db, me):
+    r = client.post("/measurements/import-scale", data={"text": RENPHO_HEADER + RENPHO_ROW}, follow_redirects=False)
+    assert r.status_code == 303 and "imported=1" in r.headers["location"]
+
+
+def test_an_import_with_no_file_says_what_to_do_instead_of_returning_json(client, db, me):
+    for kwargs in ({}, {"files": {"file": ("", b"", "application/octet-stream")}}, {"files": {"file": ("export.csv", b"", "text/csv")}}):
+        r = client.post("/measurements/import-scale", **kwargs)
+        assert r.status_code == 422 and "No file came through" in r.text and not r.text.lstrip().startswith("{")
+
+
+def _entry(me, **values):
+    from app import clock
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        row = BodyMeasurement(owner_id=me, measured_at=clock.today(), **values)
+        s.add(row)
+        s.commit()
+        return row.id
+
+
+def test_the_edit_button_opens_the_form_filled_in_and_saving_changes_the_entry(client, db, me):
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    entry = _entry(me, weight_lbs=200.0, hips_in=0.4925, waist_in=40.0, notes={"hips_in": "after dinner"})
+    page = client.get("/measurements").text
+    assert f"/measurements?tab=measurements&amp;edit_entry={entry}" in page or f"edit_entry={entry}" in page
+    form = client.get(f"/measurements?edit_entry={entry}").text
+    assert f'action="/measurements/{entry}/edit"' in form and "Edit Measurement" in form and 'value="0.4925"' in form and "Save Changes" in form
+    r = client.post(f"/measurements/{entry}/edit", data={"measured_at": "2026-11-08", "weight_lbs": "199.5", "hips_in": "44.5", "waist_in": "", "note__hips_in": "fixed"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        m = s.get(BodyMeasurement, entry)
+        assert (m.weight_lbs, m.hips_in, m.waist_in, str(m.measured_at), m.notes) == (199.5, 44.5, None, "2026-11-08", {"hips_in": "fixed"})
+        assert s.query(BodyMeasurement).filter_by(owner_id=me).count() == 1                 # edited in place, not added
+
+
+def test_a_bad_edit_shows_the_error_and_keeps_the_entry(client, db, me):
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    entry = _entry(me, weight_lbs=200.0)
+    r = client.post(f"/measurements/{entry}/edit", data={"measured_at": "2026-11-08", "weight_lbs": "abc"})
+    assert r.status_code == 422 and "Enter a number." in r.text and f'action="/measurements/{entry}/edit"' in r.text
+    with SessionLocal() as s:
+        assert s.get(BodyMeasurement, entry).weight_lbs == 200.0
+
+
+def test_nobody_can_edit_someone_elses_entry(client, db, me):
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement, User
+    with SessionLocal() as s:
+        other = User(username="otherperson", username_key="otherperson", password_hash="x")
+        s.add(other)
+        s.commit()
+        row = BodyMeasurement(owner_id=other.id, measured_at=__import__("app.clock", fromlist=["x"]).today(), weight_lbs=150.0)
+        s.add(row)
+        s.commit()
+        rid = row.id
+    assert client.get(f"/measurements?edit_entry={rid}").status_code == 404
+    assert client.post(f"/measurements/{rid}/edit", data={"weight_lbs": "1"}).status_code == 404
