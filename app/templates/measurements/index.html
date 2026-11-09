@@ -88,7 +88,7 @@
     {% set shown = namespace(done=false) %}
     <div id="overview-chart-slot">
       {% for s in overview_metrics %}
-      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label, 'currentColor', s.key == 'weight_lbs') }}</div>
+      <div class="overview-chart-panel" data-metric="{{ s.key }}"{{ '' if not shown.done else ' hidden' }}>{{ line_chart(s.chart, s.label, 'currentColor', s.key == 'weight_lbs', ribbon=weight_ribbon if s.key == 'weight_lbs' else none) }}</div>
       {% set shown.done = true %}
       {% endfor %}
       {% for s in overview_avgs %}

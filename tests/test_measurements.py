@@ -111,3 +111,21 @@ def test_bmi_returns_none_for_missing_or_non_positive_height():
     assert bmi(180, None) is None
     assert bmi(180, 0) is None
     assert bmi(180, -5) is None
+
+
+def test_the_overview_weight_chart_has_the_lost_or_gained_sash_and_other_metrics_do_not(client, db, me):
+    from datetime import timedelta
+    from app import clock
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement, Protocol
+    today = clock.today()
+    with SessionLocal() as s:
+        s.add(Protocol(owner_id=me, name="Sash Protocol", start_date=today - timedelta(days=20)))
+        s.add(BodyMeasurement(owner_id=me, measured_at=today - timedelta(days=20), weight_lbs=200.0, neck_in=15.0))
+        s.add(BodyMeasurement(owner_id=me, measured_at=today - timedelta(days=1), weight_lbs=195.5, neck_in=15.5))
+        s.commit()
+    text = client.get("/measurements").text
+    panels = text.split('class="overview-chart-panel"')[1:]
+    weight = next(p for p in panels if p.startswith(' data-metric="weight_lbs"'))
+    assert 'class="weight-ribbon down"' in weight and "Lost 4.5 lbs" in weight
+    assert all("weight-ribbon" not in p.split("</svg>")[0] for p in panels if not p.startswith(' data-metric="weight_lbs"'))

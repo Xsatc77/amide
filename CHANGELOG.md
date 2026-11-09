@@ -4,6 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Body: the Weight chart carries the lost-or-gained sash too.** On Weight & Measurements, the Overview chart shows the same corner banner as the Dashboard (total lost or gained since the first protocol) only while Weight is picked in the dropdown; other metrics have none.
 - **An opened BAC Water bottle is good for 60 days, not 28.** Its Active Vial now gets a discard date 60 days out, and bottles already open on the old 28-day date are moved to 60 (a date you set by hand, a discarded bottle and a mixed peptide vial are left alone). The shopping plan and the Protocol Portfolio now count one bottle per 60 days of course.
 - **Workout log on a phone: each exercise is now a card.** Load, Sets, Reps per set, the per-set boxes and the estimate stack inside the screen width instead of sliding off the side of the table.
 - **Calendar: a Do Today button on a coming day's workouts.** Open a later day in the Calendar's day view and each workout due there can be done today instead, even when today already has a workout. Only that session moves, within 7 days of its original day.

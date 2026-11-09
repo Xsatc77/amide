@@ -448,6 +448,20 @@ WEIGHT_CHANGE_LABELS = 8          # at most this many days are labeled, newest f
 WEIGHT_LABEL_GAP = 64             # chart units between two labels: a label is skipped rather than drawn on top of its neighbor
 
 
+def weight_ribbon(session: Session, owner_id: int, entries, u) -> dict | None:
+    """The green/amber/grey sash on a weight chart: total lost or gained since the first protocol started. None when it cannot be said."""
+    from app.measurements.calculations import weight_since_start
+    from app.models import Protocol
+    first_start = session.scalar(select(func.min(func.coalesce(Protocol.anchor_start, Protocol.start_date))).where(Protocol.owner_id == owner_id))
+    since = weight_since_start([(e.measured_at, e.weight_lbs) for e in reversed(display_entries(entries, u)) if e.weight_lbs is not None], first_start)
+    if since is None:
+        return None
+    change, baseline_date = since
+    return {"cls": "down" if change < 0 else "up" if change > 0 else "flat",
+            "text": "No change" if not change else f"{'Lost' if change < 0 else 'Gained'} {abs(change):.1f} {u.weight_label}",
+            "title": f"Since the first protocol started ({first_start:%m/%d/%Y}); weighed {baseline_date:%m/%d/%Y} at the start."}
+
+
 def weight_changes(chart: dict | None, entries, limit: int = WEIGHT_CHANGE_LABELS) -> None:
     """Add to a weight `chart` the change from each day's weigh-in to the day before: `chart["changes"]` is a list of {x, y, text, cls} placed at the day's
     point. Several weigh-ins on one day (a smart scale gives a few in a row) count as one, by the last one recorded, so the labels never pile up on one spot."""
@@ -626,6 +640,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         "silhouette_shape": _silhouette_shape(me_user.sex.value if me_user and me_user.sex else None),
         "water": water,
         "charts": _charts_context(own_windowed, me_user, range_key, u),
+        "weight_ribbon": weight_ribbon(session, uid, own_entries, u),
         "scale_summary": scale_view.summary,
         "scale_entry_open": any(f in (errors or {}) for f, _, _ in scale_view.SCALE_FIELDS),
         "as_of": as_of.isoformat(),
