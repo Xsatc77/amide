@@ -44,7 +44,7 @@ def test_the_best_ranked_bac_is_opened_whatever_the_age_of_the_others(client, db
     assert recon(client, peptide).status_code == 303
     assert counts({"first": first, "second": second, "third": third}) == {"first": 0, "second": 1, "third": 1}
     (vial,) = bac_vials()
-    assert vial.inventory_item_id == first and vial.discard_by == date.today() + timedelta(days=90)
+    assert vial.inventory_item_id == first and vial.discard_by == date.today() + timedelta(days=60)
     assert vial.date_mixed == date.today() and vial.volume_remaining_ml == pytest.approx(28.0)       # a 30 mL bottle minus the 2 mL used
     assert vial.concentration_mg_ml is None and vial.doses_total is None
 

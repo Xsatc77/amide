@@ -4,7 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
-- **An opened BAC Water bottle is good for 90 days, not 28.** Its Active Vial now gets a discard date 90 days out, and bottles already open on the old 28-day date are moved to 90 (a date you set by hand, a discarded bottle and a mixed peptide vial are left alone). The shopping plan and the Protocol Portfolio now count one bottle per 90 days of course.
+- **An opened BAC Water bottle is good for 60 days, not 28.** Its Active Vial now gets a discard date 60 days out, and bottles already open on the old 28-day date are moved to 60 (a date you set by hand, a discarded bottle and a mixed peptide vial are left alone). The shopping plan and the Protocol Portfolio now count one bottle per 60 days of course.
 - **Workout log on a phone: each exercise is now a card.** Load, Sets, Reps per set, the per-set boxes and the estimate stack inside the screen width instead of sliding off the side of the table.
 - **Calendar: a Do Today button on a coming day's workouts.** Open a later day in the Calendar's day view and each workout due there can be done today instead, even when today already has a workout. Only that session moves, within 7 days of its original day.
 - **Today: a "Workouts Coming Up" list with a Do Today button.** When today has no workout, a session due later in the week can be pulled onto today for that one session only; the plan's weekdays are unchanged and next week is untouched. It keeps the 7-day limit from the original day.

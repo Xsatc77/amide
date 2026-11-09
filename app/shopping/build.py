@@ -19,7 +19,7 @@ from app.shopping.planner import Need, Offer, Plan, plan_protocol
 DEFAULT_SHIPPING = {"china": 60.0, "us": 30.0}
 MAX_FEE = 10_000.0
 BAC_BOTTLE_ML = 30
-BAC_DAYS_OPEN = BAC_BOTTLE_DAYS   # an opened BAC water bottle is good for 90 days
+BAC_DAYS_OPEN = BAC_BOTTLE_DAYS   # an opened BAC water bottle is good for 60 days
 _HARD = re.compile(r"testosterone|\btrt\b|\bhgh\b|somatropin|growth hormone", re.IGNORECASE)
 _SIZE_UNITS = ("mg", "mcg", "IU")
 _OIL = re.compile(r"testosterone|\btrt\b", re.IGNORECASE)

@@ -165,7 +165,7 @@ def test_bac_water_is_listed_as_a_separate_purchase_with_bottles(client, db, me)
         s.commit()
     pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)])
     bac = shop(client, pid).json()["bac"]
-    assert bac["ml"] > 0 and bac["bottles"] == max(math.ceil(bac["ml"] / 30), math.ceil(40 / 90))
+    assert bac["ml"] > 0 and bac["bottles"] == max(math.ceil(bac["ml"] / 30), math.ceil(40 / 60))
 
 
 def test_an_iu_product_is_priced_in_iu_converting_a_mass_dose(client, db, me):
@@ -303,7 +303,7 @@ def test_a_ranked_brand_of_bac_water_on_a_price_list_is_planned_as_its_own_order
     data = shop(client, pid).json()
     buy = data["bac"]["buy"]
     assert buy["vendor"] == "Sterile Supply Co" and buy["product"] == "Acme Hospira Bacteriostatic Water" and buy["mode"] == "separate"
-    assert (buy["size_label"], buy["packs"], buy["cost"], buy["shipping"], buy["extra"]) == ("30 mL", 1, 18.0, 30.0, 48.0)       # a 40-day course: one bottle (90 days once opened); the case is dearer; sodium chloride is not water
+    assert (buy["size_label"], buy["packs"], buy["cost"], buy["shipping"], buy["extra"]) == ("30 mL", 1, 18.0, 30.0, 48.0)       # a 40-day course: one bottle (60 days once opened); the case is dearer; sodium chloride is not water
     assert data["grand_total"] == pytest.approx(data["plan"]["total"] + 48.0)
 
 
@@ -320,16 +320,16 @@ def test_the_plain_text_includes_the_bac_water_and_the_grand_total_with_it(clien
     assert "BAC water" in text and "Sterile Supply Co" in text and "Acme Hospira Bacteriostatic Water" in text and "Grand total: $508.00" in text
 
 
-def test_bac_bottles_follow_the_90_day_rule_for_a_long_course(client, db, me):
+def test_bac_bottles_follow_the_60_day_rule_for_a_long_course(client, db, me):
     zorvex, quillamine = lists(db)
     with SessionLocal() as s:
         for pid_ in (zorvex, quillamine):
             c = s.get(Peptide, pid_)
             c.normally_supplied_amount, c.normally_supplied_unit = 10, DoseUnit.MG
         s.commit()
-    pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)], days=200)          # an opened bottle is good for 90 days
+    pid = protocol(me, [(zorvex, 250, DoseUnit.MCG, Frequency.DAILY), (quillamine, 250, DoseUnit.MCG, Frequency.DAILY)], days=200)          # an opened bottle is good for 60 days
     bac = shop(client, pid).json()["bac"]
-    assert bac["bottles"] == 3 and bac["ml"] > 0                                                                                          # 200 days / 90 = 3 bottles, though the volume would fit in one
+    assert bac["bottles"] == 4 and bac["ml"] > 0                                                                                          # 200 days / 60 = 4 bottles, though the volume would fit in one
 
 
 def oil_protocol(db, me):

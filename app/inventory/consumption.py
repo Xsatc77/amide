@@ -139,7 +139,7 @@ def give_back(session: Session, uid: int, used: dict | None) -> None:
             item.count += int(qty)
 
 
-BAC_BOTTLE_DAYS = 90                  # an opened BAC Water bottle is good for 90 days: its Active Vial is discarded then, whatever the vial default is
+BAC_BOTTLE_DAYS = 60                  # an opened BAC Water bottle is good for 60 days: its Active Vial is discarded then, whatever the vial default is
 
 
 def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0, discard_days: int = 28, today: date | None = None) -> None:

@@ -783,7 +783,7 @@ def _insert(con, table, **given):
     return con.execute("SELECT last_insert_rowid()").fetchone()[0]
 
 
-def test_0092_extends_open_bac_water_bottles_to_90_days(tmp_path):
+def test_0092_extends_open_bac_water_bottles_to_60_days(tmp_path):
     db = tmp_path / "m.db"
     command.upgrade(_cfg(db), "0091")
     con = sqlite3.connect(db)
@@ -799,6 +799,6 @@ def test_0092_extends_open_bac_water_bottles_to_90_days(tmp_path):
     command.upgrade(_cfg(db), "0092")
     con = sqlite3.connect(db)
     got = {i: d for i, d in con.execute("SELECT id, discard_by FROM active_vials")}
-    assert got[old] == "2026-12-30"                                    # open, still on the old 28 days: now 90
+    assert got[old] == "2026-11-30"                                    # open, still on the old 28 days: now 60
     assert got[by_hand] == "2026-10-15" and got[done] == "2026-10-29"  # a date set by hand, and a discarded bottle, are left alone
     assert got[peptide] == "2026-10-29"                                # a mixed peptide vial keeps its 28 days
