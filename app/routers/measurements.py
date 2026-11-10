@@ -651,7 +651,11 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context["nutrition_range"] = _nutrition_range(session, uid, window_start, as_of)
         context["scale_latest"] = scale_view.latest_card(own_entries, display_entries(own_entries, u), u, me_user)
         q = request.query_params
-        context["scale_import"] = {k: int(q[k]) for k in ("imported", "skipped", "unread") if q.get(k, "").isdigit()} or None
+        context["scale_import"] = {k: int(q[k]) for k in ("imported", "merged", "skipped", "unread") if q.get(k, "").isdigit()} or None
+        if q.get("kept", "").isdigit():                # a new entry was within 12 hours of this one, so this one was kept
+            kept = next((e for e in own_entries if e.id == int(q["kept"])), None)
+            if kept is not None:
+                context["kept_original"] = {"date": kept.measured_at, "filled": int(q["filled"]) if q.get("filled", "").isdigit() else 0}
     if tab == "journal":
         edit_raw = (extra or {}).get("journal_edit") or request.query_params.get("edit")
         try:
@@ -753,7 +757,7 @@ async def import_scale(request: Request, file: UploadFile | None = File(None), t
         return _render(request, session, uid, tab="measurements", errors={"scale_import": "No weigh-ins could be read from that file." + (" " + parsed.errors[0] if parsed.errors else "")}, status_code=422)
     result = renpho.import_readings(session, uid, parsed)
     session.commit()
-    return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&skipped={result.skipped}&unread={len(result.errors)}", status_code=303)
+    return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&merged={result.merged}&skipped={result.skipped}&unread={len(result.errors)}", status_code=303)
 
 
 @dataclass
@@ -837,7 +841,15 @@ async def create_measurement(request: Request, session: Session = Depends(get_se
     parsed = _parse_submission(form, request)
     if parsed.errors:
         return _render(request, session, uid, form=parsed.form_values, errors=parsed.errors, status_code=422)
-    session.add(BodyMeasurement(owner_id=uid, measured_at=parsed.measured_at, notes=parsed.notes or None, **parsed.values))
+    from app.measurements import same_time
+    now = clock.now().replace(tzinfo=None)
+    when = now if parsed.measured_at == clock.today() else same_time.noon(parsed.measured_at)
+    original = same_time.find_original(session, uid, when)
+    if original is not None:                           # within 12 hours of an earlier entry: that one stands, only its blanks are filled in
+        filled = same_time.fill_blanks(original, parsed.values, parsed.notes)
+        session.commit()
+        return RedirectResponse(f"/measurements?tab=measurements&kept={original.id}&filled={filled}", status_code=303)
+    session.add(BodyMeasurement(owner_id=uid, measured_at=parsed.measured_at, recorded_at=when, notes=parsed.notes or None, **parsed.values))
     session.commit()
     return RedirectResponse("/measurements", status_code=303)
 
@@ -853,6 +865,8 @@ async def edit_measurement(measurement_id: int, request: Request, session: Sessi
     parsed = _parse_submission(form, request)
     if parsed.errors:
         return _render(request, session, uid, form=parsed.form_values, errors=parsed.errors, status_code=422, extra={"edit_id": row.id})
+    if parsed.measured_at != row.measured_at:
+        row.recorded_at = None                         # moved to another day: it counts as noon of that day
     row.measured_at = parsed.measured_at
     row.notes = parsed.notes or None
     for field, value in parsed.values.items():

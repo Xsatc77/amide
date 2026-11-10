@@ -210,3 +210,61 @@ def test_nobody_can_edit_someone_elses_entry(client, db, me):
         rid = row.id
     assert client.get(f"/measurements?edit_entry={rid}").status_code == 404
     assert client.post(f"/measurements/{rid}/edit", data={"weight_lbs": "1"}).status_code == 404
+
+
+def test_a_second_entry_within_12_hours_keeps_the_original_and_fills_its_blanks(client, db, me):
+    from app import clock
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    first = client.post("/measurements", data={"measured_at": clock.today().isoformat(), "weight_lbs": "200", "waist_in": "40"}, follow_redirects=False)
+    assert first.status_code == 303
+    r = client.post("/measurements", data={"measured_at": clock.today().isoformat(), "weight_lbs": "150", "hips_in": "44", "waist_in": "10"}, follow_redirects=False)
+    assert r.status_code == 303 and "kept=" in r.headers["location"] and "filled=1" in r.headers["location"]
+    with SessionLocal() as s:
+        [m] = s.query(BodyMeasurement).filter_by(owner_id=me).all()
+        assert (m.weight_lbs, m.waist_in, m.hips_in) == (200.0, 40.0, 44.0)          # the original's numbers stand; the blank hips box was filled
+    page = client.get(r.headers["location"]).text
+    assert "within 12 hours" in page and "1 blank value" in page
+
+
+def test_an_entry_more_than_12_hours_later_is_a_new_entry(client, db, me):
+    from datetime import datetime, timedelta
+    from app import clock
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:                                                                 # taken 13 hours ago
+        s.add(BodyMeasurement(owner_id=me, measured_at=clock.today(), weight_lbs=200.0, recorded_at=clock.now().replace(tzinfo=None) - timedelta(hours=13)))
+        s.commit()
+    client.post("/measurements", data={"measured_at": clock.today().isoformat(), "weight_lbs": "199"})
+    with SessionLocal() as s:
+        assert s.query(BodyMeasurement).filter_by(owner_id=me).count() == 2
+
+
+def test_a_scale_reading_within_12_hours_of_a_typed_entry_adds_its_numbers_to_it(client, db, me):
+    from app import clock
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        s.add(BodyMeasurement(owner_id=me, measured_at=__import__("datetime").date(2026, 11, 9), weight_lbs=268.6, hips_in=44.0))
+        s.commit()
+    r = client.post("/measurements/import-scale", data={"text": RENPHO_HEADER + RENPHO_ROW}, follow_redirects=False)
+    assert r.status_code == 303 and "imported=0" in r.headers["location"] and "merged=1" in r.headers["location"]
+    with SessionLocal() as s:
+        [m] = s.query(BodyMeasurement).filter_by(owner_id=me).all()
+        assert (m.weight_lbs, m.hips_in, m.scale_body_fat_pct, m.scale_bmi) == (268.6, 44.0, 30.0, 30.1)     # typed numbers kept; the scale's added
+        assert m.scale_stamp == "2026-11-09 14:03:58"
+    again = client.post("/measurements/import-scale", data={"text": RENPHO_HEADER + RENPHO_ROW}, follow_redirects=False)
+    assert "imported=0" in again.headers["location"] and "merged=0" in again.headers["location"]            # importing the file again changes nothing
+    with SessionLocal() as s:
+        assert s.query(BodyMeasurement).filter_by(owner_id=me).count() == 1
+
+
+def test_two_scale_readings_within_12_hours_make_one_entry(client, db, me):
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    later = RENPHO_ROW.replace("14:03:58", "18:30:00").replace("200.5", "201.0").replace("1,2026", "2,2026")
+    r = client.post("/measurements/import-scale", data={"text": RENPHO_HEADER + RENPHO_ROW + later}, follow_redirects=False)
+    assert "imported=1" in r.headers["location"]
+    with SessionLocal() as s:
+        [m] = s.query(BodyMeasurement).filter_by(owner_id=me).all()
+        assert m.weight_lbs == 200.5                                                         # the earlier reading is the one used

@@ -83,18 +83,18 @@ def upload(client, text):
 
 def test_importing_makes_a_measurement_per_reading_on_its_date(client, db, me):
     r = upload(client, csv(FULL, WEIGHT_ONLY, EARLIER))
-    assert r.status_code == 303 and "imported=3" in r.headers["location"]
+    assert r.status_code == 303 and "imported=2" in r.headers["location"] and "merged=1" in r.headers["location"]
     rows = db.scalars(select(BodyMeasurement).where(BodyMeasurement.owner_id == me).order_by(BodyMeasurement.id)).all()
-    assert [(m.measured_at, m.weight_lbs) for m in rows] == [(date(2026, 10, 12), 203.0), (date(2026, 10, 19), 200.4), (date(2026, 10, 19), 200.0)]
-    assert rows[2].scale_body_fat_pct == 25.5 and rows[2].scale_visceral_fat == 9 and rows[2].scale_stamp == "2026-10-19 11:37:37"
-    assert rows[1].scale_body_fat_pct is None
+    # the two readings on 10/19 are within 12 hours: the earlier weigh-in is the original and the later reading's scale numbers fill its blanks
+    assert [(m.measured_at, m.weight_lbs) for m in rows] == [(date(2026, 10, 12), 203.0), (date(2026, 10, 19), 200.4)]
+    assert rows[1].scale_body_fat_pct == 25.5 and rows[1].scale_visceral_fat == 9
 
 
 def test_importing_the_same_file_again_adds_nothing(client, db, me):
     upload(client, csv(FULL, EARLIER))
     r = upload(client, csv(FULL, EARLIER, WEIGHT_ONLY))
-    assert "imported=1" in r.headers["location"] and "skipped=2" in r.headers["location"]
-    assert db.query(BodyMeasurement).count() == 3
+    assert "imported=0" in r.headers["location"] and "skipped=3" in r.headers["location"]       # the weight-only reading is within 12 hours of one that has it all
+    assert db.query(BodyMeasurement).count() == 2
 
 
 def test_a_bad_file_changes_nothing_and_says_why(client, db, me):

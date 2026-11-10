@@ -140,7 +140,8 @@
 
 <section class="card scale-section" id="scale-section" aria-labelledby="scale-heading">
   <h2 id="scale-heading" class="section-title">Body Composition From Your Scale</h2>
-  {% if scale_import %}<div class="alert alert-ok" role="status">{{ scale_import.imported or 0 }} reading{{ '' if scale_import.imported == 1 else 's' }} imported{% if scale_import.skipped %}, {{ scale_import.skipped }} already there{% endif %}{% if scale_import.unread %}, {{ scale_import.unread }} row{{ '' if scale_import.unread == 1 else 's' }} could not be read{% endif %}.</div>{% endif %}
+  {% if scale_import %}<div class="alert alert-ok" role="status">{{ scale_import.imported or 0 }} reading{{ '' if scale_import.imported == 1 else 's' }} imported{% if scale_import.merged %}, {{ scale_import.merged }} added to an entry from the 12 hours before or after{% endif %}{% if scale_import.skipped %}, {{ scale_import.skipped }} already there{% endif %}{% if scale_import.unread %}, {{ scale_import.unread }} row{{ '' if scale_import.unread == 1 else 's' }} could not be read{% endif %}.</div>{% endif %}
+  {% if kept_original %}<div class="alert alert-ok" role="status">That was within 12 hours of your {{ kept_original.date | shortdate }} entry, so the original was kept{% if kept_original.filled %} and {{ kept_original.filled }} blank value{{ '' if kept_original.filled == 1 else 's' }} filled in from it{% else %}; nothing new was added to it{% endif %}. Use Edit on that entry to change a value.</div>{% endif %}
   {% if errors.scale_import %}<div class="alert" role="alert">{{ errors.scale_import }}</div>{% endif %}
   {% if scale_latest %}
   <div id="scale-latest">

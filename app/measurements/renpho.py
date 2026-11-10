@@ -134,8 +134,9 @@ def parse(text: str) -> Parsed:
 @dataclass(frozen=True)
 class ImportResult:
     imported: int
-    skipped: int          # readings already in Amide (same scale date and time)
+    skipped: int          # readings already in Amide (same scale date and time), or within 12 hours of an entry that already had everything
     errors: list[str]
+    merged: int = 0       # readings within 12 hours of an earlier entry: that entry was kept and its blanks filled in
 
 
 def import_readings(session, owner_id: int, parsed: Parsed) -> ImportResult:
@@ -143,16 +144,30 @@ def import_readings(session, owner_id: int, parsed: Parsed) -> ImportResult:
     imported again. The caller commits."""
     from sqlalchemy import select
 
+    from app.measurements import same_time
     from app.models import BodyMeasurement
     have = set(session.scalars(select(BodyMeasurement.scale_stamp).where(BodyMeasurement.owner_id == owner_id, BodyMeasurement.scale_stamp.is_not(None))))
-    imported = skipped = 0
+    rows = list(session.scalars(select(BodyMeasurement).where(BodyMeasurement.owner_id == owner_id)))
+    imported = skipped = merged = 0
     for reading in parsed.readings:
         stamp = reading.stamp.strftime("%Y-%m-%d %H:%M:%S")
         if stamp in have:
             skipped += 1
             continue
-        session.add(BodyMeasurement(owner_id=owner_id, measured_at=reading.stamp.date(), scale_stamp=stamp, **reading.values))
+        original = same_time.find_original(session, owner_id, reading.stamp, rows)
+        if original is not None:                       # within 12 hours of an earlier entry: that one stands
+            if same_time.fill_blanks(original, reading.values):
+                merged += 1
+                if original.scale_stamp is None:
+                    original.scale_stamp = stamp
+            else:
+                skipped += 1
+            have.add(stamp)
+            continue
+        row = BodyMeasurement(owner_id=owner_id, measured_at=reading.stamp.date(), recorded_at=reading.stamp, scale_stamp=stamp, **reading.values)
+        session.add(row)
+        rows.append(row)
         have.add(stamp)
         imported += 1
     session.flush()
-    return ImportResult(imported, skipped, parsed.errors)
+    return ImportResult(imported, skipped, parsed.errors, merged)

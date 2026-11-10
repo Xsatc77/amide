@@ -1192,6 +1192,7 @@ class BodyMeasurement(Base):
     calf_l_in: Mapped[float | None] = mapped_column(Float)
     calf_r_in: Mapped[float | None] = mapped_column(Float)
     # What a body-composition scale reported (imported from its export; see app/measurements/renpho.py). All optional; masses in pounds like every stored weight.
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime)          # when it was taken (local wall clock); older entries have none and count as noon of their date
     scale_stamp: Mapped[str | None] = mapped_column(String(30), index=True)     # the scale's own date and time for the reading, so importing a file twice adds nothing
     scale_bmi: Mapped[float | None] = mapped_column(Float)
     scale_body_fat_pct: Mapped[float | None] = mapped_column(Float)
