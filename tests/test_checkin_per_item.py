@@ -188,3 +188,46 @@ def test_dropdowns_tell_two_items_of_one_name_apart_by_lot(client, db):
         items = [i for i in s.scalars(select(InventoryItem).where(InventoryItem.name == "Lot Pick"))]
         assert "lot LOT-XY7" in switching._label(items[0])
     assert "lot" in client.get("/static/js/protocol-builder.js").text.lower()
+
+
+def _set_shelf_days(uid, days):
+    from app.models import User
+    with SessionLocal() as s:
+        s.get(User, uid).lyophilized_shelf_days = days
+        s.commit()
+
+
+def test_check_in_without_a_date_uses_the_users_lyophilized_default_and_keeps_typed_dates(client, db):
+    a, b, o, la, lb = _two_line_order(db)
+    uid = _uid(client)
+    with SessionLocal() as s:
+        for i in (s.get(InventoryItem, a), s.get(InventoryItem, b)):
+            i.owner_id = uid
+        s.commit()
+    _set_shelf_days(uid, 100)
+    try:
+        r = client.post(f"/inventory/{a}/orders/{o}/check-in", data={
+            "arrival_date": "2026-08-10",
+            f"received_quantity_{la}": "10", f"expiration_date_{la}": "",
+            f"received_quantity_{lb}": "5", f"expiration_date_{lb}": "2028-06-30",
+        }, follow_redirects=False)
+        assert r.status_code == 303
+        with SessionLocal() as s:
+            assert s.get(OrderItem, la).expiration_date == date(2026, 11, 18)       # 100 days after check-in
+            assert s.get(OrderItem, lb).expiration_date == date(2028, 6, 30)        # a date the user typed is never replaced
+    finally:
+        _set_shelf_days(uid, None)
+
+
+def test_check_in_without_a_date_and_no_setting_uses_730_days(client, db):
+    a, b, o, la, lb = _two_line_order(db)
+    uid = _uid(client)
+    with SessionLocal() as s:
+        for i in (s.get(InventoryItem, a), s.get(InventoryItem, b)):
+            i.owner_id = uid
+        s.commit()
+    r = client.post(f"/inventory/{a}/orders/{o}/check-in", data={"arrival_date": "2026-08-10", f"received_quantity_{la}": "10", f"received_quantity_{lb}": "5"}, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        from datetime import timedelta
+        assert s.get(OrderItem, la).expiration_date == date(2026, 8, 10) + timedelta(days=730)

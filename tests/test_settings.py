@@ -620,3 +620,30 @@ def _restore_body_profile_defaults() -> None:
         u.macro_goal = u.diet_preset = u.water_goal_oz = None
         u.custom_protein_pct = u.custom_carb_pct = u.custom_fat_pct = None
         s.commit()
+
+
+def test_expiration_defaults_save_show_and_reset(client, db, me):
+    try:
+        t = text(client.get("/settings"))
+        assert 'name="lyophilized_shelf_days"' in t and 'value="730"' in t and 'value="60"' in t
+        r = client.post("/settings/expiration-defaults", data={"lyophilized_shelf_days": "540", "default_discard_days": "30", "bac_bottle_days": "45"}, follow_redirects=False)
+        assert r.status_code == 303
+        u = _current(me)
+        assert (u.lyophilized_shelf_days, u.default_discard_days, u.bac_bottle_days) == (540, 30, 45)
+        t = text(client.get("/settings"))
+        assert 'value="540"' in t and 'value="45"' in t
+        client.post("/settings/expiration-defaults", data={"lyophilized_shelf_days": "", "default_discard_days": "", "bac_bottle_days": ""})
+        u = _current(me)
+        assert (u.lyophilized_shelf_days, u.default_discard_days, u.bac_bottle_days) == (None, None, None)
+    finally:
+        with SessionLocal() as s:
+            u = s.get(User, me)
+            u.lyophilized_shelf_days = u.default_discard_days = u.bac_bottle_days = None
+            s.commit()
+
+
+def test_expiration_defaults_reject_bad_numbers_and_save_nothing(client, db, me):
+    r = client.post("/settings/expiration-defaults", data={"lyophilized_shelf_days": "540", "default_discard_days": "0", "bac_bottle_days": "x"})
+    assert r.status_code == 422
+    u = _current(me)
+    assert (u.lyophilized_shelf_days, u.default_discard_days, u.bac_bottle_days) == (None, None, None)

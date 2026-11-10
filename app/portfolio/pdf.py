@@ -168,7 +168,7 @@ def _cost_pages(prices, protocol, today, st, width) -> list:
         out.append(_p("This course needs no BAC water.", st["body"]))
     else:
         out.append(_p(f"About {bac['ml']} mL over {days} days: {bac['bottles']} bottle{'s' if bac['bottles'] != 1 else ''} of 30 mL "
-                      f"(an opened bottle is good for {BAC_BOTTLE_DAYS} days).", st["body"]))
+                      f"(an opened bottle is good for {bac.get('days_open', BAC_BOTTLE_DAYS)} days).", st["body"]))
         if bac.get("assumed"):
             out.append(_p("No vial size is known for " + ", ".join(bac["assumed"]) + ": the water assumes 5 mg vials. "
                           "Link an inventory item or set the Library's usual vial size for a firmer figure.", st["small"]))

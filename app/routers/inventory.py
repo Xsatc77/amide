@@ -14,7 +14,7 @@ from app import uploads
 from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
-from app.inventory.consumption import apply_plan, plan_pen_conversion
+from app.inventory.consumption import BAC_BOTTLE_DAYS, LYOPHILIZED_SHELF_DAYS, apply_plan, plan_pen_conversion
 from app.inventory import calibrate, supply_stock
 from app.inventory.gauge import vial_gauges
 from app.inventory.symbol import symbol
@@ -1330,6 +1330,9 @@ async def check_in_order(item_id: int, order_id: int, request: Request,
             li.expiration_date = got["expiration"]
         if got["medium"] is not None:
             li.inventory_item = _item_for_line_medium(session, li, got["medium"])
+        if li.expiration_date is None and li.inventory_item.category == Category.MEDICINE and li.inventory_item.medium == Medium.LYOPHILIZED:
+            days = session.get(User, uid).lyophilized_shelf_days or LYOPHILIZED_SHELF_DAYS      # no date on the box: the user's default shelf life from check-in
+            li.expiration_date = arrival_date + timedelta(days=days)
         supply_stock.sync(li)
     session.commit()
     back = f"/inventory/{item_id}"
@@ -1568,7 +1571,7 @@ def convert_vial_to_pen(vial_id: int, session: Session = Depends(get_session), u
     if plan.errors:                       # every pen item must be in stock, or nothing is used and the vial stays as it is
         from urllib.parse import quote
         return RedirectResponse(f"/inventory?pen_error={quote('. '.join(plan.errors))}#active-vials", status_code=303)
-    apply_plan(session, uid, plan)
+    apply_plan(session, uid, plan, bac_days=session.get(User, uid).bac_bottle_days or BAC_BOTTLE_DAYS)
     vial.dispensing_method = DispensingMethod.PEN
     session.commit()
     return RedirectResponse("/inventory#active-vials", status_code=303)

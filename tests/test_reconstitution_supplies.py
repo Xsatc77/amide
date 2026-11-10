@@ -288,3 +288,20 @@ def test_editing_shows_the_saved_supply_type(client, db, me):
     item_id = make_supply(me, "Pads", SupplyType.ALCOHOL_PAD, 5)
     page = html.unescape(client.get(f"/inventory/{item_id}").text)
     assert "alcohol_prep_pad" in page
+
+
+def test_a_new_bac_bottle_follows_the_users_own_bottle_life(client, db, me, peptide):
+    from app.models import User
+    stock_everything(me, bac_bottles=0)
+    make_bac(me, "Only BAC", priority=1, arrived=date(2026, 9, 30))
+    with SessionLocal() as s:
+        s.get(User, me).bac_bottle_days = 45
+        s.commit()
+    try:
+        assert recon(client, peptide).status_code == 303
+        (vial,) = bac_vials()
+        assert vial.discard_by == date.today() + timedelta(days=45)
+    finally:
+        with SessionLocal() as s:
+            s.get(User, me).bac_bottle_days = None
+            s.commit()

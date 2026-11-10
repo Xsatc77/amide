@@ -659,3 +659,33 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
     for filename in photo_filenames:
         body_photos.delete_file(filename)
     return RedirectResponse("/settings#admin", status_code=303)
+
+
+EXPIRATION_FIELDS = (("lyophilized_shelf_days", "Lyophilized peptides"), ("default_discard_days", "Reconstituted peptides"), ("bac_bottle_days", "BAC Water"))
+
+
+@router.post("/settings/expiration-defaults")
+async def change_expiration_defaults(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """The three default expiration windows, in days. A blank box goes back to the app's own number; nothing already dated changes."""
+    form = await request.form()
+    values, errors = {}, {}
+    for field, label in EXPIRATION_FIELDS:
+        raw = str(form.get(field, "")).strip()
+        if not raw:
+            values[field] = None
+            continue
+        try:
+            days = int(raw)
+            if not 1 <= days <= 3650:
+                raise ValueError
+        except ValueError:
+            errors[field] = "Enter a whole number of days from 1 to 3650."
+        else:
+            values[field] = days
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+    me = _me(session, uid)
+    for field, days in values.items():
+        setattr(me, field, days)
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)

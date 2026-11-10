@@ -1058,6 +1058,8 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(64))
     colorway: Mapped[Colorway | None] = mapped_column(_enum_column(Colorway))
     default_discard_days: Mapped[int | None] = mapped_column(Integer)
+    bac_bottle_days: Mapped[int | None] = mapped_column(Integer)                  # days an opened BAC Water bottle is good for (empty = 60)
+    lyophilized_shelf_days: Mapped[int | None] = mapped_column(Integer)           # days from check-in that sealed lyophilized stock is good for when no date is entered (empty = 730)
     # What the Shop-this-protocol plan assumes shipping costs per vendor order, in cents (empty = the app's default: $60 China, $30 US).
     shop_china_shipping_cents: Mapped[int | None] = mapped_column(Integer)
     shop_us_shipping_cents: Mapped[int | None] = mapped_column(Integer)

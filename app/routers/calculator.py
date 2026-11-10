@@ -21,7 +21,7 @@ from app.calculator.reconstitution import SYRINGE_CAPACITIES_UNITS, compute, wat
 from app.calculator.teaching import explain
 from app.calculator.trt import FREQUENCIES, compute_trt
 from app.db import get_session
-from app.inventory.consumption import apply_plan, plan_reconstitution
+from app.inventory.consumption import BAC_BOTTLE_DAYS, apply_plan, plan_reconstitution
 from app.inventory.groups import lot_in_use
 from app.library.matching import match_name
 from app.models import (
@@ -236,7 +236,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
     if plan.errors:
         return error_redirect(". ".join(plan.errors))
     lot = lot_in_use(item)
-    apply_plan(session, uid, plan, water_ml=water_ml, discard_days=request.state.user.default_discard_days or 28)
+    apply_plan(session, uid, plan, water_ml=water_ml, discard_days=request.state.user.default_discard_days or 28, bac_days=request.state.user.bac_bottle_days or BAC_BOTTLE_DAYS)
     new_vial = ActiveVial(
         owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=result.concentration, vial_unit=vial_unit,
         iu_per_mg=iu_per_mg if ("IU" in (vial_unit, dose_unit)) else None,

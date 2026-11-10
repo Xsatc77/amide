@@ -119,14 +119,23 @@
         <button type="submit" class="btn btn-primary">Save email</button>
       </form>
 
-      <form method="post" action="/settings/discard-window" class="settings-form" novalidate>
-        <h3 class="small muted">Default Discard Window</h3>
-        <p class="small muted">How many days after reconstituting a vial it defaults to expiring. You can still change it per vial when you reconstitute.</p>
+      <form method="post" action="/settings/expiration-defaults" class="settings-form" novalidate>
+        <h3 class="small muted">Default Expiration Dates</h3>
+        <p class="small muted">How many days each kind of stock is good for. These are only starting points: they fill in a new date, and nothing already dated changes unless you change it yourself. You can still set a different date on any vial, bottle or order. Emptying a box goes back to Amide&rsquo;s own number (730, 28 and 60).</p>
+        <label class="field {{ 'has-error' if errors.lyophilized_shelf_days }}">
+          <span>Lyophilized peptides (days from check-in, when the order has no expiration date)</span>
+          <input name="lyophilized_shelf_days" type="number" min="1" max="3650" step="1" inputmode="numeric" value="{{ me.lyophilized_shelf_days or 730 }}">
+          {{ err('lyophilized_shelf_days') }}
+        </label>
         <label class="field {{ 'has-error' if errors.default_discard_days }}">
-          <span>Days</span>
-          <input name="default_discard_days" type="number" min="1" step="1" inputmode="numeric"
-                value="{{ me.default_discard_days or 28 }}">
+          <span>Reconstituted peptides (days after mixing)</span>
+          <input name="default_discard_days" type="number" min="1" max="3650" step="1" inputmode="numeric" value="{{ me.default_discard_days or 28 }}">
           {{ err('default_discard_days') }}
+        </label>
+        <label class="field {{ 'has-error' if errors.bac_bottle_days }}">
+          <span>BAC Water (days after opening a bottle)</span>
+          <input name="bac_bottle_days" type="number" min="1" max="3650" step="1" inputmode="numeric" value="{{ me.bac_bottle_days or 60 }}">
+          {{ err('bac_bottle_days') }}
         </label>
         <button type="submit" class="btn btn-primary">Save</button>
       </form>

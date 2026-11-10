@@ -140,9 +140,10 @@ def give_back(session: Session, uid: int, used: dict | None) -> None:
 
 
 BAC_BOTTLE_DAYS = 60                  # an opened BAC Water bottle is good for 60 days: its Active Vial is discarded then, whatever the vial default is
+LYOPHILIZED_SHELF_DAYS = 730         # sealed lyophilized stock checked in with no expiration date is given this many days from check-in (the user can change it in Settings)
 
 
-def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0, discard_days: int = 28, today: date | None = None) -> None:
+def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0, discard_days: int = 28, bac_days: int = BAC_BOTTLE_DAYS, today: date | None = None) -> None:
     """Use up what the plan chose. Call only when `plan.errors` is empty; the caller commits."""
     from datetime import timedelta
     today = today or clock.today()
@@ -160,5 +161,5 @@ def apply_plan(session: Session, uid: int, plan: Plan, *, water_ml: float = 0.0,
         remaining = max(plan.bottle_ml - water_ml, 0.0)
         session.add(ActiveVial(
             owner_id=uid, inventory_item_id=bottle.id, water_ml=plan.bottle_ml, volume_remaining_ml=remaining, lot_number=lot, confirmed=True, date_mixed=today,
-            discard_by=today + timedelta(days=BAC_BOTTLE_DAYS), dispensing_method=DispensingMethod.SYRINGE,
+            discard_by=today + timedelta(days=bac_days), dispensing_method=DispensingMethod.SYRINGE,
             discarded_at=now_utc() if remaining <= EMPTY_EPSILON else None))

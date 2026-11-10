@@ -254,16 +254,18 @@ def shop_for_protocol(session: Session, protocol, uid: int, shipping: dict, size
     totals = compute_course_totals(protocol, inventory_by_id, peptides_by_id) or []
     no_bac = _concentration_ids(session, {p.id for p in current_lists(session)})
     needs, notes, bac_ml, factors = _needs(protocol, totals, inventory_by_id, peptides_by_id, no_bac)
-    bac_min_units = max(1, math.ceil(((protocol.end_date - protocol.start_date).days + 1) / BAC_DAYS_OPEN - 1e-9))
+    owner = session.get(User, uid)
+    bac_days = (owner.bac_bottle_days if owner is not None else None) or BAC_DAYS_OPEN     # the user's own opened-bottle life, else 60
+    bac_min_units = max(1, math.ceil(((protocol.end_date - protocol.start_date).days + 1) / bac_days - 1e-9))
     base = {"status": "ok", "protocol": {"id": protocol.id, "name": protocol.name}, "shipping": shipping,
-            "bac": {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units)} if bac_ml > 0 else None}
+            "bac": {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units), "days_open": bac_days} if bac_ml > 0 else None}
     if not needs and not notes:
         return base | {"status": "nothing_to_buy", "plan": None, "alternatives": [], "unshoppable": []}
     offers, needs_volume, needs_strength = _offers(session, needs, factors, sizes, strengths)
     result = plan_protocol(needs, offers, shipping)
     bought_premixed = {int(l.need.key) for s in result.plan.sources for l in s.lines if l.offer.premixed} if result.plan else set()
     bac_ml, assumed = _bac_ml(protocol, totals, peptides_by_id, bought_premixed | no_bac, result.plan)     # ready to use items need no water
-    base["bac"] = {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units), "assumed": assumed} if bac_ml > 0 else None
+    base["bac"] = {"ml": round(bac_ml, 1), "bottles": max(math.ceil(bac_ml / BAC_BOTTLE_ML - 1e-9), bac_min_units), "days_open": bac_days, "assumed": assumed} if bac_ml > 0 else None
     asking = {a["name"] for a in needs_volume + needs_strength}
     unshoppable = notes + [{"name": n.name, "reason": "No current price list carries it in a usable size"} for n in result.unshoppable
                            if n.name not in asking]
