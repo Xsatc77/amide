@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Body: a Progress Review page for any date range.** Results (first, latest, change, weekly weight), adherence, daily intake, journal, labs and rule-based flags with each rule shown; printable. No AI: every flag is a fixed rule applied to your own numbers.
 - **Body: Import From Pacer reads weights and blood pressure from the Pacer app export (its zip or the CSV files).** A weigh-in and a blood pressure taken within 12 hours become one entry; entries already in Amide keep their own numbers; the step files are ignored.
 
 - **Body: Merge Duplicate Entries applies the 12-hour rule to entries saved before it existed.** Each later entry within 12 hours of an earlier one folds into it (the earlier entry keeps its numbers and only its blanks are filled).

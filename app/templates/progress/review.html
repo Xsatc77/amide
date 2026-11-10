@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% set active_nav = "measurements" %}
+{% block title %}Progress Review{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1>Progress Review</h1><p class="muted">{{ r.start | shortdate }} to {{ r.end | shortdate }} · {{ r.days }} day{{ '' if r.days == 1 else 's' }}</p></div>
+  <div class="print-tools no-print"><button type="button" class="btn btn-primary" data-print>Print</button></div>
+</div>
+
+<form method="get" action="/progress" class="no-print review-range">
+  <label class="field"><span>From</span><input type="date" name="start" value="{{ r.start.isoformat() }}"></label>
+  <label class="field"><span>To</span><input type="date" name="end" value="{{ r.end.isoformat() }}"></label>
+  <button type="submit" class="btn">Show</button>
+  {% for label, (a, b) in quick.items() %}<a class="btn btn-ghost" href="/progress?start={{ a.isoformat() }}&end={{ b.isoformat() }}">{{ label }}</a>{% endfor %}
+</form>
+
+{% if r.flags %}
+<section class="card" aria-labelledby="flags-h">
+  <h2 id="flags-h" class="section-title">Flags</h2>
+  <p class="muted small">Each flag is a fixed rule applied to your numbers, with the rule shown. A flag is not a diagnosis or advice.</p>
+  <ul class="plain-list review-flags">
+    {% for f in r.flags %}<li><span>{{ f.text }}<br><span class="muted small">Rule: {{ f.rule }}</span></span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card" aria-labelledby="results-h">
+  <h2 id="results-h" class="section-title">Results</h2>
+  {% if r.body %}
+  <table class="print-table">
+    <thead><tr><th>Measure</th><th>First</th><th>Latest</th><th>Change</th><th>Readings</th></tr></thead>
+    <tbody>
+    {% for b in r.body %}
+      <tr><td>{{ b.label }}</td><td>{{ b.first | num }} {{ b.unit }}</td><td>{{ b.last | num }} {{ b.unit }}</td>
+          <td>{{ '+' if b.change > 0 }}{{ b.change | num }} {{ b.unit }}{% if b.pct is not none and b.key in ('weight_lbs','waist_in','hips_in','neck_in') %} ({{ '%+.1f' | format(b.pct) }}%){% endif %}</td>
+          <td>{{ b.readings }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if r.weeks | length > 1 %}
+  <h3>Weight By Week</h3>
+  <table class="print-table">
+    <thead><tr><th>Week Of</th><th>Average Weight</th><th>Change</th></tr></thead>
+    <tbody>
+    {% for w in r.weeks %}
+      <tr><td>{{ w.start | shortdate }}</td><td>{{ u.weight(w.weight) | num }} {{ u.weight_label }}</td>
+          <td>{% if w.change is defined %}{{ '%+.1f' | format(u.weight(w.change)) }} {{ u.weight_label }} ({{ '%+.1f' | format(w.pct) }}%){% else %}–{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}<p class="muted">No measurements in this period.</p>{% endif %}
+</section>
+
+<section class="card" aria-labelledby="adh-h">
+  <h2 id="adh-h" class="section-title">Adherence</h2>
+  <ul class="plain-list">
+    <li><span>Workouts logged</span><strong>{{ r.adherence.workouts }}</strong></li>
+    <li><span>Doses logged</span><strong>{{ r.adherence.doses_logged }}</strong></li>
+    <li><span>Doses skipped</span><strong>{{ r.adherence.doses_skipped }}</strong></li>
+    <li><span>Days with food logged</span><strong>{{ r.adherence.food_days }} of {{ r.adherence.days }}</strong></li>
+    <li><span>Days with water logged</span><strong>{{ r.adherence.water_days }} of {{ r.adherence.days }}</strong></li>
+  </ul>
+</section>
+
+{% if r.intake %}
+<section class="card" aria-labelledby="intake-h">
+  <h2 id="intake-h" class="section-title">Intake</h2>
+  <p class="muted small">Daily averages over the days with something logged.</p>
+  <ul class="plain-list">
+    {% if r.intake.calories is not none %}
+    <li><span>Calories</span><strong>{{ r.intake.calories }}</strong></li>
+    <li><span>Protein</span><strong>{{ r.intake.protein_g }} g</strong></li>
+    <li><span>Carbs</span><strong>{{ r.intake.carb_g }} g</strong></li>
+    <li><span>Fat</span><strong>{{ r.intake.fat_g }} g</strong></li>
+    <li><span>Fiber</span><strong>{{ r.intake.fiber_g }} g</strong></li>
+    {% endif %}
+    {% if r.intake.water_oz is not none %}<li><span>Water</span><strong>{{ u.volume(r.intake.water_oz) }} {{ u.volume_label }}</strong></li>{% endif %}
+  </ul>
+</section>
+{% endif %}
+
+{% if r.journal.entries %}
+<section class="card" aria-labelledby="journal-h">
+  <h2 id="journal-h" class="section-title">Journal</h2>
+  <ul class="plain-list">
+    <li><span>Journal days</span><strong>{{ r.journal.entries }}</strong></li>
+    {% if r.journal.rated_days %}<li><span>Poor sleep nights</span><strong>{{ r.journal.sleep_low_days }} of {{ r.journal.rated_days }} rated</strong></li>{% endif %}
+    {% for name, n in r.journal.side_effects %}<li><span>{{ name }}</span><strong>{{ n }} day{{ '' if n == 1 else 's' }}</strong></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if r.labs %}
+<section class="card" aria-labelledby="labs-h">
+  <h2 id="labs-h" class="section-title">Labs In This Period</h2>
+  <table class="print-table">
+    <thead><tr><th>Marker</th><th>Value</th><th>Range</th><th>Drawn</th></tr></thead>
+    <tbody>
+    {% for l in r.labs %}
+      <tr><td>{{ l.marker }}{% if l.out_of_range %} <strong>(outside range)</strong>{% endif %}</td><td>{{ l.value | num }} {{ l.unit }}</td>
+          <td>{% if l.low is not none or l.high is not none %}{{ l.low | num if l.low is not none else '' }} – {{ l.high | num if l.high is not none else '' }}{% else %}–{% endif %}</td>
+          <td>{{ l.drawn | shortdate }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section class="card" aria-labelledby="unk-h">
+  <h2 id="unk-h" class="section-title">Not Established</h2>
+  <ul class="print-list">{% for t in r.unknowns %}<li>{{ t }}</li>{% endfor %}</ul>
+</section>
+{% endblock %}
+
+{% block scripts %}<script src="{{ static_url('js/labels.js') }}" defer></script>{% endblock %}

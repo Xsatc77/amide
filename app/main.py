@@ -18,7 +18,7 @@ from app.ingest import worker
 from app.migrate import upgrade_db
 from app.routers import (
     apple_health, auth, backup, body_photos, calculator, calendar, dashboard, dosing, fitness_test, food, ingest_admin, ingest_api, health_api, inventory, journal, labels, labs, learn, legal, price_correction, library, library_extras, links,
-    measurements, order_tracking, price_alerts, protocol_portfolio, protocol_shop, protocols, settings, spending, vendors, workout_insights, workouts,
+    measurements, order_tracking, price_alerts, progress, protocol_portfolio, protocol_shop, protocols, settings, spending, vendors, workout_insights, workouts,
 )
 
 
@@ -43,6 +43,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Amide", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 gate.install(app)
+app.include_router(progress.router)
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(labels.router)              # before inventory too: "/inventory/orders/<id>/labels"
