@@ -1029,6 +1029,21 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   font: inherit; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; overflow: hidden;
 }
 .cal-mark:hover, .cal-mark:focus-visible { filter: brightness(1.08); outline: none; }
+/* A mark takes its protocol's goal colour until the item is done; a done item (on time or late) is green, a missed one keeps its own colour. */
+.cal-goal.cal-status-upcoming { --c: var(--g, var(--muted)); --ct: var(--goal-text, #111827); }
+.cal-goal.cal-status-on_time, .cal-goal.cal-status-late { --c: var(--tier-beginner); --ct: var(--on-tier-beginner, #fff); }
+/* First and last day of a protocol: a light runs round the pill, gold on the first day and white-green on the last (like the body outline on the dashboard). */
+@property --cal-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+.cal-trace-start, .cal-trace-end { position: relative; --trace: #f5c542; }
+.cal-trace-end { --trace: #d6ffe2; }
+.cal-trace-start::after, .cal-trace-end::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px; pointer-events: none;
+  background: conic-gradient(from var(--cal-a), transparent 0 78%, var(--trace) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  filter: drop-shadow(0 0 2px var(--trace)); animation: cal-trace-run 4s linear infinite;
+}
+@keyframes cal-trace-run { to { --cal-a: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .cal-trace-start::after, .cal-trace-end::after { animation: none; background: var(--trace); } }
 .cal-day-foot {
   grid-row: 6; z-index: 1; display: flex; align-items: center; justify-content: flex-start;
   padding: 0 3px; font-size: 0.72rem; line-height: 1;

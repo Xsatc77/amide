@@ -129,7 +129,9 @@
     </li>
     {% endfor %}
     {% for r in alerts.photos %}
-    <li class="photo-alert"><strong>BODY PHOTO</strong> {{ r.text }} <a class="btn btn-small" href="/measurements?tab=measurements&amp;add_photo=1#body-photos">Add photos</a></li>
+    <li class="photo-alert"><strong>BODY PHOTO</strong> {{ r.text }} <a class="btn btn-small" href="/measurements?tab=measurements&amp;add_photo=1#body-photos">Add photos</a>
+      <form method="post" action="/dashboard/alerts/ignore-photo" class="inline photo-ignore"><input type="hidden" name="key" value="{{ r.ignore_key }}">
+        <label><input type="checkbox" name="ignore" value="1" data-autosubmit {{ 'checked' if r.ignored }}> Ignore (leave off the calendar)</label></form></li>
     {% endfor %}
     {% for a in alerts.groups_gone %}
     <li class="group-gone-alert">{{ a.text }}

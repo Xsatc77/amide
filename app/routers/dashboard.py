@@ -415,6 +415,22 @@ async def snooze_low_stock(request: Request, session: Session = Depends(get_sess
     return RedirectResponse("/dashboard", status_code=303)
 
 
+@router.post("/dashboard/alerts/ignore-photo")
+async def ignore_photo_reminder(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Tick or untick Ignore on a body-photo reminder: an ignored one stays on the dashboard but is left off the calendar."""
+    import re
+    form = await request.form()
+    key = str(form.get("key") or "")
+    if not re.fullmatch(r"(start|end):\d+|interval:\d{4}-\d{2}-\d{2}", key):
+        raise HTTPException(status_code=422, detail="Unknown reminder.")
+    if key.partition(":")[0] in ("start", "end"):
+        protocol = session.get(Protocol, int(key.partition(":")[2]))
+        if protocol is None or protocol.owner_id != uid:
+            raise HTTPException(status_code=422, detail="Unknown reminder.")
+    photo_reminders.set_ignored(session, uid, key, form.get("ignore") == "1")
+    return RedirectResponse("/dashboard", status_code=303)
+
+
 @router.post("/dashboard/alerts/dismiss")
 async def dismiss_ingest_alert(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Dismiss a price-list alert for the signed-in person only (the group-gone alert is acknowledged by the administrator)."""

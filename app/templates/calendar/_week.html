@@ -19,7 +19,7 @@
     <div class="cal-week-cell {{ 'cal-today' if days[loop.index0] == today }}">
       {% for occ, it in entries %}
       {% set status = item_adherence.get((it.protocol_item_id, occ.date), 'upcoming') %}
-      <button type="button" class="cal-mark cal-status-{{ status }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"
+      <button type="button" class="cal-mark cal-goal cal-status-{{ status }}{{ ' cal-trace-start' if starts.get(occ.protocol_id) == occ.date else (' cal-trace-end' if ends.get(occ.protocol_id) == occ.date) }}"{% if occ.protocol_id in goal_color %} style="--g: var(--goal-{{ goal_color[occ.protocol_id] }})"{% endif %} data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"
         aria-label="{{ occ.protocol_name }} {{ it.peptide }}, {{ status | replace('_', ' ') }}">
         {{ initials(occ.protocol_name) }} {{ it.peptide }}</button>
       {% endfor %}

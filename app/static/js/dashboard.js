@@ -7,6 +7,9 @@
     select.addEventListener("change", () => select.form.submit());
   });
 
+  // A checkbox marked data-autosubmit (Ignore on a body-photo reminder) saves as soon as it is ticked.
+  document.querySelectorAll("input[type=checkbox][data-autosubmit]").forEach((box) => box.addEventListener("change", () => box.form.submit()));
+
   const dialog = document.getElementById("water-dialog");
   if (!dialog) return;
   const ouncesInput = document.getElementById("water-ounces-input");

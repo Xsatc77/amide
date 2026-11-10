@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import clock
-from app.models import BodyPhoto, Protocol, User
+from app.models import BodyPhoto, DashboardDismissal, Protocol, User
 
 INTERVAL_DAYS = 14
 MILESTONE_GRACE_DAYS = 3        # a start or end reminder keeps asking this many days, then drops (a photo taken that day, or the day before, satisfies it)
@@ -21,11 +21,36 @@ class Reminder:
     kind: str          # "interval" | "start" | "end"
     due: date
     text: str
+    ignored: bool = False       # the person ticked Ignore: it stays on the dashboard, but the calendar leaves it out
+
+    @property
+    def ignore_key(self) -> str:
+        """What an Ignore is stored under. The two-week reminder is tied to its due day, so it asks again after the next photo."""
+        return f"interval:{self.due.isoformat()}" if self.kind == "interval" else self.key
 
 
 def _zone(session: Session, uid: int) -> str | None:
     user = session.get(User, uid)
     return user.timezone if user is not None else None
+
+
+PREFIX = "photo:"
+
+
+def ignored_keys(session: Session, uid: int) -> set[str]:
+    """The reminders the person has ticked Ignore on (their keys, without the storage prefix)."""
+    return {k[len(PREFIX):] for k in session.scalars(select(DashboardDismissal.alert_key).where(
+        DashboardDismissal.user_id == uid, DashboardDismissal.alert_key.like(PREFIX + "%")))}
+
+
+def set_ignored(session: Session, uid: int, key: str, ignore: bool) -> None:
+    stored = PREFIX + key
+    row = session.scalar(select(DashboardDismissal).where(DashboardDismissal.user_id == uid, DashboardDismissal.alert_key == stored))
+    if ignore and row is None:
+        session.add(DashboardDismissal(user_id=uid, alert_key=stored))
+    elif not ignore and row is not None:
+        session.delete(row)
+    session.commit()
 
 
 def last_upload(session: Session, uid: int) -> date | None:
@@ -59,22 +84,26 @@ def _text(kind: str, protocol_name: str | None = None) -> str:
 def active(session: Session, uid: int, today: date) -> list[Reminder]:
     """The reminders to show on `today`."""
     out = []
+    off = ignored_keys(session, uid)
     due = next_interval_due(session, uid)
     if due is not None and today >= due:
-        out.append(Reminder("interval", "interval", due, _text("interval")))
+        r = Reminder("interval", "interval", due, _text("interval"))
+        out.append(Reminder(r.key, r.kind, r.due, r.text, ignored=r.ignore_key in off))
     for kind, day, p in _milestones(session, uid, today - timedelta(days=MILESTONE_GRACE_DAYS), today):
         taken = session.scalar(select(BodyPhoto.id).where(BodyPhoto.owner_id == uid, BodyPhoto.taken_on >= day - timedelta(days=1)).limit(1))
         if taken is None:
-            out.append(Reminder(f"{kind}:{p.id}", kind, day, _text(kind, p.name)))
+            out.append(Reminder(f"{kind}:{p.id}", kind, day, _text(kind, p.name), ignored=f"{kind}:{p.id}" in off))
     return out
 
 
 def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[date, list[str]]:
     """Days in [first, last] to mark on the calendar, each with what to say: protocol starts and ends, and the day two weeks after the last upload."""
     marks: dict[date, list[str]] = {}
+    off = ignored_keys(session, uid)
     for kind, day, p in _milestones(session, uid, first, last):
-        marks.setdefault(day, []).append(_text(kind, p.name))
+        if f"{kind}:{p.id}" not in off:
+            marks.setdefault(day, []).append(_text(kind, p.name))
     due = next_interval_due(session, uid)
-    if due is not None and first <= due <= last:
+    if due is not None and first <= due <= last and f"interval:{due.isoformat()}" not in off:
         marks.setdefault(due, []).append(_text("interval"))
     return marks

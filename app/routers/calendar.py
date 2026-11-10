@@ -152,7 +152,10 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
         )).all()
     colors = {p.id: i % PALETTE_SIZE for i, p in enumerate(protocols)}
 
-    ctx: dict = {"view": view, "anchor": anchor, "today": today, "colors": colors, "slots": SLOTS, "url": _url}
+    from app.goals import GOALS_BY_SLUG
+    goal_color = {p.id: GOALS_BY_SLUG[g].color for p in protocols for g in p.goal_slugs[:1] if g in GOALS_BY_SLUG}      # the colour of the protocol's first goal tile
+    ctx: dict = {"view": view, "anchor": anchor, "today": today, "colors": colors, "slots": SLOTS, "url": _url,
+                 "goal_color": goal_color, "starts": {p.id: p.start_date for p in protocols}, "ends": {p.id: p.end_date for p in protocols}}
     if view == "month":
         weeks = month_weeks(anchor)
         first, last = weeks[0][0], weeks[-1][-1]

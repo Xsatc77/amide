@@ -8,7 +8,7 @@ import pytest
 from app import photo_reminders as pr
 from app import reminders
 from app.db import SessionLocal
-from app.models import BodyPhoto, PhotoReminderSent, Protocol, User
+from app.models import BodyPhoto, DashboardDismissal, PhotoReminderSent, Protocol, User
 
 DAY = date(2026, 10, 7)
 
@@ -18,6 +18,7 @@ def clean(client, db, me):
     yield
     db.rollback()
     db.query(PhotoReminderSent).delete()
+    db.query(DashboardDismissal).filter(DashboardDismissal.alert_key.like("photo:%")).delete(synchronize_session=False)
     db.query(BodyPhoto).delete()
     db.query(Protocol).filter(Protocol.name.like("Photoremind%")).delete(synchronize_session=False)
     user = db.get(User, me)
@@ -218,3 +219,36 @@ def test_a_paused_protocol_asks_for_no_photos(db, me):
     db.query(Protocol).filter(Protocol.name == "Photoremind A").update({Protocol.paused: True})
     db.commit()
     assert active(db, me, DAY) == []
+
+
+# ---- Ignore: stays on the dashboard, leaves the calendar ----------------------------------------------------------------------------------
+
+def test_ignoring_a_start_reminder_keeps_it_on_the_dashboard_ticked_and_takes_it_off_the_calendar(client, db, me):
+    from app import clock
+    today = clock.today()
+    protocol(db, me, today)
+    pid = db.query(Protocol).filter(Protocol.name == "Photoremind A").one().id
+    assert "Photoremind A" in client.get("/calendar?view=month").text
+    assert f'name="key" value="start:{pid}"' in client.get("/dashboard").text and "checked" not in client.get("/dashboard").text.split("photo-ignore")[1].split("</form>")[0]
+    r = client.post("/dashboard/alerts/ignore-photo", data={"key": f"start:{pid}", "ignore": "1"}, follow_redirects=False)
+    assert r.status_code == 303
+    dash = client.get("/dashboard").text
+    assert "Photoremind A" in dash and "checked" in dash.split("photo-ignore")[1].split("</form>")[0]
+    assert "Photoremind A" not in client.get("/calendar?view=month").text
+    client.post("/dashboard/alerts/ignore-photo", data={"key": f"start:{pid}"})          # unticked: back on the calendar
+    assert "Photoremind A" in client.get("/calendar?view=month").text
+
+
+def test_ignoring_the_two_week_reminder_ends_when_the_next_photo_moves_its_day(db, me):
+    photo(db, me, DAY - timedelta(days=20))
+    due = pr.next_interval_due(db, me)
+    pr.set_ignored(db, me, f"interval:{due.isoformat()}", True)
+    assert due not in pr.calendar_dates(db, me, due - timedelta(days=3), due + timedelta(days=3))
+    assert pr.active(db, me, DAY)[0].ignored
+    photo(db, me, DAY)                                   # a new upload: a new due day, asking again
+    assert not pr.active(db, me, DAY + timedelta(days=15))[0].ignored
+
+
+def test_ignore_rejects_unknown_keys_and_another_persons_protocol(client, db, me):
+    assert client.post("/dashboard/alerts/ignore-photo", data={"key": "lowstock:1", "ignore": "1"}).status_code == 422
+    assert client.post("/dashboard/alerts/ignore-photo", data={"key": "start:99999999", "ignore": "1"}).status_code == 422

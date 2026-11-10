@@ -34,7 +34,7 @@
     <div class="cal-card-grid">
       {% for occ, items in entries %}
       {% set status = adherence.get((occ.protocol_id | string) ~ '|' ~ occ.date.isoformat(), 'upcoming') %}
-      <button type="button" class="cal-card cal-status-{{ status }}" data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"
+      <button type="button" class="cal-card cal-goal cal-status-{{ status }}{{ ' cal-trace-start' if starts.get(occ.protocol_id) == occ.date else (' cal-trace-end' if ends.get(occ.protocol_id) == occ.date) }}"{% if occ.protocol_id in goal_color %} style="--g: var(--goal-{{ goal_color[occ.protocol_id] }})"{% endif %} data-key="{{ occ.protocol_id }}|{{ occ.date.isoformat() }}"
         aria-label="{{ occ.protocol_name }}, {{ status | replace('_', ' ') }}">
         <strong class="cal-card-title">{{ occ.protocol_name }}</strong>
         <ul class="dose-list">

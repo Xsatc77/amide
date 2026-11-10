@@ -183,3 +183,29 @@ def test_month_view_overflows_past_eight_marks_in_one_day(client):
         })
     t = page(client, view="month", date="2026-09-15")
     assert re.search(r'class="cal-more"[^>]*>\+2<', t)
+
+
+def test_marks_take_their_goal_colour_and_turn_green_when_done(client):
+    make(client, name="Hue", start="2026-09-20", items={
+        "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am"})
+    t = page(client, view="month", date="2026-09-15")
+    assert "--g: var(--goal-muscle-recovery)" in t and "cal-goal cal-status-upcoming" in t
+    assert "cal-goal cal-status-missed" in t                                  # 20 and 21 Sept are before TODAY and nothing was logged
+    css = open("app/static/css/app.css", encoding="utf-8").read()
+    assert ".cal-goal.cal-status-on_time" in css and "--c: var(--tier-beginner)" in css
+
+
+def test_the_first_day_of_a_protocol_gets_a_gold_trace_and_the_last_a_green_white_one(client):
+    make(client, name="Edges", start="2026-09-24", items={
+        "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am"})
+    with SessionLocal() as s:
+        p = s.scalar(select(Protocol).where(Protocol.name == "Edges"))
+        p.end_date = date(2026, 9, 26)
+        s.commit()
+    t = page(client, view="month", date="2026-09-15")
+    assert t.count("cal-trace-start") == 1 and t.count("cal-trace-end") == 1
+    start = re.search(r'class="[^"]*cal-trace-start[^"]*"[^>]*data-key="\d+\|2026-09-24"', t)
+    end = re.search(r'class="[^"]*cal-trace-end[^"]*"[^>]*data-key="\d+\|2026-09-26"', t)
+    assert start and end
