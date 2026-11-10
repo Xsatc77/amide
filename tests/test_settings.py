@@ -647,3 +647,38 @@ def test_expiration_defaults_reject_bad_numbers_and_save_nothing(client, db, me)
     assert r.status_code == 422
     u = _current(me)
     assert (u.lyophilized_shelf_days, u.default_discard_days, u.bac_bottle_days) == (None, None, None)
+
+
+REVIEW_COLUMNS = ("review_loss_pct", "review_protein_g_per_kg", "review_sleep_low", "review_sleep_share_pct", "review_bp_drop", "review_retest_days")
+
+
+def _clear_review(me):
+    with SessionLocal() as s:
+        u = s.get(User, me)
+        for c in REVIEW_COLUMNS:
+            setattr(u, c, None)
+        s.commit()
+
+
+def test_progress_review_flags_save_show_feed_the_rules_and_reset(client, db, me):
+    from app.progress.review import Rules
+    try:
+        t = text(client.get("/settings"))
+        assert 'name="review_loss_pct"' in t and 'value="1.0"' in t and 'value="28"' in t
+        data = {"review_loss_pct": "1.5", "review_protein_g_per_kg": "1.0", "review_sleep_low": "3", "review_sleep_share_pct": "40", "review_bp_drop": "12", "review_retest_days": "42"}
+        assert client.post("/settings/progress-review", data=data, follow_redirects=False).status_code == 303
+        u = _current(me)
+        assert (u.review_loss_pct, u.review_sleep_low, u.review_bp_drop, u.review_retest_days) == (1.5, 3, 12, 42)
+        assert Rules.for_user(u) == Rules(loss_pct_per_week=1.5, protein_g_per_kg=1.0, sleep_low=3, sleep_low_share_pct=40.0, bp_drop=12, retest_days=42)
+        assert 'value="1.5"' in text(client.get("/settings"))
+        client.post("/settings/progress-review", data={c: "" for c in REVIEW_COLUMNS})
+        u = _current(me)
+        assert all(getattr(u, c) is None for c in REVIEW_COLUMNS) and Rules.for_user(u) == Rules()
+    finally:
+        _clear_review(me)
+
+
+def test_progress_review_flags_reject_bad_numbers_and_save_nothing(client, db, me):
+    r = client.post("/settings/progress-review", data={"review_loss_pct": "1.5", "review_sleep_low": "2.5", "review_bp_drop": "0", "review_retest_days": "x"})
+    assert r.status_code == 422
+    assert all(getattr(_current(me), c) is None for c in REVIEW_COLUMNS)

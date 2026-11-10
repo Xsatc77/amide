@@ -33,7 +33,7 @@ def progress_page(request: Request, start: str | None = None, end: str | None = 
     start_day = _day(start) or first or end_day - timedelta(days=28)
     if start_day > end_day:
         start_day = end_day
-    result = review.build(session, request.state.user, start_day, end_day)
+    result = review.build(session, request.state.user, start_day, end_day, review.Rules.for_user(request.state.user))
     quick = {"Last 30 Days": (today - timedelta(days=29), today), "Last 90 Days": (today - timedelta(days=89), today),
              "All Time": (first or today, today)}
     return templates.TemplateResponse(request, "progress/review.html", {

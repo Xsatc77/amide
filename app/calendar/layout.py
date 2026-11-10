@@ -75,7 +75,7 @@ def _day_marks(occs: list[Occurrence], colors: dict[int, int]) -> dict[date, lis
 
 
 def month_rows(weeks: list[list[date]], occs: list[Occurrence], colors: dict[int, int],
-               max_marks: int = 4) -> list[MonthRow]:
+               max_marks: int = 8) -> list[MonthRow]:
     """One row per week; each day gets up to `max_marks` marks (sorted by time of day) plus an
     overflow count for anything past the cap."""
     by_date = _day_marks(occs, colors)

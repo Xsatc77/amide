@@ -24,6 +24,22 @@ class Rules:
     bp_drop: int = 8                      # systolic this far below the person's own start is flagged
     retest_days: int = 28                 # a fitness test older than this is flagged
 
+    @classmethod
+    def for_user(cls, user) -> "Rules":
+        """The defaults, with any threshold the person has set in Settings in place of its default."""
+        return cls(**{attr: getattr(user, column) for column, attr, *_ in RULE_FIELDS if getattr(user, column, None) is not None})
+
+
+# Settings column, Rules field, label, whole numbers only, lowest, highest, what it means
+RULE_FIELDS = (
+    ("review_loss_pct", "loss_pct_per_week", "Fast loss: percent of body weight in one week", False, 0.1, 10.0, "A week's loss above this is flagged."),
+    ("review_protein_g_per_kg", "protein_g_per_kg", "Low protein: grams per kilogram of body weight", False, 0.1, 5.0, "Average protein under this is flagged."),
+    ("review_sleep_low", "sleep_low", "Poor night: a sleep rating at or below", True, 1, 10, "Any rating this low counts as a poor night."),
+    ("review_sleep_share_pct", "sleep_low_share_pct", "Poor sleep: percent of rated days that were poor nights", False, 1.0, 100.0, "Flagged when at least this share of rated days were poor."),
+    ("review_bp_drop", "bp_drop", "Blood pressure drop: systolic points below your own start", True, 1, 100, "Your latest two readings this far under your first two."),
+    ("review_retest_days", "retest_days", "Fitness retest: days since the last test", True, 1, 3650, "A test older than this is flagged."),
+)
+
 
 # stored field, label, kind
 BODY_ROWS = [

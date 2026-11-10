@@ -49,6 +49,12 @@ def _format_last_login(last_login, tz_name: str | None) -> str:
     return last_login.strftime("%m/%d/%Y %H:%M UTC")
 
 
+def _review_fields():
+    """The Progress Review thresholds as the form shows them: settings column, label, whole numbers only, limits, meaning, the review's own default."""
+    from app.progress.review import RULE_FIELDS, Rules
+    return [(column, label, whole, low, high, help_, getattr(Rules(), attr)) for column, attr, label, whole, low, high, help_ in RULE_FIELDS]
+
+
 def _render(request: Request, session: Session, *, errors: dict | None = None, status_code: int = 200):
     me = _me(session, request.state.user.id)
     other_users = session.scalars(
@@ -67,6 +73,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
                                      .order_by(UserMedicine.name.collate("NOCASE"))).all(),
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
         "db_revision": version.database_revision(session),
+        "review_fields": _review_fields(),
         "ntfy_server": config.NTFY_SERVER,
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
         "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
@@ -687,5 +694,33 @@ async def change_expiration_defaults(request: Request, session: Session = Depend
     me = _me(session, uid)
     for field, days in values.items():
         setattr(me, field, days)
+    session.commit()
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/progress-review")
+async def change_progress_review(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """The Progress Review flag thresholds. A blank box goes back to the review's own number; the review is rule-based, so these are the rules."""
+    from app.progress.review import RULE_FIELDS
+    form = await request.form()
+    values, errors = {}, {}
+    for column, _attr, _label, whole, low, high, _help in RULE_FIELDS:
+        raw = str(form.get(column, "")).strip()
+        if not raw:
+            values[column] = None
+            continue
+        try:
+            number = int(raw) if whole else float(raw)
+            if not low <= number <= high:
+                raise ValueError
+        except ValueError:
+            errors[column] = f"Enter {'a whole number' if whole else 'a number'} from {low:g} to {high:g}."
+        else:
+            values[column] = number
+    if errors:
+        return _render(request, session, errors=errors, status_code=422)
+    me = _me(session, uid)
+    for column, number in values.items():
+        setattr(me, column, number)
     session.commit()
     return RedirectResponse("/settings", status_code=303)

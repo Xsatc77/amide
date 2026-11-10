@@ -140,6 +140,20 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
 
+      <form method="post" action="/settings/progress-review" class="settings-form" novalidate>
+        <h3 class="small muted">Progress Review Flags</h3>
+        <p class="small muted">The numbers the Progress Review page uses to raise a flag. Each flag shows the rule it used, so you can judge it yourself. Emptying a box goes back to Amide&rsquo;s own number, shown in the box.</p>
+        {% for column, label, whole, low, high, help, default in review_fields %}
+        <label class="field {{ 'has-error' if errors[column] }}">
+          <span>{{ label }}</span>
+          <input name="{{ column }}" type="number" min="{{ low }}" max="{{ high }}" step="{{ 1 if whole else 'any' }}" inputmode="decimal" value="{{ me[column] if me[column] is not none else default }}">
+          <span class="small muted">{{ help }}</span>
+          {{ err(column) }}
+        </label>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+
       <form method="post" action="/settings/dashboard-thresholds" class="settings-form" novalidate>
         <h3 class="small muted">Dashboard Alert Defaults</h3>
         <p class="small muted">Used when an item doesn't have its own low-stock number set, and for

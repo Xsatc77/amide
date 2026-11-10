@@ -1007,6 +1007,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 /* Month */
 .cal-month { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .cal-month-head, .cal-month-row { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)); }
+.cal-month-row { grid-template-columns: 44px repeat(14, minmax(0, 1fr)); }      /* two columns per day: the marks sit two across */
 .cal-month-head span { padding: 8px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--bg); }
 .cal-month-row { grid-template-rows: 28px repeat(4, 22px) 22px; border-top: 1px solid var(--border); }
 .cal-wk {
@@ -1024,7 +1025,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
 .cal-day-bg.cal-out + .cal-daynum { color: var(--muted); font-weight: 400; }
 .cal-mark {
   position: relative; z-index: 1; display: flex; align-items: center; gap: 3px; justify-self: stretch;
-  margin: 1px 3px; padding: 1px 5px; border: 0; border-radius: 5px; background: var(--c); color: var(--ct);
+  margin: 1px 2px; padding: 1px 4px; border: 0; justify-content: center; min-width: 0; border-radius: 5px; background: var(--c); color: var(--ct);
   font: inherit; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; overflow: hidden;
 }
 .cal-mark:hover, .cal-mark:focus-visible { filter: brightness(1.08); outline: none; }
@@ -1220,7 +1221,8 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
   .calc-layout { grid-template-columns: 1fr; }
   .calc-result { position: static; }
-  .cal-month-head, .cal-month-row { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
+  .cal-month-head { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
+  .cal-month-row { grid-template-columns: 26px repeat(14, minmax(0, 1fr)); }
   .cal-month-row { grid-template-rows: 26px repeat(4, 16px) 18px; }
   .cal-month-head span { padding: 6px 2px; text-align: center; font-size: 0.65rem; }
   .cal-mark { font-size: 0.6rem; padding: 1px 3px; }

@@ -175,8 +175,8 @@ def test_month_view_marks_a_day_a_fitness_test_was_completed(client, db, me):
     assert "Fitness Test completed" in body
 
 
-def test_month_view_overflows_past_four_marks_in_one_day(client):
-    for i in range(6):
+def test_month_view_overflows_past_eight_marks_in_one_day(client):
+    for i in range(10):
         make(client, name=f"P{i}", items={
             "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
             "items-0-frequency": "daily", "items-0-time_of_day": "am",

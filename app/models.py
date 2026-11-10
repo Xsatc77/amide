@@ -1060,6 +1060,13 @@ class User(Base):
     default_discard_days: Mapped[int | None] = mapped_column(Integer)
     bac_bottle_days: Mapped[int | None] = mapped_column(Integer)                  # days an opened BAC Water bottle is good for (empty = 60)
     lyophilized_shelf_days: Mapped[int | None] = mapped_column(Integer)           # days from check-in that sealed lyophilized stock is good for when no date is entered (empty = 730)
+    # The person's own thresholds for the Progress Review flags (empty = the review's own default, see app.progress.review.Rules).
+    review_loss_pct: Mapped[float | None] = mapped_column(Float)
+    review_protein_g_per_kg: Mapped[float | None] = mapped_column(Float)
+    review_sleep_low: Mapped[int | None] = mapped_column(Integer)
+    review_sleep_share_pct: Mapped[float | None] = mapped_column(Float)
+    review_bp_drop: Mapped[int | None] = mapped_column(Integer)
+    review_retest_days: Mapped[int | None] = mapped_column(Integer)
     # What the Shop-this-protocol plan assumes shipping costs per vendor order, in cents (empty = the app's default: $60 China, $30 US).
     shop_china_shipping_cents: Mapped[int | None] = mapped_column(Integer)
     shop_us_shipping_cents: Mapped[int | None] = mapped_column(Integer)
