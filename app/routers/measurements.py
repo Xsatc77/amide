@@ -748,7 +748,7 @@ async def import_scale(request: Request, file: UploadFile | None = File(None), t
     if not raw.strip() and file is not None and file.filename:
         raw = (await file.read(renpho._MAX_BYTES + 1)).decode("utf-8-sig", errors="replace")
     if not raw.strip():
-        return _refuse("No file came through. Choose the CSV again, or paste its text. A file kept in iCloud Drive has to be downloaded to the device first.")
+        return _refuse("No file came through. Choose the CSV again, or paste its text.")
     try:
         parsed = renpho.parse(raw)
     except renpho.ImportError_ as exc:
