@@ -157,6 +157,8 @@ def test_an_import_with_no_file_says_what_to_do_instead_of_returning_json(client
     for kwargs in ({}, {"files": {"file": ("", b"", "application/octet-stream")}}, {"files": {"file": ("export.csv", b"", "text/csv")}}):
         r = client.post("/measurements/import-scale", **kwargs)
         assert r.status_code == 422 and "No file came through" in r.text and not r.text.lstrip().startswith("{")
+        assert "data-open-on-load" not in r.text.split('id="measurement-dialog"')[1].split(">")[0]       # the entry form must not pop open for an import problem
+        assert "There was a problem with your submission" not in r.text and '<details class="scale-import" open>' in r.text
 
 
 def _entry(me, **values):

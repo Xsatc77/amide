@@ -159,7 +159,7 @@
   {% else %}
   <p class="muted">No scale readings yet. Import the CSV your scale's app exports (Renpho: the app's export-data option) and every weigh-in is added.</p>
   {% endif %}
-  <details class="scale-import">
+  <details class="scale-import"{{ ' open' if errors.scale_import }}>
     <summary class="btn btn-ghost">Import from a scale (Renpho CSV)</summary>
     <form method="post" action="/measurements/import-scale" enctype="multipart/form-data" class="scale-import-form" data-scale-import>
       <p class="muted small">Export your readings from the Renpho app as a CSV, save it on this device, then choose it here.</p>
@@ -227,13 +227,14 @@
 </label>
 {% endmacro %}
 
-<dialog id="measurement-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if errors or edit_id }}>
+{% set entry_problem = errors and (errors | length) > (1 if errors.scale_import else 0) %}
+<dialog id="measurement-dialog" class="dialog dialog-wide"{{ ' data-open-on-load' if entry_problem or edit_id }}>
   <form method="post" action="{{ '/measurements/' ~ edit_id ~ '/edit' if edit_id else '/measurements' }}" class="settings-form" novalidate>
     <header class="dialog-head">
       <h2>{{ 'Edit Measurement' if edit_id else 'Log A Measurement' }}</h2>
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
-    {% if errors %}
+    {% if entry_problem %}
     <p class="alert" role="alert">There was a problem with your submission. Please check the form and try again.</p>
     {% endif %}
 
