@@ -652,6 +652,9 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context["scale_latest"] = scale_view.latest_card(own_entries, display_entries(own_entries, u), u, me_user)
         q = request.query_params
         context["scale_import"] = {k: int(q[k]) for k in ("imported", "merged", "skipped", "unread") if q.get(k, "").isdigit()} or None
+        if q.get("deduped") == "1":                    # the Merge Duplicate Entries button, not an import
+            context["scale_import"] = None
+            context["deduped"] = int(q["merged"]) if q.get("merged", "").isdigit() else 0
         if q.get("kept", "").isdigit():                # a new entry was within 12 hours of this one, so this one was kept
             kept = next((e for e in own_entries if e.id == int(q["kept"])), None)
             if kept is not None:
@@ -734,6 +737,15 @@ def delete_measurement(measurement_id: int, session: Session = Depends(get_sessi
     session.delete(row)
     session.commit()
     return RedirectResponse("/measurements?tab=measurements", status_code=303)
+
+
+@router.post("/measurements/merge-duplicates")
+def merge_duplicates(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Apply the 12-hour rule to the signed-in person's saved entries: later ones within 12 hours of an earlier one fold into it."""
+    from app.measurements import same_time
+    merged = same_time.merge_existing(session, uid)
+    session.commit()
+    return RedirectResponse(f"/measurements?tab=measurements&merged={merged}&deduped=1", status_code=303)
 
 
 @router.post("/measurements/import-scale")

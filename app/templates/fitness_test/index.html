@@ -29,6 +29,25 @@
   {% endfor %}
 </div>
 
+<section class="lib-section" aria-labelledby="past-results-heading">
+  <h2 id="past-results-heading" class="section-title">Past Results</h2>
+  {% for day in past_results %}
+  <div class="card">
+    <h3>{{ day.date | shortdate }}</h3>
+    <ul class="plain-list">
+      {% for r in day.results %}
+      <li>{{ r.label }}: <strong>{{ r.value | num }}</strong>
+        <form method="post" action="/fitness-test/{{ r.id }}/delete" class="inline" data-confirm="Delete this {{ r.label }} result from {{ day.date | shortdate }}? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small">Delete</button></form>
+      </li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/fitness-test/delete-day" class="inline" data-confirm="Delete every result from {{ day.date | shortdate }}? This cannot be undone."><input type="hidden" name="tested_at" value="{{ day.date.isoformat() }}"><button type="submit" class="btn btn-ghost btn-danger small">Delete this whole test</button></form>
+  </div>
+  {% else %}
+  <p class="muted">No results yet. Log your first test to set a baseline.</p>
+  {% endfor %}
+</section>
+
 <dialog id="fitness-test-dialog" class="dialog">
   <form method="post" action="/fitness-test" class="settings-form" novalidate>
     <header class="dialog-head">

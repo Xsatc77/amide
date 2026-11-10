@@ -270,3 +270,56 @@ def test_two_scale_readings_within_12_hours_make_one_entry(client, db, me):
     with SessionLocal() as s:
         [m] = s.query(BodyMeasurement).filter_by(owner_id=me).all()
         assert m.weight_lbs == 200.5                                                         # the earlier reading is the one used
+
+
+def _old_entry(s, owner, day, hour, **values):
+    from datetime import datetime
+    from app.models import BodyMeasurement
+    row = BodyMeasurement(owner_id=owner, measured_at=day, recorded_at=datetime(day.year, day.month, day.day, hour) if hour is not None else None, **values)
+    s.add(row)
+    s.commit()
+    return row.id
+
+
+def _other_person(s):
+    from app.models import User
+    other = User(username="othermerge", username_key="othermerge", password_hash="x")
+    s.add(other)
+    s.commit()
+    return other.id
+
+
+def test_merge_duplicates_applies_the_12_hour_rule_to_old_entries(client, db, me):
+    from datetime import date
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        first = _old_entry(s, me, date(2026, 10, 19), 8, weight_lbs=284.0)
+        _old_entry(s, me, date(2026, 10, 19), 10, weight_lbs=283.0, waist_in=51.0, scale_body_fat_pct=38.3)   # same morning: folds into the first
+        _old_entry(s, me, date(2026, 10, 19), None, neck_in=17.0)                                            # no time kept counts as noon: within 12 h of 8 am
+        later = _old_entry(s, me, date(2026, 10, 19), 22, weight_lbs=281.0)                                  # 14 h after the first: stays
+    r = client.post("/measurements/merge-duplicates", follow_redirects=False)
+    assert r.status_code == 303 and "merged=2" in r.headers["location"]
+    with SessionLocal() as s:
+        rows = {x.id: x for x in s.query(BodyMeasurement).filter_by(owner_id=me).all()}
+        assert set(rows) == {first, later}
+        assert rows[first].weight_lbs == 284.0                                                           # the original's own number stands
+        assert (rows[first].waist_in, rows[first].neck_in, rows[first].scale_body_fat_pct) == (51.0, 17.0, 38.3)   # its blanks were filled
+        assert rows[later].weight_lbs == 281.0
+    assert "2 duplicate entries merged" in client.get(r.headers["location"]).text
+
+
+def test_merge_duplicates_leaves_other_days_and_other_people_alone(client, db, me):
+    from datetime import date
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    with SessionLocal() as s:
+        other = _other_person(s)
+        _old_entry(s, me, date(2026, 10, 19), 8, weight_lbs=284.0)
+        _old_entry(s, me, date(2026, 10, 26), 8, weight_lbs=280.0)
+        _old_entry(s, other, date(2026, 10, 19), 9, weight_lbs=150.0)
+        _old_entry(s, other, date(2026, 10, 19), 10, weight_lbs=151.0)
+    r = client.post("/measurements/merge-duplicates", follow_redirects=False)
+    assert "merged=0" in r.headers["location"]
+    with SessionLocal() as s:
+        assert s.query(BodyMeasurement).count() == 4

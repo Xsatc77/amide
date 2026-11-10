@@ -46,3 +46,20 @@ def fill_blanks(original: BodyMeasurement, values: dict, notes: dict | None = No
                 filled += 1
         original.notes = merged or None
     return filled
+
+
+def merge_existing(session: Session, owner_id: int) -> int:
+    """Apply the 12-hour rule to entries already saved: each later entry within 12 hours of the earliest one folds into it
+    (the original's numbers stand, only its blanks are filled) and is removed. Returns how many entries were merged away."""
+    rows = sorted(session.scalars(select(BodyMeasurement).where(BodyMeasurement.owner_id == owner_id)).all(),
+                  key=lambda r: (effective_time(r), r.id))
+    merged = 0
+    anchor = None
+    for row in rows:
+        if anchor is not None and effective_time(row) - effective_time(anchor) <= WINDOW:
+            fill_blanks(anchor, {f: getattr(row, f) for f in VALUE_FIELDS}, row.notes)
+            session.delete(row)
+            merged += 1
+        else:
+            anchor = row
+    return merged

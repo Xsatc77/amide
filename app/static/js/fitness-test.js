@@ -20,3 +20,7 @@
     if (mousedownOnBackdrop && e.target === dialog) dialog.close();
   });
 })();
+
+// Delete buttons on this page ask first.
+document.querySelectorAll("form[data-confirm]").forEach((f) =>
+  f.addEventListener("submit", (event) => { if (!window.confirm(f.dataset.confirm)) event.preventDefault(); }));

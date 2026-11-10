@@ -4,6 +4,8 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 
+- **Body: Merge Duplicate Entries applies the 12-hour rule to entries saved before it existed.** Each later entry within 12 hours of an earlier one folds into it (the earlier entry keeps its numbers and only its blanks are filled).
+- **Fitness Test: a Past Results list with Delete for any result or a whole test day.** Test runs logged by mistake can now be removed.
 - **Body: a finished import or a kept-original notice now shows as a green confirmation, not a red error box.**
 - **Settings: Default Expiration Dates.** One place to set how long each kind of stock is good for: lyophilized peptides (days from check-in, used when an order is checked in without an expiration date; 730 unless you change it), reconstituted peptides (days after mixing; 28) and BAC Water (days after opening a bottle; 60). They only fill in dates for new things: a date you typed, or one already on a vial, bottle or order, never changes unless you change it yourself. The shopping plan and its PDF use your BAC Water number.
 - **Body: the Renpho import reads the file in the browser and sends its text.** On a phone the file reached the server empty even though it was on the device; the page now reads the chosen file itself and submits the text, and says so plainly if the browser hands over an empty file.

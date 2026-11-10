@@ -141,6 +141,7 @@
 <section class="card scale-section" id="scale-section" aria-labelledby="scale-heading">
   <h2 id="scale-heading" class="section-title">Body Composition From Your Scale</h2>
   {% if scale_import %}<div class="alert alert-ok" role="status">{{ scale_import.imported or 0 }} reading{{ '' if scale_import.imported == 1 else 's' }} imported{% if scale_import.merged %}, {{ scale_import.merged }} added to an entry from the 12 hours before or after{% endif %}{% if scale_import.skipped %}, {{ scale_import.skipped }} already there{% endif %}{% if scale_import.unread %}, {{ scale_import.unread }} row{{ '' if scale_import.unread == 1 else 's' }} could not be read{% endif %}.</div>{% endif %}
+  {% if deduped is defined and deduped is not none %}<div class="alert alert-ok" role="status">{% if deduped %}{{ deduped }} duplicate {{ 'entry' if deduped == 1 else 'entries' }} merged into the earlier entry within 12 hours of {{ 'it' if deduped == 1 else 'each' }}.{% else %}No duplicate entries found: nothing is within 12 hours of an earlier entry.{% endif %}</div>{% endif %}
   {% if kept_original %}<div class="alert alert-ok" role="status">That was within 12 hours of your {{ kept_original.date | shortdate }} entry, so the original was kept{% if kept_original.filled %} and {{ kept_original.filled }} blank value{{ '' if kept_original.filled == 1 else 's' }} filled in from it{% else %}; nothing new was added to it{% endif %}. Use Edit on that entry to change a value.</div>{% endif %}
   {% if errors.scale_import %}<div class="alert" role="alert">{{ errors.scale_import }}</div>{% endif %}
   {% if scale_latest %}
@@ -173,6 +174,10 @@
       <p class="muted small">Each weigh-in becomes a measurement on its date. A reading that is already in Amide is skipped, so importing the same file again is safe. Percentages and masses are the scale&rsquo;s own estimates, kept separate from anything Amide works out.</p>
     </form>
   </details>
+  <form method="post" action="/measurements/merge-duplicates" class="inline" data-confirm="Apply the 12-hour rule to every saved entry? An entry within 12 hours of an earlier one is folded into the earlier one: the earlier entry keeps its own numbers, only its blanks are filled in, and the later entry is removed. This cannot be undone.">
+    <button type="submit" class="btn btn-ghost">Merge Duplicate Entries</button>
+    <span class="muted small">Applies the 12-hour rule to entries saved before it existed.</span>
+  </form>
 </section>
 
 

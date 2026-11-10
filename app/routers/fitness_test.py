@@ -59,11 +59,22 @@ def _charts_and_suggestions(session: Session, uid: int) -> list[dict]:
     return out
 
 
+def _past_results(session: Session, uid: int) -> list[dict]:
+    """Every saved result, newest day first, grouped by the day it was taken."""
+    rows = session.scalars(select(FitnessTestResult).where(FitnessTestResult.owner_id == uid)
+                           .order_by(FitnessTestResult.tested_at.desc(), FitnessTestResult.id)).all()
+    days: dict[date, list[dict]] = {}
+    for r in rows:
+        days.setdefault(r.tested_at, []).append({"id": r.id, "label": _LABELS[r.exercise], "value": r.value})
+    return [{"date": d, "results": items} for d, items in days.items()]
+
+
 @router.get("/fitness-test")
 def fitness_test_page(request: Request, session: Session = Depends(get_session),
                       uid: int = Depends(current_user_id)):
     return templates.TemplateResponse(request, "fitness_test/index.html", {
         "exercises": _charts_and_suggestions(session, uid),
+        "past_results": _past_results(session, uid),
         "today": clock.today(),
     })
 
@@ -90,6 +101,37 @@ async def fitness_test_log(request: Request, session: Session = Depends(get_sess
             raise HTTPException(422, f"{_LABELS[exercise]} must be a finite number.")
         results.append(FitnessTestResult(owner_id=uid, exercise=exercise, value=number, tested_at=tested_at))
     session.add_all(results)
+    session.commit()
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/fitness-test", status_code=303)
+
+
+@router.post("/fitness-test/delete-day")
+async def fitness_test_delete_day(request: Request, session: Session = Depends(get_session),
+                                  uid: int = Depends(current_user_id)):
+    """Remove every result the signed-in person logged on one test day."""
+    raw = await request.form()
+    try:
+        day = date.fromisoformat(str(raw.get("tested_at", "")))
+    except ValueError:
+        raise HTTPException(422, "A valid test date (YYYY-MM-DD) is required.")
+    for row in session.scalars(select(FitnessTestResult).where(
+            FitnessTestResult.owner_id == uid, FitnessTestResult.tested_at == day)).all():
+        session.delete(row)
+    session.commit()
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/fitness-test", status_code=303)
+
+
+@router.post("/fitness-test/{result_id}/delete")
+def fitness_test_delete(result_id: int, session: Session = Depends(get_session),
+                        uid: int = Depends(current_user_id)):
+    """Remove one of the signed-in person's own results."""
+    row = session.scalar(select(FitnessTestResult).where(
+        FitnessTestResult.id == result_id, FitnessTestResult.owner_id == uid))
+    if row is None:
+        raise HTTPException(404, "Result not found")
+    session.delete(row)
     session.commit()
     from fastapi.responses import RedirectResponse
     return RedirectResponse("/fitness-test", status_code=303)
