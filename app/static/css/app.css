@@ -445,6 +445,9 @@ form.inline { display: inline; }
 }
 .error { color: var(--danger); }
 .alert { margin: 16px 20px 0; padding: 10px 12px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-weight: 500; }
+.alert.alert-ok { background: rgba(34, 197, 94, 0.14); color: #16a34a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .alert.alert-ok { color: #4ade80; } }
+:root[data-theme="dark"] .alert.alert-ok { color: #4ade80; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
 .checkbox-field { flex-direction: row; align-items: center; gap: 8px; }
 .checkbox-field input[type="checkbox"] { width: auto; }
