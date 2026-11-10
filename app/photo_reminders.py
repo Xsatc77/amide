@@ -96,14 +96,20 @@ def active(session: Session, uid: int, today: date) -> list[Reminder]:
     return out
 
 
-def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[date, list[str]]:
-    """Days in [first, last] to mark on the calendar, each with what to say: protocol starts and ends, and the day two weeks after the last upload."""
-    marks: dict[date, list[str]] = {}
+def calendar_entries(session: Session, uid: int, first: date, last: date) -> dict[date, list[tuple[str, str]]]:
+    """Days in [first, last] to mark on the calendar, each with (what to say, the key an Ignore is stored under): protocol starts and ends, and the
+    day two weeks after the last upload. Reminders the person ticked Ignore on are left out."""
+    marks: dict[date, list[tuple[str, str]]] = {}
     off = ignored_keys(session, uid)
     for kind, day, p in _milestones(session, uid, first, last):
         if f"{kind}:{p.id}" not in off:
-            marks.setdefault(day, []).append(_text(kind, p.name))
+            marks.setdefault(day, []).append((_text(kind, p.name), f"{kind}:{p.id}"))
     due = next_interval_due(session, uid)
     if due is not None and first <= due <= last and f"interval:{due.isoformat()}" not in off:
-        marks.setdefault(due, []).append(_text("interval"))
+        marks.setdefault(due, []).append((_text("interval"), f"interval:{due.isoformat()}"))
     return marks
+
+
+def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[date, list[str]]:
+    """The same days as `calendar_entries`, with only what to say."""
+    return {day: [text for text, _ in entries] for day, entries in calendar_entries(session, uid, first, last).items()}

@@ -252,3 +252,18 @@ def test_ignoring_the_two_week_reminder_ends_when_the_next_photo_moves_its_day(d
 def test_ignore_rejects_unknown_keys_and_another_persons_protocol(client, db, me):
     assert client.post("/dashboard/alerts/ignore-photo", data={"key": "lowstock:1", "ignore": "1"}).status_code == 422
     assert client.post("/dashboard/alerts/ignore-photo", data={"key": "start:99999999", "ignore": "1"}).status_code == 422
+
+
+def test_the_calendar_day_view_has_the_ignore_box_and_ticking_it_returns_to_that_day(client, db, me):
+    from app import clock
+    today = clock.today()
+    protocol(db, me, today)
+    pid = db.query(Protocol).filter(Protocol.name == "Photoremind A").one().id
+    day = client.get(f"/calendar?view=day&date={today.isoformat()}").text
+    assert f'name="key" value="start:{pid}"' in day and 'name="ignore"' in day
+    back = f"/calendar?view=day&date={today.isoformat()}"
+    r = client.post("/dashboard/alerts/ignore-photo", data={"key": f"start:{pid}", "ignore": "1", "back": back}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == back
+    assert "Photoremind A" not in client.get(back).text
+    r = client.post("/dashboard/alerts/ignore-photo", data={"key": f"start:{pid}", "ignore": "1", "back": "//evil.example"}, follow_redirects=False)
+    assert r.headers["location"] == "/dashboard"

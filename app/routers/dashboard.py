@@ -428,7 +428,8 @@ async def ignore_photo_reminder(request: Request, session: Session = Depends(get
         if protocol is None or protocol.owner_id != uid:
             raise HTTPException(status_code=422, detail="Unknown reminder.")
     photo_reminders.set_ignored(session, uid, key, form.get("ignore") == "1")
-    return RedirectResponse("/dashboard", status_code=303)
+    back = str(form.get("back") or "")
+    return RedirectResponse(back if back.startswith("/calendar") and "//" not in back and "\\" not in back else "/dashboard", status_code=303)
 
 
 @router.post("/dashboard/alerts/dismiss")

@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Calendar: the body-photo note on a day has the Ignore box too.** Ticking it leaves the note off the calendar and brings you back to that day; the dashboard keeps the reminder with the box ticked, so you can untick it there.
 - **Calendar: marks take the color of their protocol's goal tile and turn green once the item is done; the first day of a protocol has a gold light running round its marks and the last day a white-green one.** The legend now reads Done, Missed, Upcoming.
 - **Dashboard: the "Take your body photos" reminder has an Ignore checkbox.** Ticked, the reminder stays on the dashboard but is left off the calendar; the two-week reminder asks again after your next photo.
 - **Settings: Progress Review Flags.** The six numbers behind the Progress Review flags (fast loss percent per week, protein per kg, what counts as a poor night and what share of rated days, blood pressure drop, fitness retest days) are yours to change; each box shows Amide's own number and emptying it goes back to that.

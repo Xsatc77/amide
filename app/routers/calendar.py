@@ -188,7 +188,8 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     from app.routers.journal import journal_logged_dates  # deferred, like the two above
     ctx["journal_dates"] = journal_logged_dates(session, uid, first, last)
     from app import photo_reminders
-    ctx["photo_marks"] = photo_reminders.calendar_dates(session, uid, first, last)
+    ctx["photo_entries"] = photo_reminders.calendar_entries(session, uid, first, last)
+    ctx["photo_marks"] = {day: [text for text, _ in entries] for day, entries in ctx["photo_entries"].items()}
     from app.protocols import repeat                  # deferred, like the ones above
     ctx["course_marks"] = repeat.calendar_dates(session, uid, first, last)
 

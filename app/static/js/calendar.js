@@ -1,5 +1,7 @@
 // Calendar: switch views from the dropdown, and show what's due when a line, block or card is clicked.
 (() => {
+  // Ignore on a body-photo reminder saves as soon as it is ticked.
+  document.querySelectorAll("input[type=checkbox][data-autosubmit]").forEach((box) => box.addEventListener("change", () => box.form.submit()));
   const select = document.getElementById("cal-view");
   select.addEventListener("change", () => select.form.submit());
 
