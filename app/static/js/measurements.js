@@ -171,3 +171,21 @@ document.querySelectorAll("form[data-scale-import]").forEach((form) => {
     form.submit();
   });
 });
+
+// Pacer import: chosen CSV files are read here and sent as text (the same phone workaround as the scale import); a zip is sent as it is.
+document.querySelectorAll("form[data-pacer-import]").forEach((form) => {
+  const input = form.querySelector('input[type="file"]');
+  const paste = form.querySelector("textarea");
+  const msg = form.querySelector("[data-pacer-import-msg]");
+  form.addEventListener("submit", async (event) => {
+    const chosen = [...(input.files || [])];
+    if (!chosen.length) { event.preventDefault(); msg.textContent = "Choose the Pacer export first."; msg.hidden = false; return; }
+    const csvs = chosen.filter((f) => !f.name.toLowerCase().endsWith(".zip"));
+    if (!csvs.length) return;
+    event.preventDefault();
+    const texts = await Promise.all(csvs.map((f) => f.text().catch(() => "")));
+    paste.value = texts.join("\n---FILE---\n");
+    if (chosen.length === csvs.length) input.disabled = true;     // only CSVs: they travel as text
+    form.submit();
+  });
+});

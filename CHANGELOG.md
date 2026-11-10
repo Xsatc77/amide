@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Body: Import From Pacer reads weights and blood pressure from the Pacer app export (its zip or the CSV files).** A weigh-in and a blood pressure taken within 12 hours become one entry; entries already in Amide keep their own numbers; the step files are ignored.
 
 - **Body: Merge Duplicate Entries applies the 12-hour rule to entries saved before it existed.** Each later entry within 12 hours of an earlier one folds into it (the earlier entry keeps its numbers and only its blanks are filled).
 - **Fitness Test: a Past Results list with Delete for any result or a whole test day.** Test runs logged by mistake can now be removed.

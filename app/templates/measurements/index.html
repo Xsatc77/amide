@@ -144,6 +144,7 @@
   {% if deduped is defined and deduped is not none %}<div class="alert alert-ok" role="status">{% if deduped %}{{ deduped }} duplicate {{ 'entry' if deduped == 1 else 'entries' }} merged into the earlier entry within 12 hours of {{ 'it' if deduped == 1 else 'each' }}.{% else %}No duplicate entries found: nothing is within 12 hours of an earlier entry.{% endif %}</div>{% endif %}
   {% if kept_original %}<div class="alert alert-ok" role="status">That was within 12 hours of your {{ kept_original.date | shortdate }} entry, so the original was kept{% if kept_original.filled %} and {{ kept_original.filled }} blank value{{ '' if kept_original.filled == 1 else 's' }} filled in from it{% else %}; nothing new was added to it{% endif %}. Use Edit on that entry to change a value.</div>{% endif %}
   {% if errors.scale_import %}<div class="alert" role="alert">{{ errors.scale_import }}</div>{% endif %}
+  {% if errors.pacer_import %}<div class="alert" role="alert">{{ errors.pacer_import }}</div>{% endif %}
   {% if scale_latest %}
   <div id="scale-latest">
     <p class="muted small">Your latest scale reading, {{ scale_latest.date | shortdate }}. Pick any of these in the Overview's Metric list to chart it.</p>
@@ -172,6 +173,17 @@
       <p class="alert" role="alert" data-scale-import-msg hidden></p>
       <button type="submit" class="btn btn-primary">Import</button>
       <p class="muted small">Each weigh-in becomes a measurement on its date. A reading that is already in Amide is skipped, so importing the same file again is safe. Percentages and masses are the scale&rsquo;s own estimates, kept separate from anything Amide works out.</p>
+    </form>
+  </details>
+  <details class="scale-import"{{ ' open' if errors.pacer_import }}>
+    <summary class="btn btn-ghost">Import weights and blood pressure from Pacer</summary>
+    <form method="post" action="/measurements/import-pacer" enctype="multipart/form-data" class="scale-import-form" data-pacer-import>
+      <p class="muted small">Export your data from the Pacer app, then choose the zip it gives you, or its WeightLogs and HeartLogs files. Steps are not imported.</p>
+      <label class="field"><span>Pacer export (zip, or the CSV files)</span><input type="file" name="files" multiple accept=".zip,.csv,.txt,application/zip,text/csv,text/plain"></label>
+      <textarea name="text" hidden aria-hidden="true"></textarea>
+      <p class="alert" role="alert" data-pacer-import-msg hidden></p>
+      <button type="submit" class="btn btn-primary">Import</button>
+      <p class="muted small">A weigh-in and a blood pressure taken within 12 hours become one entry, an entry already in Amide keeps its own numbers, and importing the same files again is safe.</p>
     </form>
   </details>
   <form method="post" action="/measurements/merge-duplicates" class="inline" data-confirm="Apply the 12-hour rule to every saved entry? An entry within 12 hours of an earlier one is folded into the earlier one: the earlier entry keeps its own numbers, only its blanks are filled in, and the later entry is removed. This cannot be undone.">

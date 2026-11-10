@@ -748,6 +748,35 @@ def merge_duplicates(session: Session = Depends(get_session), uid: int = Depends
     return RedirectResponse(f"/measurements?tab=measurements&merged={merged}&deduped=1", status_code=303)
 
 
+@router.post("/measurements/import-pacer")
+async def import_pacer(request: Request, files: list[UploadFile] = File(default_factory=list), text: str = Form(""),
+                       session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Load weights and blood pressures from the Pacer app's export: its zip, or the WeightLogs and HeartLogs CSVs (their text joined by the page)."""
+    from app.measurements import pacer
+
+    def _refuse(message: str):
+        return _render(request, session, uid, tab="measurements", errors={"pacer_import": message}, status_code=422)
+
+    texts = [t for t in text.split(pacer.FILE_MARK) if t.strip()]
+    try:
+        for f in files:
+            if not f.filename:
+                continue
+            data = await f.read(5_000_000 + 1)
+            if f.filename.lower().endswith(".zip"):
+                texts += pacer.texts_from_zip(data) if len(data) <= 5_000_000 else []
+            else:
+                texts.append(data.decode("utf-8-sig", errors="replace"))
+        parsed = pacer.parse_texts(texts)
+    except pacer.ImportError_ as exc:
+        return _refuse(str(exc))
+    if not parsed.readings:
+        return _refuse("No weights or blood pressures could be read from that file.")
+    result = pacer.import_readings(session, uid, parsed)
+    session.commit()
+    return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&merged={result.merged}&skipped={result.skipped}&unread={len(result.errors)}", status_code=303)
+
+
 @router.post("/measurements/import-scale")
 async def import_scale(request: Request, file: UploadFile | None = File(None), text: str = Form(""), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Load a body-composition scale's export (Renpho CSV): one measurement per reading, the scale's numbers kept in their own fields. The file, or its text pasted in."""
