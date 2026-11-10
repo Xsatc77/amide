@@ -10,7 +10,7 @@ DATA = ROOT / "app" / "library" / "base_library.json"
 SEED = next(ROOT.glob("migrations/versions/0003_*.py"))
 
 
-EXTRA = ["HGH Fragment 176-191", "FST-344"]      # shipped beyond the 105 seed names
+EXTRA = ["HGH Fragment 176-191", "FST-344", "D-3 (Cholecalciferol)"]      # shipped beyond the 105 seed names
 
 
 def seed_names():

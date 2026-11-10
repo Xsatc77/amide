@@ -2064,6 +2064,109 @@
   "cost_estimate_text": null
  },
  {
+  "name": "D-3 (Cholecalciferol)",
+  "aliases": [
+   "Vitamin D3",
+   "Cholecalciferol",
+   "D3",
+   "Vitamin D-3"
+  ],
+  "half_life_text": "About 15 days (the blood marker 25-hydroxyvitamin D, per the NIH fact sheet)",
+  "bioavailability_text": "Not established (depends on fat in the meal, the product form and gut health)",
+  "tmax_text": "Not established",
+  "route_summary": "Oral (pill)",
+  "storage_before_text": "Not established for every product; keep to the label",
+  "storage_after_text": "Not applicable: a pill needs no mixing",
+  "storage_temperature_text": "Not established; follow the product label (most labels say room temperature, dry, away from light)",
+  "legal_status_text": "In the United States cholecalciferol is sold as a dietary supplement and is not a controlled substance; high-strength products are also sold without a prescription. No FDA-approved intravenous cholecalciferol product was found: the approved intravenous vitamin D medicine is calcitriol injection, for low calcium in people on kidney dialysis. Cholecalciferol injections sold in other countries are marketed outside US approval. Checked November 2026; not checked in other regions.",
+  "tags": [
+   "Vitamin",
+   "Bone Health",
+   "Dietary Supplement",
+   "Oral",
+   "Daily Pill"
+  ],
+  "summary": "Vitamin D3 (cholecalciferol) is the common supplement form of vitamin D, taken as a daily pill to correct or prevent low levels and to support bone. It is well studied as a nutrient, with an adult upper intake limit of 4,000 IU a day, so the 5,000 and 10,000 IU tiers on this card sit above that limit and call for blood tests and a prescriber. Intravenous use has no US approval for cholecalciferol and belongs only under a doctor's care.",
+  "usage_tips": [],
+  "sheet_sections": {
+   "what_is": "Vitamin D3, called cholecalciferol, is the form of vitamin D the skin makes in sunlight and the form most supplements use. It is a fat-soluble vitamin, not a peptide, and it is listed here because it is one of the most common things people stack with a peptide plan.\nIn a pill, a dose is written in international units (IU) or micrograms: 1 mcg is 40 IU, so 5,000 IU is 125 mcg and 10,000 IU is 250 mcg.\nIt is used to correct or prevent low vitamin D, which matters for bone, and it is often asked about after weight-loss surgery, where absorption can be poor.",
+   "how_it_works": "Vitamin D3 itself is inactive. The liver turns it into 25-hydroxyvitamin D, the form measured in a blood test, and the kidney then makes the active hormone (calcitriol). The NIH fact sheet gives 25-hydroxyvitamin D a circulating half-life of about 15 days, so levels move slowly and a dose change takes weeks to show in a blood test.\nThe active hormone raises the amount of calcium and phosphate the gut absorbs, which keeps bone mineral supplied. That same action is why too much vitamin D can push blood calcium too high.",
+   "benefits": "Approved use for the nutrient: prevents and treats vitamin D deficiency, which is the main established reason to take it (NIH Office of Dietary Supplements).\nEstablished role: needed to absorb calcium and keep bone mineralised; deficiency in children causes rickets and in adults softens bone.\nAfter sleeve gastrectomy: a systematic review reports that guidelines call for at least 3,000 IU a day, and notes that many people stay low at that dose, so levels need checking (Dix et al., Obesity Surgery 2017).\nHuman trial (400, 4,000 or 10,000 IU a day): the three doses had a similar safety profile (PubMed 31746327).\nOther claims (immunity, mood, muscle, weight) are discussed widely. Not established here: this card does not rate them.",
+   "side_effects": "At usual doses most people have no side effects (Kaiser Permanente drug encyclopedia).\nToo much can raise blood calcium (hypercalcemia): loss of appetite, nausea, vomiting, constipation, thirst, frequent urination, tiredness and mood changes (NIH Office of Dietary Supplements and drug references).\nHigh calcium in the urine (hypercalciuria) was common in the 400, 4,000 and 10,000 IU a day trial and more frequent at the higher doses (PubMed 31746327).\nSevere high calcium can cause confusion, an irregular heartbeat and kidney problems.\nRare: allergic reaction with itching or swelling of the face, tongue or throat and trouble breathing; get urgent care.\nIn a trial of 132 postmenopausal women, 10,000 IU a day with 2,000 mg of calcium caused high blood and urine calcium (Healio report, 2018); the authors favoured staying under the 4,000 IU limit until larger studies exist.",
+   "contraindications": "High blood calcium, or a past of vitamin D toxicity (hypervitaminosis D).\nSarcoidosis, tuberculosis and other granulomatous diseases, which can make the body overreact to vitamin D.\nKidney or liver disease: the vitamin is converted by both organs; use only with a prescriber.\nMalabsorption syndromes: absorption is unpredictable, so the dose needs medical supervision.\nPregnancy: drug references advise amounts above the recommended dietary allowance only when clearly needed.\nAnyone taking more than 4,000 IU a day should do so with a prescriber and blood tests, because 4,000 IU a day is the adult upper limit set by the Institute of Medicine.",
+   "drug_interactions": "Thiazide diuretics (such as hydrochlorothiazide) lower calcium loss in the urine and can add to high blood calcium.\nBile acid binders (cholestyramine, colestipol), orlistat and mineral oil reduce vitamin D absorption; drug references advise taking them at least 2 hours apart.\nCalcitriol-containing medicines: drug references say not to combine them with extra vitamin D.\nBurosumab and phosphate binders are listed as interacting products; ask a pharmacist before combining.\nCalcium supplements: extra calcium with high-dose vitamin D raised the chance of high calcium in the 10,000 IU trial above.",
+   "product_quality": "Look for the amount per pill on the label in IU and mcg, and for D3 (cholecalciferol) rather than D2 (ergocalciferol) if D3 is what you want.\nPrefer a product tested by an independent group (USP, NSF or ConsumerLab seals), since supplements are not approved by the FDA before sale.\nVery high strength pills (5,000 IU and up) are easy to take twice by mistake with a multivitamin; add up every source.\nNot established: how much the pill form (softgel, tablet or chew) or a meal with fat changes absorption, including after stomach surgery.",
+   "legal": "In the United States cholecalciferol is sold as a dietary supplement and is not a controlled substance; high-strength products are also sold without a prescription. No FDA-approved intravenous cholecalciferol product was found: the approved intravenous vitamin D medicine is calcitriol injection, for low calcium in people on kidney dialysis. Cholecalciferol injections sold in other countries are marketed outside US approval. Checked November 2026; not checked in other regions.",
+   "who_should_consider": "People with a blood test showing low vitamin D, as decided with a prescriber.\nPeople after sleeve or bypass weight-loss surgery, where guidelines call for routine supplementation.\nPeople with little sun exposure or darker skin at northern latitudes, who are at higher risk of low levels.\nPeople with bone loss or fracture risk, as part of a plan their prescriber sets.",
+   "related_peptides": "Calcitonin (Miacalcin)\nTeriparatide (PTH 1-34)",
+   "citations": "National Institutes of Health, Office of Dietary Supplements. Vitamin D: Fact Sheet for Health Professionals. https://ods.od.nih.gov/factsheets/VitaminD-HealthProfessional/\nDix et al. A Systematic Review: Vitamin D Status and Sleeve Gastrectomy. Obesity Surgery. 2017. https://pubmed.ncbi.nlm.nih.gov/27815862/\nComparison of 400, 4,000 and 10,000 IU a day of vitamin D3: safety and hypercalciuria. PubMed 31746327. https://www.pubmed.gov/31746327/\nRisk assessment of the 10,000 IU a day vitamin D limit used by the Endocrine Society 2011 guideline. PMC4437692. https://pmc.ncbi.nlm.nih.gov/articles/PMC4437692\nHealio. Recommended upper limits for vitamin D, calcium associated with hypercalciuria. 2018. https://cm.healio.com/news/endocrinology/20180913/recommended-upper-limits-for-vitamin-d-calcium-associated-with-hypercalciuria\nKaiser Permanente drug encyclopedia. Cholecalciferol (vitamin D3) tablet. https://healthy.kaiserpermanente.org/health-wellness/drug-encyclopedia/drug.cholecalciferol-vitamin-d3-250-mcg-10-000-unit-tablet.582337\nDrugs.com. Cholecalciferol side effects. https://www.drugs.com/sfx/cholecalciferol-side-effects.html\nDrugs.com. Calcitriol injection (the FDA-labelled intravenous vitamin D product). https://drugs.com/pro/calcitriol-injection.html"
+  },
+  "sheet_sections_simple": {
+   "what_is": "Vitamin D3, called cholecalciferol, is the form of vitamin D the skin makes in sunlight and the form most supplements use. It is a fat-soluble vitamin, not a peptide, and it is listed here because it is one of the most common things people stack with a peptide plan. In a pill, a dose is written in international units (IU) or micrograms: 1 mcg is 40 IU, so 5,000 IU is 125 mcg and 10,000 IU is 250 mcg. It is used to correct or prevent low vitamin D, which matters for bone, and it is often asked about after weight-loss surgery, where absorption can be poor.",
+   "how_it_works": "Vitamin D3 itself is inactive. The liver turns it into 25-hydroxyvitamin D, the form measured in a blood test, and the kidney then makes the active hormone (calcitriol). The NIH fact sheet gives 25-hydroxyvitamin D a circulating half-life of about 15 days, so levels move slowly and a dose change takes weeks to show in a blood test. The active hormone raises the amount of calcium and phosphate the gut absorbs, which keeps bone mineral supplied. That same action is why too much vitamin D can push blood calcium too high.",
+   "legal": "In the United States cholecalciferol is sold as a dietary supplement and is not a controlled substance; high-strength products are also sold without a prescription. No FDA-approved intravenous cholecalciferol product was found: the approved intravenous vitamin D medicine is calcitriol injection, for low calcium in people on kidney dialysis. Cholecalciferol injections sold in other countries are marketed outside US approval. Checked November 2026; not checked in other regions.",
+   "benefits": "Approved use for the nutrient: prevents and treats vitamin D deficiency, which is the main established reason to take it (NIH Office of Dietary Supplements).\nEstablished role: needed to absorb calcium and keep bone mineralised; deficiency in children causes rickets and in adults softens bone.\nAfter sleeve gastrectomy: a systematic review reports that guidelines call for at least 3,000 IU a day, and notes that many people stay low at that dose, so levels need checking (Dix et al., Obesity Surgery 2017).\nHuman trial (400, 4,000 or 10,000 IU a day): the three doses had a similar safety profile (PubMed 31746327).\nOther claims (immunity, mood, muscle, weight) are discussed widely. Not established here: this card does not rate them.",
+   "side_effects": "At usual doses most people have no side effects (Kaiser Permanente drug encyclopedia).\nToo much can raise blood calcium (hypercalcemia): loss of appetite, nausea, vomiting, constipation, thirst, frequent urination, tiredness and mood changes (NIH Office of Dietary Supplements and drug references).\nHigh calcium in the urine (hypercalciuria) was common in the 400, 4,000 and 10,000 IU a day trial and more frequent at the higher doses (PubMed 31746327).\nSevere high calcium can cause confusion, an irregular heartbeat and kidney problems.\nRare: allergic reaction with itching or swelling of the face, tongue or throat and trouble breathing; get urgent care.\nIn a trial of 132 postmenopausal women, 10,000 IU a day with 2,000 mg of calcium caused high blood and urine calcium (Healio report, 2018); the authors favoured staying under the 4,000 IU limit until larger studies exist.",
+   "contraindications": "High blood calcium, or a past of vitamin D toxicity (hypervitaminosis D).\nSarcoidosis, tuberculosis and other granulomatous diseases, which can make the body overreact to vitamin D.\nKidney or liver disease: the vitamin is converted by both organs; use only with a prescriber.\nMalabsorption syndromes: absorption is unpredictable, so the dose needs medical supervision.\nPregnancy: drug references advise amounts above the recommended dietary allowance only when clearly needed.\nAnyone taking more than 4,000 IU a day should do so with a prescriber and blood tests, because 4,000 IU a day is the adult upper limit set by the Institute of Medicine.",
+   "drug_interactions": "Thiazide diuretics (such as hydrochlorothiazide) lower calcium loss in the urine and can add to high blood calcium.\nBile acid binders (cholestyramine, colestipol), orlistat and mineral oil reduce vitamin D absorption; drug references advise taking them at least 2 hours apart.\nCalcitriol-containing medicines: drug references say not to combine them with extra vitamin D.\nBurosumab and phosphate binders are listed as interacting products; ask a pharmacist before combining.\nCalcium supplements: extra calcium with high-dose vitamin D raised the chance of high calcium in the 10,000 IU trial above.",
+   "who_should_consider": "People with a blood test showing low vitamin D, as decided with a prescriber.\nPeople after sleeve or bypass weight-loss surgery, where guidelines call for routine supplementation.\nPeople with little sun exposure or darker skin at northern latitudes, who are at higher risk of low levels.\nPeople with bone loss or fracture risk, as part of a plan their prescriber sets.",
+   "product_quality": "Look for the amount per pill on the label in IU and mcg, and for D3 (cholecalciferol) rather than D2 (ergocalciferol) if D3 is what you want.\nPrefer a product tested by an independent group (USP, NSF or ConsumerLab seals), since supplements are not approved by the FDA before sale.\nVery high strength pills (5,000 IU and up) are easy to take twice by mistake with a multivitamin; add up every source.\nNot established: how much the pill form (softgel, tablet or chew) or a meal with fat changes absorption, including after stomach surgery."
+  },
+  "dosing_tiers": [
+   {
+    "level": "Beginner",
+    "dose_text": "5,000 IU (125 mcg) pill",
+    "frequency_text": "once daily",
+    "time_of_day": null
+   },
+   {
+    "level": "Intermediate",
+    "dose_text": "10,000 IU (250 mcg) pill",
+    "frequency_text": "once daily",
+    "time_of_day": null
+   },
+   {
+    "level": "Advanced",
+    "dose_text": "IV ONLY UNDER DOCTOR CARE",
+    "frequency_text": "set by the treating doctor",
+    "time_of_day": null
+   }
+  ],
+  "cycle": {
+   "on_weeks": null,
+   "off_weeks": null,
+   "note": "Continuous use. Vitamin D builds up slowly (the blood marker has a half-life of about 15 days), so the dose is set by repeat blood tests rather than by cycling on and off."
+  },
+  "stack_relations": [],
+  "monitoring_tests": [
+   {
+    "test_name": "25-hydroxyvitamin D (blood)",
+    "when_text": "Before starting, then about every 3 months at high doses",
+    "why_text": "It is the standard marker of vitamin D status and the way to catch a dose that is too low or too high",
+    "target_text": "Within the lab's range; your prescriber sets the goal"
+   },
+   {
+    "test_name": "Blood calcium",
+    "when_text": "Before starting and with each 25-hydroxyvitamin D check",
+    "why_text": "Too much vitamin D causes high calcium, the main harm",
+    "target_text": "Within the lab's normal range"
+   },
+   {
+    "test_name": "Urine calcium",
+    "when_text": "If taking 4,000 IU a day or more for months, or if kidney stones run in the family",
+    "why_text": "High calcium in the urine was common at 4,000 and 10,000 IU a day in a trial",
+    "target_text": "Per prescriber"
+   },
+   {
+    "test_name": "Kidney function (creatinine, eGFR)",
+    "when_text": "Before starting high doses, then yearly",
+    "why_text": "The kidney makes the active hormone, and high calcium can harm it",
+    "target_text": "Within the lab's normal range"
+   }
+  ],
+  "cost_estimate_text": null
+ },
+ {
   "name": "Degarelix",
   "aliases": [
    "Firmagon",

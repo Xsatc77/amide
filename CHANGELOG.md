@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Library: a D-3 (Cholecalciferol) card.** Pill form with Beginner 5,000 IU and Intermediate 10,000 IU daily and Advanced "IV only under doctor care". Written from the NIH fact sheet, a sleeve-gastrectomy review, dose-comparison trials and drug references; the card points out that both pill tiers sit above the 4,000 IU a day adult upper limit, and that no US-approved intravenous cholecalciferol product was found.
 - **Body: a Progress Review page for any date range.** Results (first, latest, change, weekly weight), adherence, daily intake, journal, labs and rule-based flags with each rule shown; printable. No AI: every flag is a fixed rule applied to your own numbers.
 - **Body: Import From Pacer reads weights and blood pressure from the Pacer app export (its zip or the CSV files).** A weigh-in and a blood pressure taken within 12 hours become one entry; entries already in Amide keep their own numbers; the step files are ignored.
 
