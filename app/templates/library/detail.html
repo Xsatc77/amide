@@ -285,13 +285,20 @@
 
 {% if price_compare %}
 <script type="application/json" id="price-compare-data">{{ price_compare | tojson }}</script>
-<dialog id="price-compare" class="dialog price-compare" aria-labelledby="price-compare-title">
+<dialog id="price-compare" class="dialog price-compare" aria-labelledby="price-compare-title" data-peptide-id="{{ p.id }}">
   <div class="dialog-head">
     <h3 id="price-compare-title">Best Price Per <strong>Vial</strong> &middot; {{ p.name }}</h3>
     <button type="button" class="btn btn-ghost" data-price-close aria-label="Close">&times;</button>
   </div>
   <div class="form-section">
     <p class="price-compare-note"><strong>Per-vial price</strong> = pack price &divide; vials in the pack. It is <strong>not</strong> the kit or box price.</p>
+    <div class="shot-fields">
+      <label class="field"><span>Shot amount <span class="muted small">(optional)</span></span><input type="number" step="any" min="0" inputmode="decimal" data-shot-amount></label>
+      <label class="field"><span>Measurement <span class="muted small">(optional)</span></span>
+        <select data-shot-unit><option value="">&mdash;</option><option value="mcg">mcg</option><option value="mg">mg</option><option value="IU">IU</option></select></label>
+      <label class="field"><span>Shots a week <span class="muted small">(7 if empty)</span></span><input type="number" step="any" min="0.1" max="21" inputmode="decimal" placeholder="7" data-shot-week></label>
+    </div>
+    <p class="small muted" data-shot-summary hidden></p>
     <label class="field">
       <span>Vial size</span>
       <select data-price-size></select>

@@ -70,6 +70,20 @@ def build_price_history(session: Session, vendor_id: int) -> dict | None:
     return {"products": products}
 
 
+def _contents(option) -> dict:
+    """What one vial holds as mass (`mg`) or activity (`iu`), for the shot plan; neither for a liquid sold by volume with no stated strength."""
+    strength = strength_of_form(option.form)
+    if strength:
+        return {"mg": option.amount * strength, "iu": None}
+    if option.unit == "mg":
+        return {"mg": option.amount, "iu": None}
+    if option.unit == "mcg":
+        return {"mg": option.amount / 1000, "iu": None}
+    if option.unit == "IU":
+        return {"mg": None, "iu": option.amount}
+    return {"mg": None, "iu": None}
+
+
 def build_price_compare(session: Session, peptide_id: int, shown_range) -> dict | None:
     """The data behind a library card's "best price per vial" popup: each vial size with its top vendors, and which size
     to open on (the size the card's price range shows)."""
@@ -87,8 +101,8 @@ def build_price_compare(session: Session, peptide_id: int, shown_range) -> dict 
             else:
                 pack = f"Pack of {v.pack_size} = ${v.pack_price:,.2f}"
             vendors.append({"name": v.vendor_name, "id": v.vendor_id, "warehouse": _WAREHOUSE_LABEL.get(v.warehouse, v.warehouse),
-                            "per_vial": f"{v.per_vial:,.2f}", "pack": pack, "date": f"{v.list_date:%m/%d/%Y}"})
-        sizes.append({"label": _size_label(option), "vendors": vendors})
+                            "per_vial": f"{v.per_vial:,.2f}", "price": v.per_vial, "pack": pack, "date": f"{v.list_date:%m/%d/%Y}"})
+        sizes.append({"label": _size_label(option), "vendors": vendors, **_contents(option)})
     default = next((i for i, o in enumerate(options)
                     if shown_range is not None and o.form is None and (o.amount, o.unit) == (shown_range.amount, shown_range.unit)), 0)
     return {"sizes": sizes, "default": default}

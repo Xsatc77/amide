@@ -11,6 +11,7 @@ from app.db import get_session
 from app.calculator import units as unit_math
 from app.goals import GOALS
 from app.library.price_lists.analysis import price_range, rematch_items
+from app.library.price_lists.shots import UNITS, shot_plan
 from app.library.price_lists.vendor_view import build_price_compare
 from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
 from app.models import DoseLog, DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideNote, PeptideSource, Protocol, ProtocolItem, User
@@ -114,6 +115,16 @@ def _render_edit(request: Request, p: Peptide, state: dict, errors: dict | None 
     return templates.TemplateResponse(request, "library/edit.html", {
         "p": p, "f": state, "errors": errors or {}, "goals": GOALS, "units": list(DoseUnit),
     }, status_code=status_code)
+
+
+@router.get("/library/{peptide_id}/shot-plan")
+def library_shot_plan(peptide_id: int, amount: float, unit: str, per_week: float = 7.0, session: Session = Depends(get_session)):
+    """The vial-costs popup's shot plan for one shot size (see app.library.price_lists.shots)."""
+    p = _get_peptide(session, peptide_id)
+    if unit not in UNITS or not 0 < amount <= 1_000_000 or not 0.1 <= per_week <= 21:
+        raise HTTPException(status_code=422, detail="Enter a shot amount above 0, a unit of mcg, mg or IU, and 0.1 to 21 shots a week.")
+    compare = build_price_compare(session, p.id, None)
+    return shot_plan(compare["sizes"] if compare else [], amount, unit, per_week)
 
 
 @router.get("/library/{peptide_id}/edit")
