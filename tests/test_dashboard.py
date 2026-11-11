@@ -655,3 +655,68 @@ def test_the_alert_triangle_and_expiry_words_flash_and_the_charts_carry_a_trace(
     js = client.get("/static/js/chart-trace.js").text
     assert '"direction"' in js and "GREEN" in js and "RED" in js and "BLUE" in js
     assert 'mode === "blue") { const c' not in js and '"--pulse"' in js        # the Weight chart's points pulse too, in the light's colour
+
+
+def test_next_up_names_the_day_and_then_the_weekday(client, db):
+    from app import clock
+    from app.models import WorkoutPlan, WorkoutPlanDay, WorkoutSource
+    today = clock.today()
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        plan = WorkoutPlan(owner_id=uid, name="Nextup Plan", source=WorkoutSource.MANUAL, started_on=today - timedelta(days=30))
+        s.add(plan)
+        s.flush()
+        letters = "MTWRFSU"[(today + timedelta(days=1)).weekday()]         # tomorrow's weekday letter, so it is still to come
+        s.add(WorkoutPlanDay(plan_id=plan.id, position=0, label="Legs / Abs", weekdays=letters))
+        s.commit()
+        plan_id = plan.id
+    try:
+        t = html.unescape(client.get("/dashboard").text)
+        tomorrow = today + timedelta(days=1)
+        if tomorrow.isocalendar()[1] == today.isocalendar()[1]:             # a Sunday today puts tomorrow in the next week
+            assert f"Next up: <strong>Legs / Abs</strong>, {tomorrow:%A}" in t
+    finally:
+        with SessionLocal() as s:
+            s.query(WorkoutPlanDay).filter_by(plan_id=plan_id).delete()
+            s.query(WorkoutPlan).filter_by(id=plan_id).delete()
+            s.commit()
+
+
+def _expired_vial(db, expired=True):
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+        item = InventoryItem(owner_id=uid, name="Disposetest", category=Category.MEDICINE, medium=Medium.LYOPHILIZED, vial_size_mg=10)
+        s.add(item)
+        s.flush()
+        vial = ActiveVial(owner_id=uid, inventory_item_id=item.id, concentration_mg_ml=5.0, water_ml=2.0, dose_value=2.0, dose_unit=DoseUnit.MG,
+                          doses_total=5, date_mixed=date.today() - timedelta(days=40),
+                          discard_by=date.today() - timedelta(days=2) if expired else date.today() + timedelta(days=20), volume_remaining_ml=2.0)
+        s.add(vial)
+        s.commit()
+        return vial.id
+
+
+def test_an_expired_vial_alert_has_a_dispose_button_with_a_cant_be_undone_question(client, db):
+    vid = _expired_vial(db)
+    try:
+        t = html.unescape(client.get("/dashboard").text)
+        assert f'data-dispose="/active-vials/{vid}/discard"' in t and "This Can’t Be Undone" in t and "data-dispose-no" in t
+        r = client.post(f"/active-vials/{vid}/discard", data={"next": "/dashboard"}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/dashboard"
+        assert f"/active-vials/{vid}/discard" not in client.get("/dashboard").text
+    finally:
+        with SessionLocal() as s:
+            s.query(ActiveVial).filter_by(id=vid).delete()
+            s.query(InventoryItem).filter_by(name="Disposetest").delete()
+            s.commit()
+
+
+def test_a_vial_that_is_not_expired_has_no_dispose_button(client, db):
+    vid = _expired_vial(db, expired=False)
+    try:
+        assert "data-dispose=" not in client.get("/dashboard").text
+    finally:
+        with SessionLocal() as s:
+            s.query(ActiveVial).filter_by(id=vid).delete()
+            s.query(InventoryItem).filter_by(name="Disposetest").delete()
+            s.commit()

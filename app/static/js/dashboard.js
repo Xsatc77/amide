@@ -10,6 +10,17 @@
   // A checkbox marked data-autosubmit (Ignore on a body-photo reminder) saves as soon as it is ticked.
   document.querySelectorAll("input[type=checkbox][data-autosubmit]").forEach((box) => box.addEventListener("change", () => box.form.submit()));
 
+  // Dispose on an expired vial: a This Can't Be Undone question first, Yes sends it, No closes it.
+  const disposeDialog = document.getElementById("dispose-dialog");
+  if (disposeDialog) {
+    document.querySelectorAll("[data-dispose]").forEach((btn) => btn.addEventListener("click", () => {
+      document.getElementById("dispose-form").action = btn.dataset.dispose;
+      document.getElementById("dispose-name").textContent = btn.dataset.disposeName || "";
+      disposeDialog.showModal();
+    }));
+    disposeDialog.querySelector("[data-dispose-no]").addEventListener("click", () => disposeDialog.close());
+  }
+
   const dialog = document.getElementById("water-dialog");
   if (!dialog) return;
   const ouncesInput = document.getElementById("water-ounces-input");

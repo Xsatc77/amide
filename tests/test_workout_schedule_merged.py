@@ -92,4 +92,4 @@ def test_the_dashboard_week_card_summarises_progress(client, db, me):
     today = WEEKDAY_LETTERS[date.today().weekday()]
     make_plan(client, me, **{"weekdays[0][]": [today], "weekdays_present[0]": ["1"]})
     page = client.get("/dashboard").text
-    assert "workout-week-summary" in page and "0 of 1" in page and "Next up: today" in page
+    assert "workout-week-summary" in page and "0 of 1" in page and "Next up: <strong>" in page and ", today (" in page

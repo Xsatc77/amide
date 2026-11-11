@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -1553,12 +1553,14 @@ def _safe_next(raw) -> str:
 
 
 @router.post("/active-vials/{vial_id}/discard")
-def discard_active_vial(vial_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+def discard_active_vial(vial_id: int, next: str = Form(""), session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     vial = _own_active_vial(session, vial_id, uid)
     if vial is None:
         raise HTTPException(404)
     vial.discarded_at = now_utc()
     session.commit()
+    if _safe_next(next) == "/dashboard":                # disposed from the dashboard's alert: back to the dashboard
+        return RedirectResponse("/dashboard", status_code=303)
     return RedirectResponse(f"/inventory?just_discarded={vial.inventory_item_id}#active-vials", status_code=303)
 
 

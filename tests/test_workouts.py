@@ -532,3 +532,24 @@ def test_week_status_marks_a_past_scheduled_unlogged_day_as_missed(client, db, m
         db.query(WorkoutPlanDay).filter_by(plan_id=plan.id).delete()
         db.query(WorkoutPlan).filter_by(id=plan.id).delete()
         db.commit()
+
+
+def test_week_status_names_what_each_day_is(client, db, me):
+    from app.routers.workouts import week_status
+
+    today = date(2026, 3, 11)  # a Wednesday
+    monday = today - timedelta(days=today.weekday())
+    plan = WorkoutPlan(owner_id=me, name="Week Names Plan", source=WorkoutSource.MANUAL, started_on=monday)
+    db.add(plan)
+    db.flush()
+    push = WorkoutPlanDay(plan_id=plan.id, position=0, label="Push", weekdays="WF")
+    pull = WorkoutPlanDay(plan_id=plan.id, position=1, label="Pull", weekdays="W")
+    db.add_all([push, pull])
+    db.commit()
+    try:
+        days = week_status(db, me, today)
+        assert days[2]["plan_days"] == "Push + Pull" and days[4]["plan_days"] == "Push" and days[1]["plan_days"] == ""
+    finally:
+        db.query(WorkoutPlanDay).filter_by(plan_id=plan.id).delete()
+        db.query(WorkoutPlan).filter_by(id=plan.id).delete()
+        db.commit()

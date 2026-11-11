@@ -57,7 +57,10 @@ def week_status(session: Session, uid: int, today: date_type) -> list[dict]:
     the rest of the day)."""
     monday = today - timedelta(days=today.weekday())
     week_end = monday + timedelta(days=6)
-    scheduled = scheduled_workout_dates(session, uid, monday, week_end)
+    due = moves.due_by_date(session, uid, monday, week_end)
+    scheduled = set(due)
+    plan = moves.active_days(session, uid)
+    names, order = {d.id: d.label for d in plan}, {d.id: d.position for d in plan}
     cancelled = moves.cancelled_dates(session, uid, monday, week_end)
     logged_dates = {
         wl.log_date for wl in session.scalars(
@@ -75,7 +78,8 @@ def week_status(session: Session, uid: int, today: date_type) -> list[dict]:
             status = "missed"
         else:
             status = "upcoming"
-        days.append({"date": d, "label": _WEEKDAY_NAMES[i], "status": status, "is_today": d == today})
+        plan_days = " + ".join(names[x] for x in sorted(due.get(d, ()), key=lambda x: order.get(x, 0)) if x in names)       # what the day is: Push, Pull, Legs / Abs ...
+        days.append({"date": d, "label": _WEEKDAY_NAMES[i], "status": status, "is_today": d == today, "plan_days": plan_days})
     return days
 
 

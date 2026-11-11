@@ -319,6 +319,10 @@ h2 { font-size: 1.2rem; margin: 0; }
 .btn-ghost.btn-icon { border-color: transparent; background: transparent; padding: 4px 10px; }
 .btn-ghost.btn-icon:hover { background: var(--bg); }
 .btn-danger { color: var(--danger); }
+.btn-dispose { background: var(--danger); border-color: var(--danger); color: var(--on-danger, #fff); font-weight: 800; }
+.btn-dispose:hover { filter: brightness(1.1); }
+.dispose-warning { padding: 4px 20px 0; margin: 0; font-size: 1.05rem; }
+#dispose-name { padding: 0 20px; margin: 4px 0 0; }
 .btn-danger:hover { background: var(--danger-soft); }
 .btn-icon { font-size: 1.4rem; line-height: 1; padding: 4px 10px; }
 .btn-add span { font-size: 1.2rem; line-height: 1; margin-right: 4px; font-weight: 700; }

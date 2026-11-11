@@ -118,7 +118,8 @@
     <li><a href="/inventory">{{ a.name }}</a> — runs out in {{ a.days }} day{{ '' if a.days == 1 else 's' }} ({{ a.date | shortdate }}) at your current doses</li>
     {% endfor %}
     {% for a in alerts.expiration %}
-    <li><a href="/inventory#active-vials">{{ a.name }}</a> — <span class="alert-flash {{ 'alert-flash-expired' if a.severity == 'expired' else 'alert-flash-soon' }}">{{ 'expired' if a.severity == 'expired' else 'expiring soon' }}</span></li>
+    <li><a href="/inventory#active-vials">{{ a.name }}</a> — <span class="alert-flash {{ 'alert-flash-expired' if a.severity == 'expired' else 'alert-flash-soon' }}">{{ 'expired' if a.severity == 'expired' else 'expiring soon' }}</span>
+      {% if a.kind == 'vial' and a.severity == 'expired' %}<button type="button" class="btn btn-dispose" data-dispose="/active-vials/{{ a.id }}/discard" data-dispose-name="{{ a.name }}">Dispose</button>{% endif %}</li>
     {% endfor %}
     {% for a in alerts.shipment %}
     <li>Order from {{ a.vendor or 'vendor' }} — {{ a.days }} days, no arrival yet</li>
@@ -177,7 +178,7 @@
       <i style="width: {{ (done / planned * 100) | round | int }}%"></i>
     </div>
     <p class="workout-week-line"><strong>{{ done }} of {{ planned }}</strong> planned workouts done{% if missed %} <span class="muted">· {{ missed }} missed</span>{% endif %}</p>
-    <p class="small muted">{% if next_up %}{% if next_up.is_today %}Next up: today ({{ next_up.label }}){% else %}Next up: {{ next_up.label }}, {{ next_up.date.strftime('%b') }} {{ next_up.date.day }}{% endif %}{% elif done == planned %}Everything planned this week is done.{% else %}No more workouts planned this week.{% endif %}</p>
+    <p class="small muted">{% if next_up %}Next up: {% if next_up.plan_days %}<strong>{{ next_up.plan_days }}</strong>, {% endif %}{% if next_up.is_today %}today ({{ next_up.date.strftime('%A') }}){% else %}{{ next_up.date.strftime('%A') }}, {{ next_up.date.strftime('%b') }} {{ next_up.date.day }}{% endif %}{% elif done == planned %}Everything planned this week is done.{% else %}No more workouts planned this week.{% endif %}</p>
     {% else %}
     <p class="small muted">Nothing scheduled this week. Give a workout day its weekdays in the plan editor to see it here.</p>
     {% endif %}
@@ -262,6 +263,19 @@
   </div>
 </section>
 {% endif %}
+
+<dialog id="dispose-dialog" class="dialog" aria-labelledby="dispose-title">
+  <form method="post" action="" id="dispose-form">
+    <input type="hidden" name="next" value="/dashboard">
+    <header class="dialog-head"><h2 id="dispose-title">Dispose Of This Vial?</h2></header>
+    <p class="dispose-warning"><strong>This Can&rsquo;t Be Undone.</strong></p>
+    <p class="small muted" id="dispose-name"></p>
+    <footer class="dialog-foot">
+      <button type="button" class="btn" data-dispose-no>No</button>
+      <button type="submit" class="btn btn-dispose">Yes</button>
+    </footer>
+  </form>
+</dialog>
 
 {% if show_quick_capture %}
 <dialog id="water-dialog" class="dialog">
