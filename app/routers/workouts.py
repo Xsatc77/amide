@@ -1,6 +1,7 @@
 """Workout Plans: manual/PDF creation, the shared review/edit screen, day-of-week scheduling,
 and the one-Active-plan-at-a-time rule."""
 
+import json
 import types
 from datetime import date
 from datetime import date as date_type
@@ -8,7 +9,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app import clock
@@ -18,6 +19,8 @@ from app.db import get_session
 from app.models import (
     WEEKDAY_LETTERS,
     WeightUnit,
+    naive_utcnow,
+    WorkoutDraft,
     WorkoutExercise,
     WorkoutExerciseLog,
     WorkoutLog,
@@ -443,8 +446,20 @@ def workouts_log_form(plan_day_id: int, request: Request, log_date: date_type | 
         select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id, WorkoutLog.log_date == log_date))
     saved = existing.exercise_logs if existing else []
     prior = {el.exercise_id: el for el in saved if el.exercise_id is not None}
+    body_weight = next((el.body_weight_lb for el in saved if el.body_weight_lb), None) or workout_logging.latest_body_weight(session, uid)
+    drafts = {d.exercise_id: d for d in session.scalars(select(WorkoutDraft).where(
+        WorkoutDraft.owner_id == uid, WorkoutDraft.plan_day_id == day.id, WorkoutDraft.log_date == log_date))}
+    shown_units = units.for_user(request.state.user)
+    for ex in day.exercises:                          # a committed exercise comes back as it was committed, over what an earlier save held
+        if ex.id in drafts:
+            try:
+                prior[ex.id] = workout_logging.build_exercise_log(workout_logging.parse_one(json.loads(drafts[ex.id].fields), ex, shown_units), body_weight)
+            except (HTTPException, ValueError):
+                drafts.pop(ex.id)                      # a draft that no longer parses (the exercise changed) is ignored, never an error page
     rows = [workout_logging.form_row(session, uid, ex, prior.get(ex.id), log_date) for ex in day.exercises]
-    body_weight = next((el.body_weight_lb for el in saved if el.body_weight_lb), None)         or workout_logging.latest_body_weight(session, uid)
+    for row in rows:
+        draft = drafts.get(row["ex"].id)
+        row["draft_at"] = draft.saved_at.isoformat() + "Z" if draft is not None else None
     net = sum(el.net_kcal for el in saved if el.net_kcal)
     gross = sum(el.gross_kcal for el in saved if el.gross_kcal)
     return templates.TemplateResponse(request, "workouts/log.html", {
@@ -518,6 +533,28 @@ async def workouts_free_replace(log_id: int, request: Request, session: Session 
     return await _free_form_save(request, session, uid, _own_free_log(session, log_id, uid))
 
 
+@router.post("/workouts/day/{plan_day_id}/commit")
+async def workouts_commit_exercise(plan_day_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Commit one plan exercise's inputs now, so they are kept if the page closes before the whole log is saved."""
+    day = _get_own_day(session, plan_day_id, uid)
+    raw = await request.form()
+    try:
+        log_date = date_type.fromisoformat(str(raw["log_date"]))
+        exercise = next(e for e in day.exercises if e.id == int(str(raw["exercise_id"])))
+    except (KeyError, ValueError, StopIteration):
+        raise HTTPException(422, "Unknown exercise or date.")
+    workout_logging.parse_one(raw, exercise, units.for_user(request.state.user))          # a bad number is refused here, as it would be on Save
+    suffix = f"[{exercise.id}]"
+    fields = {k: str(v) for k, v in raw.items() if k.endswith(suffix)}
+    draft = session.scalar(select(WorkoutDraft).where(WorkoutDraft.exercise_id == exercise.id, WorkoutDraft.log_date == log_date))
+    if draft is None:
+        draft = WorkoutDraft(owner_id=uid, plan_day_id=day.id, exercise_id=exercise.id, log_date=log_date)
+        session.add(draft)
+    draft.fields, draft.saved_at = json.dumps(fields), naive_utcnow()
+    session.commit()
+    return {"saved_at": draft.saved_at.isoformat() + "Z"}
+
+
 @router.post("/workouts/day/{plan_day_id}/log")
 async def workouts_log_save(plan_day_id: int, request: Request, session: Session = Depends(get_session),
                             uid: int = Depends(current_user_id)):
@@ -541,6 +578,7 @@ async def workouts_log_save(plan_day_id: int, request: Request, session: Session
     log = WorkoutLog(owner_id=uid, plan_day_id=day.id, day_label=day.label, plan_name=day.plan.name,
                      log_date=parsed.log_date, exercise_logs=exercise_logs)
     session.add(log)
+    session.execute(delete(WorkoutDraft).where(WorkoutDraft.plan_day_id == day.id, WorkoutDraft.log_date == parsed.log_date))        # the full save replaces the part-way ones
     session.commit()
     return RedirectResponse("/measurements?tab=journal" if raw.get("return_to") == "journal" else "/today", status_code=303)       # only the Journal may be asked for
 

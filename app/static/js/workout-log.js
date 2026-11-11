@@ -117,3 +117,47 @@ document.querySelectorAll("[data-per-set]").forEach((box) => wireSetWeights(box.
     if (!window.confirm(message)) event.preventDefault();
   });
 })();
+
+
+// Commit on a plan exercise: saves that exercise's sets, reps and weights on the server right away, so a closed page or a dead phone loses
+// nothing. They come back when the day is reopened; the whole form's Save still logs the workout and replaces them.
+(() => {
+  const form = document.getElementById("workout-log-form");
+  if (!form) return;
+  const timeText = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const mark = (status, text, kind) => { status.textContent = text; status.className = "small muted" + (kind ? " commit-" + kind : ""); };
+
+  form.querySelectorAll("[data-commit]").forEach((button) => {
+    const row = button.closest("tr");
+    const status = row.querySelector("[data-commit-status]");
+    if (status.dataset.draftAt) mark(status, "Committed " + timeText(status.dataset.draftAt), "ok");
+    const stale = () => { if (status.classList.contains("commit-ok")) mark(status, "Changed since the last commit", ""); };
+    row.addEventListener("input", stale);
+    row.addEventListener("change", stale);
+
+    button.addEventListener("click", async () => {
+      const data = new FormData();
+      data.append("log_date", form.elements.log_date.value);
+      data.append("exercise_id", button.dataset.commit);
+      row.querySelectorAll("input[name], select[name], textarea[name]").forEach((field) => {
+        if ((field.type === "checkbox" || field.type === "radio") && !field.checked) return;
+        data.append(field.name, field.value);
+      });
+      button.disabled = true;
+      mark(status, "Saving…", "");
+      try {
+        const response = await fetch(button.dataset.commitUrl, { method: "POST", body: data, credentials: "same-origin" });
+        if (response.ok) {
+          mark(status, "Committed " + timeText((await response.json()).saved_at), "ok");
+        } else {
+          let detail = "Not committed.";
+          try { detail = (await response.json()).detail || detail; } catch (e) { /* keep the plain message */ }
+          mark(status, typeof detail === "string" ? detail : "Check the numbers; not committed.", "bad");
+        }
+      } catch (e) {
+        mark(status, "Not committed: no connection.", "bad");
+      }
+      button.disabled = false;
+    });
+  });
+})();

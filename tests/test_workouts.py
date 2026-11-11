@@ -553,3 +553,60 @@ def test_week_status_names_what_each_day_is(client, db, me):
         db.query(WorkoutPlanDay).filter_by(plan_id=plan.id).delete()
         db.query(WorkoutPlan).filter_by(id=plan.id).delete()
         db.commit()
+
+
+def _draft_plan(client, db, name):
+    client.post("/workouts", data=_plan_form(
+        **{"name": name, "exercise_name[0][]": ["Push-up", "Sit-up"], "exercise_sets[0][]": ["3", "3"],
+           "exercise_reps[0][]": ["10", "10"], "exercise_rest[0][]": ["", ""]}))
+    day = db.scalar(select(WorkoutPlan).where(WorkoutPlan.name == name)).days[0]
+    return day, day.exercises[0], day.exercises[1]
+
+
+def test_commit_keeps_one_exercise_and_the_page_comes_back_with_it(client, db):
+    day, ex0, ex1 = _draft_plan(client, db, "Commit Plan")
+    r = client.post(f"/workouts/day/{day.id}/commit", data={
+        "log_date": "2026-02-03", "exercise_id": str(ex0.id), f"weight_value[{ex0.id}]": "30", f"weight_unit[{ex0.id}]": "lb",
+        f"sets_value[{ex0.id}]": "3", f"reps_value[{ex0.id}]": "9", f"completed[{ex0.id}]": "on"})
+    assert r.status_code == 200 and r.json()["saved_at"].endswith("Z")
+    page = client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-02-03"}).text
+    assert f'name="weight_value[{ex0.id}]" value="30"' in page and f'name="reps_value[{ex0.id}]" value="9"' in page
+    assert f'name="completed[{ex0.id}]" checked' in page and f'name="completed[{ex1.id}]" checked' not in page
+    assert re.search(r'data-commit-status data-draft-at="[^"]+Z"', page)
+    other = client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-02-04"}).text            # another date has no draft
+    assert f'name="reps_value[{ex0.id}]" value="9"' not in other
+    assert nothing_logged(db, day)
+
+
+def nothing_logged(db, day):
+    from app.models import WorkoutLog
+    db.expire_all()
+    return db.scalar(select(WorkoutLog).where(WorkoutLog.plan_day_id == day.id)) is None          # a commit is not a finished workout
+
+
+def test_commit_twice_replaces_and_the_full_save_clears_the_drafts(client, db):
+    from app.models import WorkoutDraft
+    day, ex0, _ = _draft_plan(client, db, "Commit Twice Plan")
+    base = {"log_date": "2026-02-05", "exercise_id": str(ex0.id), f"weight_unit[{ex0.id}]": "lb"}
+    client.post(f"/workouts/day/{day.id}/commit", data={**base, f"reps_value[{ex0.id}]": "6"})
+    client.post(f"/workouts/day/{day.id}/commit", data={**base, f"reps_value[{ex0.id}]": "8"})
+    db.expire_all()
+    assert db.query(WorkoutDraft).filter_by(exercise_id=ex0.id).count() == 1
+    assert 'name="reps_value[%d]" value="8"' % ex0.id in client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-02-05"}).text
+    client.post(f"/workouts/day/{day.id}/log", data={"log_date": "2026-02-05", f"completed[{ex0.id}]": "on", f"reps_value[{ex0.id}]": "10"})
+    db.expire_all()
+    assert db.query(WorkoutDraft).filter_by(exercise_id=ex0.id).count() == 0
+    assert 'name="reps_value[%d]" value="10"' % ex0.id in client.get(f"/workouts/day/{day.id}/log", params={"log_date": "2026-02-05"}).text
+
+
+def test_commit_refuses_bad_numbers_and_unknown_exercises_and_other_peoples_days(client, db):
+    from app.models import WorkoutDraft
+    day, ex0, _ = _draft_plan(client, db, "Commit Bad Plan")
+    base = {"log_date": "2026-02-06", "exercise_id": str(ex0.id)}
+    assert client.post(f"/workouts/day/{day.id}/commit", data={**base, f"weight_value[{ex0.id}]": "heavy"}).status_code == 422
+    assert client.post(f"/workouts/day/{day.id}/commit", data={**base, "exercise_id": "999999"}).status_code == 422
+    assert client.post(f"/workouts/day/{day.id}/commit", data={**base, "log_date": "soon"}).status_code == 422
+    assert client.post("/workouts/day/99999999/commit", data=base).status_code == 404
+    db.expire_all()
+    assert db.query(WorkoutDraft).filter_by(exercise_id=ex0.id).count() == 0
+    assert 'data-commit="%d"' % ex0.id in client.get(f"/workouts/day/{day.id}/log").text

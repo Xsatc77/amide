@@ -82,6 +82,10 @@
           {% if db and db.name != ex.name %}<span class="tag tag-plain" title="{{ db.evidence }}">{{ db.name }}</span>{% endif %}
           {% if not db %}<div class="muted small">No match in the exercise database, so no calorie estimate.</div>{% endif %}
           <div class="muted small">Plan: {{ ex.sets_text or '—' }} × {{ ex.reps_text or '—' }}</div>
+          <div class="log-commit" data-commit-box>
+            <button type="button" class="btn btn-small" data-commit="{{ ex.id }}" data-commit-url="/workouts/day/{{ day.id }}/commit">Commit</button>
+            <span class="small muted" data-commit-status data-draft-at="{{ r.draft_at or '' }}"></span>
+          </div>
           {% if r.last %}<div class="muted small">Last time{% if r.last.last_date %} ({{ r.last.last_date | shortdate }}){% endif %}: {{ last_text(r.last) }}</div>
           {% if r.stalled_weeks %}<div class="muted small" data-stalled>No increase in {{ r.stalled_weeks }} week{{ '' if r.stalled_weeks == 1 else 's' }} (weight or reps)</div>{% endif %}{% endif %}
           {% if db and not db.is_duration %}

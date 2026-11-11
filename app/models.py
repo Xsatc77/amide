@@ -1510,6 +1510,20 @@ class WorkoutMove(Base):
     to_date: Mapped[date] = mapped_column(Date, index=True)
 
 
+class WorkoutDraft(Base):
+    """One plan exercise's inputs, committed part-way through a workout so a closed page or a dead phone costs nothing. `fields` is the JSON of
+    that exercise's form values (the names ending in [exercise id]); the whole log's Save replaces the drafts of that day and date."""
+    __tablename__ = "workout_drafts"
+    __table_args__ = (UniqueConstraint("exercise_id", "log_date", name="uq_workout_draft_exercise_date"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    plan_day_id: Mapped[int] = mapped_column(ForeignKey("workout_plan_days.id", ondelete="CASCADE"), index=True)
+    exercise_id: Mapped[int] = mapped_column(ForeignKey("workout_exercises.id", ondelete="CASCADE"))
+    log_date: Mapped[date] = mapped_column(Date)
+    fields: Mapped[str] = mapped_column(Text)
+    saved_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+
+
 class WorkoutCancel(Base):
     """A session of a plan day cancelled on a date: counted as missed, and no longer offered on Today."""
     __tablename__ = "workout_cancels"

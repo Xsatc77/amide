@@ -171,6 +171,11 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
         category=category, implements=_whole(raw, key("implements_value"), f"Implements for {name}", MAX_IMPLEMENTS) or 1)
 
 
+def parse_one(raw, ex: WorkoutExercise, u=None) -> ParsedRow:
+    """One plan exercise's inputs, validated the same way the whole log's are (used for a draft committed part-way through a workout)."""
+    return _row(raw, f"[{ex.id}]", exercise_id=ex.id, name=ex.name, db=resolve_db(ex), completed=raw.get(f"completed[{ex.id}]") == "on", u=u)
+
+
 def resolve_db(ex: WorkoutExercise) -> Exercise | None:
     """The database exercise a plan exercise is estimated from. A person-confirmed match (including a confirmed
     "no estimate for this one") is final; otherwise the stored match, then a fresh confident match by name."""
