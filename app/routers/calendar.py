@@ -155,7 +155,11 @@ def calendar_page(request: Request, view: str = "month", date_param: str | None 
     from app.goals import GOALS_BY_SLUG
     goal_color = {p.id: GOALS_BY_SLUG[g].color for p in protocols for g in p.goal_slugs[:1] if g in GOALS_BY_SLUG}      # the colour of the protocol's first goal tile
     ctx: dict = {"view": view, "anchor": anchor, "today": today, "colors": colors, "slots": SLOTS, "url": _url,
-                 "goal_color": goal_color, "starts": {p.id: p.start_date for p in protocols}, "ends": {p.id: p.end_date for p in protocols}}
+                 "goal_color": goal_color}
+    from app.calendar.schedule import item_edges
+    edges = {item_id: pair for p in protocols for item_id, pair in item_edges(p).items()}
+    ctx["item_first"] = {i: first for i, (first, _last) in edges.items()}        # the first dose of each medicine: its own start, not the protocol's
+    ctx["item_last"] = {i: last for i, (_first, last) in edges.items() if last is not None}
     if view == "month":
         weeks = month_weeks(anchor)
         first, last = weeks[0][0], weeks[-1][-1]

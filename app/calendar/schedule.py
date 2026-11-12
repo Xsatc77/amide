@@ -88,6 +88,34 @@ def _days(first: date, last: date):
         day += timedelta(days=1)
 
 
+EDGE_HORIZON_DAYS = 1100           # how far ahead a medicine's first and last dose are looked for
+
+
+def item_edges(p) -> dict[int, tuple[date | None, date | None]]:
+    """For each medicine (protocol line) of protocol `p`: the first date it is due and, when it has a stated end (the protocol's end date, or its own
+    run in a short course), the last. A medicine that starts later than the protocol, or on other weekdays, has its own first day; an ongoing one has no last."""
+    window = protocol_window(p)
+    if window is None:
+        return {}
+    start, end = window
+    stop = min(end, start + timedelta(days=EDGE_HORIZON_DAYS)) if end else start + timedelta(days=EDGE_HORIZON_DAYS)
+    out: dict[int, tuple[date | None, date | None]] = {}
+    for it in p.items:
+        if not item_in_run(p, it):
+            continue
+        bounded = end is not None or getattr(it, "run_days", None) is not None
+        first = last = None
+        for day in _days(start, stop):
+            if is_due(it, p.start_date, day):
+                if first is None:
+                    first = day
+                last = day
+                if not bounded:
+                    break
+        out[it.id] = (first, last if bounded else None)
+    return out
+
+
 def occurrences(protocols, first: date, last: date) -> list[Occurrence]:
     """Every protocol-date with something due between first and last (inclusive), by date then name."""
     out: list[Occurrence] = []

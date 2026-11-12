@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Calendar: the gold and white-green lights now follow each medicine, not the protocol.** A medicine that starts later than the others (a later start, or other weekdays) gets its gold light on its own first dose, and its white-green light on its own last dose when it or the protocol has an end.
 - **Journal: doses can be changed after the fact.** A recent day (up to 30 days back) with doses due or logged is listed in the Journal even with no entry; each logged dose has Undo (its vial volume comes back), each dose not yet logged has Taken or Skip, and Mark All Taken logs the whole day. Quick notes can be edited or deleted. Undo on Today now works for any day, not only today.
 - **Dashboard: the Dispose button is a fixed bold red in every colorway.**
 - **Workouts: a Commit button on each planned exercise of a day's log.** It saves that exercise's load, sets, reps and Done tick on the server at once, so a closed page or a dead phone loses nothing. Reopening the day brings the committed numbers back, marked with the time; the Save at the bottom still logs the workout and clears them.

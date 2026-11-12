@@ -209,3 +209,16 @@ def test_the_first_day_of_a_protocol_gets_a_gold_trace_and_the_last_a_green_whit
     start = re.search(r'class="[^"]*cal-trace-start[^"]*"[^>]*data-key="\d+\|2026-09-24"', t)
     end = re.search(r'class="[^"]*cal-trace-end[^"]*"[^>]*data-key="\d+\|2026-09-26"', t)
     assert start and end
+
+
+def test_each_medicine_in_a_protocol_has_its_own_first_dose_trace(client):
+    make(client, name="Two Starts", start="2026-09-24", items={                         # a Thursday; the second medicine is due Saturdays only
+        "items-0-peptide_id": str(peptide_id("BPC-157")), "items-0-dose": "250", "items-0-dose_unit": "mcg",
+        "items-0-frequency": "daily", "items-0-time_of_day": "am",
+        "items-1-peptide_id": str(peptide_id("TB-500")), "items-1-dose": "2", "items-1-dose_unit": "mg",
+        "items-1-frequency": "weekdays", "items-1-weekdays": ["S"], "items-1-time_of_day": "pm"})
+    t = page(client, view="month", date="2026-09-15")
+    assert t.count("cal-trace-start") == 2 and "cal-trace-end" not in t.replace(".cal-trace-end", "")
+    assert re.search(r'class="[^"]*cal-trace-start[^"]*"[^>]*data-key="\d+\|2026-09-24"', t)       # the daily one, on the protocol's first day
+    assert re.search(r'class="[^"]*cal-trace-start[^"]*"[^>]*data-key="\d+\|2026-09-26"', t)       # the Saturday one, on its own first day
+    assert not re.search(r'class="[^"]*cal-trace-start[^"]*"[^>]*data-key="\d+\|2026-10-03"', t)    # not again a week later

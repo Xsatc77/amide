@@ -215,3 +215,13 @@ def test_initials():
     assert layout.initials("Weight Loss") == "WL"
     assert layout.initials("Testosterone") == "TE"
     assert layout.initials("Muscle Building Stack") == "MBS"
+
+
+def test_item_edges_give_each_medicine_its_own_first_and_last_dose():
+    s = date(2026, 11, 14)                                                         # a Saturday
+    daily = item(name="A", item_id=1, pid=1)
+    mondays = item(name="B", freq=Frequency.WEEKDAYS, weekdays="M", item_id=2, pid=2)       # first due Monday the 16th
+    assert schedule.item_edges(proto(start=s, items=[daily, mondays])) == {1: (date(2026, 11, 14), None), 2: (date(2026, 11, 16), None)}
+    ended = schedule.item_edges(proto(start=s, end=date(2026, 11, 29), items=[daily, mondays]))
+    assert ended == {1: (date(2026, 11, 14), date(2026, 11, 29)), 2: (date(2026, 11, 16), date(2026, 11, 23))}
+    assert schedule.item_edges(proto(start=s, paused=True, items=[daily])) == {}

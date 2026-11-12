@@ -16,7 +16,7 @@
        aria-label="{{ d.strftime('%A, %B') }} {{ d.day }}">{{ d.day }}</a>
     {% for m in row.marks.get(d, []) %}
     {% set status = item_adherence.get((m.protocol_item_id, d), 'upcoming') %}
-    <button type="button" class="cal-mark cal-goal cal-status-{{ status }}{{ ' cal-trace-start' if starts.get(m.protocol_id) == d else (' cal-trace-end' if ends.get(m.protocol_id) == d) }}" style="{{ ('--g: var(--goal-' ~ goal_color[m.protocol_id] ~ '); ') if m.protocol_id in goal_color }}grid-column: {{ day_col + (loop.index0 % 2) }}; grid-row: {{ loop.index0 // 2 + 2 }}"
+    <button type="button" class="cal-mark cal-goal cal-status-{{ status }}{{ ' cal-trace-start' if item_first.get(m.protocol_item_id) == d else (' cal-trace-end' if item_last.get(m.protocol_item_id) == d) }}" style="{{ ('--g: var(--goal-' ~ goal_color[m.protocol_id] ~ '); ') if m.protocol_id in goal_color }}grid-column: {{ day_col + (loop.index0 % 2) }}; grid-row: {{ loop.index0 // 2 + 2 }}"
       data-key="{{ m.protocol_id }}|{{ d.isoformat() }}"
       aria-label="{{ m.protocol_name }}, {{ d.strftime('%B') }} {{ d.day }}, {{ status | replace('_', ' ') }}">{{ m.initials }}</button>
     {% endfor %}
