@@ -115,6 +115,95 @@ def _existing_log(session: Session, uid: int, protocol_item_id: int, scheduled_d
                               DoseLog.scheduled_date == scheduled_date))
 
 
+def _back(form) -> str:
+    """Where to go after a dose is logged, skipped or undone: the Journal when it asked (a path of this site only), else Today."""
+    raw = str(form.get("next") or "")
+    return raw if raw.startswith("/measurements?tab=journal") and "//" not in raw and "\\" not in raw else "/today"
+
+
+def _log_item(session: Session, uid: int, protocol_id: int, item: ProtocolItem, scheduled_date: date, form) -> int | None:
+    """Log one due item as taken on `scheduled_date` (drawing down its open vial, supplies and units as a Today log does). Returns the id of a
+    vial that this dose emptied, else None. Does not commit."""
+    # _own_protocol_item already confirmed this protocol exists and is owned by uid.
+    protocol = session.get(Protocol, protocol_id)
+    effective_dose, _step_no = _effective_dose(item, protocol, scheduled_date)
+    def _typed(field: str) -> float | None:
+        raw = str(form.get(field) or "").strip()
+        if not raw:
+            return None
+        try:
+            amount = float(raw)
+        except ValueError:
+            amount = 0.0
+        if not 0 < amount < 1_000_000:                                  # also rejects nan and inf
+            raise HTTPException(422, "Enter how many units as a number greater than 0.")
+        return amount
+
+    typed_dose, typed_units = _typed("dose"), _typed("syringe_units")  # the amount really taken, pre-filled from the protocol: in the dose's unit, or units on the syringe
+    if typed_dose is not None:
+        effective_dose = typed_dose
+
+    vial = None
+    volume_ml = None
+    if item.inventory_item_id is not None:
+        vial = _open_vial_for_item(session, item.inventory_item_id)
+        if vial is not None:
+            if typed_units is not None and vial.dispensing_method.value == "syringe" and vial.concentration_mg_ml:
+                volume_ml = typed_units / SYRINGE_UNITS_PER_ML          # what was drawn decides the dose: units -> mL -> the vial's unit -> the protocol's unit
+                taken = unit_math.convert(volume_ml * vial.concentration_mg_ml, vial.vial_unit or "mg", item.dose_unit.value, vial.iu_per_mg)
+                if taken is not None:
+                    effective_dose = round(taken, 6)
+            else:
+                volume_ml = _dose_volume_ml(effective_dose, item.dose_unit, vial)
+
+    # Site parsing/recommendation runs whenever this item's route uses injection sites at all --
+    # NOT only when a vial happens to be available -- so a user's explicit site choice is never
+    # silently discarded just because the item has no linked inventory item, no open vial, or an
+    # IU dose with no computable volume.
+    site = None
+    sites = eligible_sites(item.route.value)
+    if sites:
+        raw_site = str(form.get("injection_site") or "").strip()
+        try:
+            site = InjectionSite(raw_site) if raw_site else None
+        except ValueError:
+            site = None
+        if site is not None and site not in sites:
+            # A client posted a site ineligible for this item's route (e.g. a forged glute_l on a
+            # SubQ item, bypassing the UI's own filtering) -- treat it the same as absent/invalid.
+            site = None
+        if site is None:
+            site = recommend(_last_site_for_peptide(session, uid, item.peptide_id), item.route.value)
+
+    status = DoseStatus.ON_TIME if scheduled_date == clock.today() else DoseStatus.LATE
+    units_taken = None
+    stock = session.get(InventoryItem, item.inventory_item_id) if item.inventory_item_id is not None else None
+    if vial is None and unit_use.tracks_units(stock):
+        share = unit_use.units_for_dose(stock, effective_dose, item.dose_unit)
+        if share is not None:
+            units_taken = unit_use.take(stock, share)
+    supplies = consumption.use_for_shot(session, uid, vial.dispensing_method) if vial is not None else {}
+    session.add(DoseLog(
+        owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, active_vial_id=vial.id if vial else None,
+        peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
+        dose_unit=item.dose_unit, route=item.route.value, scheduled_date=scheduled_date,
+        scheduled_time_of_day=item.time_of_day, status=status, logged_at=datetime.now(timezone.utc),
+        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken, stock_item_id=stock.id if units_taken else None, supplies_used=supplies or None,
+        fiber_g=stock.fiber_g_per_dose if stock is not None and vial is None and stock.fiber_g_per_dose else None,
+    ))
+
+    empty_vial_id = None
+    if vial is not None and volume_ml is not None:
+        # Guard against overdrawing: repeated float subtraction (and a dose that plain exceeds
+        # what's left) must never leave a negative volume_remaining_ml. The dose still happened in
+        # real life even if the vial's tracked volume was already imprecise -- clamp to 0 rather
+        # than rejecting the log. Rounding after every write keeps residuals from compounding.
+        vial.volume_remaining_ml = round(max(0.0, vial.volume_remaining_ml - volume_ml), 4)
+        if vial.volume_remaining_ml <= _EMPTY_EPSILON:
+            empty_vial_id = vial.id
+    return empty_vial_id
+
+
 @router.get("/today")
 def today_page(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
               uid: int = Depends(current_user_id)):
@@ -235,89 +324,13 @@ async def log_dose(request: Request, session: Session = Depends(get_session), ui
     # error, so it looks like a duplicate click just did nothing rather than double-depleting a
     # vial or duplicating history.
     if _existing_log(session, uid, item.id, scheduled_date) is not None:
-        return RedirectResponse("/today", status_code=303)
+        return RedirectResponse(_back(form), status_code=303)
 
-    # _own_protocol_item already confirmed this protocol exists and is owned by uid.
-    protocol = session.get(Protocol, protocol_id)
-    effective_dose, _step_no = _effective_dose(item, protocol, scheduled_date)
-    def _typed(field: str) -> float | None:
-        raw = str(form.get(field) or "").strip()
-        if not raw:
-            return None
-        try:
-            amount = float(raw)
-        except ValueError:
-            amount = 0.0
-        if not 0 < amount < 1_000_000:                                  # also rejects nan and inf
-            raise HTTPException(422, "Enter how many units as a number greater than 0.")
-        return amount
-
-    typed_dose, typed_units = _typed("dose"), _typed("syringe_units")  # the amount really taken, pre-filled from the protocol: in the dose's unit, or units on the syringe
-    if typed_dose is not None:
-        effective_dose = typed_dose
-
-    vial = None
-    volume_ml = None
-    if item.inventory_item_id is not None:
-        vial = _open_vial_for_item(session, item.inventory_item_id)
-        if vial is not None:
-            if typed_units is not None and vial.dispensing_method.value == "syringe" and vial.concentration_mg_ml:
-                volume_ml = typed_units / SYRINGE_UNITS_PER_ML          # what was drawn decides the dose: units -> mL -> the vial's unit -> the protocol's unit
-                taken = unit_math.convert(volume_ml * vial.concentration_mg_ml, vial.vial_unit or "mg", item.dose_unit.value, vial.iu_per_mg)
-                if taken is not None:
-                    effective_dose = round(taken, 6)
-            else:
-                volume_ml = _dose_volume_ml(effective_dose, item.dose_unit, vial)
-
-    # Site parsing/recommendation runs whenever this item's route uses injection sites at all --
-    # NOT only when a vial happens to be available -- so a user's explicit site choice is never
-    # silently discarded just because the item has no linked inventory item, no open vial, or an
-    # IU dose with no computable volume.
-    site = None
-    sites = eligible_sites(item.route.value)
-    if sites:
-        raw_site = str(form.get("injection_site") or "").strip()
-        try:
-            site = InjectionSite(raw_site) if raw_site else None
-        except ValueError:
-            site = None
-        if site is not None and site not in sites:
-            # A client posted a site ineligible for this item's route (e.g. a forged glute_l on a
-            # SubQ item, bypassing the UI's own filtering) -- treat it the same as absent/invalid.
-            site = None
-        if site is None:
-            site = recommend(_last_site_for_peptide(session, uid, item.peptide_id), item.route.value)
-
-    status = DoseStatus.ON_TIME if scheduled_date == clock.today() else DoseStatus.LATE
-    units_taken = None
-    stock = session.get(InventoryItem, item.inventory_item_id) if item.inventory_item_id is not None else None
-    if vial is None and unit_use.tracks_units(stock):
-        share = unit_use.units_for_dose(stock, effective_dose, item.dose_unit)
-        if share is not None:
-            units_taken = unit_use.take(stock, share)
-    supplies = consumption.use_for_shot(session, uid, vial.dispensing_method) if vial is not None else {}
-    session.add(DoseLog(
-        owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, active_vial_id=vial.id if vial else None,
-        peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
-        dose_unit=item.dose_unit, route=item.route.value, scheduled_date=scheduled_date,
-        scheduled_time_of_day=item.time_of_day, status=status, logged_at=datetime.now(timezone.utc),
-        injection_site=site, volume_ml=volume_ml, inventory_units=units_taken, stock_item_id=stock.id if units_taken else None, supplies_used=supplies or None,
-        fiber_g=stock.fiber_g_per_dose if stock is not None and vial is None and stock.fiber_g_per_dose else None,
-    ))
-
-    empty_vial_id = None
-    if vial is not None and volume_ml is not None:
-        # Guard against overdrawing: repeated float subtraction (and a dose that plain exceeds
-        # what's left) must never leave a negative volume_remaining_ml. The dose still happened in
-        # real life even if the vial's tracked volume was already imprecise -- clamp to 0 rather
-        # than rejecting the log. Rounding after every write keeps residuals from compounding.
-        vial.volume_remaining_ml = round(max(0.0, vial.volume_remaining_ml - volume_ml), 4)
-        if vial.volume_remaining_ml <= _EMPTY_EPSILON:
-            empty_vial_id = vial.id
+    empty_vial_id = _log_item(session, uid, protocol_id, item, scheduled_date, form)
     session.commit()
-    if empty_vial_id is not None:
+    if empty_vial_id is not None and not form.get("next"):
         return RedirectResponse(f"/today?empty_vial={empty_vial_id}", status_code=303)
-    return RedirectResponse("/today", status_code=303)
+    return RedirectResponse(_back(form), status_code=303)
 
 
 @router.post("/today/skip")
@@ -333,7 +346,7 @@ async def skip_dose(request: Request, session: Session = Depends(get_session), u
         raise HTTPException(404, "Protocol item not found")
 
     if _existing_log(session, uid, item.id, scheduled_date) is not None:
-        return RedirectResponse("/today", status_code=303)
+        return RedirectResponse(_back(form), status_code=303)
 
     # _own_protocol_item already confirmed this protocol exists and is owned by uid.
     protocol = session.get(Protocol, protocol_id)
@@ -346,16 +359,14 @@ async def skip_dose(request: Request, session: Session = Depends(get_session), u
         status=DoseStatus.SKIPPED, logged_at=datetime.now(timezone.utc),
     ))
     session.commit()
-    return RedirectResponse("/today", status_code=303)
+    return RedirectResponse(_back(form), status_code=303)
 
 
 @router.post("/today/undo")
 async def undo_dose(request: Request, session: Session = Depends(get_session),
                     uid: int = Depends(current_user_id)):
-    """Removes a logged dose or skip -- only one scheduled for TODAY, never older history, so this
-    is strictly an "I just misclicked" correction, not a way to edit the record after the fact. A
-    dose that drew down an Active Vial gets that volume restored, so undoing never leaves a vial
-    permanently short."""
+    """Removes a logged dose or skip, from today or any earlier day (the Journal edits past days), so a wrong entry can be put right
+    and logged again. A dose that drew down an Active Vial gets that volume restored, so undoing never leaves a vial permanently short."""
     form = await request.form()
     try:
         log_id = int(form.get("dose_log_id", ""))
@@ -364,8 +375,6 @@ async def undo_dose(request: Request, session: Session = Depends(get_session),
     log = session.get(DoseLog, log_id)
     if log is None or log.owner_id != uid:
         raise HTTPException(404, "Dose log not found")
-    if log.scheduled_date != clock.today():
-        raise HTTPException(422, "Only a dose scheduled for today can be undone.")
 
     if log.active_vial_id is not None and log.volume_ml is not None:
         vial = session.get(ActiveVial, log.active_vial_id)
@@ -384,4 +393,28 @@ async def undo_dose(request: Request, session: Session = Depends(get_session),
 
     session.delete(log)
     session.commit()
-    return RedirectResponse("/today", status_code=303)
+    return RedirectResponse(_back(form), status_code=303)
+
+
+@router.post("/journal/doses/mark-all")
+async def mark_day_taken(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Log every dose that was due on a day and has no log yet as taken (for the day you fell asleep before logging). Doses already logged or skipped stay."""
+    form = await request.form()
+    try:
+        day = date.fromisoformat(str(form.get("date", "")))
+    except ValueError:
+        raise HTTPException(422, "A valid date is required.")
+    if day > clock.today():
+        raise HTTPException(422, "Can't log a dose for a future date.")
+    protocols = session.scalars(
+        select(Protocol).where(Protocol.owner_id == uid).options(
+            selectinload(Protocol.items).selectinload(ProtocolItem.peptide), selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+            selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs), selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item))).all()
+    for occ in occurrences(protocols, day, day):
+        for due in occ.items:
+            item = _own_protocol_item(session, occ.protocol_id, due.protocol_item_id, uid)
+            if item is not None and _existing_log(session, uid, item.id, day) is None:
+                _log_item(session, uid, occ.protocol_id, item, day, {})
+                session.flush()
+    session.commit()
+    return RedirectResponse(_back(form), status_code=303)

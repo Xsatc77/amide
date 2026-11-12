@@ -231,7 +231,8 @@ def test_undo_removes_the_log_and_restores_vial_volume(client, db):
         assert s.get(ActiveVial, vial_id).volume_remaining_ml == pytest.approx(2.0)  # restored
 
 
-def test_undo_refuses_a_dose_not_scheduled_for_today(client, db):
+def test_undo_works_on_an_earlier_day_too_and_gives_the_vial_its_volume_back(client, db):
+    from app.models import ActiveVial
     protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
     yesterday = date.today() - timedelta(days=1)
     client.post("/today/log", data={
@@ -240,10 +241,12 @@ def test_undo_refuses_a_dose_not_scheduled_for_today(client, db):
     })
     with SessionLocal() as s:
         [log] = s.scalars(select(DoseLog)).all()
-    r = client.post("/today/undo", data={"dose_log_id": str(log.id)})
-    assert r.status_code == 422
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml < 2.0
+    r = client.post("/today/undo", data={"dose_log_id": str(log.id)}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/today"
     with SessionLocal() as s:
-        assert s.scalars(select(DoseLog)).all() != []  # untouched
+        assert s.scalars(select(DoseLog)).all() == []
+        assert s.get(ActiveVial, vial_id).volume_remaining_ml == 2.0
 
 
 def test_undo_requires_ownership(client, db):

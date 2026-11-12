@@ -3,6 +3,8 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Journal: doses can be changed after the fact.** A recent day (up to 30 days back) with doses due or logged is listed in the Journal even with no entry; each logged dose has Undo (its vial volume comes back), each dose not yet logged has Taken or Skip, and Mark All Taken logs the whole day. Quick notes can be edited or deleted. Undo on Today now works for any day, not only today.
+- **Dashboard: the Dispose button is a fixed bold red in every colorway.**
 - **Workouts: a Commit button on each planned exercise of a day's log.** It saves that exercise's load, sets, reps and Done tick on the server at once, so a closed page or a dead phone loses nothing. Reopening the day brings the committed numbers back, marked with the time; the Save at the bottom still logs the workout and clears them.
 - **Library: the vial costs popup takes an optional shot size.** Enter a shot amount and a measurement (mcg, mg or IU), and optionally shots a week (7 if empty): the best vial size is picked, each vendor shows how many shots the vial gives, and if the vial would expire first (30 days) it says how much is wasted. The price shown is then per shot with the waste counted, so waste raises the cost. Changing the vial size keeps the plan.
 - **Dashboard: Next up on the Workouts card names the day first (Push, Pull, Legs / Abs) and then the weekday.**

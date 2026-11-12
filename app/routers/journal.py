@@ -1,5 +1,5 @@
 import zoneinfo
-from datetime import date, datetime, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.datastructures import UploadFile
@@ -96,7 +96,32 @@ def doses_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
 
 
 def _dose_dict(r) -> dict:
-    return {"peptide_name": r.peptide_name, "dose_value": r.dose_value, "dose_unit": r.dose_unit, "status": r.status}
+    return {"id": r.id, "peptide_name": r.peptide_name, "dose_value": r.dose_value, "dose_unit": r.dose_unit, "status": r.status}
+
+
+DUE_WINDOW_DAYS = 30            # a day this recent that had doses due and nothing logged is offered in the Journal, so a forgotten day can be put right
+
+
+def due_unlogged(session: Session, uid: int, first: date, last: date) -> dict[date, list[dict]]:
+    """The doses that were due on each day in [first, last] with no log (taken or skipped) yet, from the person's protocol schedule."""
+    from app.calendar.schedule import occurrences
+    from app.models import DoseLog, Protocol, ProtocolItem
+    protocols = session.scalars(select(Protocol).where(Protocol.owner_id == uid).options(
+        selectinload(Protocol.items).selectinload(ProtocolItem.peptide), selectinload(Protocol.items).selectinload(ProtocolItem.steps),
+        selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs), selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item))).all()
+    if not protocols:
+        return {}
+    logs = session.scalars(select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date.between(first, last))).all()
+    by_item = {(d.protocol_item_id, d.scheduled_date) for d in logs if d.protocol_item_id is not None}
+    by_peptide = {(d.protocol_id, d.peptide_id, d.scheduled_date) for d in logs if d.protocol_item_id is None}      # a log whose line was rebuilt by a protocol edit
+    out: dict[date, list[dict]] = {}
+    for occ in occurrences(protocols, first, last):
+        for it in occ.items:
+            if (it.protocol_item_id, occ.date) in by_item or (occ.protocol_id, it.peptide_id, occ.date) in by_peptide:
+                continue
+            out.setdefault(occ.date, []).append({"protocol_id": occ.protocol_id, "protocol_item_id": it.protocol_item_id, "protocol_name": occ.protocol_name,
+                                                 "peptide": it.peptide, "dose": it.dose, "unit": it.unit})
+    return out
 
 
 def workouts_for(session: Session, owner_id: int, entry_date: date) -> list[dict]:
@@ -183,7 +208,7 @@ def _entry_view(entry: JournalEntry, doses: list[dict], workouts: list[dict], ow
         "notes": entry.notes,
         "owner_name": owner_name,
         "quick_notes": [
-            {"noted_at": qn.noted_at, "time_display": _local_time_str(qn.noted_at, viewer_tz), "text": qn.text}
+            {"id": qn.id, "noted_at": qn.noted_at, "time_display": _local_time_str(qn.noted_at, viewer_tz), "text": qn.text}
             for qn in entry.quick_notes
         ],
         "doses": doses,
@@ -235,6 +260,21 @@ def journal_tab_context(session: Session, viewer_uid: int, form_date: date | Non
         for e in shared_entries
     ]
     views += _workout_only_views(session, viewer_uid, {e.entry_date for e in own_entries})
+    today = clock.today()
+    due_map = due_unlogged(session, viewer_uid, today - timedelta(days=DUE_WINDOW_DAYS), today)
+    own_days = {v["date"] for v in views if not v["owner_name"]}
+    for v in views:
+        v["due"] = [] if v["owner_name"] else due_map.get(v["date"], [])
+    from app.models import DoseLog               # a recent day with doses due, or with doses logged, has no entry yet but is still listed: its doses can be changed here
+    logs_by_day: dict[date, list[dict]] = {}
+    for r in session.scalars(select(DoseLog).where(DoseLog.owner_id == viewer_uid, DoseLog.scheduled_date.between(today - timedelta(days=DUE_WINDOW_DAYS), today - timedelta(days=1)))
+                             .order_by(DoseLog.scheduled_date, DoseLog.id)):
+        logs_by_day.setdefault(r.scheduled_date, []).append(_dose_dict(r))
+    for day in sorted((d for d in set(due_map) | set(logs_by_day) if d < today and d not in own_days), reverse=True):
+        logged = logs_by_day.get(day, [])
+        views.append({"date": day, "mood": None, "energy": None, "sleep_quality": None, "appetite": None, "side_effects": [], "custom_effects": [],
+                      "side_effects_other": None, "notes": None, "owner_name": None, "quick_notes": [], "doses": logged, "workouts": [],
+                      "photos": [], "has_entry": False, "due": due_map.get(day, [])})
     views.sort(key=lambda v: v["date"], reverse=True)
     if viewer is not None:
         from app.food.day_overview import day_overviews       # deferred: the food package imports routers' helpers at load time
@@ -404,6 +444,32 @@ async def add_quick_note(request: Request, session: Session = Depends(get_sessio
     session.add(JournalQuickNote(entry_id=entry.id, text=text))
     session.commit()
     return RedirectResponse("/dashboard", status_code=303)
+
+
+# ---- quick notes: change or remove one ------------------------------------------------------------------------------------------------------
+
+def _own_quick_note(session: Session, note_id: int, uid: int) -> JournalQuickNote:
+    note = session.get(JournalQuickNote, note_id)
+    if note is None or note.entry.owner_id != uid:
+        raise HTTPException(404, "Not found")          # never 403: that would confirm someone else's note exists
+    return note
+
+
+@router.post("/journal/quick-notes/{note_id}/edit")
+async def edit_quick_note(note_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    note = _own_quick_note(session, note_id, uid)
+    text = str((await request.form()).get("text", "")).strip()
+    if text:                                           # an emptied box changes nothing: Delete is the way to remove a note
+        note.text = text
+        session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
+
+
+@router.post("/journal/quick-notes/{note_id}/delete")
+def delete_quick_note(note_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    session.delete(_own_quick_note(session, note_id, uid))
+    session.commit()
+    return RedirectResponse("/measurements?tab=journal", status_code=303)
 
 
 # ---- photos kept with a journal day -----------------------------------------------------------------------------------------------------------

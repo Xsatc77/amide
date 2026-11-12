@@ -696,7 +696,10 @@
             {% if e.quick_notes %}
             <ul class="quick-notes">
               {% for qn in e.quick_notes %}
-              <li><span class="muted">{{ qn.time_display }}</span> {{ qn.text }}</li>
+              <li><span class="muted">{{ qn.time_display }}</span> {{ qn.text }}
+                {% if not e.owner_name and qn.id %}<details class="quick-note-edit"><summary class="small">Edit</summary>
+                  <form method="post" action="/journal/quick-notes/{{ qn.id }}/edit" class="inline"><input name="text" value="{{ qn.text }}" required maxlength="2000"> <button type="submit" class="btn btn-small">Save</button></form>
+                  <form method="post" action="/journal/quick-notes/{{ qn.id }}/delete" class="inline" data-confirm="Delete this note? This cannot be undone."><button type="submit" class="btn btn-ghost btn-danger small">Delete</button></form></details>{% endif %}</li>
               {% endfor %}
             </ul>
             {% endif %}
@@ -716,16 +719,30 @@
             {% endif %}
           </td>
           <td data-label="That day's doses">
-            {%- if not e.doses -%}
+            {%- if not e.doses and not e.due -%}
               —
-            {%- else -%}
+            {%- endif -%}
+            {% if e.doses %}
             <ul class="dose-list">
               {% for d in e.doses %}
               <li>{{ d.peptide_name }} — {{ d.dose_value }} {{ d.dose_unit.value if d.dose_unit else '' }}
-                <span class="tag status-{{ d.status.value }}">{{ d.status.label }}</span></li>
+                <span class="tag status-{{ d.status.value }}">{{ d.status.label }}</span>
+                {% if not e.owner_name and d.id %}<form method="post" action="/today/undo" class="inline" data-confirm="Remove this {{ d.status.label | lower }} entry for {{ d.peptide_name }} on {{ e.date | shortdate }}? Its vial volume is given back, and you can log it again.">
+                  <input type="hidden" name="dose_log_id" value="{{ d.id }}"><input type="hidden" name="next" value="/measurements?tab=journal">
+                  <button type="submit" class="btn btn-ghost btn-small">Undo</button></form>{% endif %}</li>
               {% endfor %}
             </ul>
-            {%- endif -%}
+            {% endif %}
+            {% if e.due and not e.owner_name %}
+            <ul class="dose-list dose-due">
+              {% for x in e.due %}
+              <li>{{ x.peptide }} — {{ '%g' | format(x.dose) if x.dose else '' }} {{ x.unit }} <span class="tag status-missed">Not logged</span>
+                <form method="post" action="/today/log" class="inline"><input type="hidden" name="protocol_id" value="{{ x.protocol_id }}"><input type="hidden" name="protocol_item_id" value="{{ x.protocol_item_id }}"><input type="hidden" name="scheduled_date" value="{{ e.date.isoformat() }}"><input type="hidden" name="next" value="/measurements?tab=journal"><button type="submit" class="btn btn-small">Taken</button></form>
+                <form method="post" action="/today/skip" class="inline"><input type="hidden" name="protocol_id" value="{{ x.protocol_id }}"><input type="hidden" name="protocol_item_id" value="{{ x.protocol_item_id }}"><input type="hidden" name="scheduled_date" value="{{ e.date.isoformat() }}"><input type="hidden" name="next" value="/measurements?tab=journal"><button type="submit" class="btn btn-ghost btn-small">Skip</button></form></li>
+              {% endfor %}
+            </ul>
+            {% if e.due | length > 1 %}<form method="post" action="/journal/doses/mark-all" class="inline"><input type="hidden" name="date" value="{{ e.date.isoformat() }}"><input type="hidden" name="next" value="/measurements?tab=journal"><button type="submit" class="btn btn-small btn-primary">Mark all taken</button></form>{% endif %}
+            {% endif %}
             {% if e.workouts %}
             <ul class="dose-list">
               {% for w in e.workouts %}

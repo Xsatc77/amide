@@ -322,8 +322,8 @@ h2 { font-size: 1.2rem; margin: 0; }
 .log-commit { margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .log-commit [data-commit-status].commit-ok { color: var(--tier-beginner); font-weight: 600; }
 .log-commit [data-commit-status].commit-bad { color: var(--danger); font-weight: 600; }
-.btn-dispose { background: var(--danger); border-color: var(--danger); color: var(--on-danger, #fff); font-weight: 800; }
-.btn-dispose:hover { filter: brightness(1.1); }
+.btn-dispose { background: #dc2626; border-color: #991b1b; color: #fff; font-weight: 800; }          /* a fixed true red, whatever the colorway's own danger shade is */
+.btn-dispose:hover, .btn-dispose:focus-visible { background: #b91c1c; filter: none; }
 .dispose-warning { padding: 4px 20px 0; margin: 0; font-size: 1.05rem; }
 #dispose-name { padding: 0 20px; margin: 4px 0 0; }
 .btn-danger:hover { background: var(--danger-soft); }
@@ -1854,3 +1854,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .chart-trace-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 3px currentColor); }
 .chart-point.chart-energized { transform-box: fill-box; transform-origin: center; animation: node-energize 1.3s ease-out; }
 @keyframes node-energize { 0% { transform: scale(1); filter: none; } 18% { transform: scale(2.6); fill: #e6f4ff; filter: drop-shadow(0 0 7px var(--pulse, #4aa8ff)) drop-shadow(0 0 3px #fff); } 100% { transform: scale(1); filter: none; } }
+.dose-due .tag { margin: 0 4px; }
+.quick-note-edit { display: inline-block; margin-left: 6px; }
+.quick-note-edit form { margin-top: 4px; }
+.quick-note-edit input[name="text"] { width: min(24rem, 100%); }
