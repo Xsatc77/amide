@@ -21,7 +21,6 @@ class Reminder:
     kind: str          # "interval" | "start" | "end"
     due: date
     text: str
-    ignored: bool = False       # the person ticked Ignore: it stays on the dashboard, but the calendar leaves it out
 
     @property
     def ignore_key(self) -> str:
@@ -82,17 +81,18 @@ def _text(kind: str, protocol_name: str | None = None) -> str:
 
 
 def active(session: Session, uid: int, today: date) -> list[Reminder]:
-    """The reminders to show on `today`."""
+    """The reminders to show on `today`. One the person ticked Ignore on is left out: no dashboard alert, no phone push, no calendar mark."""
     out = []
     off = ignored_keys(session, uid)
     due = next_interval_due(session, uid)
     if due is not None and today >= due:
         r = Reminder("interval", "interval", due, _text("interval"))
-        out.append(Reminder(r.key, r.kind, r.due, r.text, ignored=r.ignore_key in off))
+        if r.ignore_key not in off:
+            out.append(r)
     for kind, day, p in _milestones(session, uid, today - timedelta(days=MILESTONE_GRACE_DAYS), today):
         taken = session.scalar(select(BodyPhoto.id).where(BodyPhoto.owner_id == uid, BodyPhoto.taken_on >= day - timedelta(days=1)).limit(1))
-        if taken is None:
-            out.append(Reminder(f"{kind}:{p.id}", kind, day, _text(kind, p.name), ignored=f"{kind}:{p.id}" in off))
+        if taken is None and f"{kind}:{p.id}" not in off:
+            out.append(Reminder(f"{kind}:{p.id}", kind, day, _text(kind, p.name)))
     return out
 
 
