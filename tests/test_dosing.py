@@ -873,7 +873,7 @@ def test_an_old_unsplit_abdomen_dose_still_reads_and_recommends_the_other_side(c
         s.commit()
         assert log.injection_site.label == "Left abdomen"
     t = html.unescape(client.get("/today").text)
-    assert '"last": "abdomen_l"' in t and '"recommended": "abdomen_r_inner"' in t
+    assert '"last": "abdomen_l_inner"' in t and '"recommended": "abdomen_r_inner"' in t          # only the inner dot is marked used; the outer stays free
 
 
 def test_a_powder_with_no_mixed_vial_offers_a_reconstitute_button(client, db):
@@ -888,3 +888,12 @@ def test_a_powder_with_no_mixed_vial_offers_a_reconstitute_button(client, db):
 def test_the_water_dialog_offers_36_and_40(client, db):
     page = client.get("/dashboard").text
     assert 'data-quick-oz="36"' in page and 'data-quick-oz="40"' in page and 'data-quick-oz="24"' in page
+
+
+def test_logging_an_inner_site_leaves_the_outer_site_free_and_the_next_shot_goes_to_the_other_inner(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, quantity=4)
+    client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+                                    "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_l_inner"}, follow_redirects=False)
+    info = _site_blob(client)[str(pitem_id)]
+    assert info["last"] == "abdomen_l_inner" and info["recommended"] == "abdomen_r_inner"          # the same ring, the other side
+    assert "abdomen_l_outer" in [s["value"] for s in info["sites"]]                                # the outer sites stay on offer

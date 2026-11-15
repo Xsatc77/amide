@@ -83,6 +83,13 @@ def _last_site_for_peptide(session: Session, uid: int, peptide_id: int) -> Injec
     return log.injection_site if log else None
 
 
+def _picker_last(site: InjectionSite | None) -> str | None:
+    """The dot the picker marks as last used. A dose logged before the abdomen was split marks only its inner site, so the outer one stays free."""
+    if site is None:
+        return None
+    return {InjectionSite.ABDOMEN_L: InjectionSite.ABDOMEN_L_INNER, InjectionSite.ABDOMEN_R: InjectionSite.ABDOMEN_R_INNER}.get(site, site).value
+
+
 def _last_dose_for_peptide(session: Session, uid: int, peptide_id: int) -> str | None:
     """The newest dose actually taken of this peptide, as "250 mcg on 10/28/2026" (None when none was ever logged with an amount)."""
     log = session.scalar(
@@ -266,7 +273,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
                 "last_dose": _last_dose_for_peptide(session, uid, item.peptide_id),
                 "calc_url": "/calculator?" + urlencode({k: v for k, v in calc.items() if v != ""}),
                 "sites": [{"value": s.value, "label": s.label} for s in sites],
-                "last": last.value if last else None,
+                "last": _picker_last(last),
                 "recommended": recommend(last, item.route.lower()).value if recommend(last, item.route.lower()) else None,
             }
 

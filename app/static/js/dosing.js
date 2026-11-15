@@ -13,7 +13,7 @@
       circle.classList.remove("site-dot-last", "site-dot-recommended", "site-dot-available", "site-dot-ineligible");
       if (!data || !data.sites.some((s) => s.value === site)) {
         circle.classList.add("site-dot-ineligible");
-      } else if (data.last === site || (data.last && site.startsWith(data.last + "_"))) {      // an old unsplit "abdomen_l" marks both of that side's sites
+      } else if (data.last === site) {
         circle.classList.add("site-dot-last");
       } else if (data.recommended === site) {
         circle.classList.add("site-dot-recommended");

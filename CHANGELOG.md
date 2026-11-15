@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Today: an abdomen dose logged before the split marks only its inner dot as last used.** The outer dot on that side stays free, and the next shot of the same medicine still goes to the other side's inner site.
 - **Dashboard: a body-photo reminder you tick Ignore on no longer stays in Alerts.** It is gone from the dashboard, the phone pushes and the calendar; the two-week reminder asks again after your next photo.
 - **Today and Journal: an "Intentional Skip for Labs" checkbox beside Skip, for every medicine.** A dose skipped that way is left out of the Protocol compliance bar (neither missed nor counted), and the Calendar shows it as done instead of missed. An ordinary skip still counts against you.
 - **Today: the injection-site picker splits the abdomen into inner and outer sites on each side (four dots).** Rotation mirrors to the other side of the same part (inner to inner, outer to outer). Doses logged before the split still read as Left or Right abdomen and recommend the other side, inner.
