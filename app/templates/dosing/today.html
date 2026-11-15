@@ -61,6 +61,7 @@
           <input type="hidden" name="protocol_id" value="{{ occ.protocol_id }}">
           <input type="hidden" name="protocol_item_id" value="{{ item.protocol_item_id }}">
           <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
+          <label class="labs-skip"><input type="checkbox" name="labs_skip" value="1" data-labs-skip> Intentional Skip for Labs</label>
           <button type="submit" class="btn btn-ghost" data-action="skip-dose">Skip</button>
         </form>
         {% if item.protocol_item_id in reconstitute_urls %}<a class="btn" href="{{ reconstitute_urls[item.protocol_item_id] }}" data-reconstitute>Reconstitute Vial</a>{% endif %}

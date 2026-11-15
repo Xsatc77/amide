@@ -772,6 +772,7 @@ class DoseLog(Base):
     inventory_units: Mapped[float | None] = mapped_column(Float)   # the share of a unit this dose took from a drops/pills item (see app/inventory/unit_use.py)
     stock_item_id: Mapped[int | None] = mapped_column(ForeignKey("inventory_items.id", ondelete="SET NULL"))      # the item inventory_units came from, so an undo gives them back to it even after the line was switched to another form
     supplies_used: Mapped[dict | None] = mapped_column(JSON)       # {supply item id: how many} this shot took (pads, syringes, needles), given back on undo
+    labs_skip: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # a skip on purpose before labs: compliance does not count it as missed
 
     protocol: Mapped["Protocol"] = relationship()
     active_vial: Mapped["ActiveVial | None"] = relationship()

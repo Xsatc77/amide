@@ -249,3 +249,36 @@ def test_the_old_adherence_percentage_still_reads_the_same_for_a_protocol(client
     log_dose(me, protocol_id, item_id, peptide_id, 0)
     log_dose(me, protocol_id, item_id, peptide_id, 5)
     assert "100%" in html.unescape(client.get("/dashboard").text)
+
+
+def _skip(uid, protocol_id, item_id, peptide_id, days_ago, labs):
+    with SessionLocal() as s:
+        s.add(DoseLog(owner_id=uid, protocol_id=protocol_id, protocol_item_id=item_id, peptide_id=peptide_id, peptide_name="Retatrutide", dose_value=2.0,
+                      dose_unit=DoseUnit.MG, route="subq", scheduled_date=day(days_ago), scheduled_time_of_day=TimeOfDay.ANY, status=DoseStatus.SKIPPED,
+                      logged_at=datetime.now(timezone.utc), labs_skip=labs))
+        s.commit()
+
+
+def test_a_dose_skipped_for_labs_is_not_counted_as_missed_but_an_ordinary_skip_is(client, db, me):
+    protocol_id, item_id, peptide_id = add_protocol(me, start_days_ago=10, every=5)       # due 10 and 5 days ago, and today
+    log_dose(me, protocol_id, item_id, peptide_id, 10)
+    _skip(me, protocol_id, item_id, peptide_id, 5, labs=False)
+    bar = bars_by_key(me)["protocol"]
+    assert (bar["good"], bar["total"]) == (1, 2)                                            # an ordinary skip still counts against you
+    with SessionLocal() as s:
+        s.query(DoseLog).filter(DoseLog.scheduled_date == day(5)).update({"labs_skip": True})
+        s.commit()
+    bar = bars_by_key(me)["protocol"]
+    assert (bar["good"], bar["total"], bar["pct"]) == (1, 1, 100)                           # the same skip, on purpose for labs, is left out
+
+
+def test_the_skip_buttons_save_the_labs_checkbox(client, db, me):
+    protocol_id, item_id, peptide_id = add_protocol(me, start_days_ago=10, every=5)
+    base = {"protocol_id": str(protocol_id), "protocol_item_id": str(item_id)}
+    client.post("/today/skip", data={**base, "scheduled_date": day(5).isoformat(), "labs_skip": "1"}, follow_redirects=False)
+    client.post("/today/skip", data={**base, "scheduled_date": day(10).isoformat()}, follow_redirects=False)
+    with SessionLocal() as s:
+        flags = {log.scheduled_date: log.labs_skip for log in s.scalars(select(DoseLog))}
+    assert flags == {day(5): True, day(10): False}
+    today_page = client.get("/today").text
+    assert "Intentional Skip for Labs" in today_page and 'name="labs_skip"' in today_page

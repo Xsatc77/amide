@@ -1,7 +1,7 @@
 """Compliance with your plans, for the dashboard's four bars: Protocol, H2O, Diet and Workout, each 0-100% over a chosen window.
 
 Rules (all measured over completed days; today is still open, so it only counts once something for it is done):
-- Protocol: doses logged (on time or late) out of the doses that were due. A dose due today and not yet logged is pending, not missed.
+- Protocol: doses logged (on time or late) out of the doses that were due. A dose due today and not yet logged is pending, not missed. A dose skipped on purpose for labs is left out of both.
 - H2O: a day is compliant when the water logged reaches 90% of the goal or more.
 - Diet: a day is compliant when food was logged, calories are at or under the day's limit, and protein reaches 90% of its target.
 - Workout: scheduled workout days that were logged, out of the scheduled days since the plan began.
@@ -78,6 +78,9 @@ def _protocol_bar(session: Session, uid: int, today: date, window: int) -> dict:
                               DoseLog.status.in_((DoseStatus.ON_TIME, DoseStatus.LATE))))}
     due = {(item.protocol_item_id, occ.date) for occ in occurrences(protocols, since, today) for item in occ.items}
     due = {key for key in due if key[1] < today or key in done}            # a dose still pending today is not missed yet
+    due -= {(log.protocol_item_id, log.scheduled_date) for log in session.scalars(
+        select(DoseLog).where(DoseLog.owner_id == uid, DoseLog.scheduled_date >= since, DoseLog.scheduled_date <= today,
+                              DoseLog.labs_skip.is_(True), DoseLog.status == DoseStatus.SKIPPED))}       # skipped on purpose for labs: not counted against you
     if not due:
         return _bar("protocol", "Protocol", 0, 0, "No protocol doses due yet")
     return _bar("protocol", "Protocol", len(due & done), len(due), "Doses logged out of doses due")

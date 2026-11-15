@@ -330,6 +330,7 @@ h2 { font-size: 1.2rem; margin: 0; }
 .btn-icon { font-size: 1.4rem; line-height: 1; padding: 4px 10px; }
 .btn-add span { font-size: 1.2rem; line-height: 1; margin-right: 4px; font-weight: 700; }
 form.inline { display: inline; }
+.labs-skip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; margin-right: 6px; white-space: nowrap; }
 
 /* ---------- table ---------- */
 .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; overflow-y: hidden; }

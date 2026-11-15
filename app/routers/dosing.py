@@ -361,7 +361,7 @@ async def skip_dose(request: Request, session: Session = Depends(get_session), u
         owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, peptide_id=item.peptide_id,
         peptide_name=item.peptide.name, dose_value=effective_dose, dose_unit=item.dose_unit,
         route=item.route.value, scheduled_date=scheduled_date, scheduled_time_of_day=item.time_of_day,
-        status=DoseStatus.SKIPPED, logged_at=datetime.now(timezone.utc),
+        status=DoseStatus.SKIPPED, logged_at=datetime.now(timezone.utc), labs_skip=bool(form.get("labs_skip")),
     ))
     session.commit()
     return RedirectResponse(_back(form), status_code=303)

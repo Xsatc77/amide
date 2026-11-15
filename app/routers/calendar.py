@@ -72,6 +72,8 @@ def _item_status(item_logs: list[DoseLog], occ_date: date, today: date) -> str:
     logged on time (see the spec's "all logged on-time -> on_time" rule)."""
     if not item_logs:
         return "missed" if occ_date < today else "upcoming"
+    if any(l.status == DoseStatus.SKIPPED and l.labs_skip for l in item_logs):
+        return "on_time"                      # skipped on purpose for labs: not a missed dose
     if any(l.status == DoseStatus.MISSED or l.status == DoseStatus.SKIPPED for l in item_logs):
         return "missed"
     if any(l.status == DoseStatus.LATE for l in item_logs):
