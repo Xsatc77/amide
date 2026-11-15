@@ -50,7 +50,11 @@ class DispensingMethod(LabeledEnum):
 
 
 class InjectionSite(LabeledEnum):
-    ABDOMEN_L = ("abdomen_l", "Left abdomen")
+    ABDOMEN_L_INNER = ("abdomen_l_inner", "Left inner abdomen")
+    ABDOMEN_L_OUTER = ("abdomen_l_outer", "Left outer abdomen")
+    ABDOMEN_R_INNER = ("abdomen_r_inner", "Right inner abdomen")
+    ABDOMEN_R_OUTER = ("abdomen_r_outer", "Right outer abdomen")
+    ABDOMEN_L = ("abdomen_l", "Left abdomen")          # logged before the abdomen was split into inner and outer: kept so old doses still read, never offered
     ABDOMEN_R = ("abdomen_r", "Right abdomen")
     THIGH_L = ("thigh_l", "Left thigh")
     THIGH_R = ("thigh_r", "Right thigh")

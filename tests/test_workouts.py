@@ -610,3 +610,10 @@ def test_commit_refuses_bad_numbers_and_unknown_exercises_and_other_peoples_days
     db.expire_all()
     assert db.query(WorkoutDraft).filter_by(exercise_id=ex0.id).count() == 0
     assert 'data-commit="%d"' % ex0.id in client.get(f"/workouts/day/{day.id}/log").text
+
+
+def test_phone_layout_does_not_stretch_the_to_failure_checkbox_across_its_column():
+    """A full-width checkbox pushed its "To failure" label off the screen, so the box showed with no words."""
+    css = open("app/static/css/app.css", encoding="utf-8").read()
+    assert 'td.log-half input:not([type="checkbox"]) { width: 100% !important; }' in css
+    assert "td.log-half input { width: 100% !important; }" not in css

@@ -4,8 +4,12 @@ from app.models import InjectionSite
 
 # Each site's mirrored opposite side of the same body part -- recommend() never crosses body parts.
 _MIRROR = {
-    InjectionSite.ABDOMEN_L: InjectionSite.ABDOMEN_R,
-    InjectionSite.ABDOMEN_R: InjectionSite.ABDOMEN_L,
+    InjectionSite.ABDOMEN_L_INNER: InjectionSite.ABDOMEN_R_INNER,
+    InjectionSite.ABDOMEN_R_INNER: InjectionSite.ABDOMEN_L_INNER,
+    InjectionSite.ABDOMEN_L_OUTER: InjectionSite.ABDOMEN_R_OUTER,
+    InjectionSite.ABDOMEN_R_OUTER: InjectionSite.ABDOMEN_L_OUTER,
+    InjectionSite.ABDOMEN_L: InjectionSite.ABDOMEN_R_INNER,          # an old, unsplit abdomen dose: the other side, inner
+    InjectionSite.ABDOMEN_R: InjectionSite.ABDOMEN_L_INNER,
     InjectionSite.THIGH_L: InjectionSite.THIGH_R,
     InjectionSite.THIGH_R: InjectionSite.THIGH_L,
     InjectionSite.ARM_L: InjectionSite.ARM_R,
@@ -14,7 +18,7 @@ _MIRROR = {
     InjectionSite.GLUTE_R: InjectionSite.GLUTE_L,
 }
 
-_SUBQ_SITES = [InjectionSite.ABDOMEN_L, InjectionSite.ABDOMEN_R, InjectionSite.THIGH_L,
+_SUBQ_SITES = [InjectionSite.ABDOMEN_L_INNER, InjectionSite.ABDOMEN_L_OUTER, InjectionSite.ABDOMEN_R_INNER, InjectionSite.ABDOMEN_R_OUTER, InjectionSite.THIGH_L,
               InjectionSite.THIGH_R, InjectionSite.ARM_L, InjectionSite.ARM_R]
 _IM_SITES = _SUBQ_SITES + [InjectionSite.GLUTE_L, InjectionSite.GLUTE_R]
 

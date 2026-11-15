@@ -1299,7 +1299,7 @@ h1 .lib-num { font-size: 0.9rem; vertical-align: middle; margin-left: 6px; }
   .log-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: .2rem; font-size: .75rem; color: var(--muted, #888); }
   .log-table td.log-done { display: flex; align-items: center; gap: .5rem; grid-column: 1 / -1; }
   .log-table td.log-done::before { margin: 0; order: 2; font-size: .9rem; }
-  .log-table td.log-half input { width: 100% !important; }
+  .log-table td.log-half input:not([type="checkbox"]) { width: 100% !important; }       /* not the To failure box: a full-width checkbox pushed its label off the screen */
   .log-table input[list] { width: 100%; }
   .log-table .log-estimate { white-space: normal; }
   .log-set-weights { white-space: normal; }

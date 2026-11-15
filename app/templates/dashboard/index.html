@@ -285,7 +285,7 @@
       <button type="button" class="btn btn-ghost btn-icon" data-action="close" aria-label="Close">×</button>
     </header>
     <div class="water-quick-picks">
-      {% for amount in ((250, 500, 750) if u.metric else (8, 16, 24)) %}
+      {% for amount in ((250, 500, 750, 1000, 1200) if u.metric else (8, 16, 24, 36, 40)) %}
       <button type="button" class="btn" data-quick-oz="{{ amount }}">{{ amount }} {{ u.volume_label }}</button>
       {% endfor %}
     </div>

@@ -3,6 +3,10 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Today: the injection-site picker splits the abdomen into inner and outer sites on each side (four dots).** Rotation mirrors to the other side of the same part (inner to inner, outer to outer). Doses logged before the split still read as Left or Right abdomen and recommend the other side, inner.
+- **Today: a powder with no mixed vial shows a Reconstitute Vial button.** It opens the calculator with that item and the dose already filled in.
+- **Dashboard: Log Water offers 36 and 40 (1000 and 1200 mL in metric) besides the smaller quick picks.**
+- **Workouts: the To failure label shows on a phone.** A full-width checkbox had pushed its words off the screen.
 - **Calendar: the gold and white-green lights now follow each medicine, not the protocol.** A medicine that starts later than the others (a later start, or other weekdays) gets its gold light on its own first dose, and its white-green light on its own last dose when it or the protocol has an end.
 - **Journal: doses can be changed after the fact.** A recent day (up to 30 days back) with doses due or logged is listed in the Journal even with no entry; each logged dose has Undo (its vial volume comes back), each dose not yet logged has Taken or Skip, and Mark All Taken logs the whole day. Quick notes can be edited or deleted. Undo on Today now works for any day, not only today.
 - **Dashboard: the Dispose button is a fixed bold red in every colorway.**

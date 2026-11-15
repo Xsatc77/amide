@@ -31,7 +31,8 @@ def test_missed_items_excludes_today_and_logged():
 def test_eligible_sites_subq_excludes_glute():
     sites = eligible_sites("subq")
     assert InjectionSite.GLUTE_L not in sites and InjectionSite.GLUTE_R not in sites
-    assert InjectionSite.ABDOMEN_L in sites
+    assert InjectionSite.ABDOMEN_L_INNER in sites and InjectionSite.ABDOMEN_R_OUTER in sites
+    assert InjectionSite.ABDOMEN_L not in sites and InjectionSite.ABDOMEN_R not in sites          # the old unsplit abdomen is history only
 
 
 def test_eligible_sites_im_includes_glute():
@@ -44,7 +45,9 @@ def test_eligible_sites_non_injection_route_is_empty():
 
 
 def test_recommend_mirrors_opposite_side_same_body_part():
-    assert recommend(InjectionSite.ABDOMEN_L, "subq") == InjectionSite.ABDOMEN_R
+    assert recommend(InjectionSite.ABDOMEN_L_INNER, "subq") == InjectionSite.ABDOMEN_R_INNER
+    assert recommend(InjectionSite.ABDOMEN_R_OUTER, "subq") == InjectionSite.ABDOMEN_L_OUTER
+    assert recommend(InjectionSite.ABDOMEN_L, "subq") == InjectionSite.ABDOMEN_R_INNER            # a dose logged before the split
     assert recommend(InjectionSite.THIGH_R, "subq") == InjectionSite.THIGH_L
 
 
@@ -191,7 +194,7 @@ def test_today_page_shows_site_picker_for_subq_route(client, db):
     # The SVG dialog is one shared, static element with all 8 sites always present as
     # data-site circles (JS paints eligibility at runtime) -- eligibility itself is only
     # expressed in the per-item site_data JSON blob, so assert there instead of on markup.
-    assert '"value": "abdomen_l"' in t or '&#34;value&#34;: &#34;abdomen_l&#34;' in t
+    assert '"value": "abdomen_l_inner"' in t or '&#34;value&#34;: &#34;abdomen_l_inner&#34;' in t
     assert '"value": "glute_l"' not in t and '&#34;value&#34;: &#34;glute_l&#34;' not in t  # SubQ excludes Glute
 
 
@@ -280,24 +283,24 @@ def test_log_dose_with_explicit_site_records_it(client, db):
     protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
     client.post("/today/log", data={
         "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
-        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_r",
+        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_r_outer",
     }, follow_redirects=False)
     with SessionLocal() as s:
         [log] = s.scalars(select(DoseLog)).all()
-        assert log.injection_site.value == "abdomen_r"
+        assert log.injection_site.value == "abdomen_r_outer"
 
 
 def test_second_log_recommends_mirrored_site(client, db):
     protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, quantity=4)
     client.post("/today/log", data={
         "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
-        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_l",
+        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_l_inner",
     }, follow_redirects=False)
     t = html.unescape(client.get("/today").text)
     # A second occurrence isn't due again today for a DAILY item, so instead directly check the
     # recommendation surfaces via the API the JS reads -- assert the recommended site is embedded
     # in the page's site data for this peptide.
-    assert '"recommended": "abdomen_r"' in t or '&#34;recommended&#34;: &#34;abdomen_r&#34;' in t
+    assert '"recommended": "abdomen_r_inner"' in t or '&#34;recommended&#34;: &#34;abdomen_r_inner&#34;' in t
 
 
 # ---------------------------------------------------------------- Protocol page dose history + catch-up
@@ -688,13 +691,13 @@ def test_log_dose_with_no_vial_still_records_explicit_site(client, db):
 
     r = client.post("/today/log", data={
         "protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
-        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_r",
+        "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_r_inner",
     }, follow_redirects=False)
     assert r.status_code == 303
     with SessionLocal() as s:
         [log] = s.scalars(select(DoseLog)).all()
         assert log.active_vial_id is None  # confirms the no-vial path was exercised
-        assert log.injection_site is not None and log.injection_site.value == "abdomen_r"
+        assert log.injection_site is not None and log.injection_site.value == "abdomen_r_inner"
 
 
 def test_log_dose_rejects_site_ineligible_for_route(client, db):
@@ -851,3 +854,37 @@ def test_a_blank_dose_falls_back_to_the_protocol_and_a_bad_one_is_refused(client
     assert client.post("/today/log", data={**base, "dose": "  "}, follow_redirects=False).status_code == 303
     with SessionLocal() as s:
         assert s.scalars(select(DoseLog)).one().dose_value == 2.0
+
+
+def test_the_picker_has_inner_and_outer_abdomen_dots_on_each_side(client, db):
+    page = client.get("/today").text
+    for site in ("abdomen_l_outer", "abdomen_l_inner", "abdomen_r_inner", "abdomen_r_outer"):
+        assert f'data-site="{site}"' in page
+    assert 'data-site="abdomen_l"' not in page and 'data-site="abdomen_r"' not in page
+
+
+def test_an_old_unsplit_abdomen_dose_still_reads_and_recommends_the_other_side(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, quantity=4)
+    client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+                                    "scheduled_date": date.today().isoformat(), "injection_site": "abdomen_l_inner"}, follow_redirects=False)
+    with SessionLocal() as s:
+        log = s.scalars(select(DoseLog)).all()[-1]
+        log.injection_site = InjectionSite.ABDOMEN_L                  # as it was written before the abdomen was split
+        s.commit()
+        assert log.injection_site.label == "Left abdomen"
+    t = html.unescape(client.get("/today").text)
+    assert '"last": "abdomen_l"' in t and '"recommended": "abdomen_r_inner"' in t
+
+
+def test_a_powder_with_no_mixed_vial_offers_a_reconstitute_button(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, quantity=4)
+    page = client.get("/today").text
+    assert "Reconstitute Vial" not in page                           # it has an open vial
+    client.post(f"/active-vials/{vial_id}/discard")
+    page = html.unescape(client.get("/today").text)
+    assert "Reconstitute Vial" in page and "/calculator?inventory_item_id=" in page and "dose_value=2" in page
+
+
+def test_the_water_dialog_offers_36_and_40(client, db):
+    page = client.get("/dashboard").text
+    assert 'data-quick-oz="36"' in page and 'data-quick-oz="40"' in page and 'data-quick-oz="24"' in page

@@ -14,7 +14,7 @@ from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.dosing.site import eligible_sites, recommend
 from app.inventory import consumption, unit_use
-from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Protocol, ProtocolItem, User
+from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Medium, Protocol, ProtocolItem, User
 from app.protocols import repeat
 from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
@@ -271,12 +271,17 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
             }
 
     volume_text = {}
+    reconstitute_urls = {}                                # protocol line -> the calculator link, for a powder with stock but no mixed vial yet
     for occ, item in due:
         pi = protocol_items_by_id.get(item.protocol_item_id)
         if pi is None or pi.inventory_item_id is None:
             continue
         vial = _open_vial_for_item(session, pi.inventory_item_id)
         if vial is None:
+            stock = pi.inventory_item
+            if stock is not None and stock.medium == Medium.LYOPHILIZED:       # a powder with no mixed vial: offer the calculator, with this item and dose filled in (it says if none is left)
+                calc = {"inventory_item_id": stock.id, "dose_value": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit}
+                reconstitute_urls[item.protocol_item_id] = "/calculator?" + urlencode({k: v for k, v in calc.items() if v != ""})
             continue
         # item.dose (the DueItem) is already the titration-adjusted dose for today, computed by
         # _due_item() -- pi.dose is the item's untitrated base dose, which would show a volume
@@ -300,7 +305,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
 
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
-        "volume_text": volume_text, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due, "workout_move_dates": workout_move_dates, "workouts_coming_up": workout_moves.coming_up(session, uid, today),
+        "volume_text": volume_text, "reconstitute_urls": reconstitute_urls, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due, "workout_move_dates": workout_move_dates, "workouts_coming_up": workout_moves.coming_up(session, uid, today),
         "logged_today": todays_logs, "silhouette_shape": silhouette_shape,
     })
 

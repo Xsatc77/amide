@@ -63,6 +63,7 @@
           <input type="hidden" name="scheduled_date" value="{{ today_iso }}">
           <button type="submit" class="btn btn-ghost" data-action="skip-dose">Skip</button>
         </form>
+        {% if item.protocol_item_id in reconstitute_urls %}<a class="btn" href="{{ reconstitute_urls[item.protocol_item_id] }}" data-reconstitute>Reconstitute Vial</a>{% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -155,8 +156,10 @@
     <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
     <circle data-site="arm_l" cx="{{ silhouette_shape.points.biceps.l[0] }}" cy="{{ silhouette_shape.points.biceps.l[1] }}" r="9"></circle>
     <circle data-site="arm_r" cx="{{ silhouette_shape.points.biceps.r[0] }}" cy="{{ silhouette_shape.points.biceps.r[1] }}" r="9"></circle>
-    <circle data-site="abdomen_l" cx="132" cy="170" r="9"></circle>
-    <circle data-site="abdomen_r" cx="188" cy="170" r="9"></circle>
+    <circle data-site="abdomen_l_outer" cx="120" cy="170" r="8"></circle>
+    <circle data-site="abdomen_l_inner" cx="146" cy="170" r="8"></circle>
+    <circle data-site="abdomen_r_inner" cx="174" cy="170" r="8"></circle>
+    <circle data-site="abdomen_r_outer" cx="200" cy="170" r="8"></circle>
     <circle data-site="glute_l" cx="135" cy="222" r="9"></circle>
     <circle data-site="glute_r" cx="185" cy="222" r="9"></circle>
     <circle data-site="thigh_l" cx="{{ silhouette_shape.points.quad.l[0] }}" cy="{{ silhouette_shape.points.quad.l[1] }}" r="9"></circle>
