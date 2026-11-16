@@ -1,9 +1,9 @@
-- The dashboard Today's Schedule rows fit on one line each: the medicine name keeps its size, the dose, time and status shrink, so the Body panel is no longer pushed down
 # Changelog
 
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Dashboard: Today's Schedule rows fit on one line each.** The medicine name keeps its size; the dose, time and status shrink, so the Body panel is no longer pushed down.
 - **Today: an abdomen dose logged before the split marks only its inner dot as last used.** The outer dot on that side stays free, and the next shot of the same medicine still goes to the other side's inner site.
 - **Dashboard: a body-photo reminder you tick Ignore on no longer stays in Alerts.** It is gone from the dashboard, the phone pushes and the calendar; the two-week reminder asks again after your next photo.
 - **Today and Journal: an "Intentional Skip for Labs" checkbox beside Skip, for every medicine.** A dose skipped that way is left out of the Protocol compliance bar (neither missed nor counted), and the Calendar shows it as done instead of missed. An ordinary skip still counts against you.
