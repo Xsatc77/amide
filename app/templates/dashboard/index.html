@@ -55,9 +55,9 @@
   {% if not schedule %}
   <p class="muted">Nothing scheduled today.</p>
   {% else %}
-  <ul class="dose-list">
+  <ul class="dose-list dose-list-compact">
     {% for row in schedule %}
-    <li><strong>{{ row.peptide }}</strong> — {{ row.dose }} {{ row.unit }} · {{ row.time_of_day.label }}{% if row.step %} · <span class="muted">{{ row.step }}</span>{% endif %}
+    <li><strong>{{ row.peptide }}</strong><span class="dose-rest muted"> — {{ row.dose }} {{ row.unit }} · {{ row.time_of_day.label }}{% if row.step %} · {{ row.step }}{% endif %}</span>
       <span class="tag">{{ row.status }}</span></li>
     {% endfor %}
   </ul>

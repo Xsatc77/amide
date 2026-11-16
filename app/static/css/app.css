@@ -699,6 +699,10 @@ section + section { margin-top: 36px; }
 .ribbon-scheduled span { background: #2563eb; color: #ffffff; font-size: 0.58rem; letter-spacing: 0.04em; }
 .ribbon-paused span { background: #000000; color: #ffffff; }
 .dose-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dose-list-compact li { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.dose-list-compact strong, .dose-list-compact .tag { flex: none; }
+.dose-list-compact .dose-rest { font-size: 0.78rem; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dose-list-compact .tag { font-size: 0.68rem; padding: 1px 6px; margin-left: 2px; }
 .dose-list .step { color: var(--accent-fg, var(--accent)); font-weight: 600; margin-top: 1px; }
 .protocol-dates { margin: 0; }
 .protocol-card-actions { display: flex; flex-wrap: wrap; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: auto; }

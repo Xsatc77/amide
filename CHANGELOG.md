@@ -1,3 +1,4 @@
+- The dashboard Today's Schedule rows fit on one line each: the medicine name keeps its size, the dose, time and status shrink, so the Body panel is no longer pushed down
 # Changelog
 
 Newest first. Dates are when the work was done.
