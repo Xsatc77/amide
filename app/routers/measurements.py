@@ -655,6 +655,8 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context["scale_latest"] = scale_view.latest_card(own_entries, display_entries(own_entries, u), u, me_user)
         q = request.query_params
         context["scale_import"] = {k: int(q[k]) for k in ("imported", "merged", "skipped", "unread") if q.get(k, "").isdigit()} or None
+        if context["scale_import"] is not None:
+            context["scale_import"]["source"] = "Pacer" if q.get("source") == "pacer" else "Smart Scale"
         if q.get("deduped") == "1":                    # the Merge Duplicate Entries button, not an import
             context["scale_import"] = None
             context["deduped"] = int(q["merged"]) if q.get("merged", "").isdigit() else 0
@@ -777,7 +779,7 @@ async def import_pacer(request: Request, files: list[UploadFile] = File(default_
         return _refuse("No weights or blood pressures could be read from that file.")
     result = pacer.import_readings(session, uid, parsed)
     session.commit()
-    return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&merged={result.merged}&skipped={result.skipped}&unread={len(result.errors)}", status_code=303)
+    return RedirectResponse(f"/measurements?tab=measurements&imported={result.imported}&merged={result.merged}&skipped={result.skipped}&unread={len(result.errors)}&source=pacer", status_code=303)
 
 
 @router.post("/measurements/import-scale")

@@ -4,7 +4,7 @@ Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
 - **Body: a Chest measurement.** It has its own box on the entry form and the body diagram, its own chart, and a note like the other measurements.
-- **Body: the scale-import message says what happened.** A reading filled into an existing entry within 12 hours reads "1 reading added to an existing entry..." instead of "0 readings imported".
+- **Body: the scale-import message just says "Smart Scale Data Imported Successfully".** It mentions the 12 hours only when scale data was already imported within 12 hours, and that reading is skipped.
 - **Dashboard: Today's Schedule rows fit on one line each.** The medicine name keeps its size; the dose, time and status shrink, so the Body panel is no longer pushed down.
 - **Today: an abdomen dose logged before the split marks only its inner dot as last used.** The outer dot on that side stays free, and the next shot of the same medicine still goes to the other side's inner site.
 - **Dashboard: a body-photo reminder you tick Ignore on no longer stays in Alerts.** It is gone from the dashboard, the phone pushes and the calendar; the two-week reminder asks again after your next photo.

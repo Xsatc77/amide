@@ -325,9 +325,11 @@ def test_merge_duplicates_leaves_other_days_and_other_people_alone(client, db, m
         assert s.query(BodyMeasurement).count() == 4
 
 
-def test_the_import_message_says_a_reading_added_to_an_existing_entry_is_not_a_zero_import(client, db, me):
-    page = client.get("/measurements?tab=measurements&imported=0&merged=1&skipped=0&unread=0").text
-    assert "0 readings imported" not in page and "1 reading added to an existing entry from within 12 hours of it." in page
-    page = client.get("/measurements?tab=measurements&imported=2&merged=1&skipped=3&unread=0").text
-    assert "2 new readings saved, 1 reading added to an existing entry from within 12 hours of it, 3 already there." in page
+def test_the_import_message_is_plain_success_and_only_mentions_12_hours_for_scale_data_already_imported(client, db, me):
+    for q in ("imported=0&merged=1&skipped=0", "imported=1&merged=0&skipped=0", "imported=2&merged=1&skipped=0"):
+        page = client.get(f"/measurements?tab=measurements&{q}&unread=0").text
+        assert "Smart Scale Data Imported Successfully." in page and "12 hours" not in page.split('role="status"')[1].split("</div>")[0]
+    page = client.get("/measurements?tab=measurements&imported=0&merged=0&skipped=1&unread=0").text
+    assert "1 reading skipped: smart scale data was already imported within 12 hours of it." in page and "Imported Successfully" not in page
     assert "No readings found to import." in client.get("/measurements?tab=measurements&imported=0&merged=0&skipped=0&unread=0").text
+    assert "Pacer Data Imported Successfully." in client.get("/measurements?tab=measurements&imported=1&merged=0&skipped=0&unread=0&source=pacer").text
