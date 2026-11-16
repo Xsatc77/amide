@@ -43,7 +43,7 @@ RULE_FIELDS = (
 
 # stored field, label, kind
 BODY_ROWS = [
-    ("weight_lbs", "Weight", "weight"), ("waist_in", "Waist", "length"), ("hips_in", "Hips", "length"), ("neck_in", "Neck", "length"),
+    ("weight_lbs", "Weight", "weight"), ("waist_in", "Waist", "length"), ("hips_in", "Hips", "length"), ("neck_in", "Neck", "length"), ("chest_in", "Chest", "length"),
     ("scale_body_fat_pct", "Body Fat (Scale)", "%"), ("scale_fat_mass_lb", "Fat Mass (Scale)", "weight"),
     ("scale_muscle_mass_lb", "Muscle Mass (Scale)", "weight"), ("scale_visceral_fat", "Visceral Fat (Scale)", ""),
     ("systolic", "Systolic", "mmHg"), ("diastolic", "Diastolic", "mmHg"), ("heart_rate_bpm", "Pulse", "bpm"),

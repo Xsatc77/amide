@@ -141,7 +141,7 @@
 
 <section class="card scale-section" id="scale-section" aria-labelledby="scale-heading">
   <h2 id="scale-heading" class="section-title">Body Composition From Your Scale</h2>
-  {% if scale_import %}<div class="alert alert-ok" role="status">{{ scale_import.imported or 0 }} reading{{ '' if scale_import.imported == 1 else 's' }} imported{% if scale_import.merged %}, {{ scale_import.merged }} added to an entry from the 12 hours before or after{% endif %}{% if scale_import.skipped %}, {{ scale_import.skipped }} already there{% endif %}{% if scale_import.unread %}, {{ scale_import.unread }} row{{ '' if scale_import.unread == 1 else 's' }} could not be read{% endif %}.</div>{% endif %}
+  {% if scale_import %}{% set si = scale_import %}{% set parts = [] %}{% if si.imported %}{% set _ = parts.append(si.imported ~ ' new reading' ~ ('' if si.imported == 1 else 's') ~ ' saved') %}{% endif %}{% if si.merged %}{% set _ = parts.append(si.merged ~ ' reading' ~ ('' if si.merged == 1 else 's') ~ ' added to an existing entry from within 12 hours of it') %}{% endif %}{% if si.skipped %}{% set _ = parts.append(si.skipped ~ ' already there') %}{% endif %}{% if si.unread %}{% set _ = parts.append(si.unread ~ ' row' ~ ('' if si.unread == 1 else 's') ~ ' could not be read') %}{% endif %}<div class="alert alert-ok" role="status">{{ (parts | join(', ')) if parts else 'No readings found to import' }}.</div>{% endif %}
   {% if deduped is defined and deduped is not none %}<div class="alert alert-ok" role="status">{% if deduped %}{{ deduped }} duplicate {{ 'entry' if deduped == 1 else 'entries' }} merged into the earlier entry within 12 hours of {{ 'it' if deduped == 1 else 'each' }}.{% else %}No duplicate entries found: nothing is within 12 hours of an earlier entry.{% endif %}</div>{% endif %}
   {% if kept_original %}<div class="alert alert-ok" role="status">That was within 12 hours of your {{ kept_original.date | shortdate }} entry, so the original was kept{% if kept_original.filled %} and {{ kept_original.filled }} blank value{{ '' if kept_original.filled == 1 else 's' }} filled in from it{% else %}; nothing new was added to it{% endif %}. Use Edit on that entry to change a value.</div>{% endif %}
   {% if errors.scale_import %}<div class="alert" role="alert">{{ errors.scale_import }}</div>{% endif %}
@@ -295,6 +295,7 @@
         <path d="{{ silhouette_shape.body_path }}" fill="none" stroke="currentColor" stroke-width="2"/>
       </svg>
       {{ mini_input('neck_in', silhouette_shape.points.neck_in.l, 'Neck', 'above') }}
+      {{ mini_input('chest_in', silhouette_shape.points.chest_in.l, 'Chest', 'above') }}
       {{ mini_input('waist_in', silhouette_shape.points.waist_in.l, 'Waist', 'above') }}
       {{ mini_input('hips_in', silhouette_shape.points.hips_in.l, 'Hips', 'below') }}
       {{ mini_input('biceps_l_in', silhouette_shape.points.biceps.l, 'Biceps L', 'left') }}

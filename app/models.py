@@ -1176,6 +1176,7 @@ class BodyMeasurement(Base):
         CheckConstraint("diastolic IS NULL OR diastolic > 0", name="ck_body_measurement_diastolic_pos"),
         CheckConstraint("heart_rate_bpm IS NULL OR heart_rate_bpm > 0", name="ck_body_measurement_heart_rate_pos"),
         CheckConstraint("neck_in IS NULL OR neck_in > 0", name="ck_body_measurement_neck_pos"),
+        CheckConstraint("chest_in IS NULL OR chest_in > 0", name="ck_body_measurement_chest_pos"),
         CheckConstraint("waist_in IS NULL OR waist_in > 0", name="ck_body_measurement_waist_pos"),
         CheckConstraint("hips_in IS NULL OR hips_in > 0", name="ck_body_measurement_hips_pos"),
         CheckConstraint("biceps_l_in IS NULL OR biceps_l_in > 0", name="ck_body_measurement_biceps_l_pos"),
@@ -1195,6 +1196,7 @@ class BodyMeasurement(Base):
     diastolic: Mapped[int | None] = mapped_column(Integer)
     heart_rate_bpm: Mapped[int | None] = mapped_column(Integer)
     neck_in: Mapped[float | None] = mapped_column(Float)
+    chest_in: Mapped[float | None] = mapped_column(Float)
     waist_in: Mapped[float | None] = mapped_column(Float)
     hips_in: Mapped[float | None] = mapped_column(Float)
     biceps_l_in: Mapped[float | None] = mapped_column(Float)

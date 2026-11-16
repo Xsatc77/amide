@@ -323,3 +323,11 @@ def test_merge_duplicates_leaves_other_days_and_other_people_alone(client, db, m
     assert "merged=0" in r.headers["location"]
     with SessionLocal() as s:
         assert s.query(BodyMeasurement).count() == 4
+
+
+def test_the_import_message_says_a_reading_added_to_an_existing_entry_is_not_a_zero_import(client, db, me):
+    page = client.get("/measurements?tab=measurements&imported=0&merged=1&skipped=0&unread=0").text
+    assert "0 readings imported" not in page and "1 reading added to an existing entry from within 12 hours of it." in page
+    page = client.get("/measurements?tab=measurements&imported=2&merged=1&skipped=3&unread=0").text
+    assert "2 new readings saved, 1 reading added to an existing entry from within 12 hours of it, 3 already there." in page
+    assert "No readings found to import." in client.get("/measurements?tab=measurements&imported=0&merged=0&skipped=0&unread=0").text

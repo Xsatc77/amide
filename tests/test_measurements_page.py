@@ -596,3 +596,17 @@ def test_the_range_form_carries_the_chosen_metric_so_changing_the_range_keeps_it
     t = client.get("/measurements?tab=measurements").text
     form = t.split('class="range-controls"', 1)[1].split("</form>", 1)[0]
     assert 'name="metric"' in form and 'name="range"' in form
+
+
+def test_a_chest_measurement_can_be_saved_and_shows_on_the_form_and_the_body_diagram(client, db, me):
+    from app.db import SessionLocal
+    from app.models import BodyMeasurement
+    r = client.post("/measurements", data={"measured_at": "2026-11-16", "chest_in": "44.5", "waist_in": "40"}, follow_redirects=False)
+    assert r.status_code == 303
+    with SessionLocal() as s:
+        [m] = s.query(BodyMeasurement).filter_by(owner_id=me).all()
+        assert m.chest_in == 44.5
+    t = client.get("/measurements").text
+    assert 'name="chest_in"' in t and "Chest" in t and "44.5" in t
+    assert t.index('name="neck_in"') < t.index('name="chest_in"') < t.index('name="waist_in"')
+    assert client.post("/measurements", data={"measured_at": "2026-11-17", "chest_in": "-1"}, follow_redirects=False).status_code == 422

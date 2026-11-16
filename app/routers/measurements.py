@@ -39,6 +39,7 @@ CHART_FIELDS = (
     ("weight_lbs", "Weight (lbs)"),
     ("heart_rate_bpm", "Heart Rate (bpm)"),
     ("neck_in", "Neck (in)"),
+    ("chest_in", "Chest (in)"),
     ("waist_in", "Waist (in)"),
     ("hips_in", "Hips (in)"),
     ("biceps_l_in", "Biceps L (in)"),
@@ -61,6 +62,7 @@ BILATERAL_LOCATIONS = (
 # Single-sided silhouette locations: (key/column, display label).
 UNILATERAL_LOCATIONS = (
     ("neck_in", "Neck"),
+    ("chest_in", "Chest"),
     ("waist_in", "Waist"),
     ("hips_in", "Hips"),
 )
@@ -68,7 +70,7 @@ UNILATERAL_LOCATIONS = (
 # Float fields, validated the same way (optional, must be > 0 when present) as the other numeric
 # fields this app validates -- see app/routers/settings.py's change_body_profile.
 FLOAT_FIELDS = (
-    "weight_lbs", "neck_in", "waist_in", "hips_in",
+    "weight_lbs", "neck_in", "chest_in", "waist_in", "hips_in",
     "biceps_l_in", "biceps_r_in", "forearm_l_in", "forearm_r_in",
     "quad_l_in", "quad_r_in", "calf_l_in", "calf_r_in",
 )
@@ -76,7 +78,7 @@ INT_FIELDS = ("systolic", "diastolic", "heart_rate_bpm")
 # Every measurement a note can be attached to, in the order the note popup lists them.
 NOTE_FIELDS = (
     ("weight_lbs", "Weight"), ("heart_rate_bpm", "Heart Rate"), ("systolic", "Systolic"), ("diastolic", "Diastolic"),
-    ("neck_in", "Neck"), ("waist_in", "Waist"), ("hips_in", "Hips"),
+    ("neck_in", "Neck"), ("chest_in", "Chest"), ("waist_in", "Waist"), ("hips_in", "Hips"),
     ("biceps_l_in", "Biceps L"), ("biceps_r_in", "Biceps R"), ("forearm_l_in", "Forearm L"), ("forearm_r_in", "Forearm R"),
     ("quad_l_in", "Quad L"), ("quad_r_in", "Quad R"), ("calf_l_in", "Calf L"), ("calf_r_in", "Calf R"),
 )
@@ -295,11 +297,11 @@ _MALE_PATH = ("M 150.2,4.0 L 167.2,6.6 L 177.7,26.3 L 169.8,63.1 L 204.0,77.5 L 
 # together to read ambiguously at a glance.
 _SILHOUETTE_LANDMARKS = {
     "Female": {
-        "neck_in": (160, 62), "waist_in": (160, 170), "hips_in": (160, 195),
+        "neck_in": (160, 62), "chest_in": (160, 105), "waist_in": (160, 170), "hips_in": (160, 195),
         "biceps": (202, 110), "forearm": (213, 155), "quad": (193, 270), "calf": (180, 340),
     },
     "Male": {
-        "neck_in": (160, 63), "waist_in": (160, 177.6), "hips_in": (160, 238.7),
+        "neck_in": (160, 63), "chest_in": (160, 105), "waist_in": (160, 177.6), "hips_in": (160, 238.7),
         "biceps": (218, 110), "forearm": (228, 150), "quad": (195, 280), "calf": (189, 350),
     },
 }
@@ -317,9 +319,9 @@ _SILHOUETTE_LANDMARKS = {
 # clear of the body outline's own rightmost point (~x=234) -- the viewBox is widened to 400 (from
 # 320) to fit this margin without the label text running over the silhouette itself.
 _LABEL_SLOTS = {
-    "neck_in": (386, 51, "end"), "biceps": (386, 109, "end"), "forearm": (386, 167, "end"),
-    "waist_in": (386, 226, "end"), "hips_in": (386, 284, "end"),
-    "quad": (386, 342, "end"), "calf": (386, 399, "end"),
+    "neck_in": (386, 36, "end"), "chest_in": (386, 90, "end"), "biceps": (386, 144, "end"), "forearm": (386, 198, "end"),
+    "waist_in": (386, 252, "end"), "hips_in": (386, 306, "end"),
+    "quad": (386, 360, "end"), "calf": (386, 414, "end"),
 }
 
 
@@ -336,6 +338,7 @@ def _silhouette_shape(sex: str | None) -> dict:
     path = _FEMALE_PATH if key == "Female" else _MALE_PATH
 
     points = {"neck_in": {"l": landmarks["neck_in"]},
+             "chest_in": {"l": landmarks["chest_in"]},
              "waist_in": {"l": landmarks["waist_in"]},
              "hips_in": {"l": landmarks["hips_in"]}}
     for loc in ("biceps", "forearm", "quad", "calf"):
