@@ -15,6 +15,7 @@ from app.progress import review
 from app.templating import templates
 
 router = APIRouter()
+NOTES_MAX = 4000
 
 
 def _day(text: str | None) -> date | None:
@@ -45,12 +46,23 @@ def _page(request: Request, session: Session, uid: int, start_day: date, end_day
              "All Time": (first, today)}
     return templates.TemplateResponse(request, "progress/review.html", {
         "r": result, "u": units.for_user(user), "quick": quick,
-        "ai_ready": ai_summary.configured(user), "summary": ai_summary.saved(session, uid, start_day, end_day), "ai_error": ai_error,
+        "ai_ready": ai_summary.configured(user), "summary": (saved := ai_summary.saved(session, uid, start_day, end_day)), "ai_error": ai_error,
+        "summary_html": ai_summary.to_html(saved.text) if saved else None, "ai_notes": user.ai_notes or "",
     }, status_code=status_code)
 
 
+@router.post("/progress/notes")
+def progress_notes(start: str = Form(""), end: str = Form(""), notes: str = Form(""),
+                   session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Keep the notes the AI summary should take into account; they stay on this page for every date range."""
+    from app.models import User
+    session.get(User, uid).ai_notes = notes.strip()[:NOTES_MAX] or None
+    session.commit()
+    return RedirectResponse(f"/progress?start={_day(start) or ''}&end={_day(end) or ''}#summary", status_code=303)
+
+
 @router.post("/progress/summary")
-def progress_summary(request: Request, start: str = Form(""), end: str = Form(""),
+def progress_summary(request: Request, start: str = Form(""), end: str = Form(""), notes: str | None = Form(None),
                      session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Ask the person's chosen AI agent for a one-page summary of this date range's Progress Review, and keep it."""
     today = clock.today()
@@ -60,6 +72,9 @@ def progress_summary(request: Request, start: str = Form(""), end: str = Form(""
         start_day = end_day
     first = session.scalar(select(func.min(DoseLog.scheduled_date)).where(DoseLog.owner_id == uid))         or session.scalar(select(func.min(BodyMeasurement.measured_at)).where(BodyMeasurement.owner_id == uid)) or today
     user = request.state.user
+    if notes is not None:
+        session.get(type(user), uid).ai_notes = notes.strip()[:NOTES_MAX] or None
+        session.commit()
     result = review.build(session, user, start_day, end_day, review.Rules.for_user(user))
     try:
         ai_summary.summarize(session, session.get(type(user), uid), result, units.for_user(user))

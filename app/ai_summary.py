@@ -1,13 +1,16 @@
 """The AI agent's one-page summary of a Progress Review.
 
 Only the numbers on the Progress Review page for the chosen date range are sent: the same results, adherence, intake, journal
-counts, labs, flags and gaps the page shows. No name, e-mail, notes, photos or anything from other pages. The call is made only
+counts, labs, flags and gaps the page shows. Plus the notes the person keeps on that page for the summary to take into account. No name, e-mail, photos or anything from other pages. The call is made only
 when the person presses the button, to the agent they picked in Settings (Claude, OpenAI, or a server of their own such as
 Ollama or LM Studio) with their own key."""
 
+import html
 import json
+import re
 import urllib.error
 import urllib.request
+from markupsafe import Markup
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,11 +24,24 @@ PROVIDERS = {
 TIMEOUT_SECONDS = 180
 
 SYSTEM = (
-    "You write a one-page progress summary for one person from the numbers they give you. Be plain and no-nonsense: no greeting, "
-    "no cheering, no filler, no hedging boilerplate. Use only the numbers provided; never invent or estimate a value. Where the data "
-    "does not establish something, say 'Not established'. Do not diagnose, and do not give medical advice or tell them to change a dose; "
-    "you may point at what the numbers show and what looks worth checking. Keep it under 350 words, as plain text (no markdown symbols), "
-    "with these short headed parts: Headline (two sentences at most), What Moved, Adherence And Intake, Worth Checking, Gaps In The Data."
+    "You are a blunt, practical analyst writing a one-page brief for one person about ONE specific date range. They can already read every "
+    "number on the page, so never list or restate the data. Your job is judgment: what the numbers mean together, what trade-offs or risks "
+    "they reveal, and what to do or check next.\n\n"
+    "Rules:\n"
+    "- Judge everything against the period you are given (its start, end and length in days). Use pace per week over that period instead of "
+    "raw totals, say whether the pace is fast, slow or fine for that span, and say when something is too short or too old to conclude from "
+    "(for example a lab drawn once at the start of the period).\n"
+    "- Use a number only when it proves a point; about a dozen in total at most.\n"
+    "- Use only the numbers provided. Never invent or estimate a value. If the data does not establish something, say so in one line.\n"
+    "- The person's own notes are context to weigh: goals, medicines, schedule, questions. Use them; do not repeat them back.\n"
+    "- Do not diagnose or tell them to change a dose. You may say what looks worth raising with a clinician or checking with a repeat measurement.\n"
+    "- No greeting, no cheering, no filler.\n\n"
+    "Format exactly, as plain text with these lines and nothing else (the app shows '## ' lines as headings and '- ' lines as bullets):\n"
+    "## Verdict\n(one or two sentences: is this period going the right way, and the single most important thing)\n"
+    "## What It Means\n- three to five bullets that connect the measures, name trade-offs, and set the pace against the period\n"
+    "## Do Next\n- two to four specific actions or checks, most important first\n"
+    "## Not Established\n- one to three bullets on what this data cannot tell\n"
+    "Under 250 words in total."
 )
 
 
@@ -62,6 +78,9 @@ def facts(r: dict, u) -> str:
             out.append(f"- {b['label']}: {_num(b['first'])} -> {_num(b['last'])} {b['unit']}, change {b['change']:+.1f}{pct}, {b['readings']} readings")
     else:
         out.append("Body measurements: none in this period.")
+    weight = next((b for b in r["body"] if b["key"] == "weight_lbs"), None)
+    if weight and r["days"] >= 7:
+        out.append(f"Weight pace over this period: {weight['change'] / (r['days'] / 7):+.1f} {weight['unit']} per week on average across {r['days']} days.")
     if len(r["weeks"]) > 1:
         out.append("Average weight by week:")
         for w in r["weeks"]:
@@ -90,7 +109,7 @@ def facts(r: dict, u) -> str:
         out.append("Labs in this period (latest per marker):")
         for lab in r["labs"]:
             rng = f" (range {'' if lab['low'] is None else _num(lab['low'])}-{'' if lab['high'] is None else _num(lab['high'])})" if lab["low"] is not None or lab["high"] is not None else ""
-            out.append(f"- {lab['marker']}: {_num(lab['value'])} {lab['unit']}{rng}{' OUTSIDE RANGE' if lab['out_of_range'] else ''}, drawn {lab['drawn']:%Y-%m-%d}")
+            out.append(f"- {lab['marker']}: {_num(lab['value'])} {lab['unit']}{rng}{' OUTSIDE RANGE' if lab['out_of_range'] else ''}, drawn {lab['drawn']:%Y-%m-%d} (day {(lab['drawn'] - r['start']).days + 1} of {r['days']})")
     if r["flags"]:
         out.append("Flags raised by fixed rules:")
         out.extend(f"- {f['text']} (rule: {f['rule']})" for f in r["flags"])
@@ -127,25 +146,30 @@ def ask(user: User, prompt: str) -> str:
     base, model = _base(user), _model(user)
     if user.ai_provider == "anthropic":
         data = post_json(f"{base}/v1/messages", {"x-api-key": user.ai_api_key, "anthropic-version": "2023-06-01"},
-                         {"model": model, "max_tokens": 1500, "system": SYSTEM, "messages": [{"role": "user", "content": prompt}]})
+                         {"model": model, "max_tokens": 2500, "system": SYSTEM, "messages": [{"role": "user", "content": prompt}]})
         text = "".join(block.get("text", "") for block in data.get("content", []) if isinstance(block, dict) and block.get("type") == "text")
+        cut = data.get("stop_reason") == "max_tokens"
     else:
         headers = {"Authorization": f"Bearer {user.ai_api_key}"} if user.ai_api_key else {}
         data = post_json(f"{base}/chat/completions", headers,
                          {"model": model, "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]})
         try:
             text = data["choices"][0]["message"]["content"] or ""
+            cut = data["choices"][0].get("finish_reason") == "length"
         except (KeyError, IndexError, TypeError):
-            text = ""
+            text, cut = "", False
     text = text.strip()
     if not text:
         raise AiError("The agent sent back nothing. Try again, or check the model name in Settings.")
-    return text
+    return text + ("\n\n- The agent's answer was cut off." if cut else "")
 
 
 def summarize(session: Session, user: User, r: dict, u) -> ProgressSummary:
     """Ask the agent about this page's data and keep the answer for this date range, replacing an earlier one."""
-    text = ask(user, "Here are the numbers from my Progress Review. Write the one-page summary.\n\n" + facts(r, u))
+    notes = (user.ai_notes or "").strip()
+    text = ask(user, "Write the one-page brief for this period.\n\n"
+                     + (f"My notes (context to weigh, not to repeat):\n{notes}\n\n" if notes else "My notes: none.\n\n")
+                     + "The numbers from my Progress Review page:\n" + facts(r, u))
     row = session.scalar(select(ProgressSummary).where(ProgressSummary.owner_id == user.id, ProgressSummary.start_date == r["start"],
                                                        ProgressSummary.end_date == r["end"]))
     if row is None:
@@ -159,3 +183,30 @@ def summarize(session: Session, user: User, r: dict, u) -> ProgressSummary:
 def saved(session: Session, uid: int, start, end) -> ProgressSummary | None:
     return session.scalar(select(ProgressSummary).where(ProgressSummary.owner_id == uid, ProgressSummary.start_date == start,
                                                         ProgressSummary.end_date == end))
+
+
+def to_html(text: str) -> Markup:
+    """The summary as safe HTML: '## ' lines are headings, '- ' lines bullets, **bold** is bold; everything else is escaped text."""
+    out, bullets = [], False
+    for line in text.splitlines():
+        line = line.strip()
+        item = line[2:] if line.startswith("- ") else None
+        if bullets and item is None:
+            out.append("</ul>")
+            bullets = False
+        if not line:
+            continue
+        body = item if item is not None else (line.lstrip("# ") if line.startswith("#") else line)
+        safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html.escape(body))
+        if item is not None:
+            if not bullets:
+                out.append("<ul>")
+                bullets = True
+            out.append(f"<li>{safe}</li>")
+        elif line.startswith("#"):
+            out.append(f"<h3>{safe}</h3>")
+        else:
+            out.append(f"<p>{safe}</p>")
+    if bullets:
+        out.append("</ul>")
+    return Markup("".join(out))

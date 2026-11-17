@@ -19,7 +19,7 @@
   <h2 id="summary-h" class="section-title">AI Summary</h2>
   {% if ai_error %}<div class="alert" role="alert">{{ ai_error }}</div>{% endif %}
   {% if summary %}
-  <div class="ai-summary">{{ summary.text }}</div>
+  <div class="ai-summary">{{ summary_html }}</div>
   <p class="muted small">Written {{ summary.created_at | shortdate }} by {{ summary.model }} from only the numbers on this page for {{ r.start | shortdate }} to {{ r.end | shortdate }}. An AI summary can be wrong: check it against the numbers below. It is not medical advice.</p>
   {% elif not ai_ready %}
   <p class="muted no-print">Choose an AI agent in <a href="/settings#ai">Settings</a> and this button will write a one-page, no-nonsense summary of this page's numbers.</p>
@@ -29,7 +29,10 @@
   {% if ai_ready %}
   <form method="post" action="/progress/summary" class="no-print">
     <input type="hidden" name="start" value="{{ r.start.isoformat() }}"><input type="hidden" name="end" value="{{ r.end.isoformat() }}">
+    <label class="field"><span>Notes for the AI to take into account (saved on this page and sent with the numbers)</span>
+      <textarea name="notes" rows="4" maxlength="4000" placeholder="Goals, medicines and doses, what changed this period, what you want it to weigh...">{{ ai_notes }}</textarea></label>
     <button type="submit" class="btn btn-primary" data-busy-text="Writing the summary...">{{ 'Regenerate Summary' if summary else 'Generate AI Summary' }}</button>
+    <button type="submit" class="btn btn-ghost" formaction="/progress/notes">Save Notes</button>
   </form>
   {% endif %}
 </section>

@@ -286,7 +286,10 @@ h2 { font-size: 1.2rem; margin: 0; }
 /* ---------- dashboard: new peptide alert ---------- */
 .new-peptide-alert a { overflow-wrap: anywhere; }
 .new-peptide-alert /* the AI summary on the Progress Review: plain text kept as written, so its line breaks and headings survive */
-.ai-summary { white-space: pre-wrap; line-height: 1.5; margin: 0 0 10px; }
+.ai-summary { line-height: 1.5; margin: 0 0 10px; }
+.ai-summary h3 { margin: 14px 0 4px; font-size: 1rem; }
+.ai-summary p { margin: 0 0 6px; }
+.ai-summary ul { margin: 0 0 6px; padding-left: 20px; }
 form.inline { display: inline; margin-left: 6px; }
 .new-peptide-alert .btn { padding: 1px 8px; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border); }
 .dash-area-alerts summary { cursor: pointer; }

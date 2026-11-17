@@ -199,7 +199,7 @@
 
       <div class="settings-form" id="ai">
         <h3 class="small muted">AI Summary</h3>
-        <p class="small muted">Pick the AI agent that writes the one-page summary on the Progress Review page. When you press <strong>Generate AI Summary</strong> there, Amide sends only that page's numbers for the chosen dates (no name, e-mail, notes or photos) to the agent you pick here, with your key. Nothing is sent at any other time. Chat subscriptions such as Claude.ai or ChatGPT usually do not include an API key: the key comes from the provider's developer console and is billed separately. Choose &ldquo;My own server&rdquo; to keep everything at home. The key is kept with your account and is never shown again or included in your exports.</p>
+        <p class="small muted">Pick the AI agent that writes the one-page summary on the Progress Review page. When you press <strong>Generate AI Summary</strong> there, Amide sends only that page's numbers for the chosen dates (plus the notes you keep on that page; no name, e-mail or photos) to the agent you pick here, with your key. Nothing is sent at any other time. Chat subscriptions such as Claude.ai or ChatGPT usually do not include an API key: the key comes from the provider's developer console and is billed separately. Choose &ldquo;My own server&rdquo; to keep everything at home. The key is kept with your account and is never shown again or included in your exports.</p>
         <form method="post" action="/settings/ai" novalidate>
           <label class="field {{ 'has-error' if errors.ai_provider }}"><span>Agent</span>
             <select name="ai_provider">

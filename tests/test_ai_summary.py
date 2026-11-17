@@ -50,7 +50,7 @@ def _clean_agent(client, me):
     with SessionLocal() as s:
         s.query(ProgressSummary).delete()
         user = s.get(User, me)
-        user.ai_provider = user.ai_model = user.ai_base_url = user.ai_api_key = None
+        user.ai_provider = user.ai_model = user.ai_base_url = user.ai_api_key = user.ai_notes = None
         s.query(BodyMeasurement).filter_by(owner_id=me).delete()
         s.commit()
 
@@ -169,3 +169,38 @@ def test_a_stray_server_address_never_redirects_claude_or_openai(client, db, me,
         s.commit()
     client.post("/progress/summary", data=FORM)
     assert agent[0]["url"] == "https://api.anthropic.com/v1/messages"
+
+
+def test_the_notes_stay_on_the_page_for_every_range_and_go_to_the_agent(client, db, me, agent):
+    _seed(me)
+    _choose(client, ai_provider="anthropic", ai_api_key="k-12345")
+    other = {"start": START.isoformat(), "end": (END + timedelta(days=3)).isoformat()}
+    client.post("/progress/notes", data={**FORM, "notes": "Goal: lose fat, keep muscle. Retatrutide 2 mg weekly since Oct 12."})
+    assert agent == []                                                                          # saving notes asks the agent nothing
+    for form in (FORM, other):
+        assert "Goal: lose fat, keep muscle." in client.get(f"/progress?start={form['start']}&end={form['end']}").text
+    client.post("/progress/summary", data={**FORM, "notes": "Goal: lose fat, keep muscle. Also: BP was low on Nov 3."})
+    sent = agent[0]["body"]["messages"][0]["content"]
+    assert "BP was low on Nov 3." in sent and "Weight pace over this period: -2.4 lbs per week" in sent
+    assert "Goal: lose fat" in client.get(f"/progress?{RANGE}").text
+    client.post("/progress/notes", data={**FORM, "notes": ""})
+    with SessionLocal() as s:
+        assert s.get(User, me).ai_notes is None
+
+
+def test_the_summary_is_shown_as_headings_and_bullets_and_stays_safe(client, db, me):
+    html = str(ai_summary.to_html("## Verdict\nGoing well <b>fast</b>.\n## Do Next\n- Repeat labs **soon**\n- Eat more protein\nDone."))
+    assert html == ("<h3>Verdict</h3><p>Going well &lt;b&gt;fast&lt;/b&gt;.</p><h3>Do Next</h3>"
+                    "<ul><li>Repeat labs <strong>soon</strong></li><li>Eat more protein</li></ul><p>Done.</p>")
+
+
+def test_the_facts_place_a_lab_inside_the_period_and_the_prompt_asks_for_judgment_not_a_recap(client, db, me):
+    assert "never list or restate the data" in ai_summary.SYSTEM and "## Verdict" in ai_summary.SYSTEM and "per week over that period" in ai_summary.SYSTEM
+
+
+def test_an_answer_cut_off_by_the_length_limit_says_so(client, db, me, monkeypatch):
+    _seed(me)
+    _choose(client, ai_provider="anthropic", ai_api_key="k-12345")
+    monkeypatch.setattr(ai_summary, "post_json", lambda url, headers, body: {"content": [{"type": "text", "text": "## Verdict\nHalf a thou"}], "stop_reason": "max_tokens"})
+    client.post("/progress/summary", data=FORM)
+    assert "answer was cut off." in client.get(f"/progress?{RANGE}").text

@@ -1086,6 +1086,7 @@ class User(Base):
     ai_provider: Mapped[str | None] = mapped_column(String(12))      # the AI agent that writes the Progress Review summary: "anthropic", "openai" or "local"; none = off
     ai_model: Mapped[str | None] = mapped_column(String(80))
     ai_base_url: Mapped[str | None] = mapped_column(String(200))      # the server address, for "local" (or a proxy); the provider's own address when empty
+    ai_notes: Mapped[str | None] = mapped_column(Text)      # what the person wants the AI summary to take into account; kept on the Progress Review page
     ai_api_key: Mapped[str | None] = mapped_column(String(300))      # own key for that agent; never shown again, never in a profile export
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
