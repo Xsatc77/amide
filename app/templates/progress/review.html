@@ -15,6 +15,25 @@
   {% for label, (a, b) in quick.items() %}<a class="btn btn-ghost" href="/progress?start={{ a.isoformat() }}&end={{ b.isoformat() }}">{{ label }}</a>{% endfor %}
 </form>
 
+<section class="card" id="summary" aria-labelledby="summary-h">
+  <h2 id="summary-h" class="section-title">AI Summary</h2>
+  {% if ai_error %}<div class="alert" role="alert">{{ ai_error }}</div>{% endif %}
+  {% if summary %}
+  <div class="ai-summary">{{ summary.text }}</div>
+  <p class="muted small">Written {{ summary.created_at | shortdate }} by {{ summary.model }} from only the numbers on this page for {{ r.start | shortdate }} to {{ r.end | shortdate }}. An AI summary can be wrong: check it against the numbers below. It is not medical advice.</p>
+  {% elif not ai_ready %}
+  <p class="muted no-print">Choose an AI agent in <a href="/settings#ai">Settings</a> and this button will write a one-page, no-nonsense summary of this page's numbers.</p>
+  {% else %}
+  <p class="muted no-print">Sends only the numbers on this page for this date range to your chosen AI agent and keeps the one-page summary it writes.</p>
+  {% endif %}
+  {% if ai_ready %}
+  <form method="post" action="/progress/summary" class="no-print">
+    <input type="hidden" name="start" value="{{ r.start.isoformat() }}"><input type="hidden" name="end" value="{{ r.end.isoformat() }}">
+    <button type="submit" class="btn btn-primary" data-busy-text="Writing the summary...">{{ 'Regenerate Summary' if summary else 'Generate AI Summary' }}</button>
+  </form>
+  {% endif %}
+</section>
+
 {% if r.flags %}
 <section class="card" aria-labelledby="flags-h">
   <h2 id="flags-h" class="section-title">Flags</h2>
@@ -114,4 +133,4 @@
 </section>
 {% endblock %}
 
-{% block scripts %}<script src="{{ static_url('js/labels.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ static_url('js/labels.js') }}" defer></script><script src="{{ static_url('js/ai_summary.js') }}" defer></script>{% endblock %}

@@ -197,6 +197,27 @@
         </form>
       </div>
 
+      <div class="settings-form" id="ai">
+        <h3 class="small muted">AI Summary</h3>
+        <p class="small muted">Pick the AI agent that writes the one-page summary on the Progress Review page. When you press <strong>Generate AI Summary</strong> there, Amide sends only that page's numbers for the chosen dates (no name, e-mail, notes or photos) to the agent you pick here, with your key. Nothing is sent at any other time. Chat subscriptions such as Claude.ai or ChatGPT usually do not include an API key: the key comes from the provider's developer console and is billed separately. Choose &ldquo;My own server&rdquo; to keep everything at home. The key is kept with your account and is never shown again or included in your exports.</p>
+        <form method="post" action="/settings/ai" novalidate>
+          <label class="field {{ 'has-error' if errors.ai_provider }}"><span>Agent</span>
+            <select name="ai_provider">
+              <option value="">None (off)</option>
+              {% for key, p in ai_providers.items() %}<option value="{{ key }}" {{ 'selected' if me.ai_provider == key }}>{{ p.label }}</option>{% endfor %}
+            </select>{{ err('ai_provider') }}</label>
+          <label class="field {{ 'has-error' if errors.ai_model }}"><span>Model (Claude defaults to claude-sonnet-5-5 when empty)</span>
+            <input name="ai_model" maxlength="80" value="{{ me.ai_model or '' }}" autocomplete="off">{{ err('ai_model') }}</label>
+          <label class="field {{ 'has-error' if errors.ai_base_url }}"><span>Server address (needed for My own server, such as http://192.168.1.5:11434/v1)</span>
+            <input name="ai_base_url" maxlength="200" value="{{ me.ai_base_url or '' }}" autocomplete="off">{{ err('ai_base_url') }}</label>
+          {% if me.ai_api_key %}<p class="small">A key is saved for your account.</p>{% endif %}
+          <label class="field {{ 'has-error' if errors.ai_api_key }}"><span>{{ 'Replace the key' if me.ai_api_key else 'API key (not needed for My own server)' }}</span>
+            <input type="password" name="ai_api_key" maxlength="300" autocomplete="off">{{ err('ai_api_key') }}</label>
+          <button type="submit" class="btn btn-primary">Save</button>
+          {% if me.ai_provider %}<button type="submit" name="remove" value="1" class="btn btn-ghost">Turn off and remove the key</button>{% endif %}
+        </form>
+      </div>
+
       <div class="settings-form" id="calendar-feed">
         <h3 class="small muted">Subscribe To Your Calendar</h3>
         <p class="small muted">A private address your phone or computer calendar (Apple, Google, Outlook) can subscribe to. Every dose due in the next three months shows up at its time of day, with a pop-up alert. Anyone with the address can read your dose schedule, so keep it to yourself; making a new one cancels the old one.</p>

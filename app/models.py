@@ -1083,6 +1083,10 @@ class User(Base):
     ntfy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # push the dose reminders to ntfy
     ntfy_topic: Mapped[str | None] = mapped_column(String(100))
     usda_api_key: Mapped[str | None] = mapped_column(String(64))      # own FoodData Central key for live food search; never shown again, never in a profile export
+    ai_provider: Mapped[str | None] = mapped_column(String(12))      # the AI agent that writes the Progress Review summary: "anthropic", "openai" or "local"; none = off
+    ai_model: Mapped[str | None] = mapped_column(String(80))
+    ai_base_url: Mapped[str | None] = mapped_column(String(200))      # the server address, for "local" (or a proxy); the provider's own address when empty
+    ai_api_key: Mapped[str | None] = mapped_column(String(300))      # own key for that agent; never shown again, never in a profile export
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
     photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
@@ -1754,6 +1758,20 @@ class DashboardDismissal(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     alert_key: Mapped[str] = mapped_column(String(120))
     snoozed_until: Mapped[date | None] = mapped_column(Date)      # None = dismissed for good; a date = hidden until that day has passed
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
+
+
+class ProgressSummary(Base):
+    """The AI agent's one-page summary of one Progress Review date range, kept so it can be reopened without asking the agent again."""
+    __tablename__ = "progress_summaries"
+    __table_args__ = (UniqueConstraint("owner_id", "start_date", "end_date", name="uq_progress_summary_range"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    text: Mapped[str] = mapped_column(Text)
+    provider: Mapped[str] = mapped_column(String(12))
+    model: Mapped[str] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=naive_utcnow)
 
 

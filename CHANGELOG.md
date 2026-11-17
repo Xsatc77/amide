@@ -3,6 +3,8 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Progress Review: an AI Summary button.** Pick the agent in Settings (Claude, OpenAI, or your own Ollama or LM Studio server, with your own key). It sends only that page's numbers for the chosen dates, writes a one-page no-nonsense summary, and keeps it for that date range with a Regenerate button. Nothing is sent until you press it.
+- **Progress Review: the muscle-loss flag rounds its numbers** (it showed 1.1999999999999886 lbs).
 - **Body: a Chest measurement.** It has its own box on the entry form and the body diagram, its own chart, and a note like the other measurements.
 - **Body: the scale-import message just says "Smart Scale Data Imported Successfully".** It mentions the 12 hours only when scale data was already imported within 12 hours, and that reading is skipped.
 - **Dashboard: Today's Schedule rows fit on one line each.** The medicine name keeps its size; the dose, time and status shrink, so the Body panel is no longer pushed down.

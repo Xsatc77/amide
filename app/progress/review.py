@@ -168,7 +168,7 @@ def _flags(rules, rows, body, weeks, adherence, intake, journal, panels, last_fi
     fat, muscle = by.get("scale_fat_mass_lb"), by.get("scale_muscle_mass_lb")
     if fat and muscle and fat["_last"] < fat["_first"] and muscle["_last"] < muscle["_first"]:
         flags.append({"key": "muscle_loss",
-                      "text": f"Scale muscle mass fell {u.weight(muscle['_first'] - muscle['_last'])} {u.weight_label} while fat mass fell {u.weight(fat['_first'] - fat['_last'])} {u.weight_label}.",
+                      "text": f"Scale muscle mass fell {u.weight(muscle['_first'] - muscle['_last']):.1f} {u.weight_label} while fat mass fell {u.weight(fat['_first'] - fat['_last']):.1f} {u.weight_label}.",
                       "rule": "Scale muscle mass down over the period while fat mass is also down."})
     if journal["rated_days"] and journal["sleep_low_days"] / journal["rated_days"] * 100 >= rules.sleep_low_share_pct:
         flags.append({"key": "poor_sleep", "text": f"Sleep was rated {rules.sleep_low} or lower on {journal['sleep_low_days']} of {journal['rated_days']} rated days.",

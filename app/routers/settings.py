@@ -13,7 +13,7 @@ from datetime import date, timezone
 
 from app import version
 from app import clock
-from app import body_photos, config, links, reminders, units, uploads
+from app import ai_summary, body_photos, config, links, reminders, units, uploads
 from app.auth import devices, passwords, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
@@ -74,7 +74,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
         "db_revision": version.database_revision(session),
         "review_fields": _review_fields(),
-        "ntfy_server": config.NTFY_SERVER,
+        "ntfy_server": config.NTFY_SERVER, "ai_providers": ai_summary.PROVIDERS,
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
         "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
     }
@@ -238,6 +238,38 @@ async def change_usda_key(request: Request, session: Session = Depends(get_sessi
         me.usda_api_key = key
     session.commit()
     return RedirectResponse("/settings#usda", status_code=303)
+
+
+@router.post("/settings/ai")
+async def change_ai_agent(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """Choose the AI agent that writes the Progress Review summary, or turn it off. The key is kept with the account and never shown again."""
+    form = await request.form()
+    me = _me(session, uid)
+    provider = str(form.get("ai_provider") or "")
+    if form.get("remove") or not provider:
+        me.ai_provider = me.ai_model = me.ai_base_url = me.ai_api_key = None
+        session.commit()
+        return RedirectResponse("/settings#ai", status_code=303)
+    if provider not in ai_summary.PROVIDERS:
+        return _render(request, session, errors={"ai_provider": "Choose one of the agents listed."}, status_code=422)
+    model = str(form.get("ai_model") or "").strip()[:80]
+    base = str(form.get("ai_base_url") or "").strip().rstrip("/")[:200]
+    key = str(form.get("ai_api_key") or "").strip()[:300]
+    if base and not re.fullmatch(r"https?://[^\s/]+(/\S*)?", base):
+        return _render(request, session, errors={"ai_base_url": "Use a full address starting with http:// or https://."}, status_code=422)
+    if provider == "local" and not base:
+        return _render(request, session, errors={"ai_base_url": "Enter the address of your server, such as http://192.168.1.5:11434/v1 for Ollama."}, status_code=422)
+    if not model and not ai_summary.PROVIDERS[provider]["model"]:
+        return _render(request, session, errors={"ai_model": "Enter the model name this agent should use."}, status_code=422)
+    if provider != me.ai_provider:
+        me.ai_api_key = None                      # a key never carries over to a different agent
+    if key:
+        me.ai_api_key = key
+    if ai_summary.PROVIDERS[provider]["key"] and not me.ai_api_key:
+        return _render(request, session, errors={"ai_api_key": "This agent needs an API key."}, status_code=422)
+    me.ai_provider, me.ai_model, me.ai_base_url = provider, model or None, base or None
+    session.commit()
+    return RedirectResponse("/settings#ai", status_code=303)
 
 
 @router.post("/settings/reminders/test")
