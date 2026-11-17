@@ -75,6 +75,17 @@ def roll_forward(session: Session, uid: int, today: date) -> int:
     return moved
 
 
+class Mark(str):
+    """A calendar mark's text, which also knows the peptides it names (id, name) so the day view can link each to its library card."""
+    head: str
+    peptides: list
+
+    def __new__(cls, head: str, peptides: list):
+        mark = super().__new__(cls, head + (" for " + ", ".join(name for _, name in peptides) if peptides else ""))
+        mark.head, mark.peptides = head, peptides
+        return mark
+
+
 def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[date, list[str]]:
     """Days in [first, last] to mark on the calendar: the countdown to this run and to the next one, each as "Protocol name: Check stock (90 days to
     go)". A paused or ended protocol has none."""
@@ -83,11 +94,11 @@ def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[
         for run in (p.run_number, p.run_number + 1):
             start, _ = run_dates(p.anchor_start, p.repeat_months, p.short_days, run)
             before_end = run_dates(p.anchor_start, p.repeat_months, p.short_days, run - 1)[1] if run > 1 else None
-            names = ", ".join(i.peptide.name for i in p.items if joins_run(p.repeat_months, i.repeat_months, run))
+            named = [(i.peptide.id, i.peptide.name) for i in p.items if joins_run(p.repeat_months, i.repeat_months, run)]
             for offset, text in REMINDERS:
                 day = start - timedelta(days=offset)
                 if before_end is not None and day <= before_end:
                     continue
                 if first <= day <= last:
-                    marks.setdefault(day, []).append(f"{p.name}: {text} ({offset} days to go)" + (f" for {names}" if names else ""))
+                    marks.setdefault(day, []).append(Mark(f"{p.name}: {text} ({offset} days to go)", named))
     return marks

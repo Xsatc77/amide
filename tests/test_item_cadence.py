@@ -105,3 +105,13 @@ def test_editing_the_cadence_counts_the_runs_again_from_this_one(client, me):
     with SessionLocal() as s:
         p = s.get(Protocol, pid)
         assert (p.repeat_months, p.run_number, p.anchor_start) == (3, 1, date(2028, 10, 5))
+
+
+def test_the_day_view_links_each_named_peptide_to_its_library_card(client, me):
+    from app.models import Peptide
+    client.post("/protocols", data=post("Cadence G", [("Epithalon", "12"), ("Thymalin", "12")], start_date="2026-01-18"), follow_redirects=False)
+    with SessionLocal() as s:
+        ids = {p.name: p.id for p in s.scalars(select(Peptide).where(Peptide.name.in_(["Epithalon", "Thymalin"])))}
+    page = client.get("/calendar?view=day&date=2025-11-19").text
+    assert "Cadence G: Order missing stock (60 days to go) for" in page
+    assert f'<a href="/library/{ids["Epithalon"]}">Epithalon</a>, <a href="/library/{ids["Thymalin"]}">Thymalin</a>' in page

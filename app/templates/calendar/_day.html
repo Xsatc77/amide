@@ -2,7 +2,7 @@
 <div class="cal-day">
   {% if anchor in workout_dates or anchor in fitness_test_dates or anchor in photo_marks or anchor in journal_dates or anchor in course_marks %}
   <div class="cal-day-extras">
-    {% for text in course_marks.get(anchor, []) %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">🔔</span> {{ text }}</span>{% endfor %}
+    {% for m in course_marks.get(anchor, []) %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">🔔</span> {{ m.head }}{% if m.peptides %} for {% for pid, name in m.peptides %}<a href="/library/{{ pid }}">{{ name }}</a>{{ ', ' if not loop.last }}{% endfor %}{% endif %}</span>{% endfor %}
     {% for text, key in photo_entries.get(anchor, []) %}<span class="tag tag-plain"><span class="cal-icon" aria-hidden="true">📷</span> {{ text }}
       <form method="post" action="/dashboard/alerts/ignore-photo" class="inline photo-ignore"><input type="hidden" name="key" value="{{ key }}"><input type="hidden" name="back" value="{{ url('day', anchor) }}">
         <label><input type="checkbox" name="ignore" value="1" data-autosubmit> Ignore</label></form></span>{% endfor %}

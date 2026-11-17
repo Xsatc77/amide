@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Calendar: a protocol's stock reminder links each peptide it names to its library card** (day view).
 - **Settings: the AI agent's server address applies only to My own server.** A browser that autofilled it with Amide's own address made Claude and OpenAI summaries fail with "answer could not be read".
 - **Progress Review: an AI Summary button.** Pick the agent in Settings (Claude, OpenAI, or your own Ollama or LM Studio server, with your own key). It sends only that page's numbers for the chosen dates, writes a one-page no-nonsense summary, and keeps it for that date range with a Regenerate button. Nothing is sent until you press it.
 - **Progress Review: the AI Summary reads as a brief, not a recap.** It gives a verdict, what the numbers mean together judged against the date range's length and weekly pace, what to do next, and what the data cannot show, as headings and bullets. A notes box on the page, saved for you, tells it your goals, medicines and anything to weigh; the notes are sent with the numbers.
