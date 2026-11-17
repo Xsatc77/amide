@@ -181,7 +181,7 @@ def _plan_json(plan: Plan, chosen_total: float | None = None) -> dict:
            "missing": [n.name for n in plan.missing],
            "sources": [{"vendor": s.vendor_name, "vendor_id": s.vendor_id, "warehouse": s.warehouse, "list_date": s.list_date.isoformat(), "shipping": s.shipping,
                         "items_total": s.items_total, "total": s.total,
-                        "lines": [{"peptide": l.need.name, "size_label": l.offer.size_label, "pack_type": l.offer.pack_type, "pack_size": l.offer.pack_size,
+                        "lines": [{"peptide": l.need.name, "peptide_id": int(l.need.key) if l.need.key.isdigit() else None, "size_label": l.offer.size_label, "pack_type": l.offer.pack_type, "pack_size": l.offer.pack_size,
                                    "packs": l.packs, "vials_needed": l.vials, "per_vial": round(l.offer.pack_price / l.offer.pack_size, 2), "cost": l.cost,
                                    "leftover_vials": l.leftover_vials} for l in s.lines]} for s in plan.sources]}
     if chosen_total is not None:

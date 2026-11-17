@@ -46,7 +46,13 @@
       for (const l of s.lines) {
         const tr = el("tr");
         const pack = l.pack_type || (l.pack_size === 1 ? "single" : `pack of ${l.pack_size}`);
-        tr.append(el("td", "", `${l.peptide} ${l.size_label}`),
+        const nameCell = el("td");
+        if (l.peptide_id) {
+          const a = el("a", "", l.peptide);
+          a.href = `/library/${l.peptide_id}`;
+          nameCell.append(a, ` ${l.size_label}`);
+        } else nameCell.textContent = `${l.peptide} ${l.size_label}`;
+        tr.append(nameCell,
                   el("td", "", `${l.packs} × ${pack} (${l.vials_needed} vial${l.vials_needed === 1 ? "" : "s"} needed)`),
                   el("td", "", money(l.per_vial)), el("td", "", money(l.cost)),
                   el("td", "", l.leftover_vials ? `${l.leftover_vials} vial${l.leftover_vials === 1 ? "" : "s"}` : "none"));

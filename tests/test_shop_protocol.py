@@ -77,7 +77,8 @@ def test_the_best_single_vendor_plan_is_returned_with_its_lines_and_shipping(cli
     source = plan["sources"][0]
     assert source["warehouse"] == "china" and source["shipping"] == 60 and source["items_total"] == pytest.approx(400.0)
     line = source["lines"][0]
-    assert {"peptide", "size_label", "packs", "pack_size", "vials_needed", "per_vial", "cost", "leftover_vials", "pack_type"} <= set(line)
+    assert {"peptide", "size_label", "packs", "pack_size", "vials_needed", "per_vial", "cost", "leftover_vials", "pack_type", "peptide_id"} <= set(line)
+    assert isinstance(line["peptide_id"], int)                  # the dialog links each name to its library card
     assert line["packs"] == 1 and line["vials_needed"] == 2 and line["per_vial"] == pytest.approx(20.0) and line["leftover_vials"] == 8
 
 
