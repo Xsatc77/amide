@@ -158,3 +158,14 @@ def test_the_muscle_loss_flag_rounds_its_numbers(client, db, me):
         r = review.build(s, s.get(User, me), START, END)
     text = next(f["text"] for f in r["flags"] if f["key"] == "muscle_loss")
     assert "fell 1.2 lbs while fat mass fell 14.6 lbs" in text
+
+
+def test_a_stray_server_address_never_redirects_claude_or_openai(client, db, me, agent):
+    _seed(me)
+    _choose(client, ai_provider="anthropic", ai_api_key="sk-test-secret-123", ai_base_url="http://192.168.1.3:1707")      # e.g. autofilled with Amide's own address
+    with SessionLocal() as s:
+        assert s.get(User, me).ai_base_url is None
+        s.get(User, me).ai_base_url = "http://192.168.1.3:1707"                                   # a value saved before this rule
+        s.commit()
+    client.post("/progress/summary", data=FORM)
+    assert agent[0]["url"] == "https://api.anthropic.com/v1/messages"

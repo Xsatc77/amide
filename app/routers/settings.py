@@ -253,7 +253,7 @@ async def change_ai_agent(request: Request, session: Session = Depends(get_sessi
     if provider not in ai_summary.PROVIDERS:
         return _render(request, session, errors={"ai_provider": "Choose one of the agents listed."}, status_code=422)
     model = str(form.get("ai_model") or "").strip()[:80]
-    base = str(form.get("ai_base_url") or "").strip().rstrip("/")[:200]
+    base = str(form.get("ai_base_url") or "").strip().rstrip("/")[:200] if provider == "local" else ""      # only My own server uses an address
     key = str(form.get("ai_api_key") or "").strip()[:300]
     if base and not re.fullmatch(r"https?://[^\s/]+(/\S*)?", base):
         return _render(request, session, errors={"ai_base_url": "Use a full address starting with http:// or https://."}, status_code=422)

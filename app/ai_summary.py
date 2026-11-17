@@ -43,7 +43,9 @@ def _model(user: User) -> str:
 
 
 def _base(user: User) -> str:
-    return (user.ai_base_url or PROVIDERS.get(user.ai_provider or "", {}).get("base") or "").strip().rstrip("/")
+    """Claude and OpenAI always go to their own address; only "My own server" uses the address the person typed (a browser can autofill that box with Amide's own address)."""
+    own = (user.ai_base_url or "").strip().rstrip("/") if user.ai_provider == "local" else ""
+    return own or (PROVIDERS.get(user.ai_provider or "", {}).get("base") or "").strip().rstrip("/")
 
 
 def _num(value, places: int = 1) -> str:

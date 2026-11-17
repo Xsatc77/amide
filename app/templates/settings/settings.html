@@ -208,7 +208,7 @@
             </select>{{ err('ai_provider') }}</label>
           <label class="field {{ 'has-error' if errors.ai_model }}"><span>Model (Claude defaults to claude-sonnet-5-5 when empty)</span>
             <input name="ai_model" maxlength="80" value="{{ me.ai_model or '' }}" autocomplete="off">{{ err('ai_model') }}</label>
-          <label class="field {{ 'has-error' if errors.ai_base_url }}"><span>Server address (needed for My own server, such as http://192.168.1.5:11434/v1)</span>
+          <label class="field {{ 'has-error' if errors.ai_base_url }}"><span>Server address (only for My own server, such as http://192.168.1.5:11434/v1; leave empty for Claude and OpenAI)</span>
             <input name="ai_base_url" maxlength="200" value="{{ me.ai_base_url or '' }}" autocomplete="off">{{ err('ai_base_url') }}</label>
           {% if me.ai_api_key %}<p class="small">A key is saved for your account.</p>{% endif %}
           <label class="field {{ 'has-error' if errors.ai_api_key }}"><span>{{ 'Replace the key' if me.ai_api_key else 'API key (not needed for My own server)' }}</span>
