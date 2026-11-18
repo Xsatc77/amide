@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 REPEAT_CHOICES = ((12, "Annually"), (6, "Semiannually"), (3, "Quarterly"))
-MAX_SHORT_DAYS = 30
+MAX_SHORT_DAYS = 84                   # 12 weeks
 
 # Days before a run starts, and what to say. Dropped when it would land inside the run before.
 REMINDERS = ((90, "Check stock"), (60, "Order missing stock"), (30, "Stock check"), (14, "General reminder"), (7, "7 Day Water Fast"))

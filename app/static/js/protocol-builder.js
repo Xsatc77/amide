@@ -11,7 +11,7 @@
     short: $("b-short"), shortDays: $("b-short-days"), endLabel: $("b-end-label"), or: $("b-or"),
   };
   const SHORT_GOAL = "annual-short-term";      // the goal that turns this into the short-course builder (days, per-item run days, repeats)
-  const MAX_SHORT_DAYS = 30;
+  const MAX_SHORT_DAYS = 84;
 
   const peptideById = new Map(data.peptides.map((p) => [String(p.id), p]));
   const peptideByName = new Map(data.peptides.map((p) => [p.name.toLowerCase(), p]));

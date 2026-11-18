@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Protocols: a short course can now be up to 12 weeks (84 days) long** in the Protocol length dropdown, up from 30 days.
 - **TRT calculator: How Often has a Select days choice.** Tick the weekdays you inject, as in the protocol builder; the injections a week are the days ticked, and the days are kept in the shared link.
 - **Protocols: the Shop this protocol plan links each peptide to its library card.**
 - **Calendar: a protocol's stock reminder links each peptide it names to its library card** (day view).
