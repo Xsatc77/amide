@@ -51,6 +51,7 @@
       if (!chip) return;
       state[key] = chip.dataset.value;
       chips.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
+      if (key === "freq") $("trt-days").hidden = state.freq !== "days";
       buildScale();
       recompute();
     });
@@ -74,7 +75,7 @@
     }
   }
 
-  const query = () => new URLSearchParams({ conc: state.conc, weekly: state.weekly, freq: state.freq, vial_ml: state.vial_ml, syringe_ml: state.syringe_ml });
+  const query = () => new URLSearchParams({ conc: state.conc, weekly: state.weekly, freq: state.freq, days: state.days, vial_ml: state.vial_ml, syringe_ml: state.syringe_ml });
 
   async function recompute() {
     const params = query();
@@ -109,6 +110,10 @@
     $("trt-fill").classList.toggle("over", r.over_capacity);
   }
 
+  $("trt-days").addEventListener("change", () => {
+    state.days = Array.from($("trt-days").querySelectorAll("input:checked")).map((x) => x.value).join("");
+    recompute();
+  });
   presets("trt-conc-chips", "trt-conc-other", "trt-conc", "conc");
   presets("trt-weekly-chips", "trt-weekly-other", "trt-weekly", "weekly");
   singleChoice("trt-freq-chips", "freq");

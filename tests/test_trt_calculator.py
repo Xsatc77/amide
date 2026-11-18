@@ -78,3 +78,18 @@ def test_a_testosterone_card_links_to_the_trt_calculator_and_other_cards_do_not(
     db.commit()
     assert "/calculator/trt" in client.get(f"/library/{testo.id}").text
     assert "/calculator/trt" not in client.get(f"/library/{other.id}").text
+
+
+def test_select_days_uses_the_number_of_days_picked():
+    from app.calculator.trt import compute_trt, picked_days
+    r = compute_trt(250, 200, "days", 1.0, None, "MWF")
+    assert r.injections_per_week == 3 and r.mg_per_injection == pytest.approx(200 / 3)
+    assert picked_days("fxMm") == "MF"                       # invalid letters dropped, Monday first, once each
+    assert compute_trt(250, 200, "days", 1.0, None, "").problems == ["the days"]
+
+
+def test_the_page_and_api_carry_the_picked_days(client, db, me):
+    r = client.get("/api/calculator/trt", params={"conc": "250", "weekly": "200", "freq": "days", "days": "MTWRFSU"}).json()
+    assert r["injections_per_week"] == 7
+    page = client.get("/calculator/trt?conc=250&weekly=200&freq=days&days=MW").text
+    assert "Select days" in page and 'value="M" checked' in page and 'value="T" checked' not in page

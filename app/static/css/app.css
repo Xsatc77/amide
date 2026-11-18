@@ -805,7 +805,7 @@ summary.btn::-webkit-details-marker { display: none; }
 .day-pick span { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; cursor: pointer; background: var(--surface); }
 .day-pick input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .day-pick input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
-.freq-extra[hidden] { display: none; }
+.freq-extra[hidden], .weekday-picks[hidden] { display: none; }
 
 /* Titration steps stay in the form (and are submitted) but only show when Titration is ticked. */
 .steps { display: none; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }

@@ -35,8 +35,12 @@
       <legend>How Often</legend>
       <div class="chips" id="trt-freq-chips">
         {% for key, (per_week, label) in frequencies.items() %}<button type="button" class="chip" data-value="{{ key }}" aria-pressed="{{ 'true' if state.freq == key else 'false' }}">{{ label }}</button>{% endfor %}
+        <button type="button" class="chip" data-value="days" aria-pressed="{{ 'true' if state.freq == 'days' else 'false' }}">Select days</button>
       </div>
-      <p class="muted small">Every other day averages 3.5 injections a week.</p>
+      <div class="weekday-picks" id="trt-days" role="group" aria-label="Injection days" {{ 'hidden' if state.freq != 'days' }}>
+        {% for letter, name in weekdays.items() %}<label class="day-pick"><input type="checkbox" value="{{ letter }}" {{ 'checked' if letter in state.days }}><span>{{ name }}</span></label>{% endfor %}
+      </div>
+      <p class="muted small">Every other day averages 3.5 injections a week. Select days uses the days you tick.</p>
     </fieldset>
 
     <fieldset class="form-section">

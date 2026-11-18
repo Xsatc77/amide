@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **TRT calculator: How Often has a Select days choice.** Tick the weekdays you inject, as in the protocol builder; the injections a week are the days ticked, and the days are kept in the shared link.
 - **Protocols: the Shop this protocol plan links each peptide to its library card.**
 - **Calendar: a protocol's stock reminder links each peptide it names to its library card** (day view).
 - **Settings: the AI agent's server address applies only to My own server.** A browser that autofilled it with Amide's own address made Claude and OpenAI summaries fail with "answer could not be read".

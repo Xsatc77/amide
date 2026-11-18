@@ -16,6 +16,8 @@ FREQUENCIES = {
     "eod": (3.5, "Every other day"),
     "daily": (7.0, "Daily"),
 }
+DAYS = "days"                       # "Select days": the injections a week are the days picked
+WEEKDAY_LETTERS = "MTWRFSU"
 MAX_CONCENTRATION_MG_ML = 1000.0
 MAX_WEEKLY_MG = 5000.0
 
@@ -42,7 +44,12 @@ def _positive(value, ceiling: float) -> float | None:
     return value if math.isfinite(value) and 0 < value <= ceiling else None
 
 
-def compute_trt(conc_mg_ml, weekly_mg, frequency, syringe_ml: float = 1.0, vial_ml=None) -> TrtResult:
+def picked_days(days) -> str:
+    """The valid weekday letters in `days`, once each, Monday first."""
+    return "".join(d for d in WEEKDAY_LETTERS if d in str(days or "").upper())
+
+
+def compute_trt(conc_mg_ml, weekly_mg, frequency, syringe_ml: float = 1.0, vial_ml=None, days="") -> TrtResult:
     result = TrtResult()
     conc = _positive(conc_mg_ml, MAX_CONCENTRATION_MG_ML)
     weekly = _positive(weekly_mg, MAX_WEEKLY_MG)
@@ -50,11 +57,14 @@ def compute_trt(conc_mg_ml, weekly_mg, frequency, syringe_ml: float = 1.0, vial_
         result.problems.append("concentration")
     if weekly is None:
         result.problems.append("weekly dose")
-    if frequency not in FREQUENCIES:
+    if frequency == DAYS:
+        if not picked_days(days):
+            result.problems.append("the days")
+    elif frequency not in FREQUENCIES:
         result.problems.append("frequency")
     if result.problems:
         return result
-    per_week = FREQUENCIES[frequency][0]
+    per_week = float(len(picked_days(days))) if frequency == DAYS else FREQUENCIES[frequency][0]
     result.injections_per_week = per_week
     result.mg_per_injection = weekly / per_week
     result.ml_per_injection = result.mg_per_injection / conc
