@@ -23,6 +23,16 @@
   <a class="btn btn-ghost" href="{{ next_page }}">Back</a>
   <a class="btn btn-ghost" href="/settings">Label settings</a>
 </div>
+{% if order_id %}
+<section class="label-tools no-print" aria-labelledby="avery-order-heading">
+  <h2 id="avery-order-heading" class="section-title">Avery 94500 Round Labels</h2>
+  <form method="get" action="/inventory/orders/{{ order_id }}/labels.docx" class="avery-form">
+    <label>Start at label # <input type="number" name="start" value="1" min="1" max="48" required></label>
+    <button type="submit" class="btn">Download Word File</button>
+  </form>
+  <p class="muted small">One label for each vial received, with its own lot and expiration. The circles are numbered from 1 at the top left, across each row, to 48 at the bottom right.</p>
+</section>
+{% endif %}
 {% if pages %}
 <div class="label-sheet label-custom{{ ' round' if shape == 'round' }}"{% if auto %} data-auto-print data-next="{{ next_page }}"{% endif %}>
   {% for page in pages %}<div class="label-page">{% for l in page %}{{ label_card(l) }}{% endfor %}</div>{% endfor %}

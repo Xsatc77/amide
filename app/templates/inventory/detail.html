@@ -37,6 +37,20 @@
   {% endif %}
 </section>
 
+{% if is_owner and item.category.value == 'Medicine' %}
+<section aria-labelledby="avery-heading">
+  <h2 id="avery-heading" class="section-title">Print Avery 94500 Labels</h2>
+  <form method="get" action="/inventory/{{ item.id }}/labels.docx" class="avery-form">
+    <label>How many labels <input type="number" name="count" value="{{ [item.count, 1] | max }}" min="1" max="480" required></label>
+    <label>Start at label # <input type="number" name="start" value="1" min="1" max="48" required></label>
+    <label>Lot <input type="text" name="lot" value="{{ item.lot_label }}" maxlength="20"></label>
+    <label>Expiration (MM/YY) <input type="text" name="exp" value="{% if item.next_expiration %}{{ '%02d/%02d' % (item.next_expiration.month, item.next_expiration.year % 100) }}{% endif %}" placeholder="12/27" maxlength="7"></label>
+    <button type="submit" class="btn">Download Word File</button>
+  </form>
+  <p class="muted small">The circles on the Avery sheet are numbered from 1 at the top left, across each row, to 48 at the bottom right. Start at the first circle that still has a label on it. Print the Word file at 100% scale.</p>
+</section>
+{% endif %}
+
 {% if is_owner %}
 {% set ef = form or edit_data %}
 {% macro ierr(field) %}{% if errors and errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}

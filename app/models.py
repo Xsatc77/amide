@@ -1846,3 +1846,12 @@ class HealthMetricChoice(Base):
     metric: Mapped[str] = mapped_column(String(80))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=naive_utcnow)      # None: received, not yet decided
+
+
+class ElementSymbol(Base):
+    """The one- to three-letter periodic-table symbol a peptide wears on its labels (Rt, Bp, ...). Kept in the database, one per name and never two names with
+    the same letters, so it stays the same from one print to the next. Handed out the first time a name needs one (see app/inventory/symbols.py)."""
+    __tablename__ = "element_symbols"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(200, collation="NOCASE"), unique=True)
+    symbol: Mapped[str] = mapped_column(String(4, collation="NOCASE"), unique=True)

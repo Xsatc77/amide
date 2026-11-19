@@ -132,6 +132,9 @@ SECTIONS: dict[str, Section] = {s.key: s for s in (
         Tbl("vendor_wallets", file=("qr_filename", "wallet_qr"), share_drop=True),
         Tbl("vendor_favorites", share_drop=True)),
         shareable=True, help="Vendors with contacts, accepted payment methods, wallets and attached price-list files."),
+    Section("label_symbols", "Label symbols", INSTALLATION, (
+        Tbl("element_symbols"),),
+        help="The periodic-table letters each peptide wears on its labels, so a restore keeps every label the same. Whole-installation backups only."),
     Section("price_lists", "Price lists", INSTALLATION, (
         Tbl("price_lists"), Tbl("price_list_items"), Tbl("price_alert_ignores", share_drop=True), Tbl("price_corrections", share_drop=True)),
         shareable=True, help="Imported vendor price lists and their items."),

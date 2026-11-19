@@ -15,7 +15,7 @@ from app.auth.deps import current_user_id
 from app.auth.sessions import now_utc
 from app.db import get_session
 from app.inventory.consumption import BAC_BOTTLE_DAYS, LYOPHILIZED_SHELF_DAYS, apply_plan, plan_pen_conversion
-from app.inventory import calibrate, supply_stock
+from app.inventory import calibrate, supply_stock, symbols
 from app.inventory.gauge import vial_gauges
 from app.inventory.symbol import symbol
 from app.inventory.groups import group_items, lot_covering, lots, medium_of, single_rows, sort_use_first
@@ -807,7 +807,7 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
             "switch_lines": _switch_lines(session, uid),
             "routes": list(Route), "dose_units": list(DoseUnit),
             "calibrate_vials": calibrate.dialog_vials(session, uid, request.query_params.get("calibrate"), calibrate_ids), "calibrate_errors": calibrate_errors or {},
-            "vial_symbols": {v.id: symbol(vial_items[v.inventory_item_id].name) for v in vials if v.inventory_item_id in vial_items},
+            "vial_symbols": _vial_symbols(session, vials, vial_items),
             "vial_items": vial_items,
             "vial_owner_names": vial_owner_names,
             "expired_prompts": expired_prompts,
@@ -881,6 +881,13 @@ def stock_breakdown(item_id: int, request: Request, session: Session = Depends(g
     rows.sort(key=lambda r: (r["lot"].expiration is None, r["lot"].expiration or date.max, r["lot"].arrival or date.max))      # soonest expiry first, across sizes
     on_the_way = [(line, li) for line in group.items for li in line.order_items if li.order.arrival_date is None]
     return templates.TemplateResponse(request, "inventory/group.html", {"group": group, "rows": rows, "on_the_way": on_the_way, "viewer_id": uid})
+
+
+def _vial_symbols(session: Session, vials, vial_items) -> dict:
+    """Each open vial's tile letters, from the stored symbols (handed out now for a name that has none, and kept)."""
+    out = {v.id: symbols.symbol_for(session, vial_items[v.inventory_item_id].name) for v in vials if v.inventory_item_id in vial_items}
+    session.commit()
+    return out
 
 
 @router.get("/inventory/{item_id}")
