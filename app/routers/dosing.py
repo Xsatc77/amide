@@ -12,9 +12,10 @@ from app import clock
 from app.calculator import units as unit_math
 from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
+from app.dosing import syringe
 from app.dosing.site import eligible_sites, recommend
 from app.inventory import consumption, unit_use
-from app.models import TIME_ORDER, ActiveVial, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Medium, Protocol, ProtocolItem, User
+from app.models import TIME_ORDER, ActiveVial, DispensingMethod, DoseLog, DoseStatus, DoseUnit, InjectionSite, InventoryItem, Medium, Protocol, ProtocolItem, User
 from app.protocols import repeat
 from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
@@ -68,9 +69,9 @@ def _syringe_units(session: Session, pi: ProtocolItem | None, dose: float | None
     if pi is None or pi.inventory_item_id is None or not dose:
         return None
     vial = _open_vial_for_item(session, pi.inventory_item_id)
-    if vial is None or vial.dispensing_method.value != "syringe":
+    if vial is not None and vial.dispensing_method.value != "syringe":
         return None
-    volume = _dose_volume_ml(dose, pi.dose_unit, vial)
+    volume = syringe.volume_for(dose, pi.dose_unit, syringe.concentration(vial, pi.inventory_item))      # an open vial's strength, else a liquid item's
     return None if volume is None else round(volume * SYRINGE_UNITS_PER_ML, 1)
 
 
@@ -90,14 +91,18 @@ def _picker_last(site: InjectionSite | None) -> str | None:
     return {InjectionSite.ABDOMEN_L: InjectionSite.ABDOMEN_L_INNER, InjectionSite.ABDOMEN_R: InjectionSite.ABDOMEN_R_INNER}.get(site, site).value
 
 
-def _last_dose_for_peptide(session: Session, uid: int, peptide_id: int) -> str | None:
-    """The newest dose actually taken of this peptide, as "250 mcg on 10/28/2026" (None when none was ever logged with an amount)."""
-    log = session.scalar(
+def _last_dose_log(session: Session, uid: int, peptide_id: int) -> DoseLog | None:
+    return session.scalar(
         select(DoseLog)
         .where(DoseLog.owner_id == uid, DoseLog.peptide_id == peptide_id, DoseLog.status.in_((DoseStatus.ON_TIME, DoseStatus.LATE)),
                DoseLog.dose_value.is_not(None))
         .order_by(DoseLog.scheduled_date.desc(), DoseLog.id.desc())
     )
+
+
+def _last_dose_for_peptide(session: Session, uid: int, peptide_id: int) -> str | None:
+    """The newest dose actually taken of this peptide, as "250 mcg on 10/28/2026" (None when none was ever logged with an amount)."""
+    log = _last_dose_log(session, uid, peptide_id)
     return f"{log.dose_value:g} {log.dose_unit.value} on {log.scheduled_date.strftime('%m/%d/%Y')}" if log else None
 
 
@@ -150,18 +155,29 @@ def _log_item(session: Session, uid: int, protocol_id: int, item: ProtocolItem, 
     if typed_dose is not None:
         effective_dose = typed_dose
 
+    picked = syringe.chosen(session, uid, form.get("syringe_item_id"))        # the syringe picked with the injection site: its units to the mL, and the one used up
+    per_ml = syringe.units_per_ml(picked)
     vial = None
     volume_ml = None
     if item.inventory_item_id is not None:
         vial = _open_vial_for_item(session, item.inventory_item_id)
+        conc = syringe.concentration(vial, session.get(InventoryItem, item.inventory_item_id))
         if vial is not None:
             if typed_units is not None and vial.dispensing_method.value == "syringe" and vial.concentration_mg_ml:
-                volume_ml = typed_units / SYRINGE_UNITS_PER_ML          # what was drawn decides the dose: units -> mL -> the vial's unit -> the protocol's unit
+                volume_ml = typed_units / per_ml          # what was drawn decides the dose: units -> mL -> the vial's unit -> the protocol's unit
                 taken = unit_math.convert(volume_ml * vial.concentration_mg_ml, vial.vial_unit or "mg", item.dose_unit.value, vial.iu_per_mg)
                 if taken is not None:
                     effective_dose = round(taken, 6)
             else:
                 volume_ml = _dose_volume_ml(effective_dose, item.dose_unit, vial)
+        elif conc is not None:                                           # a liquid with no open vial: its strength still says what the units on the syringe come to
+            if typed_units is not None:
+                volume_ml = typed_units / per_ml
+                taken = unit_math.convert(volume_ml * conc.per_ml, conc.unit, item.dose_unit.value, conc.iu_per_mg)
+                if taken is not None:
+                    effective_dose = round(taken, 6)
+            else:
+                volume_ml = syringe.volume_for(effective_dose, item.dose_unit, conc)
 
     # Site parsing/recommendation runs whenever this item's route uses injection sites at all --
     # NOT only when a vial happens to be available -- so a user's explicit site choice is never
@@ -189,7 +205,13 @@ def _log_item(session: Session, uid: int, protocol_id: int, item: ProtocolItem, 
         share = unit_use.units_for_dose(stock, effective_dose, item.dose_unit)
         if share is not None:
             units_taken = unit_use.take(stock, share)
-    supplies = consumption.use_for_shot(session, uid, vial.dispensing_method) if vial is not None else {}
+    pen = vial is not None and vial.dispensing_method == DispensingMethod.PEN
+    if vial is not None:
+        supplies = consumption.use_for_shot(session, uid, vial.dispensing_method, None if pen else picked)
+    elif picked is not None:                                              # no open vial, but a syringe was picked for this shot: that one is used up
+        supplies = consumption.use_for_shot(session, uid, DispensingMethod.SYRINGE, picked)
+    else:
+        supplies = {}
     session.add(DoseLog(
         owner_id=uid, protocol_id=protocol_id, protocol_item_id=item.id, active_vial_id=vial.id if vial else None,
         peptide_id=item.peptide_id, peptide_name=item.peptide.name, dose_value=effective_dose,
@@ -264,9 +286,16 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
         if sites:
             last = _last_site_for_peptide(session, uid, item.peptide_id)
             calc = {"dose_value": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit, "inventory_item_id": stocked.get(item.protocol_item_id) or ""}
+            pi = protocol_items_by_id.get(item.protocol_item_id)
+            vial = _open_vial_for_item(session, pi.inventory_item_id) if pi is not None and pi.inventory_item_id is not None else None
+            conc = None if pi is None or (vial is not None and vial.dispensing_method == DispensingMethod.PEN) else syringe.concentration(vial, pi.inventory_item)
+            dose_ml = syringe.volume_for(item.dose, pi.dose_unit, conc) if pi is not None else None
+            last_log = _last_dose_log(session, uid, item.peptide_id)
+            last_ml = (last_log.volume_ml or syringe.volume_for(last_log.dose_value, last_log.dose_unit, conc)) if last_log is not None else None
             site_data[item.protocol_item_id] = {
                 "peptide": item.peptide,
-                "dose": (f"{item.dose:g} {item.unit}" + (f" ({syringe_units[item.protocol_item_id]} units)" if item.protocol_item_id in syringe_units else "")) if item.dose else None,
+                "dose": f"{item.dose:g} {item.unit}" if item.dose else None,
+                "dose_ml": dose_ml, "last_ml": last_ml,
                 "dose_amount": syringe_units.get(item.protocol_item_id) or (f"{item.dose:g}" if item.dose else ""),
                 "dose_unit": "units" if item.protocol_item_id in syringe_units else item.unit,
                 "on_syringe": item.protocol_item_id in syringe_units,
@@ -284,7 +313,8 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
         if pi is None or pi.inventory_item_id is None:
             continue
         vial = _open_vial_for_item(session, pi.inventory_item_id)
-        if vial is None:
+        liquid = vial is None and syringe.concentration(None, pi.inventory_item) is not None            # a liquid is drawn from its own strength, with no vial to open
+        if vial is None and not liquid:
             stock = pi.inventory_item
             if stock is not None and stock.medium == Medium.LYOPHILIZED:       # a powder with no mixed vial: offer the calculator, with this item and dose filled in (it says if none is left)
                 calc = {"inventory_item_id": stock.id, "dose_value": f"{item.dose:g}" if item.dose else "", "dose_unit": item.unit}
@@ -293,10 +323,10 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
         # item.dose (the DueItem) is already the titration-adjusted dose for today, computed by
         # _due_item() -- pi.dose is the item's untitrated base dose, which would show a volume
         # that doesn't match the dose displayed right next to it on a titrated protocol.
-        vol = _dose_volume_ml(item.dose, pi.dose_unit, vial)
+        vol = syringe.volume_for(item.dose, pi.dose_unit, syringe.concentration(vial, pi.inventory_item))
         if vol is None:
             continue
-        verb = "Dial the pen to" if vial.dispensing_method.value == "pen" else "Draw to"
+        verb = "Dial the pen to" if vial is not None and vial.dispensing_method.value == "pen" else "Draw to"
         volume_text[item.protocol_item_id] = f"{verb} {vol:.2f} mL" + (f" ({syringe_units[item.protocol_item_id]} units)" if item.protocol_item_id in syringe_units else "")
 
     # A dose that just emptied its vial (see log_dose's empty-vial redirect) surfaces a small
@@ -313,7 +343,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     return templates.TemplateResponse(request, "dosing/today.html", {
         "due": due, "today": today, "today_iso": today.isoformat(), "site_data": site_data,
         "volume_text": volume_text, "reconstitute_urls": reconstitute_urls, "syringe_units": syringe_units, "empty_vial": empty_vial, "workout_days_due": workout_days_due, "workout_move_dates": workout_move_dates, "workouts_coming_up": workout_moves.coming_up(session, uid, today),
-        "logged_today": todays_logs, "silhouette_shape": silhouette_shape,
+        "logged_today": todays_logs, "silhouette_shape": silhouette_shape, "syringes": syringe.options(session, uid),
     })
 
 

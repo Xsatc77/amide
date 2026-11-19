@@ -113,16 +113,20 @@ def plan_pen_conversion(session: Session, uid: int) -> Plan:
     return plan
 
 
-def use_for_shot(session: Session, uid: int, method: DispensingMethod) -> dict[str, int]:
+def use_for_shot(session: Session, uid: int, method: DispensingMethod, syringe: InventoryItem | None = None) -> dict[str, int]:
     """Take the supplies one shot uses (see SHOT_SUPPLIES, PEN_SHOT_SUPPLIES) from the person's stock, as much of them as there is: a shot that has really
-    been given is never refused for want of a pad. Returns {item id: how many} so an undo can give them back."""
+    been given is never refused for want of a pad. A `syringe` the person picked is the one used up, instead of the first in stock. Returns {item id: how many} so an undo can give them back."""
     needs = PEN_SHOT_SUPPLIES if method == DispensingMethod.PEN else SHOT_SUPPLIES
     used: dict[str, int] = {}
     for kind, need in needs.items():
         left = need
-        for item in session.scalars(select(InventoryItem).where(
+        if kind == SupplyType.DOSING_SYRINGE and syringe is not None and syringe.count > 0:
+            candidates = [syringe]
+        else:
+            candidates = session.scalars(select(InventoryItem).where(
                 InventoryItem.owner_id == uid, InventoryItem.category == Category.SUPPLY, InventoryItem.supply_type == kind,
-                InventoryItem.count > 0).order_by(InventoryItem.id)):
+                InventoryItem.count > 0).order_by(InventoryItem.id))
+        for item in candidates:
             take = min(item.count, left)
             item.count -= take
             used[str(item.id)] = used.get(str(item.id), 0) + take

@@ -402,6 +402,17 @@
           <small class="muted">Reconstituting uses up supplies by type.</small>
           {{ err('supply_type') }}
         </label>
+        <label {{ cls('syringe_units_per_ml') }}>
+          <span>Dosing syringe: units per mL (U-100 is 100)</span>
+          <input name="syringe_units_per_ml" type="number" min="0" step="any" inputmode="decimal" placeholder="100" value="{{ f.syringe_units_per_ml }}">
+          <small class="muted">Only for the Dosing Syringe type. Blank means U-100.</small>
+          {{ err('syringe_units_per_ml') }}
+        </label>
+        <label {{ cls('syringe_barrel_ml') }}>
+          <span>Dosing syringe: barrel size (mL)</span>
+          <input name="syringe_barrel_ml" type="number" min="0" step="any" inputmode="decimal" placeholder="1" value="{{ f.syringe_barrel_ml }}">
+          {{ err('syringe_barrel_ml') }}
+        </label>
       </div>
     </fieldset>
 

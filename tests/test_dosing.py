@@ -801,7 +801,7 @@ def test_the_site_picker_carries_the_current_dose_the_last_injected_dose_and_a_c
     page = client.get("/today").text
     assert "data-site-dose" in page and "data-site-last" in page and "data-site-calc" in page
     info = _site_blob(client)[str(pitem_id)]
-    assert info["dose"] == "2.5 mg (50 units)" and info["last_dose"] is None                       # nothing injected yet
+    assert info["dose"] == "2.5 mg" and round(info["dose_ml"] * 100, 1) == 50 and info["last_dose"] is None                       # nothing injected yet
     assert info["calc_url"].startswith("/calculator?dose_value=2.5&dose_unit=mg&inventory_item_id=")
     with SessionLocal() as s:
         uid = s.scalar(select(User.id).where(User.username_key == "tester"))

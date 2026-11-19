@@ -441,6 +441,8 @@ class InventoryItem(Base):
     bac_priority: Mapped[int | None] = mapped_column(Integer)
     # IU vials (and IU doses): how many IU are in 1 mg of this product (about 3 for HGH). Empty until it is entered in the calculator.
     iu_per_mg: Mapped[float | None] = mapped_column(Float)
+    # Dosing syringes only: the units that make a mL on its barrel (100 on a U-100, the default when blank; 40 on a U-40). The barrel size is volume_ml.
+    syringe_units_per_ml: Mapped[float | None] = mapped_column(Float)
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

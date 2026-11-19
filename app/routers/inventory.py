@@ -35,7 +35,7 @@ router = APIRouter()
 
 # Text fields on the add/edit form, in form order.
 ITEM_FIELDS = ("name", "category", "count", "vial_size_mg", "vial_size_unit", "purchasing_unit", "medium",
-              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active", "fiber_g_per_dose", "dosed_units")
+              "volume_ml", "units_per_package", "storage", "low_stock_threshold", "cost", "vendor", "notes", "local_seller", "is_active", "fiber_g_per_dose", "dosed_units", "syringe_units_per_ml", "syringe_barrel_ml")
 ORDER_HEADER_FIELDS = ("order_date", "shipped_date", "tracking_site", "tracking_number", "vendor", "tax", "shipping")
 ORDER_LINE_FIELDS = ("quantity", "cost", "lot_number", "expiration_date", "coa_vial_size_mg", "coa_purity_pct")
 RECON_FIELDS = ("supply_type", "bac_priority", "bac_volume")      # what a Supply item is; how BAC water is ranked and how big its bottle is
@@ -191,7 +191,11 @@ def _parse_item_fields(raw: dict[str, str], session: Session, uid: int, category
         values["vial_size_mg"] = None
         values["vial_size_unit"] = DoseUnit.MG
         values["purchasing_unit"] = PurchasingUnit.INDIVIDUAL
-        values["volume_ml"] = None
+        is_syringe = values["supply_type"] == SupplyType.DOSING_SYRINGE            # a syringe says how many units make a mL on its barrel, and how big the barrel is
+        values["syringe_units_per_ml"] = _parse_positive_float(raw.get("syringe_units_per_ml", ""), "syringe_units_per_ml", "Units per mL", errors) if is_syringe else None
+        if values["syringe_units_per_ml"] is not None and values["syringe_units_per_ml"] > 1000:
+            errors["syringe_units_per_ml"] = "Units per mL is at most 1000."
+        values["volume_ml"] = _parse_positive_float(raw.get("syringe_barrel_ml", ""), "syringe_barrel_ml", "Barrel size", errors) if is_syringe else None
         values["units_per_package"] = None
         return values, errors
 
@@ -569,6 +573,8 @@ def _form_values(item: InventoryItem) -> dict:
         "supply_type": item.supply_type.value if item.supply_type else "",
         "bac_priority": "" if item.bac_priority is None else str(item.bac_priority),
         "bac_volume": num(item.volume_ml) if item.category == Category.BAC_WATER else "",
+        "syringe_units_per_ml": num(item.syringe_units_per_ml),
+        "syringe_barrel_ml": num(item.volume_ml) if item.category == Category.SUPPLY else "",
         "units_per_package": "" if item.units_per_package is None else str(item.units_per_package),
         "storage": item.storage.value if item.storage else "",
         "low_stock_threshold": "" if item.low_stock_threshold is None else str(item.low_stock_threshold),

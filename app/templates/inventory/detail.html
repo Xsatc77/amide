@@ -120,6 +120,19 @@
         </select>
         {{ ierr('supply_type') }}
       </label>
+      {% if item.supply_type and item.supply_type.value == 'dosing_syringe' %}
+      <label {{ icls('syringe_units_per_ml') }}>
+        <span>Units per mL (U-100 is 100)</span>
+        <input name="syringe_units_per_ml" type="number" min="0" step="any" inputmode="decimal" placeholder="100" value="{{ ef.syringe_units_per_ml }}">
+        <small class="muted">Blank means U-100. Picking this syringe when a shot is logged shows the units to draw on it, and uses one up.</small>
+        {{ ierr('syringe_units_per_ml') }}
+      </label>
+      <label {{ icls('syringe_barrel_ml') }}>
+        <span>Barrel size (mL)</span>
+        <input name="syringe_barrel_ml" type="number" min="0" step="any" inputmode="decimal" placeholder="1" value="{{ ef.syringe_barrel_ml }}">
+        {{ ierr('syringe_barrel_ml') }}
+      </label>
+      {% endif %}
       <label {{ icls('count') }}>
         <span>Count</span>
         <input name="count" type="number" min="0" step="1" inputmode="numeric" value="{{ ef.count or 1 }}">

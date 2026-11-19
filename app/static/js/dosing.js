@@ -24,14 +24,36 @@
   }
 
   // The dose due now, the last one actually injected, and a way into the calculator, for the item whose picker is open
+  const syringeSelect = dialog.querySelector("[data-site-syringe]");
+  const perMl = () => Number(syringeSelect.selectedOptions[0]?.dataset.perMl) || 100;
+  const unitsText = (ml) => `${Number((ml * perMl()).toFixed(1))} units in U-${Number(perMl().toFixed(2))}`;
+  let activeItem = null;
+
+  // What the current and the last dose come to on the syringe that is picked (the same mL is more or fewer units on another syringe)
+  function showUnits() {
+    const data = siteData[activeItem] || {};
+    dialog.querySelector("[data-site-dose-units]").textContent = data.dose_ml ? `= ${unitsText(data.dose_ml)}` : "";
+    dialog.querySelector("[data-site-last-units]").textContent = data.last_ml ? `= ${unitsText(data.last_ml)}` : "";
+    const unitsInput = dialog.querySelector("[data-site-units]");
+    if (data.on_syringe && data.dose_ml) unitsInput.value = Number((data.dose_ml * perMl()).toFixed(1));
+    const capacity = Number(syringeSelect.selectedOptions[0]?.dataset.capacity) || 0;
+    const warn = dialog.querySelector("[data-site-warn]");
+    warn.hidden = !(capacity && data.dose_ml && data.dose_ml > capacity + 1e-9);
+    warn.textContent = warn.hidden ? "" : `This draw (${Number(data.dose_ml.toFixed(3))} mL) is more than this ${capacity} mL syringe holds.`;
+  }
+  syringeSelect.addEventListener("change", showUnits);
+
+  // The dose due now, the last one actually injected, and a way into the calculator, for the item whose picker is open
   function fillInfo(itemId) {
     const data = siteData[itemId] || {};
+    activeItem = itemId;
     dialog.querySelector("[data-site-dose]").textContent = data.dose || "Not set";
     dialog.querySelector("[data-site-last]").textContent = data.last_dose || "Never logged";
     dialog.querySelector("[data-site-calc]").href = data.calc_url || "/calculator";
     dialog.querySelector("[data-site-units]").value = data.dose_amount || "";                       // starts at the protocol's dose; change it to what is really injected
     dialog.querySelector("[data-site-units-label]").textContent = data.dose_unit || "";
-    dialog.querySelector("[data-site-units-title]").textContent = data.on_syringe ? "How Many Units?" : "Amount";            // units on the syringe only when an open vial says how much to draw
+    dialog.querySelector("[data-site-units-title]").textContent = data.on_syringe ? "How Many Units?" : "Amount";            // units on the syringe only when the strength says how much to draw
+    showUnits();
   }
 
   // "Log dose" itself opens the picker for any item that needs a site -- picking one both fills
@@ -51,6 +73,8 @@
     if (input) input.value = circle.dataset.site;
     const dose = activeForm.querySelector("[data-dose-hidden]");
     if (dose) dose.value = dialog.querySelector("[data-site-units]").value;
+    const syringeInput = activeForm.querySelector("[data-syringe-input]");
+    if (syringeInput) syringeInput.value = syringeSelect.value;                                   // the syringe picked here is the one taken from Inventory
     dialog.close();
     activeForm.submit();
   }));

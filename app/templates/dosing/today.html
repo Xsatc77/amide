@@ -47,6 +47,7 @@
           {% if item.protocol_item_id in site_data %}
           <input type="hidden" name="{{ 'syringe_units' if item.protocol_item_id in syringe_units else 'dose' }}" value="{{ syringe_units.get(item.protocol_item_id) or ('%g' | format(item.dose) if item.dose else '') }}" data-dose-hidden>     {# asked in the injection-site picker instead #}
           <input type="hidden" name="injection_site" value="{{ site_data[item.protocol_item_id].recommended or '' }}" data-site-input>
+          <input type="hidden" name="syringe_item_id" value="" data-syringe-input>
           <button type="button" class="btn btn-primary" data-action="log-dose" data-needs-site data-item-id="{{ item.protocol_item_id }}">Log dose</button>
           {% else %}
           {% if item.protocol_item_id in syringe_units %}
@@ -148,8 +149,14 @@
     <button type="button" class="btn btn-ghost btn-icon" data-action="close-site" aria-label="Close">×</button>
   </header>
   <div class="site-dose-info" data-site-info>
-    <p><span class="muted">Current dose</span> <strong data-site-dose></strong></p>
-    <p><span class="muted">Last injected</span> <strong data-site-last></strong></p>
+    <p><span class="muted">Current dose</span> <strong data-site-dose></strong> <span class="site-units" data-site-dose-units></span></p>
+    <p><span class="muted">Last injected</span> <strong data-site-last></strong> <span class="site-units" data-site-last-units></span></p>
+    <label class="log-units">Syringe
+      <select data-site-syringe aria-label="Syringe">
+        {% for s in syringes %}<option value="{{ s.id }}" data-per-ml="{{ s.units_per_ml }}" data-capacity="{{ s.capacity_ml or '' }}">{{ s.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <p class="alert" role="alert" data-site-warn hidden></p>
     <label class="log-units"><span data-site-units-title>How Many Units?</span> <input type="number" step="any" min="0" inputmode="decimal" data-site-units> <span class="muted" data-site-units-label></span></label>
     <a class="btn btn-primary" href="/calculator" data-site-calc>Open the Calculator</a>
   </div>
