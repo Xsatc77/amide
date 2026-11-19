@@ -348,13 +348,21 @@
     const remaining = horizon - startDay + 1;
     const runDays = Math.min(parseInt(it.run_days, 10) || remaining, remaining);
     const dayPlural = (n) => `${n} day${n > 1 ? "s" : ""}`;
+    // How an item's cadence sits against the course's own (the shortest of the items'): a whole number of runs apart, or not (triannual in a quarterly course)
+    const baseMonths = Math.min(...items.map((x) => parseInt(x.repeat_months || "12", 10)));
+    const itemMonths = parseInt(it.repeat_months || "12", 10);
+    const offBeat = itemMonths > baseMonths && itemMonths % baseMonths !== 0;     // its months fall inside the runs: days are counted from the start of its month
+    const firstChoices = itemMonths <= baseMonths ? 1 : offBeat ? itemMonths : itemMonths / baseMonths;
+    const firstLabel = offBeat ? "Starts in month" : "First joins in";
+    const firstWord = offBeat ? "Month" : "Run";
+    const startChoices = offBeat ? Math.min(30, horizon) : horizon;
     const shortFields = shortOn() ? [
-      field("Starts on day", select(`${p}-start_day`, range(horizon).map((n) => [String(n), `Day ${n}`]), String(startDay),
+      field(offBeat ? "Starts on day of the month" : "Starts on day", select(`${p}-start_day`, range(startChoices).map((n) => [String(n), `Day ${n}`]), String(Math.min(startDay, startChoices)),
         (v) => { it.start_day = v; changed(); })),
       field("Runs for", select(`${p}-run_days`, range(remaining).map((n) => [String(n), n === remaining ? `${dayPlural(n)} (to the end)` : dayPlural(n)]),
         String(runDays), (v) => { it.run_days = Number(v) === remaining ? "" : v; })),
-      field("Repeats", select(`${p}-repeat_months`, data.options.repeat, it.repeat_months || "12", set("repeat_months"))),
-      field("First joins in", select(`${p}-first_run`, [["1", "Run 1"], ["2", "Run 2"], ["3", "Run 3"], ["4", "Run 4"]], it.first_run || "1", set("first_run"))),
+      field("Repeats", select(`${p}-repeat_months`, data.options.repeat, it.repeat_months || "12", (v) => { it.repeat_months = v; changed(); })),
+      field(firstLabel, select(`${p}-first_run`, range(Math.max(firstChoices, 1)).map((n) => [String(n), `${firstWord} ${n}`]), String(Math.min(parseInt(it.first_run || "1", 10), Math.max(firstChoices, 1))), set("first_run"))),
     ] : null;
 
     const flagged = it.peptide_id ? data.cautions?.[it.peptide_id] : null;

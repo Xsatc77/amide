@@ -18,7 +18,7 @@ from datetime import date, timedelta
 
 from app import clock
 from app.goals import GOALS_BY_SLUG, SHORT_COURSE_GOAL
-from app.protocols.repeat import MAX_SHORT_DAYS, REPEAT_CHOICES
+from app.protocols.repeat import MAX_SHORT_DAYS, REPEAT_CHOICES, first_run_span
 from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, TimeOfDay
 
 ITEM_FIELDS = ("peptide_id", "new_name", "dose", "dose_unit", "frequency", "every_n_days",
@@ -425,8 +425,7 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
     if short_course:                                   # the protocol comes round as often as its most frequent item
         repeat_months = min((i.repeat_months for i in items if i.repeat_months), default=None)
         for i in items:                                # an item can only start in a run of its own cycle (a semiannual one in run 1 or 2 of a quarterly course)
-            cycle = (i.repeat_months // repeat_months) if i.repeat_months and repeat_months else 1
-            i.first_run = min(max(i.first_run, 1), max(cycle, 1))
+            i.first_run = min(max(i.first_run, 1), first_run_span(repeat_months, i.repeat_months))
 
     return ParsedProtocol(name=name, start_date=start, end_date=end, notes=state["notes"] or None,
                           titration_enabled=titration, goals=goals, items=items, short_days=short_days, repeat_months=repeat_months), errors

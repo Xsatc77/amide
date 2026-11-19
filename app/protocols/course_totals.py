@@ -12,7 +12,7 @@ from datetime import timedelta
 from app.calculator import units as unit_math
 from app.calendar.schedule import is_due
 from app.models import Frequency, Medium, PurchasingUnit
-from app.protocols.repeat import item_in_run
+from app.protocols.repeat import item_shift
 from app.protocols.status import current_step, current_week
 
 _BAC_WATER_ML_PER_VIAL = 1.5
@@ -70,8 +70,9 @@ def _scheduled_total(item, protocol, inventory_by_id: dict, normally_supplied_by
         return ItemTotal(item.peptide.name, unit, False, None, None, None, "Course is too long to total", lib_specs)
 
     total = 0.0
+    shift = item_shift(protocol, item)
     for day in _days(protocol.start_date, protocol.end_date):
-        if item_in_run(protocol, item) and is_due(item, protocol.start_date, day):
+        if shift is not None and is_due(item, protocol.start_date, day, shift):
             dose = _effective_dose(item, protocol, day)
             if dose is not None:
                 total += dose

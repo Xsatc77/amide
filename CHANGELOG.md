@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Protocols: a Triannually repeat choice** (every 4 months) for short-course items. In a quarterly course its months land inside the runs (months 2, 6 and 10 when it starts in month 2), so its Starts on day is counted from the start of that month and "Starts in month" picks its first one.
 - **Today: the injection-site picker shows the units to draw, and the syringe you pick is the one used up.** The current and last dose each say how many units they are on the syringe picked in a new Syringe dropdown (every dosing syringe in Inventory; U-100 by default), and the units change with the syringe (a U-40 takes fewer). A dosing syringe in Inventory has Units per mL and Barrel size fields. Liquids with no open vial (oils) now get units from their own strength. Logging the shot takes the picked syringe from Inventory.
 - **Protocols: Import and Export.** Export on a protocol card downloads it as a file (the plan only: peptides, doses, schedule and short-course timing, no dates or people); Import on the Protocols page builds it again from a file, starting on the date you pick, adding peptides the library lacks.
 - **Protocols: a short-course item has a "First joins in" run**, so a semiannual or annual item can start in run 2, 3 or 4 of a quarterly course (not just run 1), and the same peptide can appear more than once in a short course. A short course can now be up to 90 days (a quarter).

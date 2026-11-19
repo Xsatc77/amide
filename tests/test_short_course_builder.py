@@ -55,7 +55,7 @@ def test_the_builder_page_offers_the_days_and_repeat_choices(client):
     assert 'id="b-short"' in page and 'name="short_days"' in page
     assert 'name="repeat_months"' not in page                                      # the repeat is chosen on each item, not for the whole protocol
     options = json.loads(page.split('id="builder-data">')[1].split("</script>")[0])["options"]["repeat"]
-    assert options == [["12", "Annually"], ["6", "Semiannually"], ["3", "Quarterly"]]
+    assert options == [["12", "Annually"], ["6", "Semiannually"], ["4", "Triannually"], ["3", "Quarterly"]]
     assert '<option value="90">90 days</option>' in page and '<option value="91"' not in page
 
 

@@ -112,3 +112,11 @@ def test_the_page_has_an_import_form_and_each_card_an_export_link(client, db, me
     upload(client, a_file())
     page = client.get("/protocols").text
     assert 'action="/protocols/import"' in page and 'name="file"' in page and f'href="/protocols/{mine().id}/export"' in page
+
+
+def test_a_triannual_item_imports_with_its_month_and_keeps_the_course_quarterly(client, db, me):
+    upload(client, a_file(items=[one("Epithalon", 1, 10, 3, 1), one("Thymalin", 11, 20, 4, 2)]))
+    p = mine()
+    with SessionLocal() as s:
+        tri = next(it for it in s.scalars(select(ProtocolItem).where(ProtocolItem.protocol_id == p.id)) if it.repeat_months == 4)
+        assert (tri.first_run, tri.start_day, tri.run_days) == (2, 11, 20) and p.repeat_months == 3

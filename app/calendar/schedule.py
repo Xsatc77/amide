@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import WEEKDAY_LETTERS, Frequency, TimeOfDay
-from app.protocols.repeat import item_in_run
+from app.protocols.repeat import item_in_run, item_shift
 from app.protocols.status import current_step, current_week, is_cycled_off
 
 
@@ -41,13 +41,13 @@ def protocol_window(p) -> tuple[date, date | None] | None:
     return p.start_date, (min(ends) if ends else None)
 
 
-def is_due(item, start: date, day: date) -> bool:
+def is_due(item, start: date, day: date, shift: int = 0) -> bool:
     days = (day - start).days
     if days < 0:
         return False
     run_days = getattr(item, "run_days", None)
     if run_days is not None:                                  # an item of a short course: only its own days, counted from its own first day
-        first = (getattr(item, "start_day", None) or 1) - 1
+        first = (getattr(item, "start_day", None) or 1) - 1 + shift
         if not first <= days < first + run_days:
             return False
         days -= first
@@ -101,12 +101,13 @@ def item_edges(p) -> dict[int, tuple[date | None, date | None]]:
     stop = min(end, start + timedelta(days=EDGE_HORIZON_DAYS)) if end else start + timedelta(days=EDGE_HORIZON_DAYS)
     out: dict[int, tuple[date | None, date | None]] = {}
     for it in p.items:
-        if not item_in_run(p, it):
+        shift = item_shift(p, it)
+        if shift is None:
             continue
         bounded = end is not None or getattr(it, "run_days", None) is not None
         first = last = None
         for day in _days(start, stop):
-            if is_due(it, p.start_date, day):
+            if is_due(it, p.start_date, day, shift):
                 if first is None:
                     first = day
                 last = day
@@ -126,7 +127,7 @@ def occurrences(protocols, first: date, last: date) -> list[Occurrence]:
         start, end = window
         lo, hi = max(first, start), min(last, end) if end else last
         for day in _days(lo, hi):
-            items = [_due_item(p, it, day) for it in p.items if item_in_run(p, it) and is_due(it, p.start_date, day)]
+            items = [_due_item(p, it, day) for it in p.items if (shift := item_shift(p, it)) is not None and is_due(it, p.start_date, day, shift)]
             if items:
                 out.append(Occurrence(day, p.id, p.name, items))
     return sorted(out, key=lambda o: (o.date, o.protocol_name.lower(), o.protocol_id))
