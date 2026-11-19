@@ -2,8 +2,9 @@
 {% set active_nav = "protocols" %}
 {% block title %}Protocols{% endblock %}
 
-{% macro share_button() %}
+{% macro share_button(p) %}
 <button type="button" class="btn btn-ghost" disabled title="Email sharing coming soon">Share</button>
+<a class="btn btn-ghost" href="/protocols/{{ p.id }}/export" title="Download this protocol as a file that Import can read">Export</a>
 {% endmacro %}
 
 {% block content %}
@@ -12,7 +13,17 @@
     <h1>Protocols</h1>
     <p class="muted">{{ active_views | length }} active · {{ saved_views | length }} saved</p>
   </div>
+  <details class="import-protocol no-print">
+    <summary class="btn btn-ghost">Import</summary>
+    <form method="post" action="/protocols/import" enctype="multipart/form-data" class="import-form">
+      <label class="field"><span>Protocol file</span><input type="file" name="file" accept=".json,application/json" required></label>
+      <label class="field"><span>Starts on</span><input type="date" name="start_date" value="{{ today }}" required></label>
+      <button type="submit" class="btn btn-primary">Import Protocol</button>
+      <p class="small muted">Reads a file made with Export. The protocol starts on the date you pick; peptides the library does not have are added to it.</p>
+    </form>
+  </details>
 </div>
+{% if import_error %}<div class="alert" role="alert">{{ import_error }}</div>{% endif %}
 
 <div class="chips" role="group" aria-label="View">
   <button type="button" class="chip" data-tab="mine" aria-pressed="true">Mine</button>
@@ -56,7 +67,7 @@
         <form method="post" action="/protocols/{{ p.id }}/end" class="inline" data-confirm="End “{{ p.name }}” today? It stays in Saved protocols and can be repeated.">
           <button class="btn btn-ghost">End</button>
         </form>
-        {{ share_button() }}
+        {{ share_button(p) }}
       </footer>
       <a class="btn-icon print-btn" href="/protocols/{{ p.id }}/print" target="_blank" rel="noopener" aria-label="Print {{ p.name }}" title="Print this protocol"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></a>
 <button type="button" class="btn-icon alerts-btn" data-protocol-id="{{ p.id }}" data-alerts-count="{{ alert_counts.get(p.id, 0) }}" aria-label="Alerts for {{ p.name }}" title="Alerts for this protocol"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>{% if alert_counts.get(p.id) %}<span class="alert-badge">{{ alert_counts[p.id] }}</span>{% endif %}</button>
@@ -172,7 +183,7 @@
             {% endif %}
             <a class="btn btn-ghost" href="/protocols/{{ p.id }}/edit">Edit</a>
             <a class="btn btn-ghost" href="/protocols/{{ p.id }}/repeat">Repeat</a>
-            {{ share_button() }}
+            {{ share_button(p) }}
             <form method="post" action="/protocols/{{ p.id }}/delete" class="inline" data-confirm="Delete “{{ p.name }}” permanently? This can't be undone.">
               <button class="btn btn-ghost btn-danger">Delete</button>
             </form>

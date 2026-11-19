@@ -11,7 +11,7 @@
     short: $("b-short"), shortDays: $("b-short-days"), endLabel: $("b-end-label"), or: $("b-or"),
   };
   const SHORT_GOAL = "annual-short-term";      // the goal that turns this into the short-course builder (days, per-item run days, repeats)
-  const MAX_SHORT_DAYS = 84;
+  const MAX_SHORT_DAYS = 90;
 
   const peptideById = new Map(data.peptides.map((p) => [String(p.id), p]));
   const peptideByName = new Map(data.peptides.map((p) => [p.name.toLowerCase(), p]));
@@ -22,7 +22,7 @@
   let uid = 0;
   const newItem = (fields = {}) => ({
     uid: ++uid, peptide_id: "", new_name: "", dose: "", dose_unit: "mg", frequency: "daily", every_n_days: "",
-    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", start_day: "", run_days: "", repeat_months: "12", steps: [], cycle_offs: [],
+    weekdays: "", time_of_day: "any", route: "subq", inventory_item_id: "", notes: "", start_day: "", run_days: "", repeat_months: "12", first_run: "1", steps: [], cycle_offs: [],
     // Blank values from a re-shown form fall back to the defaults above.
     ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== "")),
   });
@@ -354,6 +354,7 @@
       field("Runs for", select(`${p}-run_days`, range(remaining).map((n) => [String(n), n === remaining ? `${dayPlural(n)} (to the end)` : dayPlural(n)]),
         String(runDays), (v) => { it.run_days = Number(v) === remaining ? "" : v; })),
       field("Repeats", select(`${p}-repeat_months`, data.options.repeat, it.repeat_months || "12", set("repeat_months"))),
+      field("First joins in", select(`${p}-first_run`, [["1", "Run 1"], ["2", "Run 2"], ["3", "Run 3"], ["4", "Run 4"]], it.first_run || "1", set("first_run"))),
     ] : null;
 
     const flagged = it.peptide_id ? data.cautions?.[it.peptide_id] : null;

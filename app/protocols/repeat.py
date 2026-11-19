@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 REPEAT_CHOICES = ((12, "Annually"), (6, "Semiannually"), (3, "Quarterly"))
-MAX_SHORT_DAYS = 84                   # 12 weeks
+MAX_SHORT_DAYS = 90                   # a quarter: three 30-day months
 
 # Days before a run starts, and what to say. Dropped when it would land inside the run before.
 REMINDERS = ((90, "Check stock"), (60, "Order missing stock"), (30, "Stock check"), (14, "General reminder"), (7, "7 Day Water Fast"))
@@ -28,19 +28,20 @@ def run_dates(anchor: date, months: int, days: int, run: int) -> tuple[date, dat
     return start, start + timedelta(days=days - 1)
 
 
-def joins_run(base_months: int | None, item_months: int | None, run: int) -> bool:
+def joins_run(base_months: int | None, item_months: int | None, run: int, first_run: int = 1) -> bool:
     """Whether an item on its own cadence takes part in run number `run` of a protocol that repeats every `base_months` (the shortest of its items'
-    cadences). In a quarterly protocol a quarterly item is in every run, a semiannual one in every second, an annual one in every fourth."""
+    cadences). In a quarterly protocol a quarterly item is in every run, a semiannual one in every second, an annual one in every fourth.
+    `first_run` is the run it starts in: a semiannual item that starts in run 2 is in runs 2, 4, 6."""
     if not base_months or not item_months or item_months <= base_months:
         return True
-    return (run - 1) % (item_months // base_months) == 0
+    return run >= first_run and (run - first_run) % (item_months // base_months) == 0
 
 
 def item_in_run(p, item, run: int | None = None) -> bool:
     """Whether `item` of protocol `p` is part of the run `p` is on now (or run number `run`). Everything is, outside a repeating short course."""
     if not is_repeating(p):
         return True
-    return joins_run(p.repeat_months, item.repeat_months, p.run_number if run is None else run)
+    return joins_run(p.repeat_months, item.repeat_months, p.run_number if run is None else run, getattr(item, "first_run", 1) or 1)
 
 
 def is_repeating(p) -> bool:
@@ -94,7 +95,7 @@ def calendar_dates(session: Session, uid: int, first: date, last: date) -> dict[
         for run in (p.run_number, p.run_number + 1):
             start, _ = run_dates(p.anchor_start, p.repeat_months, p.short_days, run)
             before_end = run_dates(p.anchor_start, p.repeat_months, p.short_days, run - 1)[1] if run > 1 else None
-            named = [(i.peptide.id, i.peptide.name) for i in p.items if joins_run(p.repeat_months, i.repeat_months, run)]
+            named = [(i.peptide.id, i.peptide.name) for i in p.items if joins_run(p.repeat_months, i.repeat_months, run, i.first_run or 1)]
             for offset, text in REMINDERS:
                 day = start - timedelta(days=offset)
                 if before_end is not None and day <= before_end:

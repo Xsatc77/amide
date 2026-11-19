@@ -976,6 +976,8 @@ class ProtocolItem(Base):
     run_days: Mapped[int | None] = mapped_column(Integer)
     # In a short course: how often this item joins in (12, 6 or 3 months). The protocol repeats at the shortest of its items' cadences.
     repeat_months: Mapped[int | None] = mapped_column(Integer)
+    # In a short course: the run an item first joins in. A semiannual item with first_run 2 is in runs 2, 4, 6 of a quarterly protocol.
+    first_run: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     peptide: Mapped[Peptide] = relationship()
     inventory_item: Mapped[InventoryItem | None] = relationship()

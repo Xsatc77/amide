@@ -3,7 +3,9 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
-- **Protocols: a short course can now be up to 12 weeks (84 days) long** in the Protocol length dropdown, up from 30 days.
+- **Protocols: Import and Export.** Export on a protocol card downloads it as a file (the plan only: peptides, doses, schedule and short-course timing, no dates or people); Import on the Protocols page builds it again from a file, starting on the date you pick, adding peptides the library lacks.
+- **Protocols: a short-course item has a "First joins in" run**, so a semiannual or annual item can start in run 2, 3 or 4 of a quarterly course (not just run 1), and the same peptide can appear more than once in a short course. A short course can now be up to 90 days (a quarter).
+- **Protocols: a short course can now be longer than 30 days** in the Protocol length dropdown (see the 90-day limit below).
 - **TRT calculator: How Often has a Select days choice.** Tick the weekdays you inject, as in the protocol builder; the injections a week are the days ticked, and the days are kept in the shared link.
 - **Protocols: the Shop this protocol plan links each peptide to its library card.**
 - **Calendar: a protocol's stock reminder links each peptide it names to its library card** (day view).

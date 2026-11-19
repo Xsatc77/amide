@@ -1,7 +1,8 @@
+import json
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
@@ -25,7 +26,7 @@ from app.protocols.forms import (
 from app.library.conflicts import DISCLAIMER
 from app.library.interactions import cautions_for
 from app.protocols import alerts as alerts_mod
-from app.protocols import premade, switching
+from app.protocols import premade, switching, transfer
 from app.protocols.tiers import builder_tiers
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
@@ -166,7 +167,8 @@ def list_protocols(request: Request, session: Session = Depends(get_session), to
                                       {"active_views": active, "saved_views": saved, "shared_views": shared_views,
                                        "goals": GOALS, "statuses": list(Status), "course_totals": course_totals,
                                        "routes": list(Route), "dose_units": list(DoseUnit),
-                                       "premade_groups": premade.groups(),
+                                       "premade_groups": premade.groups(), "import_error": request.query_params.get("import_error", "")[:300],
+                                       "today": today.isoformat(),
                                        "alert_counts": {p.id: len(alerts_mod.for_protocol(session, p, uid)) for p in protocols}})
 
 
@@ -419,7 +421,7 @@ def save_protocol(session: Session, p: Protocol, parsed: ParsedProtocol) -> Prot
             peptide_id=peptide_id, position=position, dose=it.dose, dose_unit=it.dose_unit,
             frequency=it.frequency, every_n_days=it.every_n_days, weekdays=it.weekdays,
             time_of_day=it.time_of_day, route=it.route, inventory_item_id=it.inventory_item_id, notes=it.notes,
-            start_day=it.start_day, run_days=it.run_days, repeat_months=it.repeat_months,
+            start_day=it.start_day, run_days=it.run_days, repeat_months=it.repeat_months, first_run=it.first_run,
             steps=[TitrationStep(start_week=s.start_week, end_week=s.end_week, dose=s.dose) for s in it.steps],
             cycle_offs=[ProtocolItemCycleOff(start_week=c.start_week, end_week=c.end_week)
                        for c in it.cycle_offs],
@@ -470,6 +472,43 @@ def new_protocol(request: Request, session: Session = Depends(get_session), toda
         return _render_builder(request, session, premade.to_state(template, lambda n: _known_peptide_id(session, n), today), today=today)
     goals = [g for g in dict.fromkeys(request.query_params.getlist("goal")) if g in GOALS_BY_SLUG]
     return _render_builder(request, session, blank_state(goals, today), today=today)
+
+
+@router.post("/protocols/import")
+async def import_protocol(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today),
+                          uid: int = Depends(current_user_id)):
+    """Build a protocol from a protocol file (see app.protocols.transfer), starting on the chosen date. The builder's own checks apply."""
+    from urllib.parse import quote
+    posted = await request.form()
+    upload = posted.get("file")
+    start = str(posted.get("start_date") or "").strip() or today.isoformat()
+
+    def refuse(message: str):
+        return RedirectResponse(f"/protocols?import_error={quote(message)}", status_code=303)
+
+    if upload is None or not hasattr(upload, "read"):
+        return refuse("Choose a protocol file to import.")
+    raw = await upload.read(transfer.MAX_BYTES + 1)
+    if len(raw) > transfer.MAX_BYTES:
+        return refuse("That file is too large to be a protocol file.")
+    try:
+        data = json.loads(raw.decode("utf-8-sig"))
+        form = transfer.to_form(data, start, lambda n: _known_peptide_id(session, n))
+    except (ValueError, UnicodeDecodeError) as err:
+        return refuse(str(err) if isinstance(err, transfer.TransferError) else "That file is not a protocol file Amide can read.")
+    parsed, errors = _parse(session, form, uid)
+    if errors:                                                   # show it in the builder, with what is wrong marked, so it can be fixed and saved
+        return _render_builder(request, session, state_from_form(form), errors=errors, today=today, status_code=422)
+    save_protocol(session, Protocol(owner_id=uid), parsed)
+    return RedirectResponse("/protocols", status_code=303)
+
+
+@router.get("/protocols/{protocol_id}/export")
+def export_protocol(protocol_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """The protocol as a file that Import on the Protocols page can read back in."""
+    p = _get_protocol(session, protocol_id, uid)
+    body = json.dumps(transfer.export_protocol(p), indent=2, ensure_ascii=False)
+    return Response(body, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{transfer.file_name(p)}"'})
 
 
 @router.post("/protocols")

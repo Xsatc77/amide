@@ -56,7 +56,7 @@ def test_the_builder_page_offers_the_days_and_repeat_choices(client):
     assert 'name="repeat_months"' not in page                                      # the repeat is chosen on each item, not for the whole protocol
     options = json.loads(page.split('id="builder-data">')[1].split("</script>")[0])["options"]["repeat"]
     assert options == [["12", "Annually"], ["6", "Semiannually"], ["3", "Quarterly"]]
-    assert '<option value="84">84 days</option>' in page and '<option value="85"' not in page
+    assert '<option value="90">90 days</option>' in page and '<option value="91"' not in page
 
 
 def test_the_length_in_days_sets_the_end_date_and_every_item_defaults_to_the_whole_course():
@@ -81,7 +81,7 @@ def test_an_item_cannot_run_past_the_end_of_the_course_or_start_after_it():
 
 def test_the_length_and_the_repeat_are_checked():
     assert "short_days" in parse(form(short_days=""))[1]
-    assert "at most 84" in parse(form(short_days="85"))[1]["short_days"]
+    assert "at most 90" in parse(form(short_days="91"))[1]["short_days"]
     assert "items-0-repeat_months" in parse(form(repeat_months="5"))[1]
     assert parse(form(repeat_months="3"))[0].repeat_months == 3
     assert parse(form(**{"items-0-repeat_months": "12", "items-1-repeat_months": "6"}))[0].repeat_months == 6      # the shortest of the items

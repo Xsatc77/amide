@@ -22,7 +22,7 @@ from app.protocols.repeat import MAX_SHORT_DAYS, REPEAT_CHOICES
 from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, TimeOfDay
 
 ITEM_FIELDS = ("peptide_id", "new_name", "dose", "dose_unit", "frequency", "every_n_days",
-               "time_of_day", "route", "inventory_item_id", "notes", "start_day", "run_days", "repeat_months")
+               "time_of_day", "route", "inventory_item_id", "notes", "start_day", "run_days", "repeat_months", "first_run")
 STEP_FIELDS = ("start_week", "end_week", "dose")
 CYCLE_OFF_FIELDS = ("start_week", "weeks")
 
@@ -62,6 +62,7 @@ class ParsedItem:
     start_day: int | None = None          # short courses only: the protocol day this item starts on, and how many days it runs
     run_days: int | None = None
     repeat_months: int | None = None      # short courses only: how often this item joins in (12, 6 or 3 months)
+    first_run: int = 1                    # short courses only: the run it first joins in
 
 
 @dataclass
@@ -172,6 +173,7 @@ def state_from_protocol(p: Protocol, *, repeat: bool = False, today: date | None
                 "start_day": "" if it.start_day is None else str(it.start_day),
                 "run_days": "" if it.run_days is None else str(it.run_days),
                 "repeat_months": "" if it.repeat_months is None else str(it.repeat_months),
+                "first_run": str(it.first_run or 1),
                 "steps": [{"start_week": str(s.start_week), "end_week": "" if s.end_week is None else str(s.end_week),
                            "dose": _num(s.dose)} for s in it.steps],
                 "cycle_offs": [{"start_week": str(c.start_week), "weeks": str(c.end_week - c.start_week + 1)}
@@ -348,7 +350,7 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
                 peptide_id = -1
             if peptide_id not in peptide_ids:
                 errors[f"{key}-peptide_id"] = "Unknown peptide."
-            elif (peptide_id, raw["time_of_day"] or "any") in seen_peptides:
+            elif not short_course and (peptide_id, raw["time_of_day"] or "any") in seen_peptides:
                 errors[f"{key}-peptide_id"] = "This peptide is already in the protocol at the same time of day. Give it a different time to dose it more than once a day."
             seen_peptides.add((peptide_id, raw["time_of_day"] or "any"))
         elif raw["new_name"]:
@@ -394,7 +396,9 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             if start_day <= horizon and start_day + run_days - 1 > horizon:
                 errors[f"{key}-run_days"] = f"From day {start_day} the course has only {horizon - start_day + 1} days left."
         item_months = None
-        if short_course:                               # how often this item joins in; a blank one takes the protocol-wide default (annually)
+        first_run = 1
+        if short_course:
+            first_run = _parse_int(raw["first_run"], f"{key}-first_run", errors, minimum=1, label="First run") or 1                               # how often this item joins in; a blank one takes the protocol-wide default (annually)
             asked = raw["repeat_months"] or state["repeat_months"]
             item_months = int(asked) if asked.isdigit() and int(asked) in dict(REPEAT_CHOICES) else None
             if item_months is None:
@@ -413,13 +417,16 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
             notes=notes,
             steps=[] if short_course else steps,
             cycle_offs=[] if short_course else _parse_cycle_offs(raw, key, errors),
-            start_day=start_day, run_days=run_days, repeat_months=item_months,
+            start_day=start_day, run_days=run_days, repeat_months=item_months, first_run=first_run,
         ))
 
     if not items:
         errors["items"] = "Add at least one peptide."
     if short_course:                                   # the protocol comes round as often as its most frequent item
         repeat_months = min((i.repeat_months for i in items if i.repeat_months), default=None)
+        for i in items:                                # an item can only start in a run of its own cycle (a semiannual one in run 1 or 2 of a quarterly course)
+            cycle = (i.repeat_months // repeat_months) if i.repeat_months and repeat_months else 1
+            i.first_run = min(max(i.first_run, 1), max(cycle, 1))
 
     return ParsedProtocol(name=name, start_date=start, end_date=end, notes=state["notes"] or None,
                           titration_enabled=titration, goals=goals, items=items, short_days=short_days, repeat_months=repeat_months), errors

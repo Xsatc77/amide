@@ -94,7 +94,7 @@
         <span>Protocol length</span>
         <select name="short_days" id="b-short-days">
           <option value="">Pick the number of days</option>
-          {% for n in range(1, 85) %}<option value="{{ n }}"{{ ' selected' if state.short_days == n | string }}>{{ n }} day{{ 's' if n > 1 }}</option>{% endfor %}
+          {% for n in range(1, 91) %}<option value="{{ n }}"{{ ' selected' if state.short_days == n | string }}>{{ n }} day{{ 's' if n > 1 }}</option>{% endfor %}
         </select>
         {{ err('short_days') }}
       </label>
