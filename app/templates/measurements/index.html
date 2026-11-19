@@ -455,6 +455,12 @@
       </tbody>
     </table>
   </div>
+  <form method="post" action="/water/add" class="water-add">
+    <h3 class="water-add-title">Forgot To Log Water?</h3>
+    <label>Day <input type="date" name="day" value="{{ water_today }}" max="{{ water_today }}" required></label>
+    <label>Amount ({{ u.volume_label }}) <input type="number" name="ounces" min="0.1" step="any" inputmode="decimal" required></label>
+    <button type="submit" class="btn btn-ghost small">Add to That Day</button>
+  </form>
 </section>
 {% endif %}
 
@@ -464,6 +470,12 @@
   <ul class="water-log">
     {% for w in water_entries %}
     <li><span>{{ w.logged_at | shortdate }}: {{ u.volume(w.ounces) }} {{ u.volume_label }}</span>
+      <details class="water-edit"><summary class="btn btn-ghost small">Edit</summary>
+        <form method="post" action="/water/{{ w.id }}/edit" class="water-add">
+          <label>Day <input type="date" name="day" value="{{ w.logged_at.isoformat() }}" max="{{ water_today }}" required></label>
+          <label>Amount ({{ u.volume_label }}) <input type="number" name="ounces" value="{{ '%g'|format(u.volume(w.ounces)) }}" min="0.1" step="any" inputmode="decimal" required></label>
+          <button type="submit" class="btn small">Save</button>
+        </form></details>
       <form method="post" action="/water/{{ w.id }}/delete" class="inline" data-confirm="Delete this {{ u.volume(w.ounces) }} {{ u.volume_label }} water entry?"><button type="submit" class="btn btn-ghost btn-danger small" aria-label="Delete the {{ u.volume(w.ounces) }} {{ u.volume_label }} water entry from {{ w.logged_at | shortdate }}">Delete</button></form></li>
     {% endfor %}
   </ul>

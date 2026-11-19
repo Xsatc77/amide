@@ -382,6 +382,45 @@ def reset_water_today(session: Session = Depends(get_session), today: date = Dep
     return RedirectResponse("/dashboard", status_code=303)
 
 
+WATER_BACK_DAYS = 365
+
+
+def _water_form(form, today: date, request: Request) -> tuple[date, float] | None:
+    """The day and ounces typed on the water forms (the amount in the person's units), or None for a blank, non-numeric, non-positive, future or too-old entry."""
+    try:
+        day = date.fromisoformat(str(form.get("day", "")))
+        ounces = units.for_user(request.state.user).volume_in(float(form.get("ounces", "")))
+    except (TypeError, ValueError):
+        return None
+    if ounces is None or not ounces > 0 or day > today or day < today - timedelta(days=WATER_BACK_DAYS):
+        return None
+    return day, ounces
+
+
+@router.post("/water/add")
+async def add_water_for_a_day(request: Request, session: Session = Depends(get_session), today: date = Depends(get_today), uid: int = Depends(current_user_id)):
+    """Add water to a past day (or today) you forgot to log. Always your own; the goal kept with it is today's, the best that is known."""
+    got = _water_form(await request.form(), today, request)
+    if got:
+        from app import water
+        session.add(WaterLog(owner_id=uid, logged_at=got[0], ounces=got[1], goal_oz=water.current_goal_oz(session, session.get(User, uid))))
+        session.commit()
+    return RedirectResponse("/measurements?tab=food#water-history-heading", status_code=303)
+
+
+@router.post("/water/{log_id}/edit")
+async def edit_water(log_id: int, request: Request, session: Session = Depends(get_session), today: date = Depends(get_today), uid: int = Depends(current_user_id)):
+    """Change the amount and/or day of one of the signed-in person's own water entries; a bad value leaves it as it was."""
+    row = session.scalar(select(WaterLog).where(WaterLog.id == log_id, WaterLog.owner_id == uid))
+    if row is None:
+        raise HTTPException(404, "Water entry not found")
+    got = _water_form(await request.form(), today, request)
+    if got:
+        row.logged_at, row.ounces = got
+        session.commit()
+    return RedirectResponse("/measurements?tab=food#water-log-heading", status_code=303)
+
+
 @router.post("/water/{log_id}/delete")
 def delete_water(log_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     """Delete one of the signed-in person's own water entries."""

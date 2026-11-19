@@ -690,7 +690,7 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
                        food_prev=(day - timedelta(days=1)).isoformat(), food_next=(day + timedelta(days=1)).isoformat(),
                        water_entries=session.scalars(select(WaterLog).where(WaterLog.owner_id == uid, WaterLog.logged_at >= clock.today() - timedelta(days=30))
                                                      .order_by(WaterLog.logged_at.desc(), WaterLog.id.desc())).all(),
-                       water_history=water_mod.history(session, me_user, clock.today()), water_summary=water_mod.history_summary(water_mod.history(session, me_user, clock.today())),
+                       water_today=clock.today().isoformat(), water_history=water_mod.history(session, me_user, clock.today()), water_summary=water_mod.history_summary(water_mod.history(session, me_user, clock.today())),
                        diet_presets=list(DietPreset), macro_goals=list(MacroGoal), me=me_user, usda_enabled=bool(usda.key_for(me_user)),
                        my_foods=session.scalars(select(Food).where(Food.owner_id == uid).order_by(Food.name)).all())
     from app.health import choices as health_choices, series as health_series

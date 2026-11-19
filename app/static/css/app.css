@@ -1596,6 +1596,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 .alert-item { margin: 6px 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); }
 .alert-caution { border-left: 4px solid #dc2626; }
 .alert-note { border-left: 4px solid var(--muted); }
+.water-add { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin: 12px 0; }
+.water-add-title { flex-basis: 100%; margin: 0; font-size: 1rem; }
+.water-log li { flex-wrap: wrap; }
+.water-edit { margin-left: auto; }
+.water-edit[open] { flex-basis: 100%; }
 .water-log { list-style: none; margin: 8px 0; padding: 0; }
 .water-log li { display: flex; align-items: center; justify-content: space-between; max-width: 28rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
 .dialog .settings-form > .field, .dialog .settings-form > fieldset, .dialog .settings-form > .quick-notes-readonly { width: 100%; }      /* inputs fill the popup, not just their own text */
