@@ -556,7 +556,7 @@ section + section { margin-top: 36px; }
 .apple-glance strong { font-size: 1.4rem; }
 
 .dash-panel-tall { display: flex; flex-direction: column; }
-.dash-silhouette-center { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.dash-silhouette-center { flex: 1; display: flex; align-items: flex-start; justify-content: center; min-height: 0; }
 /* Fluid, not fixed -- grows with the (now taller) Body card's own available width instead of
    sitting at a fixed size with dead space around it, capped so it never overruns the card. */
 .dash-silhouette { width: 100%; max-width: 640px; margin: 0 auto; }
