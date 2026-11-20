@@ -105,6 +105,9 @@ def main(base: str) -> int:
 
     for path in PAGES:
         status, headers, body = fetch(opener, base, path)
+        if path == "/" and status in (301, 302, 303, 307, 308):          # the front page only redirects to the dashboard
+            check(path, status, headers, body)
+            continue
         if status != 200:
             problems.append(f"{path}: expected 200 when signed in, got {status}")
             continue

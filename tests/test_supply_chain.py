@@ -60,7 +60,9 @@ def test_lock_uses_the_headless_opencv_only():
 def test_dockerfiles_install_from_the_hashed_lock_on_a_pinned_base(dockerfile, lock):
     text = (ROOT / dockerfile).read_text(encoding="utf-8")
     assert re.search(r"^FROM python:3\.13-slim@sha256:[0-9a-f]{64}$", text, re.M)
-    assert re.search(rf"^RUN pip install .*--require-hashes .*-r {re.escape(lock)}$", text, re.M)
+    assert re.search(rf"^RUN pip install .*--require-hashes .*-r {re.escape(lock)}( && pip uninstall -y pip setuptools wheel)?$", text, re.M)
+    assert "pip uninstall -y pip setuptools wheel" in text          # the build tools (and the libraries pip bundles) are not shipped in the image
+    assert "zlib1g" in text
     assert "PIP_DISABLE_PIP_VERSION_CHECK=1" in text
     assert "libgl1" not in text
 

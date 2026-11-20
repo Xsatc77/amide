@@ -1,0 +1,2 @@
+# A false positive: `need_key=need.key` in app/shopping/build.py looks like an API key to the generic rule. Reviewed by hand; it is a variable name.
+4cb9b070554f94de7c354fc9de89310e8657ecfd:app/shopping/build.py:generic-api-key:130

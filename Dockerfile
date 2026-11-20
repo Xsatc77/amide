@@ -9,12 +9,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     AMIDE_DATA_DIR=/data
 
 # OCR for scanned price lists (RapidOCR -> OpenCV, the headless build) needs this one system library on the slim image.
-RUN apt-get update && apt-get install -y --no-install-recommends libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+# zlib1g is named so the image takes the Debian security update of it even when the pinned base image is older.
+RUN apt-get update && apt-get install -y --no-install-recommends libglib2.0-0 zlib1g && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 # Every package comes from the hash-pinned lock (requirements.lock, made by tools/make_lock.py): pip refuses anything whose hash differs.
 COPY requirements.lock .
-RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
+# pip, setuptools and wheel are removed afterwards: Amide never needs them at run time, and the copies of urllib3, msgpack and setuptools they
+# bundle are what image scanners flag.
+RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock && pip uninstall -y pip setuptools wheel
 
 COPY alembic.ini .
 COPY migrations ./migrations

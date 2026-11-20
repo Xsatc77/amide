@@ -8,11 +8,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     AMIDE_WATCHER_HOME=/watcher-data
 
+# zlib1g is upgraded so the image takes the Debian security update of it even when the pinned base image is older.
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade zlib1g && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 # From the hash-pinned lock (requirements-watcher.lock, made by tools/make_lock.py). pyaes (a Telethon dependency) ships only as a
 # source archive; its hash is still checked, and pip builds it with setuptools fetched into pip's isolated build environment.
 COPY requirements-watcher.lock .
-RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements-watcher.lock
+# pip, setuptools and wheel are removed afterwards: the watcher never needs them at run time, and the copies of urllib3, msgpack and setuptools
+# they bundle are what image scanners flag.
+RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements-watcher.lock && pip uninstall -y pip setuptools wheel
 
 # Only the watcher package: it imports nothing from the Amide app.
 COPY watcher ./watcher
