@@ -13,7 +13,7 @@ EVENT_MINUTES = 15
 
 
 def escape(text: str) -> str:
-    return str(text).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n")
+    return str(text).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
 
 
 def fold(line: str) -> str:

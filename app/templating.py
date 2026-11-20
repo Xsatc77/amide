@@ -134,3 +134,14 @@ def tag_style(tag: str) -> str:
 
 
 templates.env.filters["tag_style"] = tag_style
+
+
+def safe_href(value) -> str:
+    """A stored web address as a link target: only http(s), mailto and tel survive. Anything else (javascript:, data:, a pasted
+    scheme-less string) becomes an empty link, so a bad value that arrived by a restored backup or a hand-edited database cannot
+    run script when clicked."""
+    text = str(value or "").strip()
+    return text if text.lower().startswith(("http://", "https://", "mailto:", "tel:")) and not any(ord(c) < 32 for c in text) else ""
+
+
+templates.env.filters["safe_href"] = safe_href

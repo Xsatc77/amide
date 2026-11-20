@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import dataclasses
+import os
 import sys
 
 from watcher import startup
@@ -99,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     once = sub.add_parser("once")
     once.add_argument("--days", type=int, default=None)
     args = parser.parse_args(argv)
+    os.umask(0o077)                                          # every file the watcher creates (session, state, queue, log) is the owner's alone
 
     if args.command == "install-startup":
         return startup.install()

@@ -9,7 +9,7 @@ import re
 from datetime import date
 
 from app.labs import labcorp
-from app.labs.labcorp import ReportRow, ReportRows
+from app.labs.labcorp import MAX_LINE, ReportRow, ReportRows
 from app.models import LabMarker
 
 LABS = [
@@ -94,7 +94,7 @@ def parse_quest(text: str) -> ReportRows:
     seen: set[str] = set()
     last: ReportRow | None = None
     for raw in text.splitlines():
-        line = raw.strip()
+        line = raw.strip()[:MAX_LINE]
         if line.startswith(QUEST_HEADER):
             in_table = True
             continue
@@ -124,7 +124,7 @@ def parse_generic(text: str) -> ReportRows:
     out = ReportRows(_date(text))
     seen: set[str] = set()
     for raw in text.splitlines():
-        line = raw.strip()
+        line = raw.strip()[:MAX_LINE]
         m = GENERIC_ROW.match(line)
         if not m or not m["tail"]:
             continue
@@ -152,9 +152,7 @@ def parse_generic(text: str) -> ReportRows:
 
 
 def extract_text(data: bytes) -> str:
-    import pdfplumber
-    with pdfplumber.open(io.BytesIO(data)) as pdf:
-        return "\n".join((page.extract_text() or "") for page in pdf.pages)
+    return labcorp.pdf_text(data)
 
 
 def read_pdf(lab: str, data: bytes) -> ReportRows:

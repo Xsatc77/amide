@@ -32,7 +32,10 @@ def _num(text: str | None) -> float | None:
 
 
 def _rows(text: str):
-    return list(csv.DictReader(io.StringIO(text.lstrip("﻿"))))
+    try:
+        return list(csv.DictReader(io.StringIO(text.lstrip("﻿"))))
+    except csv.Error:                          # a value longer than the csv module reads: a damaged file, not a fault of ours
+        raise ImportError_("That file could not be read as a Pacer export (a value in it is far too long).") from None
 
 
 def parse_weight(text: str) -> Parsed:
@@ -97,8 +100,8 @@ def texts_from_zip(data: bytes) -> list[str]:
     """The WeightLogs and HeartLogs files of the exported zip; anything else (the large step files) is left unread."""
     try:
         z = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile:
-        raise ImportError_("That zip file could not be opened.")
+    except (zipfile.BadZipFile, NotImplementedError, ValueError, OSError, EOFError, RuntimeError):
+        raise ImportError_("That zip file could not be opened.") from None
     try:
         infos = zipsafe.check(z, max_total=_MAX_ZIP_TOTAL)
     except zipsafe.ZipUnsafe:

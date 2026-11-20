@@ -1,0 +1,18 @@
+# Settings for the scheduled secret scan (.github/workflows/security-scan.yml): gitleaks with its default rules over the whole git history.
+#
+# Only the obvious placeholders below are allowed, each as an exact string, never a pattern that could match a real secret.
+# To allow one more: add the exact placeholder text (escaped for a regex) to `regexes`, with a comment saying where it lives.
+# A real secret that was committed is never added here: rotate it first.
+title = "Amide Secret Scan"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholders in the example files and the test fixtures"
+regexes = [
+  '''YOUR_AMIDE_INGEST_TOKEN''',                  # watcher/config.example.toml
+  '''YOUR_TELEGRAM_API_HASH''',                   # watcher/config.example.toml
+  '''paste-the-token-from-Amide-here''',         # the compose file with the watcher
+  '''test-token''',                              # watcher test fixtures
+]

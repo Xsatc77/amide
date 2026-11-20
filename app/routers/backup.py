@@ -16,7 +16,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app import clock
+from app import clock, spreadsheet
 from app import config, photo_access
 from app.auth import audit
 from app.auth import sessions as login_sessions
@@ -297,19 +297,19 @@ def export_inventory_csv(session: Session = Depends(get_session), uid: int = Dep
     writer.writerow([header for header, _ in CSV_COLUMNS])
     for i in inventory:
         row = _inventory_row(i)
-        writer.writerow(["" if row[key] is None else row[key] for _, key in CSV_COLUMNS])
+        writer.writerow(spreadsheet.row("" if row[key] is None else row[key] for _, key in CSV_COLUMNS))
     writer.writerow([])
     writer.writerow([header for header, _ in ORDER_CSV_COLUMNS])
     for i in inventory:
         for li in i.order_items:
             row = {**_order_row(li), "item_name": i.name}
-            writer.writerow(["" if row[key] is None else row[key] for _, key in ORDER_CSV_COLUMNS])
+            writer.writerow(spreadsheet.row("" if row[key] is None else row[key] for _, key in ORDER_CSV_COLUMNS))
     writer.writerow([])
     writer.writerow([header for header, _ in SALE_CSV_COLUMNS])
     for i in inventory:
         for sale in i.sales:
             row = {**_sale_row(sale), "item_name": i.name}
-            writer.writerow(["" if row[key] is None else row[key] for _, key in SALE_CSV_COLUMNS])
+            writer.writerow(spreadsheet.row("" if row[key] is None else row[key] for _, key in SALE_CSV_COLUMNS))
     filename = f"amide-inventory-{clock.today().isoformat()}.csv"
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})

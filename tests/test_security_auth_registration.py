@@ -108,6 +108,8 @@ def test_the_cookie_follows_the_request_scheme_without_a_public_url(monkeypatch)
 
 def test_cookie_secure_helper(monkeypatch):
     class Req:
+        headers: dict = {}
+
         class url:
             scheme = "http"
     monkeypatch.setattr(config, "PUBLIC_URL", "https://x.example.test")

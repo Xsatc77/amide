@@ -19,6 +19,7 @@ except ImportError:                    # pragma: no cover
     pass
 
 _MAX_SHEETS, _MAX_ROWS, _MAX_COLS = 10, 5000, 40
+_MAX_SHEET_PARTS = 200                 # sheets a workbook may declare before it is refused unread (a crafted one declares tens of thousands)
 MAX_UNCOMPRESSED = 100 * 1024 * 1024
 _PRICE_WORDS = re.compile(r"price|quote|catalog", re.IGNORECASE)
 
@@ -85,6 +86,8 @@ def read_xlsx(data: bytes) -> PriceListData:
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             infos = zipsafe.check(z, max_total=MAX_UNCOMPRESSED)
             zipsafe.refuse_entities(z, infos, part_limit=MAX_UNCOMPRESSED, total_limit=MAX_UNCOMPRESSED)
+            if zipsafe.read_bounded(z, "xl/workbook.xml", 4 << 20).count(b"<sheet ") > _MAX_SHEET_PARTS:
+                raise zipsafe.ZipUnsafe("the file has too many sheets")
     except zipsafe.ZipUnsafe as exc:
         raise ReadError(f"the spreadsheet was refused: {exc}") from None
     except ReadError:

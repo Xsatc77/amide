@@ -90,10 +90,16 @@ def registration_override() -> str | None:
 
 
 def cookie_secure(request) -> bool:
-    """The `secure` flag for the session and device cookies: always on when AMIDE_PUBLIC_URL is https, else follows the request's scheme."""
+    """The `secure` flag for the session and device cookies: on when AMIDE_PUBLIC_URL is https, when the request itself is https, or when the
+    proxy in front says (X-Forwarded-Proto) it received https. The header is only ever believed in the SAFER direction: a client that fakes
+    "https" gets a Secure flag on its own cookie, nothing more, so it needs no trusted-proxy setting; plain-http LAN visits carry no such
+    header and keep a cookie that works."""
     if PUBLIC_URL.lower().startswith("https://"):
         return True
-    return request.url.scheme == "https"
+    if request.url.scheme == "https":
+        return True
+    forwarded = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    return forwarded == "https"
 
 # Uploads larger than this are rejected.
 MAX_UPLOAD_BYTES = int(os.environ.get("AMIDE_MAX_UPLOAD_MB", "15")) * 1024 * 1024

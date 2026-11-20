@@ -8,6 +8,7 @@ import io
 import json
 import re
 import zipfile
+import zlib
 from dataclasses import dataclass
 
 from app.backup.container import BackupError
@@ -110,10 +111,15 @@ def read_archive(data: bytes, *, max_bytes: int) -> Archive:
         raw_manifest = _read_bounded(z, by_name[MANIFEST], remaining)
         remaining -= len(raw_manifest)
         manifest = json.loads(raw_manifest.decode("utf-8"))
+        if not isinstance(manifest, dict):
+            raise BackupError("This backup file is damaged.")
         if manifest.get("format") != FORMAT:
             raise BackupError("This backup was made by a version of Amide this one cannot read.")
+        listed = manifest.get("entries", {})
+        if not isinstance(listed, dict):
+            raise BackupError("This backup file is damaged.")
         entries = {}
-        for name, digest in manifest.get("entries", {}).items():
+        for name, digest in listed.items():
             if not _safe(name) or name == MANIFEST:
                 raise BackupError("This backup file is damaged.")
             if name not in by_name:
@@ -128,5 +134,5 @@ def read_archive(data: bytes, *, max_bytes: int) -> Archive:
         return Archive(manifest, entries)
     except BackupError:
         raise
-    except (zipfile.BadZipFile, KeyError, ValueError, UnicodeDecodeError, RuntimeError, EOFError, OSError):
+    except (zipfile.BadZipFile, KeyError, ValueError, UnicodeDecodeError, RuntimeError, EOFError, OSError, zlib.error, NotImplementedError):
         raise BackupError("This backup file is damaged.") from None

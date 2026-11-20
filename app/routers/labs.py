@@ -15,7 +15,7 @@ from starlette.datastructures import UploadFile
 from app import clock, config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
-from app.labs import marker_info, monitoring, reports
+from app.labs import labcorp, marker_info, monitoring, reports
 from app.sharing import accepted_owner_ids
 from app.models import LabMarker, LabPanel, LabResult, Peptide, Protocol, ProtocolItem, Share, ShareCategory, User
 from app.protocols.status import Status, protocol_status
@@ -32,10 +32,8 @@ class TooManyPages(Exception):
 
 
 def _read_report(lab: str, data: bytes):
-    import pdfplumber
     try:
-        with pdfplumber.open(io.BytesIO(data)) as pdf:
-            too_many = len(pdf.pages) > PDF_MAX_PAGES
+        too_many = labcorp.pdf_page_count(data) > PDF_MAX_PAGES
     except Exception:  # noqa: BLE001 -- unreadable: let the real reader report it
         too_many = False
     if too_many:

@@ -35,3 +35,30 @@ Read the digest of the current index with `docker buildx imagetools inspect pyth
 ## Licences Worth Knowing
 
 PyMuPDF (used only by the developer-only `tools/import_cards.py`) is AGPL-3.0, which is why it is kept out of `requirements.txt` and out of the images. `defusedxml` is added because openpyxl uses it, when installed, to refuse XML entity expansion in untrusted spreadsheets, which matters because the Telegram ingest reads spreadsheets posted by third parties.
+
+## Scheduled Scans
+
+`.github/workflows/security-scan.yml` holds the scans that are too slow or too noisy for every push. It runs by hand (Actions, Security Scan, Run workflow), every Monday at 04:23 UTC, and whenever a `v*` tag is pushed. It uses no secrets and no tokens beyond the read-only one GitHub gives every run; nothing is pushed anywhere.
+
+| Job | What It Does | Fails When |
+| --- | --- | --- |
+| Image Vulnerabilities | Builds the Amide image and the watcher image from their Dockerfiles, then scans each with Trivy for operating system and Python package vulnerabilities | A HIGH or CRITICAL finding has a fix available (unfixed ones are hidden) |
+| Dockerfile Misconfigurations | Trivy configuration scan of the Dockerfiles. Trivy has no checks for compose files, so those are covered by the tests | A HIGH or CRITICAL misconfiguration |
+| Running App Scan | Starts the fresh image with a throwaway volume and `AMIDE_REGISTRATION=open`, waits for `/healthz`, runs `.github/zap/auth_probe.py`, then the OWASP ZAP baseline scan | The probe finds a missing header, a version banner or a stack trace. The ZAP step only reports |
+| Secret Scan | gitleaks over every commit of the full history, with `.gitleaks.toml` | Any finding |
+
+The tools are pinned: Trivy through the action at a full commit SHA, ZAP and gitleaks as container images pinned by digest (the digest sits in the `env` block of the job). Refresh a digest with `docker buildx imagetools inspect <image>:<tag>`; Dependabot refreshes the action SHAs.
+
+### Reading The Results
+
+- Open the run in the Actions tab. A red job shows its findings in the log: Trivy prints a table (package, installed version, fixed version), gitleaks prints the file, commit and rule, and the probe prints one `FAIL` line per problem.
+- Every run keeps its reports for 30 days as artifacts: `trivy-amide`, `trivy-watcher` and `trivy-config` (JSON), `zap-report` (HTML and JSON) and `gitleaks-report` (JSON, secrets redacted).
+- The ZAP log ends with a summary of alert types by risk. Medium and low alerts are advice to read, not a failure; fix the ones that apply and note the ones that do not.
+- A Trivy finding with a fix usually means rebuilding on a newer base image or regenerating the lock files (see above). A finding in a package with no fix never appears, by design.
+- The signed-in probe registers a random throwaway account inside the container, signs in, loads the main pages and checks the security headers, no-store caching on private pages, no `Server` banner, and no stack trace or framework name in 404, 405 and 422 style answers. The account disappears with the container.
+
+### Adding An Allow-List Entry
+
+- Vulnerabilities: add the id (for example a CVE number) to `.trivyignore`, one per line, with a comment saying why it does not apply and when to look again. The file starts empty.
+- Secrets: a real secret is never allowed. Rotate it, then remove it from history if you can. For an obvious placeholder, add the exact text (regex-escaped) to the `regexes` list in `.gitleaks.toml`, with a comment saying where it lives. Never add a pattern that could match a real secret; a test rejects catch-all entries.
+- Headers or error pages: fix the app; the probe has no ignore list.

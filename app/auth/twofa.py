@@ -8,6 +8,10 @@ Rules every caller relies on:
   and call `sessions.clear_failures(user)` after a good one.
 """
 
+from sqlalchemy import or_, update
+from sqlalchemy.orm import object_session
+from sqlalchemy.orm.attributes import set_committed_value
+
 from app.auth import totp
 from app.models import User
 
@@ -19,5 +23,15 @@ def check_code(user: User, code: str, now) -> str | None:
         return "That code didn't match. Enter the 6-digit code your app shows now."
     if user.totp_last_step is not None and step <= user.totp_last_step:
         return "That code was already used. Wait for the next one in your app."
-    user.totp_last_step = step
+    db = object_session(user)
+    if db is None or user.id is None:
+        user.totp_last_step = step
+        return None
+    # Compare-and-set in the database: of two requests that carry the same code at the same moment only one UPDATE matches a
+    # row (the other sees the step already recorded), so a code can never be used twice.
+    won = db.execute(update(User).where(User.id == user.id, or_(User.totp_last_step.is_(None), User.totp_last_step < step))
+                     .values(totp_last_step=step)).rowcount
+    if not won:
+        return "That code was already used. Wait for the next one in your app."
+    set_committed_value(user, "totp_last_step", step)
     return None

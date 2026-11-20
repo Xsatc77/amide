@@ -14,3 +14,13 @@ tools
 *.db
 *.sqlite3
 requirements-dev.txt
+# Never let a watcher secret or runtime file into any image build context, and keep the watcher's tests out of its image.
+**/config.toml
+**/*.session
+**/*.session-journal
+**/state.json
+**/state.json.bad
+**/queue
+**/watcher.log*
+amide-watcher
+watcher/tests

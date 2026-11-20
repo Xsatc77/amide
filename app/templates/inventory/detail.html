@@ -258,7 +258,7 @@
         <td>{{ li.order.arrival_date | shortdate or '—' }}</td>
         <td>{{ li.expiration_date | shortdate or '—' }}</td>
         <td>
-          {% if li.order.tracking_site %}<a href="{{ li.order.tracking_site }}" target="_blank" rel="noopener">{{ li.order.tracking_number or 'Track' }}</a>{% else %}{{ li.order.tracking_number or '—' }}{% endif %}
+          {% if li.order.tracking_site %}<a href="{{ li.order.tracking_site | safe_href }}" target="_blank" rel="noopener">{{ li.order.tracking_number or 'Track' }}</a>{% else %}{{ li.order.tracking_number or '—' }}{% endif %}
         </td>
         <td>{{ li.order.vendor or '—' }}</td>
         <td>{{ li.lot_number or '—' }}</td>

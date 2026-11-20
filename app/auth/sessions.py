@@ -4,8 +4,9 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app import config
 from app.auth import audit, devices
@@ -84,10 +85,25 @@ def is_locked(user: User, now: datetime) -> bool:
 
 
 def record_failure(user: User, now: datetime) -> None:
-    user.failed_attempts = (user.failed_attempts or 0) + 1
-    if user.failed_attempts >= config.LOCKOUT_ATTEMPTS:
-        user.locked_until = now + timedelta(minutes=config.LOCKOUT_MINUTES)
-        user.failed_attempts = 0
+    """Count one wrong password or code. With a database session the counter is bumped by one UPDATE (`failed_attempts + 1`), so
+    parallel guesses cannot overwrite each other's count (a read-modify-write let N simultaneous guesses count as one); the
+    lock decision is made on the value the database returns. The caller commits."""
+    db = object_session(user)
+    if db is None or user.id is None:
+        user.failed_attempts = (user.failed_attempts or 0) + 1
+        if user.failed_attempts >= config.LOCKOUT_ATTEMPTS:
+            user.locked_until = now + timedelta(minutes=config.LOCKOUT_MINUTES)
+            user.failed_attempts = 0
+        return
+    db.execute(update(User).where(User.id == user.id).values(failed_attempts=func.coalesce(User.failed_attempts, 0) + 1))
+    count = db.scalar(select(User.failed_attempts).where(User.id == user.id)) or 0
+    if count >= config.LOCKOUT_ATTEMPTS:
+        until = now + timedelta(minutes=config.LOCKOUT_MINUTES)
+        db.execute(update(User).where(User.id == user.id).values(failed_attempts=0, locked_until=until))
+        set_committed_value(user, "failed_attempts", 0)
+        set_committed_value(user, "locked_until", until)
+    else:
+        set_committed_value(user, "failed_attempts", count)
 
 
 def clear_failures(user: User) -> None:

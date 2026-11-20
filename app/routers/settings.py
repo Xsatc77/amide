@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 import re
 import secrets
@@ -109,7 +110,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "ntfy_suggestion": secrets.token_urlsafe(18), "ntfy_short": bool(me.ntfy_topic and len(me.ntfy_topic) < 12),
         "ntfy_server": config.NTFY_SERVER, "ai_providers": ai_summary.PROVIDERS,
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
-        "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
+        "calendar_feed_url": f"{(config.PUBLIC_URL or str(request.base_url)).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
     }
     shown = apple_health.take_new_token(request.state.session_id)
     context["health"] = apple_health.card_data(session, me.id, str(request.base_url), shown[0] if shown else None)
@@ -194,6 +195,7 @@ async def change_password(request: Request, session: Session = Depends(get_sessi
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
+    session.commit()                      # hand the pooled database connection back while the slow hash runs (many at once would starve the pool)
     me.password_hash = await passwords.hash_password_async(new_password)
     audit.record(session, "password_changed", request, me, "other sessions and remembered devices ended")
     session.commit()
@@ -662,8 +664,12 @@ def accept_received_share(owner_id: int, category: str, request: Request, sessio
         raise HTTPException(status_code=404)
     if share.accepted_at is None:
         share.accepted_at = naive_utcnow()
-        audit.record(session, "share_accepted", request, session.get(User, uid), f"{share.category.value} from user {owner_id}")
-        session.commit()
+        try:
+            audit.record(session, "share_accepted", request, session.get(User, uid), f"{share.category.value} from user {owner_id}")
+            session.commit()
+        except StaleDataError:          # declined (deleted) by a simultaneous request: nothing left to accept
+            session.rollback()
+            raise HTTPException(status_code=404)
     return RedirectResponse("/settings#sharing", status_code=303)
 
 
@@ -674,9 +680,12 @@ def decline_received_share(owner_id: int, category: str, request: Request, sessi
     share = _my_received_share(session, uid, owner_id, category)
     if share is None or share.accepted_at is not None:
         raise HTTPException(status_code=404)
-    session.delete(share)
-    audit.record(session, "share_declined", request, session.get(User, uid), f"{share.category.value} from user {owner_id}")
-    session.commit()
+    try:
+        session.delete(share)
+        audit.record(session, "share_declined", request, session.get(User, uid), f"{share.category.value} from user {owner_id}")
+        session.commit()
+    except StaleDataError:              # a simultaneous request already removed it
+        session.rollback()
     return RedirectResponse("/settings#sharing", status_code=303)
 
 
@@ -729,6 +738,7 @@ async def admin_add_user(request: Request, session: Session = Depends(get_sessio
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
+    session.commit()                      # release the pooled connection during the hash
     new_user = User(username=username, username_key=passwords.username_key(username), password_hash=await passwords.hash_password_async(password))
     session.add(new_user)
     session.flush()
@@ -748,6 +758,7 @@ async def admin_reset_password(user_id: int, request: Request, session: Session 
     if problems := passwords.password_errors(password, confirm):
         return _render(request, session, errors={"reset_password": " ".join(problems)}, status_code=422)
 
+    session.commit()                      # release the pooled connection during the hash
     target.password_hash = await passwords.hash_password_async(password)
     sessions.clear_failures(target)
     audit.record(session, "admin_password_reset", request, _me(session, request.state.user.id), f"for {target.username}")

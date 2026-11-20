@@ -1,6 +1,7 @@
 """Logging to a rotating file and the console. Callers log only titles, ids, counts and error class names."""
 
 import logging
+import os
 import logging.handlers
 from pathlib import Path
 
@@ -17,5 +18,9 @@ def get_logger(path: Path | None) -> logging.Logger:
             path.parent.mkdir(parents=True, exist_ok=True)
             handler = logging.handlers.RotatingFileHandler(path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
             handler.setFormatter(formatter)
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
             log.addHandler(handler)
     return log

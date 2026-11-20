@@ -1,8 +1,11 @@
 """Legal notice, welcome, new user, login, two-factor authentication, logout."""
 
+import threading
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import config, links
@@ -14,6 +17,7 @@ from app.security_headers import FILE_HEADERS_SHARED
 from app.templating import templates
 
 router = APIRouter()
+_register_lock = threading.Lock()      # serialises account creation (see register)
 
 HOME = "/dashboard"  # the front page
 BANNER_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -152,18 +156,34 @@ async def register(request: Request, db: Session = Depends(get_session)):
         return _render(request, "register", _checks_context({"username": username, "twofa": form.get("twofa")},
                                                             errors), 422)
 
-    first = db.scalar(select(User.id).limit(1)) is None
-    user = User(username=username, username_key=passwords.username_key(username),
-                password_hash=await passwords.hash_password_async(password), is_admin=first)
-    db.add(user)
-    db.flush()
-    audit.record(db, "registered", request, user, "first account (admin)" if first else "")
-    links.add_starter_links(db, user.id)
-    if first:
-        # The first account takes over everything created before accounts existed.
-        for model in (InventoryItem, Protocol):
-            db.execute(update(model).where(model.owner_id.is_(None)).values(owner_id=user.id))
-    response = _sign_in(db, request, user, pending_2fa=False)
+    db.commit()      # hand the connection back to the pool before the slow hash: a request that waits on it must not hold one (see login)
+    password_hash = await passwords.hash_password_async(password)
+    # Everything from here to the commit has no `await`, and the lock keeps a second request (another thread) out of it: the
+    # "is anyone registered yet" check, the closed-registration check and the username check are repeated INSIDE it, because the
+    # hashing above takes long enough for another request to have registered meanwhile (two first accounts, both admin).
+    with _register_lock:
+        if not registration.is_open(db):
+            return _render(request, "registration_closed", status_code=403)
+        key = passwords.username_key(username)
+        if db.scalar(select(User.id).where(User.username_key == key)):
+            return _render(request, "register", _checks_context({"username": username, "twofa": form.get("twofa")},
+                                                                ["That username is already taken."]), 422)
+        first = db.scalar(select(User.id).limit(1)) is None
+        try:
+            user = User(username=username, username_key=key, password_hash=password_hash, is_admin=first)
+            db.add(user)
+            db.flush()
+            audit.record(db, "registered", request, user, "first account (admin)" if first else "")
+            links.add_starter_links(db, user.id)
+            if first:
+                # The first account takes over everything created before accounts existed.
+                for model in (InventoryItem, Protocol):
+                    db.execute(update(model).where(model.owner_id.is_(None)).values(owner_id=user.id))
+            response = _sign_in(db, request, user, pending_2fa=False)
+        except IntegrityError:          # another process took the name between the check and the insert
+            db.rollback()
+            return _render(request, "register", _checks_context({"username": username, "twofa": form.get("twofa")},
+                                                                ["That username is already taken."]), 422)
     if form.get("twofa") == "1":
         response.headers["location"] = "/account/2fa"
     return response
@@ -205,6 +225,7 @@ async def login(request: Request, db: Session = Depends(get_session)):
     if wait := throttle.backoff_wait(client, key, now):
         return fail(f"Too many wrong tries for that name from this address. Wait {wait} seconds and try again.", 429,
                     {"Retry-After": str(wait)})
+    db.commit()      # the hash check below takes a while: give the pooled connection back first, or ~15 simultaneous sign-ins starve every other request for 30 seconds
     if user is None or hidden_lock:
         await passwords.verify_dummy_async(form.get("password", ""))  # same work either way: do not leak names
         throttle.note_failure(client, key, now)

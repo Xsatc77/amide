@@ -116,7 +116,7 @@ def test_when_amide_is_down_messages_wait_in_order_then_deliver_with_backoff(tmp
     assert len(queue) == 2 and amide.sent == [] and state.chat("-100").last_id == 2        # read and safely queued, not lost
     poll(runner)                                                                            # still inside the first backoff wait
     assert amide.attempts == 1
-    runner.now = lambda: NOW + timedelta(seconds=31)
+    runner.now = lambda: NOW + timedelta(seconds=37)                                     # the 30 s wait is spread by up to 20 percent
     poll(runner)
     assert [p.message_id for p in amide.sent] == ["1", "2"] and len(queue) == 0
 

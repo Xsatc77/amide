@@ -1,0 +1,2 @@
+# Vulnerability ids the scheduled image scan (.github/workflows/security-scan.yml) should skip: one CVE id per line, each with a comment
+# saying why it does not apply and when to look again. Empty on purpose: the scan only reports findings that already have a fix.

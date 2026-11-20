@@ -17,6 +17,7 @@ _PRICE_HEADER = re.compile(r"price|usd|cost|\$", re.IGNORECASE)
 _SPEC_PARTS = re.compile(r"(\d+(?:\.\d+)?\s*(?:mcg|mg|ug|iu|ml)(?:\s*/\s*ml)?)\s*\S?\s*(\d+)\s*(vials?)", re.IGNORECASE)
 _TRAILING_DOLLAR = re.compile(r"^(\d[\d,.]*)\$(/\d*\s*vials?)?$", re.IGNORECASE)
 _MAX_PAGES = 30
+MAX_SIDE = 4000  # the longest side, in pixels, a picture is recognized at (larger ones are shrunk first)
 _RENDER_SCALE = 3  # 3x the PDF's point size: small print stays legible without making huge images
 _HEADER = {"code": "Code", "name": "Name", "spec": "Specification", "price": "Price"}
 
@@ -74,7 +75,10 @@ def recognize(page_image) -> list[Word]:
     with _engine_lock:
         if _engine is None:
             _engine = RapidOCR()
-        result = _engine(np.array(page_image.convert("RGB")))
+        image = page_image.convert("RGB")                                  # a copy, so the caller's picture is left as it was
+        if max(image.size) > MAX_SIDE:                                     # a 50-megapixel photo needs over a gigabyte to recognize; the words keep their relative places
+            image.thumbnail((MAX_SIDE, MAX_SIDE))
+        result = _engine(np.array(image))
     if result is None or result.txts is None:
         return []
     words = []

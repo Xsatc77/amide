@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.settings.rules import timezone_error
 from app import clock, config
@@ -117,7 +118,12 @@ def install(app: FastAPI) -> None:
             sessions.purge_if_due(db, now)
             row = sessions.get_live(db, request.cookies.get(sessions.COOKIE), now)
             if row is not None:
-                sessions.touch(db, row, now)
+                try:
+                    sessions.touch(db, row, now)
+                except StaleDataError:          # signed out everywhere (or purged) between the lookup and this write: the same as no session
+                    db.rollback()
+                    row = None
+            if row is not None:
                 request.state.session_id = row.id
                 if row.user_id is not None:
                     user = db.get(User, row.user_id)

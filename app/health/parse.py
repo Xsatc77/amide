@@ -1,6 +1,7 @@
 """Reads a stored Health Auto Export file into clean readings and events. Tolerant: bad content is flagged on the row, never raised."""
 
 import gzip
+import zlib
 import hashlib
 import json
 import logging
@@ -140,11 +141,33 @@ def _first_date(item: dict, keys, fallback):
     return fallback
 
 
+def _gunzip_one(path, limit: int) -> bytes:
+    """The one gzip member our own copy is, at most limit + 1 bytes of it. A file of many members (each costing a decoder) or one with
+    a damaged stream is bad content (ValueError), not a fault on our side."""
+    decoder, out = zlib.decompressobj(31), bytearray()
+    try:
+        with open(path, "rb") as f:
+            while chunk := f.read(1 << 16):
+                out += decoder.decompress(chunk, limit + 1 - len(out))
+                if len(out) > limit:
+                    break
+                if decoder.eof:
+                    if decoder.unused_data.strip(b"\x00") or f.read(1).strip(b"\x00"):
+                        raise ValueError("more than one gzip member")
+                    return bytes(out)
+                if decoder.unconsumed_tail:                          # more output than the cap allows
+                    break
+    except zlib.error:
+        raise ValueError("damaged gzip data") from None
+    if len(out) <= limit and not decoder.eof:
+        raise EOFError("truncated gzip data")
+    return bytes(out)
+
+
 def _load(raw: HealthRaw):
     path = config.HEALTH_RAW_DIR / raw.file_name
     limit = config.HEALTH_MAX_BYTES * MAX_EXPANSION
-    with gzip.open(path, "rb") as f:
-        data = f.read(limit + 1)                                     # never expand past the cap, whatever the stored copy claims
+    data = _gunzip_one(path, limit)                                  # never expand past the cap, whatever the stored copy claims
     if len(data) > limit:
         raise ValueError("stored copy expands beyond the allowed size")
     try:

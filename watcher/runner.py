@@ -2,11 +2,13 @@
 
 import asyncio
 import logging
+import random
 from datetime import datetime, timedelta, timezone
 
 from watcher.amide_client import AmideAuthError, AmideUnavailable, Source
 from watcher.ports import Payload, TgMessage
 from watcher.queue import DiskQueue
+from watcher.safety import safe_filename, valid_topic_id
 from watcher.state import State
 
 ALBUM_SETTLE_SECONDS = 5
@@ -16,6 +18,18 @@ SEND_PAUSE = 1.2                      # Amide allows 60 requests a minute per to
 STRIKES_TO_REPORT = 2
 MAX_DOWNLOAD_TRIES = 3
 MAX_TEXT = 8000                       # Amide refuses longer text
+MAX_TITLE = 200
+MAX_FILES_PER_MESSAGE = 10            # a Telegram album holds at most 10 items
+MAX_PAYLOAD_BYTES = 100 * 1024 * 1024  # all the files of one message together
+
+
+class TooLarge(Exception):
+    """A file turned out bigger than the limit while it was being downloaded."""
+
+
+def jittered(seconds: float, rng=random) -> float:
+    """A wait spread by up to 20 percent either way, so retries never line up into a steady hammering."""
+    return seconds * rng.uniform(0.8, 1.2)
 
 
 def _utc_now() -> datetime:
@@ -164,7 +178,7 @@ class Runner:
 
     async def _build(self, batch: list[TgMessage], with_files: bool = True) -> Payload | None:
         limit = self.config.max_file_mb * 1024 * 1024
-        files, texts = [], []
+        files, texts, total = [], [], 0
         for message in batch:
             if message.text.strip():
                 texts.append(message.text.strip())
@@ -172,13 +186,28 @@ class Runner:
                 if attachment.size > limit:
                     self.log.info("Skipped a file over the size limit in message %s", message.message_id)
                     continue
-                files.append((attachment.filename, await self.tg.download(message, attachment)))
+                if len(files) >= MAX_FILES_PER_MESSAGE:
+                    self.log.info("Skipped files beyond %s in message %s", MAX_FILES_PER_MESSAGE, message.message_id)
+                    break
+                try:
+                    data = await self.tg.download(message, attachment)
+                except TooLarge:
+                    data = None
+                if data is None or len(data) > limit:                      # the declared size can be wrong or missing: check what arrived
+                    self.log.info("Skipped a file over the size limit in message %s", message.message_id)
+                    continue
+                if total + len(data) > MAX_PAYLOAD_BYTES:
+                    self.log.info("Skipped a file: message %s is over the total size limit", message.message_id)
+                    continue
+                total += len(data)
+                files.append((safe_filename(attachment.filename, attachment.kind), data))
         if not texts and not files:
             return None
         first = batch[0]
         return Payload(chat_id=first.chat_id, message_id=str(first.message_id), album_id=str(first.grouped_id) if first.grouped_id else None,
                        date=first.date.astimezone(timezone.utc).isoformat(), text="\n".join(texts)[:MAX_TEXT], files=files,
-                       topic_id=first.topic_id, topic_title=self._topic_titles.get((first.chat_id, first.topic_id)) if first.topic_id else None)
+                       topic_id=first.topic_id if first.topic_id and valid_topic_id(first.topic_id) else None,
+                       topic_title=(self._topic_titles.get((first.chat_id, first.topic_id)) or "")[:MAX_TITLE] or None if first.topic_id else None)
 
     # ------------------------------------------------------------ delivering
 
@@ -209,10 +238,10 @@ class Runner:
                 self._pause()
                 return
             else:
-                delay = BACKOFF[min(self._failures, len(BACKOFF) - 1)]
+                delay = max(jittered(BACKOFF[min(self._failures, len(BACKOFF) - 1)]), outcome.retry_after)       # never sooner than Amide asked
                 self._failures += 1
                 self._next_attempt = self.now() + timedelta(seconds=delay)
-                self.log.warning("Could not deliver to Amide (%s); retrying in %s s", outcome.detail, delay)
+                self.log.warning("Could not deliver to Amide (%s); retrying in %d s", outcome.detail, delay)
                 return
 
     # ------------------------------------------------------------ the gone check

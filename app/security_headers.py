@@ -136,7 +136,11 @@ class SecurityMiddleware:
             if message["type"] == "http.response.start":
                 state["started"] = True
                 present = {name.lower() for name, _ in message.get("headers", [])}
-                message = {**message, "headers": list(message.get("headers", [])) + [(n, v) for n, v in extra if n not in present]}
+                added = [(n, v) for n, v in extra if n not in present]
+                kind = next((v for n, v in message.get("headers", []) if n.lower() == b"content-type"), b"").lower()
+                if b"cache-control" not in present and (kind.startswith(b"text/html") or kind.startswith(b"application/json"))                         and not scope.get("path", "").startswith("/static/"):
+                    added.append((b"cache-control", b"no-store"))          # pages and JSON hold a person's own data: never kept by a shared cache or the back button
+                message = {**message, "headers": list(message.get("headers", [])) + added}
             await send(message)
 
         headers = {name: value for name, value in scope.get("headers", [])}

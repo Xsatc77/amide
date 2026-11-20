@@ -27,7 +27,7 @@
     {% for l in rows %}
     <li class="link-card">
       <div class="link-main">
-        <a class="link-name" href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.name }}</a>
+        <a class="link-name" href="{{ l.url | safe_href }}" target="_blank" rel="noopener noreferrer">{{ l.name }}</a>
         <span class="muted small link-host">{{ host_of(l.url) }}</span>
         {% if l.shown_description %}<p class="link-desc">{{ l.shown_description }}</p>{% endif %}
       </div>

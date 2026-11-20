@@ -41,8 +41,16 @@ services:
       AMIDE_TOKEN: "paste-the-token-from-Amide-here"
       TELEGRAM_API_ID: "0"
       TELEGRAM_API_HASH: "paste-your-api-hash-here"
+      # To keep the token and hash out of the stack's environment (docker inspect shows it), mount Docker secrets and use
+      # AMIDE_TOKEN_FILE, TELEGRAM_API_HASH_FILE and TELEGRAM_API_ID_FILE instead of the three values above.
+      # A plain-http AMIDE_URL is only accepted for a container name, a loopback or a private address; use https for anything else.
     volumes:
       - watcher-data:/watcher-data
+    # Container hardening: ordinary user, no extra Linux capabilities, no privilege gain. It writes only under /watcher-data.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
 
 volumes:

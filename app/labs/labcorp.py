@@ -12,7 +12,10 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
+from app import pdfsafe
 from app.models import LabMarker
+
+MAX_LINE = 400        # characters read of one line: a result row is short, and the row patterns slow down sharply on a long run of spaces
 
 NUMBER = r"-?\d+(?:\.\d+)?"
 ROW = re.compile(
@@ -91,7 +94,7 @@ def parse_text(text: str) -> ReportRows:
     pending = ""
     seen: set[str] = set()
     for raw in text.splitlines():
-        line = raw.strip()
+        line = raw.strip()[:MAX_LINE]
         if line.startswith(HEADER):
             in_table, pending = True, ""
             continue
@@ -113,8 +116,27 @@ def parse_text(text: str) -> ReportRows:
     return out
 
 
-def read_pdf(data: bytes) -> ReportRows:
-    """Rows and draw date from a LabCorp report PDF's bytes. A PDF with no text (a scan) gives no rows."""
+def _pdf_text_here(data: bytes) -> str:
     import pdfplumber
     with pdfplumber.open(io.BytesIO(data)) as pdf:
-        return parse_text("\n".join((page.extract_text() or "") for page in pdf.pages))
+        return "\n".join((page.extract_text() or "") for page in pdf.pages)
+
+
+def _page_count_here(data: bytes) -> int:
+    import pdfplumber
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        return len(pdf.pages)
+
+
+def pdf_text(data: bytes) -> str:
+    """Every page's text. Read in a child process that is stopped if the PDF is crafted to take forever or too much memory (pdfsafe)."""
+    return pdfsafe.run("app.labs.labcorp:_pdf_text_here", data)
+
+
+def pdf_page_count(data: bytes) -> int:
+    return pdfsafe.run("app.labs.labcorp:_page_count_here", data)
+
+
+def read_pdf(data: bytes) -> ReportRows:
+    """Rows and draw date from a LabCorp report PDF's bytes. A PDF with no text (a scan) gives no rows."""
+    return parse_text(pdf_text(data))

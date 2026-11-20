@@ -80,6 +80,7 @@ MAX_LABELS = 480                     # ten sheets
 
 def _word(session: Session, uid: int, specs: list[avery94500.Spec], start: int, name: str, draw=None) -> Response:
     data, _, _ = avery94500.word_file(specs, start, avery94500.Align.from_dict(session.get(User, uid).avery_align), draw)
+    name = re.sub(r"[^A-Za-z0-9_.-]", "", name) or "Amide_Labels.docx"         # a symbol can hold any letter; a header holds ASCII and no quote
     return Response(data, media_type=DOCX, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 

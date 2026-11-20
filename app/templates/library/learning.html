@@ -22,7 +22,7 @@
   <li class="card">
     <strong>{{ n.title }}</strong>
     <span class="muted small">{% if n.peptide_id %}on <a href="/library/{{ n.peptide_id }}#learning">{{ names.get(n.peptide_id, '?') }}</a>{% else %}General note{% endif %}{% if n.created_at %} · {{ n.created_at | shortdate }}{% endif %}</span>
-    {% if n.url %}<div><a href="{{ n.url }}" target="_blank" rel="noopener noreferrer">{{ n.url }}</a></div>{% endif %}
+    {% if n.url %}<div><a href="{{ n.url | safe_href }}" target="_blank" rel="noopener noreferrer">{{ n.url }}</a></div>{% endif %}
     {% if n.body %}<p class="note-body">{{ n.body }}</p>{% endif %}
     {% if not n.peptide_id %}<form method="post" action="/library/notes/{{ n.id }}/delete" class="inline" data-confirm="Delete this note?"><button type="submit" class="btn btn-ghost btn-danger">Delete</button></form>{% endif %}
   </li>

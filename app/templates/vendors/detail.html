@@ -33,7 +33,7 @@
 <section aria-labelledby="profile-heading">
   <h2 id="profile-heading" class="section-title">Profile</h2>
   <dl class="kv">
-    <dt>Website</dt><dd>{% if vendor.website %}<a href="{{ vendor.website }}" target="_blank" rel="noopener">{{ vendor.website }}</a>{% else %}&mdash;{% endif %}</dd>
+    <dt>Website</dt><dd>{% if vendor.website %}<a href="{{ vendor.website | safe_href }}" target="_blank" rel="noopener">{{ vendor.website }}</a>{% else %}&mdash;{% endif %}</dd>
     <dt>Supplier</dt><dd>{{ vendor.supplier or '—' }}</dd>
     <dt>Contact name</dt><dd>{{ vendor.contact_name or '—' }}</dd>
     {% if average_delivery %}<dt>Average time to arrive</dt><dd>{{ '%g' % average_delivery[0] }} day{{ '' if average_delivery[0] == 1 else 's' }} <span class="muted small">({{ average_delivery[1] }} order{{ '' if average_delivery[1] == 1 else 's' }}, order to arrival)</span></dd>{% endif %}
@@ -58,7 +58,7 @@
     {% for c in contacts %}
     <li>
       <strong>{{ c.method_type_name }}:</strong>
-      {% if c.link %}<a href="{{ c.link }}"{% if c.link.startswith('https://') %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ c.value }}</a>{% else %}{{ c.value }}{% endif %}
+      {% if c.link %}<a href="{{ c.link | safe_href }}"{% if c.link.startswith('https://') %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ c.value }}</a>{% else %}{{ c.value }}{% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -98,7 +98,7 @@
 
   <h3 class="section-title">Price List</h3>
   <p>
-    {% if vendor.price_list_url %}<a class="btn btn-small" href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">Price list link</a>
+    {% if vendor.price_list_url %}<a class="btn btn-small" href="{{ vendor.price_list_url | safe_href }}" target="_blank" rel="noopener">Price list link</a>
     {% elif vendor.price_list_filename %}<a class="btn btn-small" href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>
     {% elif not current_lists %}<span class="muted">No price list on file.</span>{% endif %}
     {% if vendor.price_list_updated_at %}
@@ -168,7 +168,7 @@
       {% if vendor.price_list_filename or vendor.price_list_url %}
       <p class="muted small">
         Currently on file:
-        {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url }}" target="_blank" rel="noopener">{{ vendor.price_list_url }}</a>
+        {% if vendor.price_list_url %}<a href="{{ vendor.price_list_url | safe_href }}" target="_blank" rel="noopener">{{ vendor.price_list_url }}</a>
         {% else %}<a class="btn btn-small" href="/vendors/{{ vendor.id }}/price-list" target="_blank" rel="noopener">Price list file</a>{% endif %}
       </p>
       {% endif %}

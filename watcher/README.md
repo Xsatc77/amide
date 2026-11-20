@@ -74,3 +74,11 @@ and error class names, never message text or secrets.
 
 Edits and deletions of old messages are ignored; it polls rather than listening live; a group Telegram can no longer resolve at
 all is reported as unknown rather than gone; Windows startup runs at sign-in, not as a service before sign-in.
+
+## Security Notes
+
+- Settings from environment variables win over `config.toml`. The three secrets can also come from files (`AMIDE_TOKEN_FILE`, `TELEGRAM_API_HASH_FILE`, `TELEGRAM_API_ID_FILE`), which keeps them out of `docker inspect`.
+- The token is sent only to `amide_url`. Redirects are never followed and TLS certificates are always verified. A plain `http://` address is accepted only for a container name, a loopback or a private address; for anything else use `https://`, or set `AMIDE_ALLOW_INSECURE_HTTP=1` to accept the risk (the watcher then logs a warning).
+- The session, state, queue and log files are created readable by the owner only (0600, folders 0700) where the operating system has permission bits. Anyone who can read `telegram.session` can act as your Telegram account, so protect that folder and its backups.
+- File names from Telegram are cleaned (no folders, control characters or reserved names, at most 120 bytes, an extension that matches the file type) and never used as a local path. Downloads stop at the size limit, an album sends at most 10 files, and damaged or hostile state and queue files are set aside instead of being trusted.
+- A 429 or 5xx from Amide backs off with jitter and honours `Retry-After`; a 401 or 403 pauses delivery until the token is replaced.

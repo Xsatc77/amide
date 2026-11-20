@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pdfplumber
 
+from app import pdfsafe
 from app.library.price_lists import ocr
 from app.library.price_lists.rows import (
     ParsedRow, Spec, check_code_size, check_pack_size, code_number, parse_price, parse_spec, with_form,
@@ -55,8 +56,11 @@ class PriceListData:
     unread_spec_lines: int = 0  # text lines that look like products but produced no row
 
 
+MAX_TEXT = 400  # characters read of one cell or line: a price row is short, and the patterns below take time quadratic in a long run of digits
+
+
 def _clean(cell) -> str:
-    return re.sub(r"\s+", " ", cell or "").strip()
+    return re.sub(r"\s+", " ", (cell or "")[:MAX_TEXT]).strip()
 
 
 def _price_columns(cols: list[list[str]], spec: int) -> tuple[int, ...]:
@@ -171,6 +175,7 @@ def rows_from_lines(lines, page: int = 0) -> list[ParsedRow]:
     """Fallback for pages with no table: "<name> <code> <spec> <price>" on one line."""
     rows = []
     for line in lines:
+        line = line[:MAX_TEXT]
         m = _LINE_SPEC.search(line)
         if m is None:
             continue
@@ -257,7 +262,7 @@ def scan_notes(lines) -> tuple[str | None, str | None]:
 
 def unread_spec_lines(lines, rows) -> int:
     """Text lines that look like a product (they carry a spec) beyond the rows actually read from the page."""
-    return max(0, sum(1 for line in lines if _LINE_SPEC.search(line)) - len(rows))
+    return max(0, sum(1 for line in lines if _LINE_SPEC.search(line[:MAX_TEXT])) - len(rows))
 
 
 MAX_PDF_PAGES = 200
@@ -269,13 +274,21 @@ class TooManyPages(ValueError):
 
 def read_pdf(path: Path, recognize=None) -> PriceListData:
     """Read a text PDF. A page that is only a picture (a scan) is read by text recognition; `recognize` replaces the
-    recognizer (tests)."""
+    recognizer (tests, in this process). Otherwise the reading happens in a child process that is stopped if the PDF is crafted to take
+    forever or too much memory (pdfsafe); text recognition needs room, so the child is allowed more of it."""
+    if recognize is not None:
+        return _read_pdf_here(path, recognize)
+    return pdfsafe.run("app.library.price_lists.reader:_read_pdf_here", Path(path), None, MAX_PDF_PAGES, memory_mb=0, timeout=120)
+
+
+def _read_pdf_here(path: Path, recognize=None, max_pages: int | None = None) -> PriceListData:
     rows: list[ParsedRow] = []
     lines: list[str] = []
     unread = 0
     with pdfplumber.open(path) as pdf:
-        if len(pdf.pages) > MAX_PDF_PAGES:
-            raise TooManyPages(f"more than {MAX_PDF_PAGES} pages")
+        limit = MAX_PDF_PAGES if max_pages is None else max_pages
+        if len(pdf.pages) > limit:
+            raise TooManyPages(f"more than {limit} pages")
         for number, page in enumerate(pdf.pages, 1):
             if not page.chars and page.images:
                 words = ocr.page_words(path, number - 1, recognize)

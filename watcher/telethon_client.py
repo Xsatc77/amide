@@ -1,6 +1,7 @@
 """The real Telegram connection (Telethon). Thin on purpose: all decisions live in the runner. Read only: it never sends,
 reacts, joins, leaves or marks anything read."""
 
+import os
 import time
 from datetime import datetime, timezone
 
@@ -8,6 +9,7 @@ from telethon import errors, types
 
 from watcher.config import Config
 from watcher.ports import Access, Attachment, Group, TgMessage, Topic
+from watcher.safety import valid_topic_id
 
 _PDF = {"application/pdf"}
 _IMAGES = {"image/jpeg", "image/png"}
@@ -24,12 +26,27 @@ class TelethonClient:
     def __init__(self, config: Config):
         from telethon import TelegramClient
         self.config = config
-        config.home.mkdir(parents=True, exist_ok=True)
+        config.home.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            config.home.chmod(0o700)                         # the folder holding the session and the queue is the owner's alone
+        except OSError:
+            pass
         self._client = TelegramClient(str(config.session_path), config.telegram_api_id, config.telegram_api_hash, flood_sleep_threshold=300,
                                       connection_retries=-1, retry_delay=5)
 
+    def lock_down_session(self) -> None:
+        """The session file is a live Telegram login: the owner alone may read it (0600 where the OS has permission bits)."""
+        base = self.config.session_path
+        for path in (base, base.with_name(base.name + "-journal"), base.with_name(base.name + "-wal"), base.with_name(base.name + "-shm")):
+            try:
+                if path.exists():
+                    path.chmod(0o600)
+            except OSError:
+                pass
+
     async def connect(self) -> None:
         await self._client.connect()
+        self.lock_down_session()
 
     async def ensure_connected(self) -> None:
         if not self._client.is_connected():                 # after a long outage Telethon stays disconnected until asked
@@ -40,6 +57,7 @@ class TelethonClient:
 
     async def login_interactive(self) -> None:
         await self._client.start()                          # prompts for the phone, the code and the two-step password
+        self.lock_down_session()
 
     async def close(self) -> None:
         await self._client.disconnect()
@@ -49,7 +67,7 @@ class TelethonClient:
         async for dialog in self._client.iter_dialogs():
             if dialog.is_group or dialog.is_channel:        # never private chats or bots
                 topics = await self._topics(dialog.entity, str(dialog.id)) if getattr(dialog.entity, "forum", False) else []
-                groups.append(Group(chat_id=str(dialog.id), title=(dialog.name or "").strip() or str(dialog.id), topics=topics))
+                groups.append(Group(chat_id=str(dialog.id), title=((dialog.name or "").strip() or str(dialog.id))[:200], topics=topics))
         return groups
 
     async def _topics(self, entity, chat_id: str = "") -> list[Topic]:
@@ -65,7 +83,7 @@ class TelethonClient:
             while len(found) < MAX_TOPICS:
                 page = (await self._client(GetForumTopicsRequest(peer=entity, offset_date=offset_date, offset_id=offset_id,
                                                                  offset_topic=offset_topic, limit=PAGE))).topics
-                found.extend(Topic(str(t.id), t.title) for t in page if getattr(t, "title", None))
+                found.extend(Topic(str(t.id), t.title[:200]) for t in page if getattr(t, "title", None))
                 last = next((t for t in reversed(page) if getattr(t, "date", None) is not None), None)
                 if len(page) < PAGE or last is None:
                     break
@@ -100,14 +118,21 @@ class TelethonClient:
         """The topic a message of a whole-group read belongs to, when the group is a forum."""
         reply = getattr(m, "reply_to", None)
         if reply is not None and getattr(reply, "forum_topic", False):
-            return str(getattr(reply, "reply_to_top_id", None) or getattr(reply, "reply_to_msg_id", None) or "") or None
+            topic = str(getattr(reply, "reply_to_top_id", None) or getattr(reply, "reply_to_msg_id", None) or "")
+            return topic if valid_topic_id(topic) else None
         return None
 
     async def download(self, message: TgMessage, attachment: Attachment) -> bytes:
-        data = await self._client.download_media(message.raw, file=bytes)
-        if data is None:
+        from watcher.runner import TooLarge
+        limit = getattr(getattr(self, "config", None), "max_file_mb", 25) * 1024 * 1024
+        data = bytearray()
+        async for chunk in self._client.iter_download(message.raw.media):        # stop as soon as the file outgrows the limit
+            data += chunk
+            if len(data) > limit:
+                raise TooLarge()
+        if not data:
             raise OSError("download returned nothing")
-        return data
+        return bytes(data)
 
     async def check_access(self, chat_id: str) -> Access:
         try:

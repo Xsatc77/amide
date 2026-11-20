@@ -93,7 +93,10 @@ def parse(text: str) -> Parsed:
     """The readings in a Renpho CSV, oldest first (so a later reading is stored after an earlier one), with a line for each row that could not be read."""
     if len(text.encode("utf-8", "ignore")) > _MAX_BYTES:
         raise ImportError_("That file is too large to be a scale export.")
-    rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    try:
+        rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    except csv.Error:                          # a value longer than the csv module reads: a damaged file, not a fault of ours
+        raise ImportError_("That file could not be read as a Renpho export (a value in it is far too long).") from None
     header = next((r for r in rows if r and any(c.strip() for c in r)), None)
     if header is None:
         raise ImportError_("That file is empty.")

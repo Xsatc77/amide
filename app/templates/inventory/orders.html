@@ -90,7 +90,7 @@
   <div class="order-tracking">
     {% if o.tracking_number %}<span>Tracking: <code>{{ o.tracking_number }}</code></span>
       <button type="button" class="btn" data-copy="{{ o.tracking_number }}">Copy</button>{% endif %}
-    {% if card.link %}<a class="btn btn-primary" href="{{ card.link.url }}" target="_blank" rel="noopener"
+    {% if card.link %}<a class="btn btn-primary" href="{{ card.link.url | safe_href }}" target="_blank" rel="noopener"
          {% if card.link.copy_first %}data-copy="{{ o.tracking_number }}"{% endif %}>{{ card.link.label }}</a>{% endif %}
     {% if not o.tracking_number and not card.link %}<span class="muted small">No tracking number yet.</span>{% endif %}
   </div>
