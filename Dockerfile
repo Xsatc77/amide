@@ -1,6 +1,6 @@
 # The base image is pinned by digest (the multi-arch index of python:3.13-slim). Dependabot proposes new digests weekly; to refresh by hand,
 # read the Docker-Content-Digest of the python:3.13-slim manifest list (docker buildx imagetools inspect python:3.13-slim) and paste it here.
-FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
