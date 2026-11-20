@@ -5,6 +5,7 @@ key and checks a signature. A passkey proves two things at once (the device, and
 needs no 2FA code. The face itself never leaves the device."""
 
 import base64
+import re
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -31,13 +32,31 @@ def unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
+# hostname[:port], or a bracketed IPv6 address[:port]: nothing else (no path, no @, no spaces) may become part of the origin.
+_HOST = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?|\[[0-9A-Fa-f:.]{2,45}\])(?::\d{1,5})?$")
+
+
+def host_is_valid(host: str) -> bool:
+    return bool(_HOST.match(host or ""))
+
+
+def _request_host(request: Request) -> str:
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return host.split(",")[0].strip()
+
+
+def origin_ok(request: Request) -> bool:
+    """False when no AMIDE_PUBLIC_URL is set and the Host header of this request is not a plain hostname[:port]."""
+    return bool(config.PUBLIC_URL) or host_is_valid(_request_host(request))
+
+
 def origin(request: Request) -> str:
-    """The address the browser is on (a passkey is tied to it), unless AMIDE_PUBLIC_URL fixes it."""
+    """The address the browser is on (a passkey is tied to it), unless AMIDE_PUBLIC_URL fixes it.
+    Without AMIDE_PUBLIC_URL this trusts the Host / X-Forwarded-Host header, so set AMIDE_PUBLIC_URL on any public install."""
     if config.PUBLIC_URL:
         return config.PUBLIC_URL
     scheme = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
-    return f"{scheme}://{host.split(',')[0].strip()}"
+    return f"{scheme}://{_request_host(request)}"
 
 
 def rp_id(request: Request) -> str:
@@ -46,6 +65,8 @@ def rp_id(request: Request) -> str:
 
 def supported(request: Request) -> bool:
     """Browsers only offer passkeys on https (or on localhost)."""
+    if not origin_ok(request):
+        return False
     parts = urlsplit(origin(request))
     return parts.scheme == "https" or parts.hostname in ("localhost", "127.0.0.1")
 
@@ -80,6 +101,8 @@ def registration_options(db: Session, request: Request, user: User) -> str:
 
 def register(db: Session, request: Request, user: User, credential: dict, name: str, now: datetime) -> Passkey | None:
     """Check the browser's answer to registration_options and store the new passkey; None when it does not check out."""
+    if not origin_ok(request):
+        return None
     challenge = _take_challenge(db, request.state.session_id)
     if challenge is None:
         return None
@@ -106,6 +129,8 @@ def login_options(db: Session, request: Request) -> str:
 
 def login(db: Session, request: Request, credential: dict, now: datetime) -> User | None:
     """The user whose passkey signed the challenge, or None."""
+    if not origin_ok(request):
+        return None
     challenge = _take_challenge(db, request.state.session_id)
     if challenge is None:
         return None

@@ -6,12 +6,18 @@ on:
     tags: ["v*"]
   pull_request:
 
+# Nothing gets more than read access by default; the one job that publishes images asks for packages: write itself.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
           cache: pip
@@ -24,24 +30,37 @@ jobs:
       - run: pip install -r requirements-dev.txt -r requirements-watcher.txt
       - run: python -m pytest -q -p no:warnings
 
-  docker:
-    # Builds the image on every push (so a broken Dockerfile is caught) and publishes it only for a version tag.
-    needs: test
+  audit:
+    # Checks every package in the two hash-pinned lock files against the public vulnerability databases and fails on any hit.
+    # A known, accepted advisory goes in .github/pip-audit-ignore.txt (one id per line, with a comment saying why); the file starts empty.
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        if: startsWith(github.ref, 'refs/tags/v')
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - run: pip install pip-audit==2.10.1
+      - name: Audit the lock files
+        run: |
+          ignores=$(grep -vE '^[[:space:]]*(#|$)' .github/pip-audit-ignore.txt | sed 's/^/--ignore-vuln /' | tr '\n' ' ' || true)
+          for lock in requirements.lock requirements-watcher.lock; do
+            echo "== $lock"
+            pip-audit --require-hashes --no-deps --disable-pip --strict $ignores -r "$lock"
+          done
+
+  docker:
+    # Builds both images on every push and pull request (so a broken Dockerfile is caught) and runs them; it never publishes.
+    needs: [test, audit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -49,7 +68,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
       # Build once into the local daemon and run the OCR on a generated test picture inside the slim image, so a missing system library fails here.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           load: true
@@ -58,24 +77,8 @@ jobs:
           cache-from: type=gha,scope=amide
           cache-to: type=gha,mode=max,scope=amide
       - run: docker run --rm -i amide-ci python - < .github/ocr_smoke.py
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          build-args: AMIDE_VERSION=${{ steps.meta.outputs.version }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=amide
-      # The watcher image: build it on every push, prove it starts and reads its environment (status never contacts Telegram), publish on a tag.
-      - id: meta_watcher
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}-watcher
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@v6
+      # The watcher image: build it, prove it starts and reads its environment (status never contacts Telegram).
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: Dockerfile.watcher
@@ -86,11 +89,59 @@ jobs:
       - run: >
           docker run --rm -e AMIDE_URL=http://127.0.0.1:9 -e AMIDE_TOKEN=ci -e TELEGRAM_API_ID=1 -e TELEGRAM_API_HASH=ci
           amide-watcher-ci python -m watcher status | tee status.txt && grep -q "session: missing" status.txt
-      - uses: docker/build-push-action@v6
+
+  publish:
+    # Only for a version tag, and only after the tests, the audit and the image smoke tests passed. This is the only job that can write packages.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+      # The software bill of materials and the build provenance are attached to the published image as attestations.
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: true
+          sbom: true
+          provenance: mode=max
+          build-args: AMIDE_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=amide
+      - id: meta_watcher
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ghcr.io/${{ github.repository }}-watcher
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: Dockerfile.watcher
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ steps.meta_watcher.outputs.tags }}
           labels: ${{ steps.meta_watcher.outputs.labels }}
           cache-from: type=gha,scope=watcher

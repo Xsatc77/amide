@@ -70,6 +70,8 @@
         const credential = await navigator.credentials.create({ publicKey: options });
         const answer = await post("/account/passkeys", {
           name: addForm.elements.name.value,
+          password: addForm.elements.password ? addForm.elements.password.value : undefined,      // adding a passkey asks for the password (or the 2FA code) again
+          code: addForm.elements.code ? addForm.elements.code.value : undefined,
           credential: {
             id: credential.id, rawId: toText(credential.rawId), type: credential.type,
             response: {

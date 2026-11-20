@@ -1,2 +1,4 @@
 -r ../requirements.txt
-pymupdf>=1.24
+# Development-only helper (tools/import_cards.py). PyMuPDF is licensed AGPL-3.0 (or commercially from Artifex), so it is
+# never part of the image or of requirements.txt.
+pymupdf==2.1

@@ -205,7 +205,7 @@ class DietPreset(LabeledEnum):
 class Vendor(Base):
     """A supplier. Shared across all users (like the peptide library), not scoped per owner --
     what a user says they bought from a vendor stays private per Inventory sharing; the vendor
-    itself doesn't. `created_by_id` is provenance only, never an access-control field."""
+    itself doesn't. `created_by_id` is who may edit or delete it besides an administrator (see app/vendors/access.py)."""
 
     __tablename__ = "vendors"
     __table_args__ = (UniqueConstraint("name", name="uq_vendor_name"),)
@@ -1856,3 +1856,22 @@ class ElementSymbol(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200, collation="NOCASE"), unique=True)
     symbol: Mapped[str] = mapped_column(String(4, collation="NOCASE"), unique=True)
+
+
+class InstallationSetting(Base):
+    """A small installation-wide setting (not per person), e.g. whether the New User page is open. Not part of a backup."""
+    __tablename__ = "installation_settings"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200))
+
+
+class SecurityEvent(Base):
+    """One line of the security log: a sign-in, a failure, a password change and so on. Never holds a password, code or token."""
+    __tablename__ = "security_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True)     # naive UTC
+    user_id: Mapped[int | None] = mapped_column(Integer)                   # no foreign key: the line outlives a deleted account
+    username: Mapped[str | None] = mapped_column(String(64))
+    event: Mapped[str] = mapped_column(String(40))
+    detail: Mapped[str] = mapped_column(String(200), default="")
+    client: Mapped[str | None] = mapped_column(String(64))

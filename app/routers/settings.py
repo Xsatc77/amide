@@ -14,7 +14,7 @@ from datetime import date, timezone
 from app import version
 from app import clock
 from app import ai_summary, body_photos, config, links, reminders, units, uploads
-from app.auth import devices, passwords, sessions
+from app.auth import audit, devices, passwords, registration, sessions
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
@@ -64,7 +64,14 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         (s.grantee_id, s.category.value)
         for s in session.scalars(select(Share).where(Share.owner_id == me.id))
     }
+    shared_with_me: dict[int, dict] = {}                    # who shares data WITH me: username only, never an id-bearing profile
+    for share, owner_name in session.execute(
+            select(Share, User.username).join(User, User.id == Share.owner_id)
+            .where(Share.grantee_id == me.id).order_by(User.username.collate("NOCASE"), Share.category)):
+        entry = shared_with_me.setdefault(share.owner_id, {"owner_id": share.owner_id, "username": owner_name, "categories": []})
+        entry["categories"].append(share.category)
     context = {
+        "shared_with_me": list(shared_with_me.values()),
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
         "other_users": other_users, "my_shares": my_shares,
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
@@ -75,6 +82,7 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         "label_sizes": {k: v[0] for k, v in LABEL_SIZES.items()},
         "db_revision": version.database_revision(session),
         "review_fields": _review_fields(),
+        "ntfy_suggestion": secrets.token_urlsafe(18), "ntfy_short": bool(me.ntfy_topic and len(me.ntfy_topic) < 12),
         "ntfy_server": config.NTFY_SERVER, "ai_providers": ai_summary.PROVIDERS,
         "auto_backup_on": bool(config.BACKUP_PASSPHRASE), "auto_backup_days": config.BACKUP_EVERY_DAYS, "auto_backup_keep": config.BACKUP_KEEP,
         "calendar_feed_url": f"{str(request.base_url).rstrip('/')}/calendar/feed/{me.calendar_token}.ics" if me.calendar_token else None,
@@ -87,6 +95,9 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
         for row in users:
             row["last_login_display"] = _format_last_login(row["last_login"], me.timezone)
         context["users"] = users
+        context["registration"] = {"open": registration.is_open(session), "choice": registration.admin_choice(session),
+                                   "forced": config.registration_override()}
+        context["security_events"] = audit.recent(session, 50)
     return templates.TemplateResponse(request, "settings/settings.html", context, status_code=status_code)
 
 
@@ -121,7 +132,7 @@ async def change_username(request: Request, session: Session = Depends(get_sessi
     me = _me(session, uid)
     errors: dict[str, str] = {}
 
-    if not passwords.verify_password(me.password_hash, current_password):
+    if not await passwords.verify_password_async(me.password_hash, current_password):
         errors["username_current_password"] = "Current password is incorrect."
     if err := passwords.username_error(new_name):
         errors["username"] = err
@@ -149,14 +160,15 @@ async def change_password(request: Request, session: Session = Depends(get_sessi
     me = _me(session, uid)
 
     errors: dict[str, str] = {}
-    if not passwords.verify_password(me.password_hash, current_password):
+    if not await passwords.verify_password_async(me.password_hash, current_password):
         errors["password_current_password"] = "Current password is incorrect."
     if problems := passwords.password_errors(new_password, confirm):
         errors["new_password"] = " ".join(problems)
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
-    me.password_hash = passwords.hash_password(new_password)
+    me.password_hash = await passwords.hash_password_async(new_password)
+    audit.record(session, "password_changed", request, me, "other sessions, passkeys and remembered devices ended")
     session.commit()
     sessions.end_other_sessions(session, me.id, request.state.session_id)
     return RedirectResponse("/settings", status_code=303)
@@ -218,8 +230,10 @@ async def change_reminders(request: Request, session: Session = Depends(get_sess
     enabled = bool(form.get("ntfy_enabled"))
     if enabled and not topic:
         topic = "amide-" + secrets.token_urlsafe(18).replace("_", "x")        # hard to guess: on the public ntfy server the name is the only secret
-    if topic and not re.fullmatch(r"[A-Za-z0-9_-]{6,64}", topic):
-        return _render(request, session, errors={"ntfy_topic": "Use 6 to 64 letters, digits, dashes or underscores."}, status_code=422)
+    # New topics need 12 or more characters (on the public ntfy server anyone who knows the name can read it); a shorter topic already saved
+    # keeps working while it is left as it is.
+    if topic and not (re.fullmatch(r"[A-Za-z0-9_-]{12,64}", topic) or (topic == me.ntfy_topic and re.fullmatch(r"[A-Za-z0-9_-]{6,64}", topic))):
+        return _render(request, session, errors={"ntfy_topic": "Use 12 to 64 letters, digits, dashes or underscores."}, status_code=422)
     me.ntfy_enabled, me.ntfy_topic = enabled, topic or None
     session.commit()
     return RedirectResponse("/settings#reminders", status_code=303)
@@ -256,8 +270,8 @@ async def change_ai_agent(request: Request, session: Session = Depends(get_sessi
     model = str(form.get("ai_model") or "").strip()[:80]
     base = str(form.get("ai_base_url") or "").strip().rstrip("/")[:200] if provider == "local" else ""      # only My own server uses an address
     key = str(form.get("ai_api_key") or "").strip()[:300]
-    if base and not re.fullmatch(r"https?://[^\s/]+(/\S*)?", base):
-        return _render(request, session, errors={"ai_base_url": "Use a full address starting with http:// or https://."}, status_code=422)
+    if base and (problem := ai_summary.base_url_error(base)):
+        return _render(request, session, errors={"ai_base_url": problem}, status_code=422)
     if provider == "local" and not base:
         return _render(request, session, errors={"ai_base_url": "Enter the address of your server, such as http://192.168.1.5:11434/v1 for Ollama."}, status_code=422)
     if not model and not ai_summary.PROVIDERS[provider]["model"]:
@@ -598,9 +612,38 @@ async def toggle_share(grantee_id: int, category: str, request: Request,
     return RedirectResponse("/settings#sharing", status_code=303)
 
 
+@router.post("/settings/shared-with-me/{owner_id}/{category}/remove")
+def remove_received_share(owner_id: int, category: str, session: Session = Depends(get_session),
+                          uid: int = Depends(current_user_id)):
+    """Stop receiving what someone shares with me: deletes the Share row where I am the grantee. Only my own row
+    can be removed; anything else (unknown person, nothing shared, a bad category) is the same 404."""
+    try:
+        cat = ShareCategory(category)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    share = session.scalar(select(Share).where(
+        Share.owner_id == owner_id, Share.grantee_id == uid, Share.category == cat))
+    if share is None:
+        raise HTTPException(status_code=404)
+    session.delete(share)
+    session.commit()
+    return RedirectResponse("/settings#sharing", status_code=303)
+
+
+@router.post("/settings/admin/registration")
+async def admin_registration(request: Request, session: Session = Depends(get_session)):
+    me = _require_admin(request, session)
+    form = await request.form()
+    allow = str(form.get("allow", "")) == "1"
+    registration.set_open(session, allow)
+    audit.record(session, "registration_changed", request, me, "open" if allow else "closed")
+    session.commit()
+    return RedirectResponse("/settings#admin", status_code=303)
+
+
 @router.post("/settings/admin/users/new")
 async def admin_add_user(request: Request, session: Session = Depends(get_session)):
-    _require_admin(request, session)
+    me = _require_admin(request, session)
     form = await request.form()
     username = str(form.get("username", "")).strip()
     password = str(form.get("password", ""))
@@ -617,10 +660,11 @@ async def admin_add_user(request: Request, session: Session = Depends(get_sessio
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
-    new_user = User(username=username, username_key=passwords.username_key(username), password_hash=passwords.hash_password(password))
+    new_user = User(username=username, username_key=passwords.username_key(username), password_hash=await passwords.hash_password_async(password))
     session.add(new_user)
     session.flush()
     links.add_starter_links(session, new_user.id)
+    audit.record(session, "admin_user_created", request, me, f"created {new_user.username}")
     session.commit()
     return RedirectResponse("/settings#admin", status_code=303)
 
@@ -635,8 +679,9 @@ async def admin_reset_password(user_id: int, request: Request, session: Session 
     if problems := passwords.password_errors(password, confirm):
         return _render(request, session, errors={"reset_password": " ".join(problems)}, status_code=422)
 
-    target.password_hash = passwords.hash_password(password)
+    target.password_hash = await passwords.hash_password_async(password)
     sessions.clear_failures(target)
+    audit.record(session, "admin_password_reset", request, _me(session, request.state.user.id), f"for {target.username}")
     session.commit()
     sessions.end_all_sessions(session, target.id)
     return RedirectResponse("/settings#admin", status_code=303)
@@ -647,8 +692,9 @@ async def admin_remove_2fa(user_id: int, request: Request, session: Session = De
     target = _target_user(request, session, user_id)
     target.totp_enabled, target.totp_secret, target.totp_last_step = False, None, None
     target.photo_2fa_required = False      # its authenticator is gone, so the photo setting cannot stay on
-    devices.forget_all(session, target.id)
+    audit.record(session, "admin_2fa_removed", request, _me(session, request.state.user.id), f"for {target.username}")
     session.commit()
+    sessions.end_all_sessions(session, target.id)      # also forgets remembered devices and deletes the passkeys: a stolen session must not outlive this
     return RedirectResponse("/settings#admin", status_code=303)
 
 
@@ -709,6 +755,7 @@ async def admin_delete_user(user_id: int, request: Request, session: Session = D
         order = session.get(Order, order_id)
         if order is not None and not order.items:
             session.delete(order)
+    audit.record(session, "admin_user_deleted", request, me, f"deleted {target.username}")
     session.delete(target)
     session.commit()
     for filename in coa_filenames:

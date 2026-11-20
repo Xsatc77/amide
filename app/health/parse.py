@@ -20,6 +20,7 @@ CHUNK = 5000                       # readings upserted per transaction
 FAILED = "Import failed"           # how a note starts when the read failed on our side (see import_failed)
 MAX_ATTEMPTS = 5                   # failed reads in a row of one export before it is given up on (see _failed)
 GAVE_UP = f"Gave up after {MAX_ATTEMPTS} tries; fix needed"
+MAX_EXPANSION = 4                  # a stored copy may not inflate beyond HEALTH_MAX_BYTES times this (zip-bomb guard)
 STALE = timedelta(hours=1)         # a "stored" export this old is no longer being read: a crash stopped it (see reprocess_flagged)
 
 GRAIN_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
@@ -124,7 +125,9 @@ def _reading_fields(name: str, item: dict) -> tuple[float, dict | None]:
 def _event_id(item: dict) -> str:
     if item.get("id") not in (None, "") and len(str(item["id"])) <= 120:         # a too-long id is hashed rather than cut, so two long ids cannot collide
         return str(item["id"])
-    return hashlib.sha1(json.dumps(item, sort_keys=True, default=str).encode()).hexdigest()
+    # Not a security use: the digest is only a stable id for an event that has none, and it is stored (HealthEvent), so it
+    # must stay SHA-1 or every re-sent event would get a new id and be stored twice.
+    return hashlib.sha1(json.dumps(item, sort_keys=True, default=str).encode(), usedforsecurity=False).hexdigest()
 
 
 def _first_date(item: dict, keys, fallback):
@@ -139,9 +142,15 @@ def _first_date(item: dict, keys, fallback):
 
 def _load(raw: HealthRaw):
     path = config.HEALTH_RAW_DIR / raw.file_name
+    limit = config.HEALTH_MAX_BYTES * MAX_EXPANSION
     with gzip.open(path, "rb") as f:
-        text = f.read().decode("utf-8-sig")
-    return json.loads(text)
+        data = f.read(limit + 1)                                     # never expand past the cap, whatever the stored copy claims
+    if len(data) > limit:
+        raise ValueError("stored copy expands beyond the allowed size")
+    try:
+        return json.loads(data.decode("utf-8-sig"))
+    except RecursionError:                                           # absurdly deep nesting is bad content, not a fault of ours
+        raise ValueError("JSON nested too deeply") from None
 
 
 def _import_readings(session: Session, raw: HealthRaw, metrics: list, header_grain: str | None, skipped: list[str]) -> int:

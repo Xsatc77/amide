@@ -4,6 +4,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse
+
+from app.security_headers import FILE_HEADERS, safe_redirect
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
@@ -21,6 +23,7 @@ from app.library.price_lists.ocr import OcrUnavailable
 from app.ingest.readers import OcrMissing, ReadError, read_images, read_xlsx
 from app.library.price_lists.reader import read_pdf
 from app.library.price_lists.vendor_view import build_price_history, current_price_lists
+from app.vendors.access import may_edit_vendor
 from app.vendors.shipping import average_delivery
 from app.templating import templates
 from app.vendors.links import contact_link
@@ -98,6 +101,7 @@ def list_vendors(request: Request, sort: str = "alpha", session: Session = Depen
         "recent_dates": recent_dates,
         "sort": sort,
         "is_admin": bool(session.get(User, uid).is_admin),
+        "editable_ids": {v.id for v in vendors if may_edit_vendor(session, v, uid)},
     })
 
 
@@ -134,7 +138,7 @@ def favorite_vendor(vendor_id: int, next: str = "/vendors", session: Session = D
     if existing is None:
         session.add(VendorFavorite(user_id=uid, vendor_id=vendor_id))
         session.commit()
-    return RedirectResponse(next, status_code=303)
+    return RedirectResponse(safe_redirect(next, "/vendors", "/vendors"), status_code=303)
 
 
 @router.post("/vendors/{vendor_id}/unfavorite")
@@ -145,7 +149,7 @@ def unfavorite_vendor(vendor_id: int, next: str = "/vendors", session: Session =
         raise HTTPException(404, "Vendor not found")
     session.query(VendorFavorite).filter_by(user_id=uid, vendor_id=vendor_id).delete()
     session.commit()
-    return RedirectResponse(next, status_code=303)
+    return RedirectResponse(safe_redirect(next, "/vendors", "/vendors"), status_code=303)
 
 
 @router.post("/vendors/{vendor_id}/clear-recommendation")
@@ -157,25 +161,23 @@ def clear_recommendation(vendor_id: int, next: str = Form("/vendors"), session: 
         raise HTTPException(404, "Vendor not found")
     vendor.recommended = None
     session.commit()
-    return RedirectResponse(next if next.startswith("/vendors") and not next.startswith("//") else "/vendors", status_code=303)
+    return RedirectResponse(safe_redirect(next, "/vendors", "/vendors"), status_code=303)
 
 
 @router.post("/vendors/{vendor_id}/delete")
 def delete_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
                   uid: int = Depends(current_user_id)):
-    # Vendors are shared by every user, so only an admin may remove one (404, not 403, matching
-    # settings' _require_admin: don't reveal the action exists).
-    if not session.get(User, uid).is_admin:
-        raise HTTPException(404)
+    # Vendors are shared by every user, so only the person who added one, or an admin, may remove it (404, not 403,
+    # matching settings' _require_admin: don't reveal the action exists).
     vendor = session.get(Vendor, vendor_id)
-    if vendor is None:
+    if vendor is None or not may_edit_vendor(session, vendor, uid):
         raise HTTPException(404, "Vendor not found")
     qr_files = [w.qr_filename for w in vendor.wallets]
     session.delete(vendor)
     session.commit()
     for name in qr_files:
         uploads.delete_wallet_qr(name)
-    return RedirectResponse(next, status_code=303)
+    return RedirectResponse(safe_redirect(next, "/vendors", "/vendors"), status_code=303)
 
 
 # ---------------------------------------------------------------- detail page / Purchase History
@@ -262,6 +264,7 @@ def _detail_context(session: Session, vendor: Vendor, uid: int, price_import: st
     return {
         "vendor": vendor,
         "viewer_id": uid,
+        "can_edit": may_edit_vendor(session, vendor, uid),
         "is_favorite": is_favorite,
         "contacts": _contact_view(vendor),
         "wallet_coins": WALLET_COINS,
@@ -302,7 +305,7 @@ def get_vendor_price_list(vendor_id: int, session: Session = Depends(get_session
     if not path.exists():
         raise HTTPException(404, "Price list file is missing from disk")
     return FileResponse(path, media_type=uploads.price_list_media_type(vendor.price_list_filename),
-                        headers={"X-Content-Type-Options": "nosniff"},
+                        headers=FILE_HEADERS,
                         content_disposition_type="inline")
 
 
@@ -317,7 +320,7 @@ def get_wallet_qr(vendor_id: int, wallet_id: int, session: Session = Depends(get
     if not path.exists():
         raise HTTPException(404, "QR code file is missing from disk")
     return FileResponse(path, media_type=uploads.wallet_qr_media_type(wallet.qr_filename),
-                        headers={"X-Content-Type-Options": "nosniff"}, content_disposition_type="inline")
+                        headers=FILE_HEADERS, content_disposition_type="inline")
 
 
 # ---------------------------------------------------------------- edit
@@ -396,7 +399,7 @@ async def _read_edit_form(
 async def update_vendor(vendor_id: int, request: Request, session: Session = Depends(get_session),
                         uid: int = Depends(current_user_id)):
     vendor = session.get(Vendor, vendor_id)
-    if vendor is None:
+    if vendor is None or not may_edit_vendor(session, vendor, uid):      # wallets, QR images, price list, website: creator or admin only
         raise HTTPException(404, "Vendor not found")
 
     raw, contact_rows, payment_type_ids, price_list_file, remove_price_list = await _read_edit_form(request)

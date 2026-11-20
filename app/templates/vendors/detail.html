@@ -120,9 +120,10 @@
   </details>
   {% endfor %}
 
-  <button type="button" class="btn btn-ghost" data-action="edit-vendor">Edit</button>
+  {% if can_edit %}<button type="button" class="btn btn-ghost" data-action="edit-vendor">Edit</button>{% endif %}
 </section>
 
+{% if can_edit %}
 {% set ef = form or edit_data %}
 {% macro verr(field) %}{% if errors and errors[field] %}<small class="error">{{ errors[field] }}</small>{% endif %}{% endmacro %}
 {% macro vcls(field, extra='') %}class="field {{ extra }} {{ 'has-error' if errors and errors[field] }}"{% endmacro %}
@@ -324,6 +325,8 @@
     <button type="button" class="btn btn-ghost btn-danger" data-action="remove-contact-row">Remove</button>
   </div>
 </template>
+
+{% endif %}
 
 <section aria-labelledby="price-history-heading" class="price-history">
   <h2 id="price-history-heading" class="section-title">Price History</h2>

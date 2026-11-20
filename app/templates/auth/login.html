@@ -17,7 +17,7 @@
   {{ password_input("password", "password", "Password", "current-password") }}
 
   <div class="auth-actions">
-    <a class="btn" href="/register">Add New User</a>
+    {% if registration_open %}<a class="btn" href="/register">Add New User</a>{% endif %}
     <button type="submit" class="btn btn-primary">Okay</button>
   </div>
 </form>

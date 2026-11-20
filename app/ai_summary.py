@@ -6,14 +6,18 @@ when the person presses the button, to the agent they picked in Settings (Claude
 Ollama or LM Studio) with their own key."""
 
 import html
+import ipaddress
 import json
+import os
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from markupsafe import Markup
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import netguard
 from app.models import ProgressSummary, User, naive_utcnow
 
 PROVIDERS = {
@@ -22,6 +26,8 @@ PROVIDERS = {
     "local": {"label": "My own server (Ollama, LM Studio, or any OpenAI-compatible)", "base": "", "model": "", "key": False},
 }
 TIMEOUT_SECONDS = 180
+MAX_ANSWER_BYTES = 2_097_152
+_HOSTED_HOSTS = {urllib.parse.urlsplit(p["base"]).hostname for p in PROVIDERS.values() if p["base"]}     # Claude and OpenAI: fixed public https hosts
 
 SYSTEM = (
     "You are a blunt, practical analyst writing a one-page brief for one person about ONE specific date range. They can already read every "
@@ -52,6 +58,51 @@ class AiError(Exception):
 def configured(user: User) -> bool:
     return bool(user.ai_provider in PROVIDERS and _model(user) and (user.ai_api_key or not PROVIDERS[user.ai_provider]["key"])
                 and (_base(user)))
+
+
+def base_url_error(base: str) -> str | None:
+    """Why a "My own server" address is not acceptable, else None. No query string or fragment (so nothing can swallow the fixed path Amide adds),
+    no user:password@, and a real http or https host."""
+    if not base or any(ch.isspace() or ord(ch) < 32 or ch == "\\" for ch in base):
+        return "Use a full address starting with http:// or https://."
+    if "?" in base or "#" in base:
+        return "The address cannot contain a question mark or a hash."
+    try:
+        parts = urllib.parse.urlsplit(base)
+        host, _ = parts.hostname, parts.port
+    except ValueError:
+        return "Use a full address starting with http:// or https://."
+    if parts.scheme not in ("http", "https") or not host:
+        return "Use a full address starting with http:// or https://."
+    if "@" in parts.netloc:
+        return "The address cannot contain a user name or password."
+    return None
+
+
+def _local_hosts_allowed(host: str) -> bool:
+    """AMIDE_AI_LOCAL_ALLOWED_HOSTS (comma separated names or networks): when set, My own server must be exactly one of them."""
+    entries = [e.strip().lower() for e in os.environ.get("AMIDE_AI_LOCAL_ALLOWED_HOSTS", "").split(",") if e.strip()]
+    if not entries:
+        return True
+    host = host.lower().strip("[]")
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+    for entry in entries:
+        if entry == host:
+            return True
+        if ip is not None and "/" in entry:
+            try:
+                if ip in ipaddress.ip_network(entry, strict=False):
+                    return True
+            except ValueError:
+                continue
+    return False
+
+
+def _loopback_ok() -> bool:
+    return os.environ.get("AMIDE_AI_ALLOW_LOOPBACK", "") == "1"
 
 
 def _model(user: User) -> str:
@@ -122,8 +173,13 @@ def post_json(url: str, headers: dict, body: dict) -> dict:
     """POST JSON and return the decoded answer. The one place this module touches the network (tests replace it)."""
     request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="POST",
                                      headers={"Content-Type": "application/json", **headers})
+    hosted = urllib.parse.urlsplit(url).hostname in _HOSTED_HOSTS
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        if hosted and not url.startswith("https://"):
+            raise netguard.UnsafeURL("hosted agents use https")
+        # Claude and OpenAI: public addresses only. My own server: a private network is fine (a LAN Ollama), this computer only on request.
+        with netguard.safe_open(request, TIMEOUT_SECONDS, allow_private=not hosted, allow_loopback=not hosted and _loopback_ok(),
+                                max_bytes=MAX_ANSWER_BYTES) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as err:
         if err.code in (401, 403):
@@ -133,6 +189,8 @@ def post_json(url: str, headers: dict, body: dict) -> dict:
         if err.code == 429:
             raise AiError("The agent says you are out of quota or sending too fast. Try again later.") from None
         raise AiError(f"The agent answered with an error ({err.code}).") from None
+    except netguard.UnsafeURL:
+        raise AiError("Amide will not contact that address. Check the server address in Settings (and the administrator's allowed list).") from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise AiError("The agent could not be reached. Check the server address in Settings and that it is running.") from None
     except ValueError:
@@ -144,6 +202,9 @@ def ask(user: User, prompt: str) -> str:
     if not configured(user):
         raise AiError("Choose an AI agent in Settings first.")
     base, model = _base(user), _model(user)
+    if user.ai_provider == "local":
+        if base_url_error(base) or not _local_hosts_allowed(urllib.parse.urlsplit(base).hostname or ""):
+            raise AiError("The server address in Settings is not allowed. Check it and the administrator's allowed list.")
     if user.ai_provider == "anthropic":
         data = post_json(f"{base}/v1/messages", {"x-api-key": user.ai_api_key, "anthropic-version": "2023-06-01"},
                          {"model": model, "max_tokens": 2500, "system": SYSTEM, "messages": [{"role": "user", "content": prompt}]})

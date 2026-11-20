@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
+
+from app.security_headers import FILE_HEADERS
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
@@ -29,6 +31,7 @@ from app.models import (
     User, Vendor, VendorContact, VendorPaymentMethod,
 )
 from app.templating import shortdate, templates
+from app.vendors.access import may_edit_vendor
 from app.vendors.resolve import resolve_contact_method_type, resolve_payment_method_type
 
 router = APIRouter()
@@ -1074,7 +1077,9 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
         vendor = session.get(Vendor, price_list_update["vendor_id"])
         # Touches only this ONE vendor's price-list fields -- never any other vendor's (this was
         # the exact class of bug a prior task's own fix round caught elsewhere in this feature).
-        if vendor is not None and (price_list_replace_filename or price_list_update["replace_url"]):
+        # A shared vendor's price list changes only by its creator or an admin (S-03).
+        if (vendor is not None and (price_list_replace_filename or price_list_update["replace_url"])
+                and may_edit_vendor(session, vendor, uid)):
             old_filename = vendor.price_list_filename
             if price_list_replace_filename:
                 vendor.price_list_filename = price_list_replace_filename
@@ -1535,7 +1540,7 @@ def get_order_coa(item_id: int, order_item_id: int, session: Session = Depends(g
     if not path.exists():
         raise HTTPException(404, "COA file is missing from disk")
     return FileResponse(path, media_type=uploads.media_type(li.coa_filename),
-                        headers={"X-Content-Type-Options": "nosniff"},
+                        headers=FILE_HEADERS,
                         content_disposition_type="inline")
 
 

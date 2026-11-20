@@ -6,6 +6,16 @@ rows with their original primary keys; any error, or any foreign key left dangli
 changed. Only after the commit are the file directories swapped in (the old ones are moved aside, then removed).
 Sessions are not part of a backup, so everyone, including the person restoring, is signed out afterwards."""
 
+# SQL safety (why the f-string SQL below is not an injection risk)
+# * Every table and column name interpolated into a statement comes from the registry in app/backup/sections.py
+#   (reg.table(...) / _columns(...)), never from the archive. A row key that is not a registry column is dropped
+#   before any statement is built, so a hostile key (a quote, a `where`, `; DROP`) is simply ignored.
+# * Every VALUE is a bound parameter (:name); nothing from the archive is concatenated into the text.
+# * The WHERE clauses (Tbl.where, MERGE_KEYS) are literals written in the registry, with :uid bound to the signed-in
+#   person. A person's owner columns are overwritten with that uid after the row is read, whatever the file says.
+# * The profile loader only ever writes the PROFILE_COLUMNS allow-list, so `is_admin` or `password_hash` in a file
+#   never reaches the users table.
+
 import json
 import shutil
 import uuid

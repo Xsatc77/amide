@@ -1,0 +1,16 @@
+# Weekly pull requests for new package versions, new base-image digests and new GitHub Action commits.
+# The pip entries bump requirements*.txt; regenerate the lock files with tools/make_lock.py before merging (docs/SUPPLY_CHAIN.md).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

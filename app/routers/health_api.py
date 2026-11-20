@@ -27,8 +27,21 @@ def require_health_token(request: Request, session: Session = Depends(get_sessio
     return token
 
 
+_busy_owners: set[int] = set()          # owners with an import running right now: one at a time each, so a flood cannot pile up parsers
+
+
 @router.post("/health")
 async def receive_health(request: Request, session: Session = Depends(get_session), token: IngestToken = Depends(require_health_token)):
+    if token.owner_id in _busy_owners:
+        raise HTTPException(429, "An import is already running; try again shortly", headers={"Retry-After": "30"})
+    _busy_owners.add(token.owner_id)
+    try:
+        return await _receive(request, session, token)
+    finally:
+        _busy_owners.discard(token.owner_id)
+
+
+async def _receive(request: Request, session: Session, token: IngestToken):
     raw, duplicate = await receive.store_body(request, token.owner_id, session)
     if (duplicate and raw.status == "parsed") or not raw.file_name:
         readings = raw.readings_count       # already read, or nothing kept to read (a body that was not JSON)

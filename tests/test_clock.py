@@ -90,5 +90,6 @@ def test_a_junk_zone_cookie_is_ignored(client):
 
 
 def test_every_page_tells_the_browser_to_report_its_zone_and_settings_says_what_system_time_means(client):
-    assert "amide_tz" in client.get("/dashboard").text
+    assert "/static/js/base.js" in client.get("/dashboard").text            # the zone script is a static file now (the page policy allows no inline scripts)
+    assert "amide_tz" in client.get("/static/js/base.js").text
     assert "this device" in client.get("/settings").text.lower()

@@ -1,0 +1,2 @@
+# One advisory id per line (for example PYSEC-0000-00000 or GHSA-xxxx-xxxx-xxxx), each with a comment saying why it is accepted.
+# Empty on purpose: the audit job fails on every known vulnerability in requirements.lock and requirements-watcher.lock.

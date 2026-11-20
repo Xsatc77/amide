@@ -63,6 +63,9 @@ def engine_available() -> bool:
 def recognize(page_image) -> list[Word]:
     """Words, with positions, in a PIL image. The engine loads once; recognition runs one page at a time."""
     global _engine
+    from app import config
+    if page_image.width * page_image.height > config.PHOTO_MAX_PIXELS:      # the size is known from the header; refuse before any copy is made
+        raise ValueError("the image is too large to read")
     try:
         import numpy as np
         from rapidocr import RapidOCR
@@ -87,8 +90,12 @@ def page_words(path: Path, index: int, recognizer: Callable[[object], list[Word]
     if index >= _MAX_PAGES:
         return []
     import pypdfium2 as pdfium
+    from app import config
     pdf = pdfium.PdfDocument(str(path))
     try:
+        width, height = pdf[index].get_size()                    # in points; judged before the page is rendered into pixels
+        if width * _RENDER_SCALE * height * _RENDER_SCALE > config.PHOTO_MAX_PIXELS:
+            raise ValueError("the page is too large to read")
         image = pdf[index].render(scale=_RENDER_SCALE).to_pil()
     finally:
         pdf.close()

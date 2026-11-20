@@ -1,5 +1,6 @@
 """Calendar: the signed-in user's protocols projected onto month / week / day views."""
 
+import time
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -12,11 +13,13 @@ from app.calendar.ical import build_calendar
 from app.calendar.layout import initials, month_rows, month_weeks
 from app.calendar.schedule import DueItem, Occurrence, as_needed, occurrences, week_number, week_start
 from app.db import get_session
+from app.ingest.tokens import RateLimiter
 from app.models import DoseLog, DoseStatus, Protocol, ProtocolItem, TimeOfDay, User
 from app.routers.protocols import get_today
 from app.templating import templates
 
 router = APIRouter()
+feed_limiter = RateLimiter(60, 60.0)      # feed fetches per minute from one address: a calendar app polls hourly, a guesser far faster
 
 VIEWS = ("month", "week", "day")
 SLOTS = [(m, m.value) for m in TimeOfDay]
@@ -122,8 +125,11 @@ def _adherence(session: Session, uid: int, occs: list[Occurrence],
 
 
 @router.get("/calendar/feed/{token}.ics", include_in_schema=False)
-def calendar_feed(token: str, session: Session = Depends(get_session)):
-    """The private iCal feed: the owner's doses from a week ago to three months ahead. Authenticated by the secret in the address alone."""
+def calendar_feed(token: str, request: Request, session: Session = Depends(get_session)):
+    """The private iCal feed: the owner's doses from a week ago to three months ahead. Authenticated by the secret in the address alone,
+    so it is rate limited per client address (a wrong guess counts too) and never cached or leaked through a Referer header."""
+    if not feed_limiter.allow(request.client.host if request.client else "-", time.monotonic()):
+        raise HTTPException(429, "Too many requests", headers={"Retry-After": "60"})
     user = session.scalar(select(User).where(User.calendar_token == token)) if token else None
     if user is None:
         raise HTTPException(404)
@@ -132,7 +138,7 @@ def calendar_feed(token: str, session: Session = Depends(get_session)):
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide), selectinload(Protocol.items).selectinload(ProtocolItem.steps),
         selectinload(Protocol.items).selectinload(ProtocolItem.cycle_offs), selectinload(Protocol.items).selectinload(ProtocolItem.inventory_item))).all()
     body = build_calendar(occurrences(protocols, today - timedelta(days=7), today + timedelta(days=90)))
-    return Response(body, media_type="text/calendar; charset=utf-8", headers={"Cache-Control": "no-store"})
+    return Response(body, media_type="text/calendar; charset=utf-8", headers={"Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer"})
 
 
 @router.get("/calendar")

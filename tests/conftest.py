@@ -11,6 +11,7 @@ os.environ["AMIDE_INGEST_WORKER"] = "0"
 os.environ["AMIDE_REMINDERS"] = "0"
 os.environ["AMIDE_LINK_DESCRIPTIONS"] = "0"      # tests never read real sites; they call the reader with a fake page
 os.environ["AMIDE_BASE_LIBRARY"] = "0"        # the test database keeps its bare seed; tests call the loader directly
+os.environ["AMIDE_REGISTRATION"] = "open"      # the suite registers many accounts; tests of the closed default override this (tests/test_security_auth_registration.py)
 os.environ["AMIDE_PASSWORD_MIN_LENGTH"] = "4"      # the suite signs in with short throwaway passwords; the shipped default is tested in test_auth_rules
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -49,6 +50,9 @@ def me(client):
 @pytest.fixture(autouse=True)
 def clean(client):
     from app.ingest import tokens
+    from app.auth import sessions as _sessions, throttle as _throttle
+    _throttle.reset_all()                 # the per-address sign-in throttles must not leak from one test into the next
+    _sessions._last_purge = None
     tokens.limiter._hits.clear()          # the per-token request counter must not leak from one test into the next
     yield
     with SessionLocal() as s:

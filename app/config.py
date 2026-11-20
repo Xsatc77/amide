@@ -71,6 +71,30 @@ PUBLIC_URL = os.environ.get("AMIDE_PUBLIC_URL", "").rstrip("/")
 LOCKOUT_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        value = int(os.environ.get(name, "").strip())
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+SESSION_MAX_HOURS = _env_int("AMIDE_SESSION_MAX_HOURS", 24)       # a session ends this long after sign-in, even while a tab keeps it alive
+
+
+def registration_override() -> str | None:
+    """AMIDE_REGISTRATION=open or =closed forces the New User page open or shut; anything else leaves the choice to the admin (read on every call)."""
+    value = os.environ.get("AMIDE_REGISTRATION", "").strip().lower()
+    return value if value in ("open", "closed") else None
+
+
+def cookie_secure(request) -> bool:
+    """The `secure` flag for the session and device cookies: always on when AMIDE_PUBLIC_URL is https, else follows the request's scheme."""
+    if PUBLIC_URL.lower().startswith("https://"):
+        return True
+    return request.url.scheme == "https"
+
 # Uploads larger than this are rejected.
 MAX_UPLOAD_BYTES = int(os.environ.get("AMIDE_MAX_UPLOAD_MB", "15")) * 1024 * 1024
 

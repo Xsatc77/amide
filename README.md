@@ -153,6 +153,15 @@ Card text and images are saved in `data/library/` (private, never committed). To
 
 > Logins over plain `http://` are fine on your home network. To reach Amide over the internet, put it behind HTTPS (a reverse proxy) or a VPN: see [docs/DEPLOYING.md](docs/DEPLOYING.md).
 
+## Security
+
+- **Registration:** decide who may create an account (an admin setting, or `AMIDE_REGISTRATION` to force it open or closed). Close it once your own people have accounts.
+- **Public address:** set `AMIDE_PUBLIC_URL` to your `https://` address; passkeys and secure cookies depend on it.
+- **Proxy:** put a reverse proxy (HTTPS) in front, publish Amide on `127.0.0.1` only, and trust only your proxy's address. See [docs/DEPLOYING.md](docs/DEPLOYING.md).
+- **Backups:** keep a copy of `data/` and of your backup files somewhere other than the server.
+- **Images and packages:** images are built from hash-pinned dependencies and a digest-pinned base, with a software bill of materials and provenance attached ([docs/SUPPLY_CHAIN.md](docs/SUPPLY_CHAIN.md)).
+- **Found a problem?** Please report it privately: see [SECURITY.md](SECURITY.md).
+
 ## Tech stack
 
 Python · [FastAPI](https://fastapi.tiangolo.com/) · [SQLAlchemy](https://www.sqlalchemy.org/) + [Alembic](https://alembic.sqlalchemy.org/) migrations · SQLite · server-rendered Jinja templates with a little vanilla JS · Docker.

@@ -6,16 +6,20 @@ A session that has seen no request for config.SESSION_IDLE_MINUTES is gone, so t
 at the notice. Pages redirect to the right step; the JSON API answers 401 instead.
 """
 
+import logging
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from app.settings.rules import timezone_error
-from app import clock
-from app.auth import sessions
+from app import clock, config
+from app.auth import sessions, throttle
 from app.db import SessionLocal
 from app.models import User
+from app.templating import templates
+
+log = logging.getLogger("amide")
 
 # Always reachable.
 OPEN_PREFIXES = ("/static/", "/branding/")
@@ -47,7 +51,20 @@ def _device_zone(request: Request) -> str | None:
     return name if name and timezone_error(name) is None else None
 
 
+def _too_many(request: Request, wait: int) -> Response:
+    """429 with Retry-After: JSON for the passkey calls (the page's script shows the message), a small page for everything else."""
+    headers = {"Retry-After": str(wait)}
+    if request.url.path.startswith("/login/passkey"):
+        return JSONResponse({"error": throttle.WAIT_MESSAGE}, status_code=429, headers=headers)
+    return templates.TemplateResponse(request, "auth/throttled.html", {"message": throttle.WAIT_MESSAGE, "wait": wait},
+                                      status_code=429, headers=headers)
+
+
 def install(app: FastAPI) -> None:
+    if not config.PUBLIC_URL:
+        log.warning("AMIDE_PUBLIC_URL is not set: passkeys trust the Host / X-Forwarded-Host header of each request. "
+                    "Set AMIDE_PUBLIC_URL to the https address people use (see docs/DEPLOYING.md).")
+
     @app.middleware("http")
     async def gate(request: Request, call_next):
         path = request.url.path
@@ -57,11 +74,16 @@ def install(app: FastAPI) -> None:
 
         if request.method in UNSAFE_METHODS and not _same_origin(request):
             return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+        if group := throttle.group_for(request):
+            wait = throttle.throttle.check(group, throttle.client_address(request))
+            if wait:
+                return _too_many(request, wait)
         if path.startswith(OPEN_PREFIXES + TOKEN_PREFIXES) or path in ("/healthz", "/sw.js"):
             return await call_next(request)
 
         now = sessions.now_utc()
         with SessionLocal() as db:
+            sessions.purge_if_due(db, now)
             row = sessions.get_live(db, request.cookies.get(sessions.COOKIE), now)
             if row is not None:
                 sessions.touch(db, row, now)

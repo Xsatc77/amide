@@ -152,6 +152,7 @@ Press **Check in** on the order. Enter the arrival date and how many vials actua
 
 - Upload a **price list** (PDF, photo or spreadsheet) on a vendor and Amide reads its prices and matches each line to a library card.
 - **Price History** charts how a product's price moved.
+- Vendors are shared: everyone signed in can see them, favorite them, add new ones and read their price lists. Only the person who added a vendor, or an administrator, sees the **Edit** button (payment wallets, QR images, price list, website) and **Delete**.
 - The page shows each vendor's average time to deliver, calculated from your own orders.
 - An optional watcher program can read price lists posted in chat groups: see [../watcher/README.md](../watcher/README.md).
 - A new price list raises an alert on the Dashboard, and a line it could not match to a library card is flagged so you can add the card.

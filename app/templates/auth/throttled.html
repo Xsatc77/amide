@@ -1,0 +1,11 @@
+{% extends "auth/layout.html" %}
+{% block title %}Please Wait{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <h1>Please Wait</h1>
+  <div class="alert" role="alert">{{ message }}</div>
+  <p class="muted">Try again in about {{ wait }} second{{ '' if wait == 1 else 's' }}.</p>
+  <p><a class="btn" href="/welcome">Back</a></p>
+</div>
+{% endblock %}

@@ -7,8 +7,8 @@
 <div class="auth-card welcome-card">
   <p class="muted">Your peptides, protocols and doses — self-hosted and private.</p>
   <div class="welcome-actions">
-    <a class="btn btn-primary btn-big" href="/register">New User</a>
-    <a class="btn btn-big" href="/login">Login</a>
+    {% if registration_open %}<a class="btn btn-primary btn-big" href="/register">New User</a>{% endif %}
+    <a class="btn {{ "btn-big" if registration_open else "btn-primary btn-big" }}" href="/login">Login</a>
   </div>
 </div>
 {% endblock %}

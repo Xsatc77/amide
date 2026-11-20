@@ -55,9 +55,11 @@ class Phone:
                              "signature": passkeys.b64(signature), "userHandle": None}}
 
 
-def add_passkey(c, phone: Phone, name="My iPhone"):
+def add_passkey(c, phone: Phone, name="My iPhone", secret=None):
+    """Adding a passkey asks for the password again (or a fresh 2FA code when 2FA is on: pass the account's secret)."""
     options = c.post("/account/passkeys/options").json()
-    return c.post("/account/passkeys", json={"name": name, "credential": phone.register(options)})
+    proof = {"code": next_code(secret)} if secret else {"password": PW}
+    return c.post("/account/passkeys", json={"name": name, **proof, "credential": phone.register(options)})
 
 
 def passkey_login(c, phone: Phone, **kw):
@@ -87,7 +89,7 @@ def test_a_passkey_signs_you_in_from_a_fresh_browser_without_a_password_or_code(
     register(fresh, "Keyed2")
     secret = setup_2fa(fresh)
     phone = Phone()
-    add_passkey(fresh, phone)
+    assert add_passkey(fresh, phone, secret=secret).status_code == 200
     fresh.post("/logout")
     assert not signed_in(fresh)
 

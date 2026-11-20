@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app import config
+from app import config, netguard
 from app.calendar.ical import SLOT_TIMES
 from app.calendar.schedule import occurrences
 from app.models import DoseLog, DoseReminder, PhotoReminderSent, Protocol, ProtocolItem, User
@@ -21,7 +21,9 @@ INTERVAL = 60
 def send_ntfy(server: str, topic: str, title: str, message: str) -> None:
     request = urllib.request.Request(f"{server.rstrip('/')}/{topic}", data=message.encode("utf-8"), method="POST",
                                      headers={"Title": title.encode("ascii", "ignore").decode(), "Tags": "pill"})
-    with urllib.request.urlopen(request, timeout=10):
+    # The server comes from the administrator's AMIDE_NTFY_SERVER. Plain http is accepted only for a server on a private network; anything
+    # unsafe raises here and the caller (the reminder loop) treats it as a failed send.
+    with netguard.safe_open(request, 10, allow_private=True, allow_loopback=True, max_bytes=65_536, https_for_public=True):
         pass
 
 

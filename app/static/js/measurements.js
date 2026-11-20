@@ -98,23 +98,37 @@
   const wrap = document.querySelector(".silhouette-wrap");
   if (!tooltip || !wrap) return;
 
-  function tooltipHtml(point) {
+  // The tooltip is built from DOM nodes and textContent, never innerHTML: the labels and values come from data-* attributes.
+  function fillTooltip(point) {
     const label = point.dataset.label;
     const value = point.dataset.value;
     const prior = point.dataset.prior;
     const delta = point.dataset.delta;
     const asOf = point.dataset.asOf;
     const unit = point.dataset.unit || "in";
-    if (!value) return `<strong>${label}</strong><span class="muted">No data</span>`;
-    const deltaText = delta ? ` (${Number(delta) > 0 ? "+" : ""}${delta})` : "";
-    const parts = [`<strong>${label}</strong>`, `${value} ${unit}${deltaText}`];
-    if (prior) parts.push(`<span class="muted">Previous: ${prior} ${unit}</span>`);
-    if (asOf) parts.push(`<span class="muted">As of ${asOf}</span>`);
-    return parts.join("<br>");
+    const lines = [];
+    const add = (text, tag) => {
+      const node = document.createElement(tag || "span");
+      node.textContent = text;
+      lines.push(node);
+      return node;
+    };
+    if (!value) {
+      add(label, "strong");
+      add("No data").className = "muted";
+    } else {
+      const deltaText = delta ? ` (${Number(delta) > 0 ? "+" : ""}${delta})` : "";
+      add(label, "strong");
+      lines.push(document.createElement("br"));
+      lines.push(document.createTextNode(`${value} ${unit}${deltaText}`));
+      if (prior) { lines.push(document.createElement("br")); add(`Previous: ${prior} ${unit}`).className = "muted"; }
+      if (asOf) { lines.push(document.createElement("br")); add(`As of ${asOf}`).className = "muted"; }
+    }
+    tooltip.replaceChildren(...lines);
   }
 
   function showTooltip(point) {
-    tooltip.innerHTML = tooltipHtml(point);
+    fillTooltip(point);
     tooltip.hidden = false;
     const wrapRect = wrap.getBoundingClientRect();
     const pointRect = point.getBoundingClientRect();

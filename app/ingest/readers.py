@@ -5,11 +5,18 @@ import re
 from pathlib import Path
 
 from app import config
+from app.ingest import zipsafe
 from app.library.price_lists import ocr
 from app.library.price_lists.names import propagate_names
 from app.library.price_lists.reader import (
-    ParsedRow, PriceListData, read_pdf, rows_from_lines, rows_from_shorthand, rows_from_table, scan_notes, unread_spec_lines,
+    ParsedRow, PriceListData, TooManyPages, read_pdf, rows_from_lines, rows_from_shorthand, rows_from_table, scan_notes, unread_spec_lines,
 )
+
+try:                                   # a decompression-bomb guard for every image Pillow opens in this process
+    from PIL import Image as _PILImage
+    _PILImage.MAX_IMAGE_PIXELS = config.PHOTO_MAX_PIXELS
+except ImportError:                    # pragma: no cover
+    pass
 
 _MAX_SHEETS, _MAX_ROWS, _MAX_COLS = 10, 5000, 40
 MAX_UNCOMPRESSED = 100 * 1024 * 1024
@@ -44,6 +51,8 @@ def prefer_priced(table_rows: list[ParsedRow], line_rows: list[ParsedRow]) -> li
 def read_pdf_file(path: Path, recognize=None) -> PriceListData:
     try:
         return read_pdf(path, recognize=recognize)
+    except TooManyPages:
+        raise ReadError("the PDF has too many pages") from None
     except ocr.OcrUnavailable:
         raise OcrMissing("scanned pages need text recognition, which is not installed") from None
     except Exception as exc:
@@ -74,8 +83,10 @@ def read_xlsx(data: bytes) -> PriceListData:
     try:
         import zipfile
         with zipfile.ZipFile(io.BytesIO(data)) as z:
-            if sum(i.file_size for i in z.infolist()) > MAX_UNCOMPRESSED:
-                raise ReadError("the spreadsheet is too large")
+            infos = zipsafe.check(z, max_total=MAX_UNCOMPRESSED)
+            zipsafe.refuse_entities(z, infos, part_limit=MAX_UNCOMPRESSED, total_limit=MAX_UNCOMPRESSED)
+    except zipsafe.ZipUnsafe as exc:
+        raise ReadError(f"the spreadsheet was refused: {exc}") from None
     except ReadError:
         raise
     except Exception:

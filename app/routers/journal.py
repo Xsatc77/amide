@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import clock, config, journal_compare, journal_photos
 from app.auth.deps import current_user_id
+from app.security_headers import FILE_HEADERS
 from app.db import get_session
 from app.templating import templates
 from app.models import (
@@ -491,7 +492,7 @@ def _photo_file(photo: JournalPhoto):
     return path
 
 
-_NO_STORE = {"Cache-Control": "private, no-store"}
+_NO_STORE = FILE_HEADERS             # no-store, nosniff, and a sandboxing Content-Security-Policy on every photo
 
 
 @router.get("/journal/compare")

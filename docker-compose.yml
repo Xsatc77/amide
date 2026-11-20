@@ -3,10 +3,18 @@ services:
     build: .
     container_name: amide
     ports:
-      # Port on your machine : port inside the container (leave the 8000).
-      # Change the host port with AMIDE_PORT in a .env file next to this one.
-      - "${AMIDE_PORT:-1707}:8000"
+      # Address : port on your machine : port inside the container (leave the 8000).
+      # Change the host port with AMIDE_PORT and the address with AMIDE_BIND in a .env file next to this one.
+      # AMIDE_BIND defaults to every interface (so phones on your network can reach it); set AMIDE_BIND=127.0.0.1 when a reverse proxy
+      # on the same machine is the only way in.
+      - "${AMIDE_BIND:-0.0.0.0}:${AMIDE_PORT:-1707}:8000"
     volumes:
       # The database and all uploaded files live here. Back this folder up.
       - ./data:/data
+    # Container hardening: the app runs as an ordinary user, needs no extra Linux capabilities and cannot gain privileges.
+    # (read_only is not set: not established that nothing the app uses writes outside /data and /tmp.)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped

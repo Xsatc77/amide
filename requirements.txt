@@ -1,3 +1,6 @@
+# The packages Amide needs, pinned exactly. Edit this file by hand, then regenerate the hashed lock the image installs:
+#   python tools/make_lock.py requirements.txt requirements.lock --exclude opencv-python
+# (see docs/SUPPLY_CHAIN.md). Dependabot opens pull requests for new versions.
 fastapi==0.141.1
 uvicorn[standard]==0.53.0
 SQLAlchemy==2.0.54
@@ -8,14 +11,23 @@ argon2-cffi==25.1.0
 pyotp==2.10.0
 segno==1.6.6
 tzdata==2025.2
-pypdf==5.1.0
+pypdf==7.1.1
 reportlab==4.4.4
 pdfplumber==0.11.10
 cryptography==50.0.2
 rapidocr==3.9.2
 onnxruntime==1.30.0
-Pillow==12.3.0
-pillow-heif==1.8.0
+# The headless OpenCV build has no GUI code and needs no libGL in the image. rapidocr lists plain opencv-python as a
+# dependency, so the lock leaves that one out (--exclude) and installs with --no-deps.
+opencv-python-headless==5.1.0.95
+Pillow==13.0.0
+pillow-heif==1.8.1
 openpyxl==3.1.5
+# openpyxl documents defusedxml as its protection against XML entity expansion in untrusted spreadsheets, and the
+# Telegram ingest reads spreadsheets posted by third parties. openpyxl switches it on by itself when it is installed.
+defusedxml==0.7.1
 webauthn==3.0.1
 python-docx==1.2.0
+# Transitive packages held at a release that fixes published advisories (so a re-resolve can never go below them).
+pyasn1==0.6.5
+certifi==2026.10.23

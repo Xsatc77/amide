@@ -31,7 +31,8 @@ def test_the_manifest_names_the_app_and_points_at_real_icons():
 def test_every_page_links_the_manifest_and_icons_and_registers_the_service_worker(client, db):
     page = client.get("/dashboard").text
     assert 'rel="manifest" href="/static/manifest.webmanifest"' in page or "manifest.webmanifest" in page
-    assert 'name="theme-color"' in page and 'rel="apple-touch-icon"' in page and "serviceWorker.register" in page
+    assert 'name="theme-color"' in page and 'rel="apple-touch-icon"' in page and "/static/js/base.js" in page
+    assert "serviceWorker.register" in client.get("/static/js/base.js").text      # registered from a static file: the page policy allows no inline scripts
 
 
 def test_the_manifest_and_service_worker_are_reachable_without_signing_in():

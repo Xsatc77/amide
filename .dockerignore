@@ -6,3 +6,11 @@ tests
 __pycache__
 *.pyc
 .pytest_cache
+.github
+docs
+tools
+.env
+*.env
+*.db
+*.sqlite3
+requirements-dev.txt

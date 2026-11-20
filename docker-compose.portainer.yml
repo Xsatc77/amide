@@ -11,7 +11,8 @@ services:
     container_name: amide
     ports:
       # Port on your server : port inside the container (leave the 8000). Change the 1707 if something else uses it.
-      - "1707:8000"
+      # Set AMIDE_BIND=127.0.0.1 (a stack environment variable) to reach Amide only through a reverse proxy on this machine.
+      - "${AMIDE_BIND:-0.0.0.0}:1707:8000"
     volumes:
       - amide-data:/data
     # Optional settings: remove the leading "#" on the "environment:" line and the ones you want, and fill them in.
@@ -19,6 +20,12 @@ services:
     #   AMIDE_BACKUP_PASSPHRASE: "choose-a-long-passphrase"   # writes an encrypted backup into the data volume every 7 days
     #   AMIDE_USDA_API_KEY: ""                                # free FoodData Central key for live food search (or paste it in Settings)
     #   AMIDE_NTFY_SERVER: "https://ntfy.sh"                  # where dose reminders go, for people who turn them on
+    # Container hardening: the app runs as an ordinary user, needs no extra Linux capabilities and cannot gain privileges.
+    # (read_only is not set: not established that nothing the app uses writes outside /data and /tmp.)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
 
 volumes:

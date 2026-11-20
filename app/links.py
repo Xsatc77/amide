@@ -5,13 +5,13 @@ address on your own network or this computer, a short timeout, a size cap, and n
 turned off with AMIDE_LINK_DESCRIPTIONS=0."""
 
 import html
-import ipaddress
 import re
-import socket
 import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
+
+from app import netguard
 
 TYPES = ("Vendor", "Supplies", "Community", "Research", "Blog/Vlog", "Calculator", "Workouts", "Nutrition", "Other")
 MAX_NAME, MAX_URL, MAX_DESCRIPTION = 120, 500, 300
@@ -73,23 +73,13 @@ def _public(host: str) -> bool:
     return bool(infos)
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args, **kwargs):
-        return None
-
-
-_opener = urllib.request.build_opener(_NoRedirect)
-
-
 def fetch_page(url: str) -> str | None:
-    """The first part of the page's HTML, following up to a few redirects that each point somewhere public. None on any problem."""
+    """The first part of the page's HTML, following up to a few redirects that each point somewhere public. None on any problem.
+    Every hop is resolved once and the connection goes to that address (netguard), so a name cannot change its answer between the check and the fetch."""
     for _ in range(MAX_REDIRECTS + 1):
-        host = urllib.parse.urlsplit(url).hostname
-        if not host or not _public(host):
-            return None
         request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT, "Accept": "text/html,application/xhtml+xml"})
         try:
-            with _opener.open(request, timeout=TIMEOUT) as response:
+            with netguard.safe_open(request, TIMEOUT, allow_private=False, max_bytes=MAX_BYTES) as response:
                 if "html" not in (response.headers.get("Content-Type") or "").lower():
                     return None
                 charset = response.headers.get_content_charset() or "utf-8"
@@ -101,7 +91,7 @@ def fetch_page(url: str) -> str | None:
             url = urllib.parse.urljoin(url, location)
             if clean_url(url) is None:
                 return None
-        except (OSError, ValueError):
+        except (OSError, ValueError, LookupError):
             return None
     return None
 

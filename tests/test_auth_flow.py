@@ -50,6 +50,8 @@ def clock(monkeypatch):
     """Controllable 'now' for sessions and lockout."""
     state = {"now": sessions.now_utc()}
     monkeypatch.setattr(sessions, "now_utc", lambda: state["now"])
+    # The gate's idle-session purge would (rightly) delete the shared test browser's session once the fake clock jumps ahead.
+    monkeypatch.setattr(sessions, "purge_if_due", lambda db, now: None)
     return state
 
 

@@ -6,8 +6,8 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app import config, links
-from app.auth import devices, passkeys, passwords, sessions, totp
-from app.db import get_session
+from app.auth import audit, devices, passkeys, passwords, registration, sessions, throttle, totp
+from app.db import SessionLocal, get_session
 from app.models import InventoryItem, LoginSession, Passkey, Protocol, User
 from app.templating import templates
 
@@ -37,12 +37,15 @@ templates.env.globals["banner_url"] = banner_url
 
 
 def _render(request: Request, name: str, context: dict | None = None, status_code: int = 200):
-    return templates.TemplateResponse(request, f"auth/{name}.html", {"trusted_days": config.TRUSTED_DEVICE_DAYS} | (context or {}),
-                                      status_code=status_code)
+    context = {"trusted_days": config.TRUSTED_DEVICE_DAYS} | (context or {})
+    if name in ("welcome", "login") and "registration_open" not in context:
+        with SessionLocal() as db:
+            context["registration_open"] = registration.is_open(db)      # hides the New User choices while sign-up is closed
+    return templates.TemplateResponse(request, f"auth/{name}.html", context, status_code=status_code)
 
 
 def _set_cookie(response: Response, request: Request, token: str) -> None:
-    response.set_cookie(sessions.COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https",
+    response.set_cookie(sessions.COOKIE, token, httponly=True, samesite="lax", secure=config.cookie_secure(request),
                         path="/")
 
 
@@ -87,7 +90,12 @@ async def accept_notice(request: Request, db: Session = Depends(get_session)):
     if form.get("understand") != "1":
         return _render(request, "notice", {"error": "Please tick the box to confirm you understand."}, 422)
     now = sessions.now_utc()
-    row = _current_session(db, request) or sessions.create(db, now)
+    row = _current_session(db, request)
+    if row is None:
+        # No cookie: every call makes a new row, so one address may only make so many an hour (stale ones are purged by the gate).
+        if wait := throttle.throttle.check("anon_session", throttle.client_address(request)):
+            return _render(request, "throttled", {"message": throttle.WAIT_MESSAGE, "wait": wait}, 429)
+        row = sessions.create(db, now)
     row.notice_accepted_at = now
     db.commit()
     response = RedirectResponse(HOME if row.user_id and not row.twofa_pending else "/welcome", status_code=303)
@@ -118,12 +126,16 @@ def _checks_context(form: dict | None = None, errors: list[str] | None = None) -
 
 
 @router.get("/register")
-def register_form(request: Request):
+def register_form(request: Request, db: Session = Depends(get_session)):
+    if not registration.is_open(db):
+        return _render(request, "registration_closed", status_code=403)
     return _render(request, "register", _checks_context())
 
 
 @router.post("/register")
 async def register(request: Request, db: Session = Depends(get_session)):
+    if not registration.is_open(db):
+        return _render(request, "registration_closed", status_code=403)
     form = await _form(request)
     username = form.get("username", "").strip()
     password, confirm = form.get("password", ""), form.get("confirm", "")
@@ -139,9 +151,10 @@ async def register(request: Request, db: Session = Depends(get_session)):
 
     first = db.scalar(select(User.id).limit(1)) is None
     user = User(username=username, username_key=passwords.username_key(username),
-                password_hash=passwords.hash_password(password), is_admin=first)
+                password_hash=await passwords.hash_password_async(password), is_admin=first)
     db.add(user)
     db.flush()
+    audit.record(db, "registered", request, user, "first account (admin)" if first else "")
     links.add_starter_links(db, user.id)
     if first:
         # The first account takes over everything created before accounts existed.
@@ -184,23 +197,42 @@ async def login(request: Request, db: Session = Depends(get_session)):
     form = await _form(request)
     username = form.get("username", "").strip()
     now = sessions.now_utc()
-    user = db.scalar(select(User).where(User.username_key == passwords.username_key(username)))
+    key = passwords.username_key(username)
+    client = throttle.client_address(request)
+    user = db.scalar(select(User).where(User.username_key == key))
 
-    def fail(message: str):
-        return _render(request, "login", {"f": {"username": username}, "error": message}, 422)
+    def fail(message: str, status_code: int = 422, headers: dict | None = None):
+        response = _render(request, "login", {"f": {"username": username}, "error": message}, status_code)
+        response.headers.update(headers or {})
+        return response
 
-    if user is None:
-        passwords.verify_password(passwords.hash_password("x"), "y")  # same work either way: don't leak names
-        return fail(GENERIC_LOGIN_ERROR)
-    if sessions.is_locked(user, now):
+    if user is not None and sessions.is_locked(user, now) and not throttle.is_known(client, key, now):
         return fail(_locked_message(user, now))
-    if not passwords.verify_password(user.password_hash, form.get("password", "")):
-        sessions.record_failure(user, now)
+    if wait := throttle.backoff_wait(client, key, now):
+        return fail(f"Too many wrong tries for that name from this address. Wait {wait} seconds and try again.", 429,
+                    {"Retry-After": str(wait)})
+    if user is None:
+        await passwords.verify_dummy_async(form.get("password", ""))  # same work either way: do not leak names
+        throttle.note_failure(client, key, now)
+        audit.record(db, "login_failed", request, username=username, detail="unknown name")
+        db.commit()
+        return fail(GENERIC_LOGIN_ERROR)
+    was_locked = sessions.is_locked(user, now)
+    if not await passwords.verify_password_async(user.password_hash, form.get("password", "")):
+        throttle.note_failure(client, key, now)
+        if not was_locked:
+            sessions.record_failure(user, now)
+        audit.record(db, "login_failed", request, user)
+        if sessions.is_locked(user, now) and not was_locked:
+            audit.record(db, "lockout", request, user, f"locked for {config.LOCKOUT_MINUTES} minutes")
         db.commit()
         return fail(_locked_message(user, now) if sessions.is_locked(user, now) else GENERIC_LOGIN_ERROR)
     sessions.clear_failures(user)
+    throttle.note_success(client, key, now)
     remembered = user.totp_enabled and devices.is_trusted(db, user.id, request.cookies.get(devices.COOKIE), now)
-    return _sign_in(db, request, user, pending_2fa=user.totp_enabled and not remembered)
+    pending = user.totp_enabled and not remembered
+    audit.record(db, "login_ok", request, user, "password ok, 2FA code still needed" if pending else "")
+    return _sign_in(db, request, user, pending_2fa=pending)
 
 
 @router.get("/login/2fa")
@@ -222,6 +254,9 @@ async def twofa_login(request: Request, db: Session = Depends(get_session)):
     form = await _form(request)
     if problem := check_code(user, form.get("code", ""), now):
         sessions.record_failure(user, now)
+        audit.record(db, "twofa_failed", request, user)
+        if sessions.is_locked(user, now):
+            audit.record(db, "lockout", request, user, f"locked for {config.LOCKOUT_MINUTES} minutes")
         db.commit()
         message = _locked_message(user, now) if sessions.is_locked(user, now) else problem
         return _render(request, "twofa_login", {"error": message}, 422)
@@ -229,11 +264,12 @@ async def twofa_login(request: Request, db: Session = Depends(get_session)):
     row.twofa_pending = False
     user.last_login_at = now
     token = devices.remember(db, user.id, now) if form.get("remember") == "1" else None
+    audit.record(db, "login_ok", request, user, "2FA code accepted")
     db.commit()
     response = RedirectResponse(HOME, status_code=303)
     if token:
         response.set_cookie(devices.COOKIE, token, max_age=devices.MAX_AGE, httponly=True, samesite="lax",
-                            secure=request.url.scheme == "https", path="/")
+                            secure=config.cookie_secure(request), path="/")
     return response
 
 
@@ -273,8 +309,10 @@ async def twofa_change(request: Request, db: Session = Depends(get_session)):
     if form.get("action") == "disable":
         user.totp_enabled, user.totp_secret, user.totp_last_step = False, None, None
         devices.forget_all(db, user.id)
+        audit.record(db, "twofa_disabled", request, user)
     else:
         user.totp_enabled = True
+        audit.record(db, "twofa_enabled", request, user)
     db.commit()
     return RedirectResponse(HOME if user.totp_enabled else "/account/2fa", status_code=303)
 
@@ -282,6 +320,7 @@ async def twofa_change(request: Request, db: Session = Depends(get_session)):
 @router.post("/account/2fa/forget-devices")
 def forget_devices(request: Request, db: Session = Depends(get_session)):
     devices.forget_all(db, request.state.user.id)
+    audit.record(db, "devices_forgotten", request, db.get(User, request.state.user.id))
     db.commit()
     response = RedirectResponse("/account/2fa", status_code=303)
     response.delete_cookie(devices.COOKIE, path="/")
@@ -306,8 +345,14 @@ async def _json_body(request: Request) -> dict:
     return body if isinstance(body, dict) else {}
 
 
+def _bad_origin() -> JSONResponse:
+    return JSONResponse({"error": "Passkeys are not available at this address."}, status_code=400)
+
+
 @router.post("/login/passkey/options")
 def passkey_login_options(request: Request, db: Session = Depends(get_session)):
+    if not passkeys.origin_ok(request):
+        return _bad_origin()
     return Response(passkeys.login_options(db, request), media_type="application/json")
 
 
@@ -316,18 +361,24 @@ async def passkey_login(request: Request, db: Session = Depends(get_session)):
     now = sessions.now_utc()
     user = passkeys.login(db, request, (await _json_body(request)).get("credential") or {}, now)
     if user is None:
+        audit.record(db, "passkey_login_failed", request)
+        db.commit()
         return JSONResponse({"error": "That passkey was not accepted. Use your password instead."}, status_code=401)
+    audit.record(db, "login_ok", request, user, "passkey")
     return _json_sign_in(db, request, user)
 
 
 @router.get("/account/passkeys")
 def passkeys_page(request: Request, db: Session = Depends(get_session)):
     mine = db.scalars(select(Passkey).where(Passkey.user_id == request.state.user.id).order_by(Passkey.created_at)).all()
-    return _render(request, "passkeys", {"passkeys": mine, "supported": passkeys.supported(request)})
+    return _render(request, "passkeys", {"passkeys": mine, "supported": passkeys.supported(request),
+                                         "totp_enabled": bool(db.get(User, request.state.user.id).totp_enabled)})
 
 
 @router.post("/account/passkeys/options")
 def passkey_register_options(request: Request, db: Session = Depends(get_session)):
+    if not passkeys.origin_ok(request):
+        return _bad_origin()
     user = db.get(User, request.state.user.id)
     return Response(passkeys.registration_options(db, request, user), media_type="application/json")
 
@@ -336,9 +387,27 @@ def passkey_register_options(request: Request, db: Session = Depends(get_session
 async def passkey_register(request: Request, db: Session = Depends(get_session)):
     body = await _json_body(request)
     user = db.get(User, request.state.user.id)
+    now = sessions.now_utc()
+    # Adding a passkey is as sensitive as a password change: prove it is the person (current password, or a fresh code when 2FA is on).
+    if sessions.is_locked(user, now):
+        return JSONResponse({"error": _locked_message(user, now)}, status_code=429)
+    if user.totp_enabled:
+        problem = check_code(user, str(body.get("code") or ""), now)
+    elif await passwords.verify_password_async(user.password_hash, str(body.get("password") or "")):
+        problem = None
+    else:
+        problem = "Enter your current password to add a passkey."
+    if problem:
+        sessions.record_failure(user, now)
+        audit.record(db, "passkey_reauth_failed", request, user)
+        db.commit()
+        return JSONResponse({"error": problem}, status_code=403)
     key = passkeys.register(db, request, user, body.get("credential") or {}, str(body.get("name") or ""), sessions.now_utc())
     if key is None:
+        db.commit()      # keeps a used 2FA code marked as used
         return JSONResponse({"error": "That passkey could not be added. Try again."}, status_code=400)
+    audit.record(db, "passkey_added", request, user, key.name)
+    db.commit()
     return JSONResponse({"next": "/account/passkeys"})
 
 
@@ -346,6 +415,7 @@ async def passkey_register(request: Request, db: Session = Depends(get_session))
 def passkey_delete(passkey_id: int, request: Request, db: Session = Depends(get_session)):
     key = db.get(Passkey, passkey_id)
     if key is not None and key.user_id == request.state.user.id:
+        audit.record(db, "passkey_removed", request, db.get(User, key.user_id), key.name)
         db.delete(key)
         db.commit()
     return RedirectResponse("/account/passkeys", status_code=303)
@@ -357,6 +427,8 @@ def passkey_delete(passkey_id: int, request: Request, db: Session = Depends(get_
 def logout(request: Request, db: Session = Depends(get_session)):
     row = _current_session(db, request)
     if row is not None:
+        if row.user_id is not None:
+            audit.record(db, "logout", request, db.get(User, row.user_id))
         row.user_id, row.twofa_pending = None, False
         db.commit()
     return RedirectResponse("/welcome", status_code=303)

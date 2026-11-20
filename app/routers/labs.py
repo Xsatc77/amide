@@ -1,10 +1,15 @@
+import asyncio
+import io
 import math
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
+
+from app.security_headers import FILE_HEADERS
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
 from app import clock, config, uploads
@@ -16,6 +21,25 @@ from app.protocols.status import Status, protocol_status
 from app.routers.journal import doses_for
 
 router = APIRouter()
+
+PDF_MAX_PAGES = 40       # a lab report is a few pages; more is refused before any text is read
+PDF_SECONDS = 30         # the request gives up waiting after this long (the worker thread cannot be killed, but it is one page-capped file)
+
+
+class TooManyPages(Exception):
+    pass
+
+
+def _read_report(lab: str, data: bytes):
+    import pdfplumber
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            too_many = len(pdf.pages) > PDF_MAX_PAGES
+    except Exception:  # noqa: BLE001 -- unreadable: let the real reader report it
+        too_many = False
+    if too_many:
+        raise TooManyPages
+    return reports.read_pdf(lab, data)
 
 
 def _lab_query(uid: int):
@@ -368,7 +392,12 @@ async def import_report(request: Request, session: Session = Depends(get_session
     if not data.startswith(b"%PDF"):
         return refuse("That file is not a PDF.")
     try:
-        report = reports.read_pdf(lab, data)
+        # Off the event loop (parsing is slow and CPU-bound), with a page cap and a time limit.
+        report = await asyncio.wait_for(run_in_threadpool(_read_report, lab, data), PDF_SECONDS)
+    except TooManyPages:
+        return refuse(f"That PDF has more than {PDF_MAX_PAGES} pages. Import a report of {PDF_MAX_PAGES} pages or fewer.")
+    except asyncio.TimeoutError:
+        return refuse("That PDF took too long to read.")
     except Exception:  # noqa: BLE001 -- a PDF pdfplumber cannot open is just an unreadable report
         return refuse("That PDF could not be read.")
     if not report.rows:
@@ -407,7 +436,7 @@ def get_lab_report(panel_id: int, session: Session = Depends(get_session),
     if not path.exists():
         raise HTTPException(404, "Lab report file is missing from disk")
     return FileResponse(path, media_type=uploads.media_type(panel.report_filename),
-                        headers={"X-Content-Type-Options": "nosniff"},
+                        headers=FILE_HEADERS,
                         content_disposition_type="inline")
 
 

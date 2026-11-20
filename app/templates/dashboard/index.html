@@ -34,7 +34,7 @@
 <form method="get" action="/dashboard" class="dashboard-viewer">
   <label>
     <span class="small muted">Viewing</span>
-    <select name="viewer_id" onchange="this.form.submit()">
+    <select name="viewer_id" data-autosubmit>
       <option value="">You</option>
       {% for u in shared_with_me %}
       <option value="{{ u.id }}" {{ 'selected' if viewer_id == u.id }}>{{ u.username }}</option>

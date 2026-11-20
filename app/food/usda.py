@@ -5,6 +5,8 @@ import json
 import urllib.parse
 import urllib.request
 
+from app import netguard
+
 ENDPOINT = "https://api.nal.usda.gov/fdc/v1/foods/search"
 PAGE_SIZE = 15
 
@@ -19,7 +21,8 @@ def key_for(user) -> str:
 
 
 def fetch_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=10) as response:                # the key is in the address, so this is never logged here
+    # The key is in the address: netguard's errors never include the query string, and nothing here logs the address.
+    with netguard.safe_open(urllib.request.Request(url), 10, allow_private=False, max_bytes=2_097_152) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

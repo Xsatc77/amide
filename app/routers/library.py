@@ -13,6 +13,7 @@ from app.goals import GOALS
 from app.library.price_lists.analysis import price_range, rematch_items
 from app.library.price_lists.shots import UNITS, shot_plan
 from app.library.price_lists.vendor_view import build_price_compare
+from app.security_headers import FILE_HEADERS_SHARED
 from app.library.forms import parse_peptide_form, state_from_form, state_from_peptide
 from app.models import DoseLog, DoseUnit, DosingTierLevel, GoalPeptide, Peptide, PeptideNote, PeptideSource, Protocol, ProtocolItem, User
 from app.templating import templates
@@ -168,4 +169,4 @@ def library_card_image(peptide_id: int, session: Session = Depends(get_session))
     path = config.CARDS_DIR / p.card_image
     if not path.is_file():
         raise HTTPException(404, "Card image missing from disk")
-    return FileResponse(path, media_type="image/jpeg", headers={"X-Content-Type-Options": "nosniff"})
+    return FileResponse(path, media_type="image/jpeg", headers=FILE_HEADERS_SHARED)

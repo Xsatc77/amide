@@ -58,3 +58,23 @@ def verify_password(password_hash: str, password: str) -> bool:
         return _hasher.verify(password_hash, password)
     except (VerificationError, InvalidHashError):
         return False
+
+
+# argon2 is deliberately slow (tens of milliseconds, a lot of memory): from an async route it must run in a worker thread, or one
+# sign-in stalls every other request. A precomputed hash lets an unknown username cost the same work as a wrong password.
+_DUMMY_HASH = _hasher.hash("amide-dummy-password")
+
+
+async def hash_password_async(password: str) -> str:
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(hash_password, password)
+
+
+async def verify_password_async(password_hash: str, password: str) -> bool:
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(verify_password, password_hash, password)
+
+
+async def verify_dummy_async(password: str) -> None:
+    """Do the work of a password check against nothing (for a name that does not exist)."""
+    await verify_password_async(_DUMMY_HASH, password)

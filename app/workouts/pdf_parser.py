@@ -48,10 +48,19 @@ _ROW_PATTERN = re.compile(
 )
 
 
+MAX_PAGES = 200
+
+
+class TooManyPages(ValueError):
+    """A workout plan PDF never runs to hundreds of pages."""
+
+
 def extract_text(pdf_bytes: bytes) -> str:
     """Every page's text, joined with newlines. Never raises on a page with no extractable text
     (an image-only PDF) -- that page just contributes nothing."""
     reader = PdfReader(BytesIO(pdf_bytes))
+    if len(reader.pages) > MAX_PAGES:
+        raise TooManyPages(f"more than {MAX_PAGES} pages")
     return "\n".join((page.extract_text() or "") for page in reader.pages)
 
 
@@ -67,6 +76,8 @@ def extract_links(pdf_bytes: bytes) -> dict[str, str]:
     try:
         reader = PdfReader(BytesIO(pdf_bytes))
         found: dict[str, str] = {}
+        if len(reader.pages) > MAX_PAGES:
+            return {}
         for page in reader.pages:
             boxes = []
             for annot in page.get("/Annots") or []:

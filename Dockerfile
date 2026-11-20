@@ -1,15 +1,20 @@
-FROM python:3.13-slim
+# The base image is pinned by digest (the multi-arch index of python:3.13-slim). Dependabot proposes new digests weekly; to refresh by hand,
+# read the Docker-Content-Digest of the python:3.13-slim manifest list (docker buildx imagetools inspect python:3.13-slim) and paste it here.
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
     AMIDE_DATA_DIR=/data
 
-# OCR for scanned price lists (RapidOCR -> OpenCV) needs these two system libraries on the slim image.
-RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+# OCR for scanned price lists (RapidOCR -> OpenCV, the headless build) needs this one system library on the slim image.
+RUN apt-get update && apt-get install -y --no-install-recommends libglib2.0-0 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Every package comes from the hash-pinned lock (requirements.lock, made by tools/make_lock.py): pip refuses anything whose hash differs.
+COPY requirements.lock .
+RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 
 COPY alembic.ini .
 COPY migrations ./migrations

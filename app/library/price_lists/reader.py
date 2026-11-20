@@ -260,6 +260,13 @@ def unread_spec_lines(lines, rows) -> int:
     return max(0, sum(1 for line in lines if _LINE_SPEC.search(line)) - len(rows))
 
 
+MAX_PDF_PAGES = 200
+
+
+class TooManyPages(ValueError):
+    """The PDF has more pages than a price list ever does."""
+
+
 def read_pdf(path: Path, recognize=None) -> PriceListData:
     """Read a text PDF. A page that is only a picture (a scan) is read by text recognition; `recognize` replaces the
     recognizer (tests)."""
@@ -267,6 +274,8 @@ def read_pdf(path: Path, recognize=None) -> PriceListData:
     lines: list[str] = []
     unread = 0
     with pdfplumber.open(path) as pdf:
+        if len(pdf.pages) > MAX_PDF_PAGES:
+            raise TooManyPages(f"more than {MAX_PDF_PAGES} pages")
         for number, page in enumerate(pdf.pages, 1):
             if not page.chars and page.images:
                 words = ocr.page_words(path, number - 1, recognize)

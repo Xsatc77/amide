@@ -11,11 +11,12 @@ from app import clock
 from app import body_photos, config, photo_access
 from app.auth import sessions
 from app.auth.deps import current_user_id
+from app.security_headers import FILE_HEADERS
 from app.db import get_session
 from app.models import BODY_PHOTO_ANGLES, BodyPhoto, LoginSession, User
 
 router = APIRouter()
-_NO_STORE = {"Cache-Control": "private, no-store"}
+_NO_STORE = FILE_HEADERS             # no-store, nosniff, and a sandboxing Content-Security-Policy on every photo
 _GALLERY = "/measurements?tab=measurements#body-photos"
 
 

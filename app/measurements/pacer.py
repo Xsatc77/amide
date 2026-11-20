@@ -7,11 +7,13 @@ import io
 import zipfile
 from datetime import datetime
 
+from app.ingest import zipsafe
 from app.measurements.renpho import Parsed, Reading
 from app.units import LB_PER_KG
 
 FILE_MARK = "---FILE---"          # the page joins the text of several chosen CSV files with this line
 _MAX_BYTES = 2_000_000
+_MAX_ZIP_TOTAL = 1024 * 1024 * 1024      # what the whole export may inflate to (the step files are large but never read)
 
 
 class ImportError_(ValueError):
@@ -97,11 +99,18 @@ def texts_from_zip(data: bytes) -> list[str]:
         z = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
         raise ImportError_("That zip file could not be opened.")
+    try:
+        infos = zipsafe.check(z, max_total=_MAX_ZIP_TOTAL)
+    except zipsafe.ZipUnsafe:
+        raise ImportError_("That zip file is too large or has too many files to read.") from None
     out = []
-    for info in z.infolist():
+    for info in infos:
         name = info.filename.rsplit("/", 1)[-1].lower()
         if name.startswith(("weightlogs", "heartlogs")) and name.endswith(".csv") and info.file_size <= _MAX_BYTES:
-            out.append(z.read(info).decode("utf-8-sig", errors="replace"))
+            try:
+                out.append(zipsafe.read_bounded(z, info, _MAX_BYTES).decode("utf-8-sig", errors="replace"))
+            except zipsafe.ZipUnsafe:
+                raise ImportError_("A file in that zip is too large to read.") from None
     return out
 
 

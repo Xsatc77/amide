@@ -10,6 +10,16 @@ A row that points at something outside the loaded sections finds it again by nat
 an inventory item by name and vial size); an unresolvable link becomes empty and is counted in the report. Everything
 runs in the caller's transaction: any error rolls it all back and removes the files it wrote."""
 
+# SQL safety (why the f-string SQL below is not an injection risk)
+# * Every table and column name interpolated into a statement comes from the registry in app/backup/sections.py
+#   (reg.table(...) / _columns(...)), never from the archive. A row key that is not a registry column is dropped
+#   before any statement is built, so a hostile key (a quote, a `where`, `; DROP`) is simply ignored.
+# * Every VALUE is a bound parameter (:name); nothing from the archive is concatenated into the text.
+# * The WHERE clauses (Tbl.where, MERGE_KEYS) are literals written in the registry, with :uid bound to the signed-in
+#   person. A person's owner columns are overwritten with that uid after the row is read, whatever the file says.
+# * The profile loader only ever writes the PROFILE_COLUMNS allow-list, so `is_admin` or `password_hash` in a file
+#   never reaches the users table.
+
 import re
 import uuid
 from dataclasses import dataclass, field

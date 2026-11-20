@@ -42,7 +42,7 @@ A longer illustrated walkthrough, with screenshots of every page, is in [GUIDE.m
 
 ## Vendors, prices and shopping
 
-- **Vendors** keeps contacts, payment methods and price lists. Upload a price list (PDF, photo or spreadsheet) on a vendor to read its prices; **Price History** charts them.
+- **Vendors** keeps contacts, payment methods and price lists. Upload a price list (PDF, photo or spreadsheet) on a vendor to read its prices; **Price History** charts them. Everyone signed in can see vendors, favorite them, add new ones and read their price lists, but only the person who added a vendor (or an administrator) can edit its wallets, price list or website, or delete it.
 - **Shop this protocol** (cart icon on a protocol): the cheapest plan to buy the whole course from the vendors' newest lists, with one or two orders. Shipping fees are editable. BAC water is added from the brands you rank in Inventory. **Share this plan** saves a text file or opens an email.
 - An optional watcher program can read price lists posted in chat groups: see [watcher/README.md](../watcher/README.md).
 - **Price correction** (administrator: Settings, Admin): every product on the current price lists beside what it is matched to; fix a wrong match in a dropdown, mark a product the library lacks as new, and **Save corrections**. Corrections are remembered for later lists. A size such as "10mg Dual Chamber Cartridge" is recognised and priced apart from plain vials.
@@ -74,5 +74,5 @@ The account menu has **Learn**: a tutorial for newcomers to gray-market peptides
 ## Your data
 
 - **Dashboard** pulls the day together: schedule, alerts, compliance bars over a window you choose, water, cost and shipments.
-- **Settings, Backup and restore** makes an encrypted backup you can restore on another computer. **Sharing** gives chosen people a read-only view.
+- **Settings, Backup and restore** makes an encrypted backup you can restore on another computer. **Sharing** gives chosen people a read-only view; **Shared With Me** lists who shares with you and lets you stop receiving it.
 - Install Amide on a phone or computer from the browser's menu (**Add to Home Screen** or **Install**). It needs HTTPS or `localhost`: see [DEPLOYING.md](DEPLOYING.md).

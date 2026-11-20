@@ -5,7 +5,10 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+import os
+
 from app import config
+from app.security_headers import SecurityMiddleware
 from app.auth import gate
 from app.db import SessionLocal
 from app.food.foods import load_starter
@@ -40,9 +43,12 @@ async def lifespan(_: FastAPI):
     await health_history.stop(purge_task)
 
 
-app = FastAPI(title="Amide", lifespan=lifespan)
+_DOCS_ON = os.environ.get("AMIDE_API_DOCS", "").strip() == "1"          # the interactive API pages are off unless asked for
+app = FastAPI(title="Amide", lifespan=lifespan,
+              docs_url="/docs" if _DOCS_ON else None, redoc_url="/redoc" if _DOCS_ON else None, openapi_url="/openapi.json" if _DOCS_ON else None)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 gate.install(app)
+app.add_middleware(SecurityMiddleware)       # added last = outermost: headers and size caps cover the front door's answers too
 app.include_router(progress.router)
 app.include_router(auth.router)
 app.include_router(dashboard.router)
