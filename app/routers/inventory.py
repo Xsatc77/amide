@@ -6,7 +6,8 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 
-from app.security_headers import FILE_HEADERS
+from app.routers._ints import parse_int
+from app.security_headers import file_headers
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
@@ -25,6 +26,7 @@ from app.inventory.labels import labels_for_order
 from app.inventory.runout import runs_out
 from app.inventory.rules import FIELD_LABEL_OVERRIDES, field_label, optional_fields_for, required_fields_for
 from app.inventory.vendors import resolve_vendor
+from app.sharing import accepted_owner_ids, has_accepted_share
 from app.models import (
     ActiveVial, Category, ContactMethodType, DispensingMethod, DoseLog, DoseStatus, DoseUnit, InventoryItem, Medium, ProtocolItem, Route, SupplyType,
     Order, OrderItem, PaymentMethodType, PurchasingUnit, Sale, Share, ShareCategory, StorageLocation,
@@ -370,8 +372,7 @@ def _price_recall_map(session: Session, uid: int) -> dict[int, dict[str, float]]
     Feeds the New Order dialog's per-line price recall -- prefilling a line's cost from the last
     time this vendor was ordered from for an item of the same name, never a new stored price
     table."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.INVENTORY)
     rows = session.execute(
         select(Order.vendor_id, InventoryItem.name, OrderItem.cost_cents)
         .join(OrderItem, OrderItem.order_id == Order.id)
@@ -449,7 +450,7 @@ def _parse_new_order_header_fields(form: dict[str, list[str]], session: Session,
             # confirmed empty, so a "+ New type..." name never resolves (creating a global
             # ContactMethodType/PaymentMethodType row) for a submission that ends up 422ing anyway.
             "raw_contacts": _group_contacts(form),
-            "raw_payment_type_ids": [v for v in (form.get("payment_type_ids") or []) if v.isdigit()],
+            "raw_payment_type_ids": [v for v in (form.get("payment_type_ids") or []) if parse_int(v) is not None],
             "raw_new_payment_type": one("new_payment_type"),
         }
         values["vendor_id"] = None  # filled in by the caller once the Vendor row is created
@@ -458,8 +459,8 @@ def _parse_new_order_header_fields(form: dict[str, list[str]], session: Session,
         vendor_id_raw = one("vendor_id")
         vendor = None
         if vendor_id_raw:
-            if vendor_id_raw.isdigit():
-                vendor = session.get(Vendor, int(vendor_id_raw))
+            if parse_int(vendor_id_raw) is not None:
+                vendor = session.get(Vendor, parse_int(vendor_id_raw))
             if vendor is None:
                 errors["vendor_id"] = "Select a vendor from the list."
         values["vendor_id"] = vendor.id if vendor else None
@@ -504,8 +505,8 @@ def _create_new_vendor(session: Session, uid: int, new_vendor_values: dict) -> V
         method_type = None
         if method_type_id == "__new__" or (not method_type_id and new_method_name):
             method_type = resolve_contact_method_type(session, new_method_name)
-        elif method_type_id.isdigit():
-            method_type = session.get(ContactMethodType, int(method_type_id))
+        elif parse_int(method_type_id) is not None:
+            method_type = session.get(ContactMethodType, parse_int(method_type_id))
         if method_type is None:
             continue
         vendor.contacts.append(VendorContact(method_type_id=method_type.id, value=value))
@@ -612,8 +613,7 @@ def _own_items(session: Session, uid: int):
 
 def _visible_items(session: Session, uid: int):
     """This user's own items, plus items owned by anyone who granted them Inventory sharing."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.INVENTORY)
     items = session.scalars(
         select(InventoryItem)
         .where((InventoryItem.owner_id == uid) | (InventoryItem.owner_id.in_(shared_owner_ids)))
@@ -635,9 +635,7 @@ def _visible_item(session: Session, item_id: int, uid: int) -> InventoryItem | N
         return None
     if item.owner_id == uid:
         return item
-    shared = session.scalar(select(Share).where(
-        Share.owner_id == item.owner_id, Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY))
-    return item if shared else None
+    return item if has_accepted_share(session, item.owner_id, uid, ShareCategory.INVENTORY) else None
 
 
 def _open_active_vials(session: Session, item_ids: list[int]) -> dict[int, ActiveVial]:
@@ -658,8 +656,7 @@ def _open_active_vials(session: Session, item_ids: list[int]) -> dict[int, Activ
 def _visible_active_vials(session: Session, uid: int):
     """This user's own open Active Vials, plus open vials on items owned by anyone who granted
     them Inventory sharing -- the same grant, no new category."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.INVENTORY)
     vials = session.scalars(
         select(ActiveVial)
         .where(ActiveVial.discarded_at.is_(None),
@@ -783,8 +780,8 @@ def _render_list(request: Request, session: Session, *, form: dict | None = None
     }
     run_outs = runs_out(session, uid, clock.today())
     label_vial = None
-    if request.query_params.get("labels", "").isdigit():            # just reconstituted: dates to write on the label
-        candidate = session.get(ActiveVial, int(request.query_params["labels"]))
+    if parse_int(request.query_params.get("labels", "")) is not None:            # just reconstituted: dates to write on the label
+        candidate = session.get(ActiveVial, parse_int(request.query_params["labels"]))
         label_vial = candidate if candidate is not None and candidate.owner_id == uid else None
     return templates.TemplateResponse(
         request,
@@ -861,9 +858,9 @@ async def set_low_stock_level(item_id: int, request: Request, session: Session =
         raise HTTPException(404, "Inventory item not found")
     text = str((await request.form()).get("threshold") or "").strip()
     if text:
-        if not text.isdigit() or int(text) > 100000:
+        if parse_int(text) is None or parse_int(text) > 100000:
             raise HTTPException(422, "The alert level must be a whole number, 0 or more.")
-        item.low_stock_threshold = int(text)
+        item.low_stock_threshold = parse_int(text)
     else:
         item.low_stock_threshold = None
     session.commit()
@@ -1016,8 +1013,8 @@ async def create_multi_item_order(request: Request, session: Session = Depends(g
 
         if line_raw["mode"] == "existing":
             existing_item = None
-            if line_raw["item_id"].isdigit():
-                existing_item = _own_item(session, int(line_raw["item_id"]), uid)
+            if parse_int(line_raw["item_id"]) is not None:
+                existing_item = _own_item(session, parse_int(line_raw["item_id"]), uid)
             if existing_item is None:
                 line_errors[f"{prefix}item_id"] = "Select an item you already track."
         else:
@@ -1427,9 +1424,9 @@ async def sell_item(item_id: int, request: Request, session: Session = Depends(g
     include_bac_water = bool(raw["include_bac_water"]) and item.category == Category.MEDICINE
     if include_bac_water:
         bac_item = None
-        if raw["bac_item_id"].isdigit():
+        if parse_int(raw["bac_item_id"]) is not None:
             try:
-                bac_item = _own_item(session, int(raw["bac_item_id"]), uid)
+                bac_item = _own_item(session, parse_int(raw["bac_item_id"]), uid)
             except (ValueError, OverflowError):
                 bac_item = None
         if bac_item is None or bac_item.category != Category.BAC_WATER:
@@ -1540,7 +1537,7 @@ def get_order_coa(item_id: int, order_item_id: int, session: Session = Depends(g
     if not path.exists():
         raise HTTPException(404, "COA file is missing from disk")
     return FileResponse(path, media_type=uploads.media_type(li.coa_filename),
-                        headers=FILE_HEADERS,
+                        headers=file_headers(uploads.media_type(li.coa_filename)),
                         content_disposition_type="inline")
 
 
@@ -1609,7 +1606,7 @@ def snooze_active_vial_prompt(vial_id: int, session: Session = Depends(get_sessi
 
 
 # ---------------------------------------------------------------- JSON API
-# Read-only for now; the reconstitution calculator and dose logging will use it.
+# Read-only JSON for the signed-in person's own items (the session gate protects it; there is no token access).
 
 def _iso(d: date | None) -> str | None:
     return d.isoformat() if d else None

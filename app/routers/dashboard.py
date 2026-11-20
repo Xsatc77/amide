@@ -25,8 +25,10 @@ from app.models import (
     Medium, Protocol, ProtocolItem, Share, ShareCategory, User, WaterLog, WorkoutExerciseLog, WorkoutLog, naive_utcnow,
 )
 from app.protocols.status import Status, protocol_status
+from app.sharing import accepted, accepted_categories
 from app.routers.protocols import get_today
 from app.templating import templates
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -54,8 +56,7 @@ def _resolve_viewer(session: Session, uid: int, viewer_id: int | None) -> tuple[
     stale option on the next render anyway."""
     if viewer_id is None or viewer_id == uid:
         return uid, {ShareCategory.INVENTORY, ShareCategory.PERSONAL_DATA}
-    categories = set(session.scalars(
-        select(Share.category).where(Share.owner_id == viewer_id, Share.grantee_id == uid)))
+    categories = accepted_categories(session, viewer_id, uid)
     if not categories:
         return uid, {ShareCategory.INVENTORY, ShareCategory.PERSONAL_DATA}
     return viewer_id, categories
@@ -64,7 +65,7 @@ def _resolve_viewer(session: Session, uid: int, viewer_id: int | None) -> tuple[
 def _shared_with_me(session: Session, uid: int) -> list[dict]:
     rows = session.execute(
         select(Share.owner_id, User.username).join(User, User.id == Share.owner_id)
-        .where(Share.grantee_id == uid).distinct()).all()
+        .where(Share.grantee_id == uid, accepted()).distinct()).all()
     return [{"id": owner_id, "username": username} for owner_id, username in rows]
 
 
@@ -439,7 +440,7 @@ async def snooze_low_stock(request: Request, session: Session = Depends(get_sess
     form = await request.form()
     key, days = str(form.get("key") or ""), str(form.get("days") or "")
     kind, _, ident = key.partition(":")
-    if kind != "lowstock" or not ident.isdigit() or days not in ("7", "10"):
+    if kind != "lowstock" or not (parse_int(ident) is not None) or days not in ("7", "10"):
         raise HTTPException(status_code=422, detail="Unknown alert.")
     item = session.get(InventoryItem, int(ident))
     if item is None or item.owner_id != uid:

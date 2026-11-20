@@ -27,7 +27,7 @@ from app.models import (
     ActivityLevel, BiologicalSex, BodyPhoto, Colorway, Food, FoodLog, DietPreset, InventoryItem, LabPanel, MacroGoal, Order,
     Protocol, Share, ShareCategory, User, Vendor,
 )
-from app.models import UserMedicine
+from app.models import UserMedicine, naive_utcnow
 from app.settings.rules import TIMEZONES, email_error, timezone_error
 from app.routers import apple_health
 from app.templating import templates
@@ -38,6 +38,26 @@ router = APIRouter()
 
 def _me(session: Session, uid: int) -> User:
     return session.get(User, uid)
+
+
+async def _current_password_problem(request: Request, session: Session, me: User, password: str) -> str | None:
+    """Check the 'current password' typed into a Settings form through the same lockout as sign-in: refused while the account is
+    locked, a wrong one counts as a failed attempt (and can lock) and is logged (never the password). None when it is right."""
+    now = sessions.now_utc()
+    if sessions.is_locked(me, now):
+        minutes = max(1, int((me.locked_until - now).total_seconds() // 60) + 1)
+        return f"Too many attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}."
+    if await passwords.verify_password_async(me.password_hash, password):
+        if me.failed_attempts:
+            sessions.clear_failures(me)
+            session.commit()
+        return None
+    sessions.record_failure(me, now)
+    audit.record(session, "password_reauth_failed", request, me)
+    if sessions.is_locked(me, now):
+        audit.record(session, "lockout", request, me, f"locked for {config.LOCKOUT_MINUTES} minutes")
+    session.commit()
+    return "Current password is incorrect."
 
 
 def _format_last_login(last_login, tz_name: str | None) -> str:
@@ -60,18 +80,22 @@ def _render(request: Request, session: Session, *, errors: dict | None = None, s
     me = _me(session, request.state.user.id)
     other_users = session.scalars(
         select(User).where(User.id != me.id).order_by(User.username.collate("NOCASE"))).all()
-    my_shares = {
-        (s.grantee_id, s.category.value)
+    my_shares = {                                           # (grantee, category) -> True once accepted, False while pending
+        (s.grantee_id, s.category.value): s.accepted_at is not None
         for s in session.scalars(select(Share).where(Share.owner_id == me.id))
     }
+    pending_for_me: list[dict] = []                        # offers waiting for my answer: they grant nothing until I accept
     shared_with_me: dict[int, dict] = {}                    # who shares data WITH me: username only, never an id-bearing profile
     for share, owner_name in session.execute(
             select(Share, User.username).join(User, User.id == Share.owner_id)
             .where(Share.grantee_id == me.id).order_by(User.username.collate("NOCASE"), Share.category)):
+        if share.accepted_at is None:
+            pending_for_me.append({"owner_id": share.owner_id, "username": owner_name, "category": share.category})
+            continue
         entry = shared_with_me.setdefault(share.owner_id, {"owner_id": share.owner_id, "username": owner_name, "categories": []})
         entry["categories"].append(share.category)
     context = {
-        "shared_with_me": list(shared_with_me.values()),
+        "shared_with_me": list(shared_with_me.values()), "pending_for_me": pending_for_me,
         "me": me, "errors": errors or {}, "timezones": TIMEZONES, "colorways": list(Colorway),
         "other_users": other_users, "my_shares": my_shares,
         "sexes": list(BiologicalSex), "activity_levels": list(ActivityLevel),
@@ -132,8 +156,8 @@ async def change_username(request: Request, session: Session = Depends(get_sessi
     me = _me(session, uid)
     errors: dict[str, str] = {}
 
-    if not await passwords.verify_password_async(me.password_hash, current_password):
-        errors["username_current_password"] = "Current password is incorrect."
+    if problem := await _current_password_problem(request, session, me, current_password):
+        errors["username_current_password"] = problem
     if err := passwords.username_error(new_name):
         errors["username"] = err
     elif not errors:
@@ -145,8 +169,11 @@ async def change_username(request: Request, session: Session = Depends(get_sessi
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
+    old_name = me.username
     me.username, me.username_key = new_name, passwords.username_key(new_name)
+    audit.record(session, "username_changed", request, me, f"from {old_name} to {new_name}")
     session.commit()
+    sessions.end_other_sessions(session, me.id, request.state.session_id)      # as after a password change
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -160,15 +187,15 @@ async def change_password(request: Request, session: Session = Depends(get_sessi
     me = _me(session, uid)
 
     errors: dict[str, str] = {}
-    if not await passwords.verify_password_async(me.password_hash, current_password):
-        errors["password_current_password"] = "Current password is incorrect."
+    if problem := await _current_password_problem(request, session, me, current_password):
+        errors["password_current_password"] = problem
     if problems := passwords.password_errors(new_password, confirm):
         errors["new_password"] = " ".join(problems)
     if errors:
         return _render(request, session, errors=errors, status_code=422)
 
     me.password_hash = await passwords.hash_password_async(new_password)
-    audit.record(session, "password_changed", request, me, "other sessions, passkeys and remembered devices ended")
+    audit.record(session, "password_changed", request, me, "other sessions and remembered devices ended")
     session.commit()
     sessions.end_other_sessions(session, me.id, request.state.session_id)
     return RedirectResponse("/settings", status_code=303)
@@ -274,6 +301,8 @@ async def change_ai_agent(request: Request, session: Session = Depends(get_sessi
         return _render(request, session, errors={"ai_base_url": problem}, status_code=422)
     if provider == "local" and not base:
         return _render(request, session, errors={"ai_base_url": "Enter the address of your server, such as http://192.168.1.5:11434/v1 for Ollama."}, status_code=422)
+    if provider == "local" and (problem := ai_summary.address_problem(base, me)):
+        return _render(request, session, errors={"ai_base_url": problem}, status_code=422)
     if not model and not ai_summary.PROVIDERS[provider]["model"]:
         return _render(request, session, errors={"ai_model": "Enter the model name this agent should use."}, status_code=422)
     if provider != me.ai_provider:
@@ -601,19 +630,58 @@ async def toggle_share(grantee_id: int, category: str, request: Request,
     existing = session.scalar(select(Share).where(
         Share.owner_id == uid, Share.grantee_id == grantee_id, Share.category == cat))
     if want_on and existing is None:
+        # An offer, not a grant: accepted_at stays NULL until the grantee accepts (see app/sharing.py).
         session.add(Share(owner_id=uid, grantee_id=grantee_id, category=cat))
+        audit.record(session, "share_granted", request, session.get(User, uid), f"{cat.value} offered to user {grantee_id}")
         try:
             session.commit()
         except IntegrityError:
             session.rollback()  # a concurrent request already granted this -- already in the state we want
     elif not want_on and existing is not None:
         session.delete(existing)
+        audit.record(session, "share_removed", request, session.get(User, uid), f"{cat.value} from user {grantee_id}")
         session.commit()
     return RedirectResponse("/settings#sharing", status_code=303)
 
 
+def _my_received_share(session: Session, uid: int, owner_id: int, category: str) -> Share | None:
+    try:
+        cat = ShareCategory(category)
+    except ValueError:
+        return None
+    return session.scalar(select(Share).where(Share.owner_id == owner_id, Share.grantee_id == uid, Share.category == cat))
+
+
+@router.post("/settings/shared-with-me/{owner_id}/{category}/accept")
+def accept_received_share(owner_id: int, category: str, request: Request, session: Session = Depends(get_session),
+                          uid: int = Depends(current_user_id)):
+    """Accept an offered share: only the grantee can, and only on a row that is theirs (anything else is the same 404).
+    Accepting twice changes nothing."""
+    share = _my_received_share(session, uid, owner_id, category)
+    if share is None:
+        raise HTTPException(status_code=404)
+    if share.accepted_at is None:
+        share.accepted_at = naive_utcnow()
+        audit.record(session, "share_accepted", request, session.get(User, uid), f"{share.category.value} from user {owner_id}")
+        session.commit()
+    return RedirectResponse("/settings#sharing", status_code=303)
+
+
+@router.post("/settings/shared-with-me/{owner_id}/{category}/decline")
+def decline_received_share(owner_id: int, category: str, request: Request, session: Session = Depends(get_session),
+                           uid: int = Depends(current_user_id)):
+    """Decline an offered share (deletes the pending row; the owner may offer again). Grantee only, otherwise 404."""
+    share = _my_received_share(session, uid, owner_id, category)
+    if share is None or share.accepted_at is not None:
+        raise HTTPException(status_code=404)
+    session.delete(share)
+    audit.record(session, "share_declined", request, session.get(User, uid), f"{share.category.value} from user {owner_id}")
+    session.commit()
+    return RedirectResponse("/settings#sharing", status_code=303)
+
+
 @router.post("/settings/shared-with-me/{owner_id}/{category}/remove")
-def remove_received_share(owner_id: int, category: str, session: Session = Depends(get_session),
+def remove_received_share(owner_id: int, category: str, request: Request, session: Session = Depends(get_session),
                           uid: int = Depends(current_user_id)):
     """Stop receiving what someone shares with me: deletes the Share row where I am the grantee. Only my own row
     can be removed; anything else (unknown person, nothing shared, a bad category) is the same 404."""
@@ -626,6 +694,7 @@ def remove_received_share(owner_id: int, category: str, session: Session = Depen
     if share is None:
         raise HTTPException(status_code=404)
     session.delete(share)
+    audit.record(session, "share_declined", request, session.get(User, uid), f"{cat.value} from user {owner_id}")
     session.commit()
     return RedirectResponse("/settings#sharing", status_code=303)
 

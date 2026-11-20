@@ -7,6 +7,7 @@ only and never updates or deletes anything.
 import csv
 import io
 import json
+import math
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import clock
 from app import config, photo_access
+from app.auth import audit
 from app.auth import sessions as login_sessions
 from app.auth.deps import current_user_id
 from app.backup import load as backup_load
@@ -193,7 +195,11 @@ async def load_backup(request: Request, session: Session = Depends(get_session),
         report = await run_in_threadpool(
             backup_load.load, session, archive, uid=uid, username_key=me.username_key, is_admin=bool(me.is_admin), plan=plan)
     except BackupError as exc:
+        audit.record(session, "backup_load_failed", request, me, "sections: " + ", ".join(sorted(plan)))
+        session.commit()
         return _preview(request, session, uid, token, archive, 422, error=str(exc))
+    audit.record(session, "backup_loaded", request, me, "sections: " + ", ".join(sorted(plan)))
+    session.commit()
     pending.drop(token)
     return templates.TemplateResponse(request, "backup/result.html", {
         "report": report, "labels": {k: backup_sections.SECTIONS[k].label for k in backup_sections.SECTIONS}})
@@ -221,7 +227,11 @@ async def restore_everything(request: Request, session: Session = Depends(get_se
             backup_restore.restore_installation, session, archive, uid=uid, creator=me.username,
             safety_passphrase=str(form.get("safety_passphrase") or ""))
     except BackupError as exc:
+        audit.record(session, "restore_failed", request, me, "whole-installation restore refused or failed")
+        session.commit()
         return _preview(request, session, uid, token, archive, 422, error=str(exc))
+    audit.record(session, "restore_ok", request, None, "whole installation replaced from a backup", username=me.username)      # the account rows were replaced: log by name
+    session.commit()
     pending.drop(token)
     response = templates.TemplateResponse(request, "backup/restored.html", {"report": report})
     response.delete_cookie(login_sessions.COOKIE)
@@ -307,49 +317,80 @@ def export_inventory_csv(session: Session = Depends(get_session), uid: int = Dep
 
 # ---------------------------------------------------------------- import (additive only)
 
+_MAX_COUNT = 1_000_000
+_MAX_MONEY = 10_000_000          # dollars
+
+
+def _site(value):
+    """A tracking address only when it is a plain http(s) URL (a javascript: or data: address would land in a link), else None."""
+    text = value.strip() if isinstance(value, str) else ""
+    return text if text.lower().startswith(("http://", "https://")) and len(text) <= 2000 and not any(c.isspace() or ord(c) < 32 for c in text) else None
+
+
+def _count(value, default: int = 0) -> int:
+    """A whole count from 0 to a million; anything else (negative, text, nan, inf, huge) is the default."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value != int(value) or not 0 <= value <= _MAX_COUNT:
+        return default
+    return int(value)
+
+
+def _cents(value):
+    """Dollars as whole cents, or None when the value is not a sensible non-negative amount."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= _MAX_MONEY:
+        return None
+    return round(value * 100)
+
+
+def _positive(value):
+    """A finite positive number (a vial size, a volume) or None."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 < value <= 1_000_000:
+        return None
+    return value
+
+
 def _import_inventory_row(session: Session, uid: int, row: dict) -> None:
     medium = Medium(row["medium"]) if row.get("medium") else None
     item = InventoryItem(
         owner_id=uid, name=row["name"], category=Category(row.get("category") or "Medicine"),
-        count=row.get("count", 1), vial_size_mg=row.get("vial_size_mg"),
+        count=_count(row.get("count", 1), 1), vial_size_mg=_positive(row.get("vial_size_mg")),
         vial_size_unit=DoseUnit(row.get("vial_size_unit") or "mg"),
         purchasing_unit=PurchasingUnit(row.get("purchasing_unit") or "individual"), medium=medium,
-        volume_ml=row.get("volume_ml"), units_per_package=row.get("units_per_package"),
+        volume_ml=_positive(row.get("volume_ml")), units_per_package=_count(row.get("units_per_package"), 0) or None,
         storage=StorageLocation(row["storage"]) if row.get("storage") else None,
-        cost_cents=round(row["cost"] * 100) if row.get("cost") is not None else None,
+        cost_cents=_cents(row.get("cost")),
         vendor=row.get("vendor"), notes=row.get("notes"),
-        reconstituted_count=row.get("reconstituted_count") or 0, sold_count=row.get("sold_count") or 0,
+        reconstituted_count=_count(row.get("reconstituted_count")), sold_count=_count(row.get("sold_count")),
     )
     for o in row.get("orders", []):  # absent entirely in a pre-multi-item-orders backup file -- treat as none
         order = Order(
             order_date=date.fromisoformat(o["order_date"]),
             shipped_date=date.fromisoformat(o["shipped_date"]) if o.get("shipped_date") else None,
             arrival_date=date.fromisoformat(o["arrival_date"]) if o.get("arrival_date") else None,
-            tracking_site=o.get("tracking_site"), tracking_number=o.get("tracking_number"),
+            tracking_site=_site(o.get("tracking_site")), tracking_number=o.get("tracking_number"),
             vendor=o.get("vendor"),
-            tax_cents=round(o["tax"] * 100) if o.get("tax") is not None else None,
-            shipping_cents=round(o["shipping"] * 100) if o.get("shipping") is not None else None,
+            tax_cents=_cents(o.get("tax")),
+            shipping_cents=_cents(o.get("shipping")),
         )
         # A file with no received_quantity key predates multi-item orders -- if it had arrived, it
         # already counted as fully available under the old model, so backfill received_quantity to
         # quantity (matching migration 0013's own backfill rule) rather than leaving it NULL.
         received_quantity = o.get("received_quantity")
         if received_quantity is None and o.get("arrival_date"):
-            received_quantity = o["quantity"]
+            received_quantity = _count(o.get("quantity"), 1)
         li = OrderItem(
-            quantity=o["quantity"], received_quantity=received_quantity,
+            quantity=_count(o.get("quantity"), 1), received_quantity=None if received_quantity is None else _count(received_quantity, 0),
             lot_number=o.get("lot_number"),
-            cost_cents=round(o["cost"] * 100) if o.get("cost") is not None else None,
+            cost_cents=_cents(o.get("cost")),
             expiration_date=date.fromisoformat(o["expiration_date"]) if o.get("expiration_date") else None,
-            coa_vial_size_mg=o.get("coa_vial_size_mg"), coa_purity_pct=o.get("coa_purity_pct"),
+            coa_vial_size_mg=_positive(o.get("coa_vial_size_mg")), coa_purity_pct=_positive(o.get("coa_purity_pct")),
         )
         item.order_items.append(li)
         order.items.append(li)
         session.add(order)
     for sale in row.get("sales", []):  # absent entirely in a pre-Sold-flow backup file -- treat as none
         item.sales.append(Sale(
-            quantity=sale["quantity"], sale_date=date.fromisoformat(sale["sale_date"]),
-            price_cents=round(sale["price"] * 100),
+            quantity=_count(sale.get("quantity"), 1), sale_date=date.fromisoformat(sale["sale_date"]),
+            price_cents=_cents(sale.get("price")) or 0,
         ))
     session.add(item)
 
@@ -387,9 +428,14 @@ async def import_backup(request: Request, file: UploadFile, session: Session = D
         return _page(request, session, uid, "restore", 422,
                      legacy_error="That file doesn't look like an Amide backup (not valid JSON).")
 
-    for row in payload.get("inventory", []):
-        _import_inventory_row(session, uid, row)
-    for row in payload.get("protocols", []):
-        _import_protocol_row(session, uid, row)
-    session.commit()
+    try:
+        for row in payload.get("inventory", []):
+            _import_inventory_row(session, uid, row)
+        for row in payload.get("protocols", []):
+            _import_protocol_row(session, uid, row)
+        session.commit()
+    except (KeyError, ValueError, TypeError, AttributeError, OverflowError):       # a hand-edited or damaged file: nothing is added
+        session.rollback()
+        return _page(request, session, uid, "restore", 422,
+                     legacy_error="That file has a value Amide could not read, so nothing was imported.")
     return RedirectResponse("/backup?imported=1", status_code=303)

@@ -160,6 +160,7 @@ Card text and images are saved in `data/library/` (private, never committed). To
 - **Proxy:** put a reverse proxy (HTTPS) in front, publish Amide on `127.0.0.1` only, and trust only your proxy's address. See [docs/DEPLOYING.md](docs/DEPLOYING.md).
 - **Backups:** keep a copy of `data/` and of your backup files somewhere other than the server.
 - **Images and packages:** images are built from hash-pinned dependencies and a digest-pinned base, with a software bill of materials and provenance attached ([docs/SUPPLY_CHAIN.md](docs/SUPPLY_CHAIN.md)).
+- **How it fits together:** a one-page map of the request flow, ownership rules and a checklist for new routes is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Found a problem?** Please report it privately: see [SECURITY.md](SECURITY.md).
 
 ## Tech stack

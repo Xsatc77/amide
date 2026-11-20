@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app import config, links
 from app.auth import audit, devices, passkeys, passwords, registration, sessions, throttle, totp
+from app.auth.twofa import check_code  # noqa: F401  (re-exported: it used to live here)
 from app.db import SessionLocal, get_session
 from app.models import InventoryItem, LoginSession, Passkey, Protocol, User
+from app.security_headers import FILE_HEADERS_SHARED
 from app.templating import templates
 
 router = APIRouter()
@@ -68,7 +70,7 @@ def _sign_in(db: Session, request: Request, user: User, *, pending_2fa: bool) ->
         db.delete(old)
     db.commit()
     response = RedirectResponse("/login/2fa" if pending_2fa else HOME, status_code=303)
-    _set_cookie(response, request, new.id)
+    _set_cookie(response, request, new.token)
     return response
 
 
@@ -96,10 +98,11 @@ async def accept_notice(request: Request, db: Session = Depends(get_session)):
         if wait := throttle.throttle.check("anon_session", throttle.client_address(request)):
             return _render(request, "throttled", {"message": throttle.WAIT_MESSAGE, "wait": wait}, 429)
         row = sessions.create(db, now)
+        request.state.new_token = row.token
     row.notice_accepted_at = now
     db.commit()
     response = RedirectResponse(HOME if row.user_id and not row.twofa_pending else "/welcome", status_code=303)
-    _set_cookie(response, request, row.id)
+    _set_cookie(response, request, getattr(request.state, "new_token", None) or request.cookies.get(sessions.COOKIE, ""))
     return response
 
 
@@ -115,7 +118,7 @@ def branding_banner():
     path = custom_banner()
     if path is None:
         return Response(status_code=404)
-    return FileResponse(path, media_type=BANNER_TYPES[path.suffix.lower()])
+    return FileResponse(path, media_type=BANNER_TYPES[path.suffix.lower()], headers=FILE_HEADERS_SHARED)      # an admin-supplied SVG must not run script if opened directly
 
 
 # ---------------------------------------------------------------- new user
@@ -171,17 +174,6 @@ async def register(request: Request, db: Session = Depends(get_session)):
 GENERIC_LOGIN_ERROR = "Username or password is incorrect."
 
 
-def check_code(user: User, code: str, now) -> str | None:
-    """None if the code is good (and records it as used), otherwise the message to show."""
-    step = totp.matching_step(user.totp_secret, code, now)
-    if step is None:
-        return "That code didn't match. Enter the 6-digit code your app shows now."
-    if user.totp_last_step is not None and step <= user.totp_last_step:
-        return "That code was already used. Wait for the next one in your app."
-    user.totp_last_step = step
-    return None
-
-
 def _locked_message(user: User, now) -> str:
     minutes = max(1, int((user.locked_until - now).total_seconds() // 60) + 1)
     return f"Too many attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}."
@@ -206,15 +198,18 @@ async def login(request: Request, db: Session = Depends(get_session)):
         response.headers.update(headers or {})
         return response
 
-    if user is not None and sessions.is_locked(user, now) and not throttle.is_known(client, key, now):
-        return fail(_locked_message(user, now))
+    known = user is not None and throttle.is_known(client, key, now)
+    # A locked account looks exactly like an unknown name to an address that has never signed in as it (same page, same status, same
+    # backoff, same work): otherwise "Too many attempts" would tell a stranger that the name exists.
+    hidden_lock = user is not None and sessions.is_locked(user, now) and not known
     if wait := throttle.backoff_wait(client, key, now):
         return fail(f"Too many wrong tries for that name from this address. Wait {wait} seconds and try again.", 429,
                     {"Retry-After": str(wait)})
-    if user is None:
+    if user is None or hidden_lock:
         await passwords.verify_dummy_async(form.get("password", ""))  # same work either way: do not leak names
         throttle.note_failure(client, key, now)
-        audit.record(db, "login_failed", request, username=username, detail="unknown name")
+        audit.record(db, "login_failed", request, user, "locked name, unfamiliar address" if user is not None else "unknown name",
+                     username=username)
         db.commit()
         return fail(GENERIC_LOGIN_ERROR)
     was_locked = sessions.is_locked(user, now)
@@ -223,10 +218,13 @@ async def login(request: Request, db: Session = Depends(get_session)):
         if not was_locked:
             sessions.record_failure(user, now)
         audit.record(db, "login_failed", request, user)
-        if sessions.is_locked(user, now) and not was_locked:
+        just_locked = sessions.is_locked(user, now) and not was_locked
+        if just_locked:
             audit.record(db, "lockout", request, user, f"locked for {config.LOCKOUT_MINUTES} minutes")
         db.commit()
-        return fail(_locked_message(user, now) if sessions.is_locked(user, now) else GENERIC_LOGIN_ERROR)
+        if sessions.is_locked(user, now) and (known or was_locked):
+            return fail(_locked_message(user, now))
+        return fail(GENERIC_LOGIN_ERROR)
     sessions.clear_failures(user)
     throttle.note_success(client, key, now)
     remembered = user.totp_enabled and devices.is_trusted(db, user.id, request.cookies.get(devices.COOKIE), now)

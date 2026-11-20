@@ -13,7 +13,7 @@ What the Amide images are built from, how that is pinned, and how to refresh it.
 After editing a requirements file:
 
 ```bash
-python tools/make_lock.py requirements.txt requirements.lock --exclude opencv-python
+python tools/make_lock.py requirements.txt requirements.lock --exclude opencv-python --extra antlr4-python3-runtime==4.9.3
 python tools/make_lock.py requirements-watcher.txt requirements-watcher.lock --native
 ```
 

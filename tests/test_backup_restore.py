@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app import config
+from app import config, secretbox
 from app.backup import restore
 from app.backup.archive import read_archive, write_archive
 from app.backup.container import BackupError, unseal
@@ -52,6 +52,8 @@ def snapshot(s):
     for (name,) in s.execute(text("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT IN "
                                   "('sessions', 'alembic_version', 'sqlite_sequence') ORDER BY name")):
         rows = [dict(r) for r in s.execute(text(f'SELECT * FROM "{name}"')).mappings()]
+        if name == "users":
+            rows = [secretbox.open_columns(r) for r in rows]      # sealed secrets carry a fresh random nonce after a restore: compare what they say
         tables[name] = sorted(json.dumps(r, sort_keys=True, default=str) for r in rows)
     files = {}
     for key in FILE_DIRS:

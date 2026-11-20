@@ -46,7 +46,7 @@
           {% if v.recommended is true %}<span class="tag">Recommended</span>
           {% elif v.recommended is false %}<span class="tag">Don't recommend</span>
           {% else %}&mdash;{% endif %}
-          {% if v.recommended is not none %}
+          {% if v.recommended is not none and v.id in editable_ids %}
           <form method="post" action="/vendors/{{ v.id }}/clear-recommendation" class="inline">
             <input type="hidden" name="next" value="/vendors?sort={{ sort }}">
             <button type="submit" class="btn btn-small" title="Go back to No opinion" aria-label="Remove the recommendation tag">Remove</button>

@@ -54,3 +54,41 @@ def test_reset_2fa(victim):
 def test_unknown_user(capsys):
     assert users.main(["reset-2fa", "nobody-at-all"]) == 1
     assert "No user" in capsys.readouterr().err
+
+
+def _plant(uid):
+    """Give the account a signed-in browser, a passkey and a remembered device (counted by owner, never by id)."""
+    from app.models import LoginSession, Passkey, TrustedDevice
+    from app.models import naive_utcnow
+    with SessionLocal() as s:
+        now = naive_utcnow()
+        s.add(LoginSession(id="cli-test-session-" + str(uid), user_id=uid, created_at=now, last_seen=now))
+        s.add(Passkey(user_id=uid, credential_id="cli-cred-" + str(uid), public_key=b"k", name="Phone", created_at=now))
+        s.add(TrustedDevice(user_id=uid, token_hash=("c" * 60) + str(uid).zfill(4), created_at=now, expires_at=now))
+        s.commit()
+
+
+def _left(uid):
+    from app.models import LoginSession, Passkey, TrustedDevice
+    with SessionLocal() as s:
+        return [s.query(m).filter(m.user_id == uid).count() for m in (LoginSession, Passkey, TrustedDevice)]
+
+
+def _events(name):
+    from app.models import SecurityEvent
+    with SessionLocal() as s:
+        return [e for e in s.scalars(select(SecurityEvent).where(SecurityEvent.event == name))]
+
+
+@pytest.mark.parametrize("command,event", [(["reset-password", "{n}", "--password", "New1!"], "cli_password_reset"),
+                                           (["reset-2fa", "{n}"], "cli_2fa_removed")])
+def test_cli_ends_sessions_passkeys_devices_and_logs(victim, command, event):
+    uid = reload(victim).id
+    _plant(uid)
+    assert _left(uid) == [1, 1, 1]
+    before = len(_events(event))
+    assert users.main([c.replace("{n}", victim) for c in command]) == 0
+    assert _left(uid) == [0, 0, 0]
+    rows = _events(event)
+    assert len(rows) == before + 1 and rows[-1].user_id == uid and rows[-1].client is None
+    assert "New1!" not in (rows[-1].detail or "")

@@ -90,7 +90,11 @@ def test_a_stranger_locking_the_account_does_not_lock_out_the_person_who_signs_i
     for _ in range(config.LOCKOUT_ATTEMPTS):
         stranger.post("/login", data={"username": "soft1", "password": "wrong"})
     assert user("soft1").locked_until is not None
-    assert "Too many attempts" in text(stranger.post("/login", data={"username": "soft1", "password": PW}))   # the stranger stays out
+    # The stranger stays out and is not told why: after five misses this address is in backoff, exactly as for an unknown name.
+    assert stranger.post("/login", data={"username": "soft1", "password": PW}).status_code == 429
+    second = browser("203.0.113.31")
+    accept(second)
+    assert "Username or password is incorrect." in text(second.post("/login", data={"username": "soft1", "password": PW}))
     assert victim.post("/login", data={"username": "soft1", "password": PW}).status_code == 303                # the person gets in
     assert user("soft1").locked_until is None
 

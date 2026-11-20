@@ -59,13 +59,28 @@ def revoke_token(session: Session, token_id: int) -> bool:
 class RateLimiter:
     """At most `limit` calls per `window` seconds for each key (a sliding window, in memory)."""
 
+    MAX_KEYS = 5000              # hard cap: beyond it the keys with the oldest newest-hit are dropped
+    SWEEP_EVERY = 256            # every this many calls (or when over the cap) quiet keys are forgotten
+
     def __init__(self, limit: int, window: float):
         self.limit, self.window = limit, window
         self._hits: dict = defaultdict(deque)
         self._lock = threading.Lock()
+        self._calls = 0
+
+    def _sweep(self, now: float) -> None:
+        """Caller holds the lock."""
+        for key in [k for k, v in self._hits.items() if not v or now - v[-1] >= self.window]:
+            del self._hits[key]
+        if len(self._hits) > self.MAX_KEYS:
+            for key in sorted(self._hits, key=lambda k: self._hits[k][-1])[:len(self._hits) - self.MAX_KEYS]:
+                del self._hits[key]
 
     def allow(self, key, now: float) -> bool:
         with self._lock:
+            self._calls += 1
+            if self._calls % self.SWEEP_EVERY == 0 or len(self._hits) > self.MAX_KEYS:
+                self._sweep(now)
             hits = self._hits[key]
             while hits and now - hits[0] >= self.window:
                 hits.popleft()

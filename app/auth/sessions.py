@@ -1,5 +1,6 @@
 """Browser sessions (server-side, idle timeout) and login lockout. All times are naive UTC."""
 
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -7,7 +8,7 @@ from sqlalchemy import delete, or_
 from sqlalchemy.orm import Session
 
 from app import config
-from app.auth import devices
+from app.auth import audit, devices
 from app.models import LoginSession, Passkey, User
 
 COOKIE = "amide_session"
@@ -17,10 +18,19 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def hash_token(token: str) -> str:
+    """What is stored for a cookie token: its SHA-256 (hex). A copy of the database holds no usable cookie value."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def create(db: Session, now: datetime) -> LoginSession:
-    row = LoginSession(id=secrets.token_urlsafe(32), created_at=now, last_seen=now)
+    """A new session. The row's id is the HASH of the cookie token; the raw token (what the cookie carries) is on `row.token`
+    for this object only and is never stored."""
+    token = secrets.token_urlsafe(32)
+    row = LoginSession(id=hash_token(token), created_at=now, last_seen=now)
     db.add(row)
     db.commit()
+    row.token = token
     return row
 
 
@@ -28,7 +38,7 @@ def get_live(db: Session, token: str | None, now: datetime) -> LoginSession | No
     """The session for `token`, or None if unknown or idle too long (expired ones are deleted)."""
     if not token:
         return None
-    row = db.get(LoginSession, token)
+    row = db.get(LoginSession, hash_token(token))
     if row is None:
         return None
     if (now - row.last_seen > timedelta(minutes=config.SESSION_IDLE_MINUTES)
@@ -51,6 +61,7 @@ def purge_stale(db: Session, now: datetime) -> int:
         LoginSession.created_at < now - timedelta(hours=config.SESSION_MAX_HOURS),
         (LoginSession.user_id.is_(None)) & (LoginSession.created_at < now - timedelta(hours=ANONYMOUS_HOURS)))))
     db.commit()
+    audit.purge(db, now)                  # the security log is trimmed on the same once-a-minute schedule
     return result.rowcount or 0
 
 
@@ -85,10 +96,12 @@ def clear_failures(user: User) -> None:
 
 
 def end_other_sessions(db: Session, user_id: int, keep_id: str) -> None:
-    """Sign this user out everywhere except the session at `keep_id` (e.g. after a password change)."""
+    """Sign this user out everywhere except the session at `keep_id`, after the person changed their OWN password or name.
+    Remembered devices go too (they ask for the code again). Passkeys stay: the person just proved the current password in this
+    very request, and deleting them would lock out anyone who signs in with a passkey. (An admin reset, an admin 2FA removal and
+    the command line use end_all_sessions, which does delete them.)"""
     db.query(LoginSession).filter(LoginSession.user_id == user_id, LoginSession.id != keep_id).delete()
-    devices.forget_all(db, user_id)                      # a new password means every remembered device asks for the code again
-    db.execute(delete(Passkey).where(Passkey.user_id == user_id))      # ... and every passkey is added again (it could be an attacker's)
+    devices.forget_all(db, user_id)
     db.commit()
 
 

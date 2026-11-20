@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db import SessionLocal
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import ActiveVial, InventoryItem, TimeOfDay, User
 
 
@@ -309,7 +310,7 @@ def test_shared_active_vial_discard_restricted_to_owner(client, db, lyo_item, me
     other.post("/register", data={"username": "AVShared", "password": "AVShared1!", "confirm": "AVShared1!"})
     with SessionLocal() as s:
         other_id = s.scalar(select(User.id).where(User.username_key == "avshared"))
-        s.add(Share(owner_id=me, grantee_id=other_id, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=me, grantee_id=other_id, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.commit()
 
     try:

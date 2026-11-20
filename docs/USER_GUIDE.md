@@ -74,5 +74,5 @@ The account menu has **Learn**: a tutorial for newcomers to gray-market peptides
 ## Your data
 
 - **Dashboard** pulls the day together: schedule, alerts, compliance bars over a window you choose, water, cost and shipments.
-- **Settings, Backup and restore** makes an encrypted backup you can restore on another computer. **Sharing** gives chosen people a read-only view; **Shared With Me** lists who shares with you and lets you stop receiving it.
+- **Settings, Backup and restore** makes an encrypted backup you can restore on another computer. **Sharing** offers chosen people a read-only view, and nothing is visible to them until they accept the offer (it shows as Pending until then). **Shared With Me** lists offers waiting for you, with **Accept** and **Decline**, and the shares you receive, which you can stop at any time.
 - Install Amide on a phone or computer from the browser's menu (**Add to Home Screen** or **Install**). It needs HTTPS or `localhost`: see [DEPLOYING.md](DEPLOYING.md).

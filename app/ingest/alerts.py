@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import config
 from app.models import DashboardDismissal, IngestItem, IngestSource, PriceList, User, Vendor, naive_utcnow
+from app.routers._ints import parse_int
 
 
 def _vendor_name(session: Session, vendor_id: int | None, fallback: str) -> str:
@@ -45,7 +46,7 @@ def group_gone_alerts(session: Session, user: User) -> list[dict]:
 
 def dismiss(session: Session, user: User, key: str) -> None:
     kind, _, ident = key.partition(":")
-    if not ident.isdigit():
+    if not (parse_int(ident) is not None):
         raise ValueError("unknown alert")
     if kind == "newlist":
         if session.scalar(select(DashboardDismissal.id).where(DashboardDismissal.user_id == user.id, DashboardDismissal.alert_key == key)) is None:

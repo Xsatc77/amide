@@ -154,7 +154,7 @@ def test_changing_your_own_password_keeps_this_session_only(fresh):
     r = fresh.post("/settings/password", data={"current_password": PW, "new_password": "Zz9!zz", "confirm": "Zz9!zz"})
     assert r.status_code == 303
     assert signed_in(fresh) and not signed_in(other)
-    assert _left(user("own1").id)[0] == 0
+    assert _left(user("own1").id)[0] == 1      # the person proved the password in this request: their passkey stays
 
 
 def test_adding_a_passkey_needs_the_password_again(fresh):

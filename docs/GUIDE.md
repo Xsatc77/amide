@@ -433,7 +433,7 @@ Open a card to see dosing tiers, cycles, price ranges and what is on your price 
 | **User** | Change your username and password; two-factor sign-in and a separate code for body photos; time zone; email; the default discard window (28 days after reconstituting); dashboard alert defaults; the body profile; shopping defaults; vial label size; the calendar feed; dose reminders. |
 | **Medicines** | List the medicines you take so flagged peptides get caution tape. |
 | **Display** | Colorway (including light and dark) and **Units**: US (lb, in, oz, mph) or metric (kg, cm, mL, km/h). Your data is stored once and converted when shown. |
-| **Sharing** | Give chosen people a read-only view of a category of your data. |
+| **Sharing** | Offer chosen people a read-only view of a category of your data. They see nothing until they accept it under **Shared With Me**; until then it shows as Pending. |
 | **Integrations** | The **Apple Health** card (see [Apple Health](#8a-apple-health)): create a token, copy the address and header line for Health Auto Export, see what has arrived. Other health apps are marked Coming Soon. |
 | **Admin** (administrator only) | Add people, reset a password, remove two-factor, delete a user. |
 

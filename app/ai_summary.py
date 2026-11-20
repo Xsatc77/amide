@@ -6,10 +6,12 @@ when the person presses the button, to the agent they picked in Settings (Claude
 Ollama or LM Studio) with their own key."""
 
 import html
+import contextvars
 import ipaddress
 import json
 import os
 import re
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -101,6 +103,47 @@ def _local_hosts_allowed(host: str) -> bool:
     return False
 
 
+# Set around a send for an account that may not reach private addresses (not an administrator, and no allowed list is configured).
+_deny_private = contextvars.ContextVar("amide_ai_deny_private", default=False)
+UNREACHABLE = "The agent could not be reached."
+ASK_ADMIN = "Ask the administrator to allow this address with AMIDE_AI_LOCAL_ALLOWED_HOSTS."
+
+
+def _allowed_list_set() -> bool:
+    return any(e.strip() for e in os.environ.get("AMIDE_AI_LOCAL_ALLOWED_HOSTS", "").split(","))
+
+
+def private_host(host: str) -> bool:
+    """True when the host is, or resolves to, anything but a public internet address (a LAN, this computer, a link-local or reserved range).
+    A name with no dot, or one that cannot be resolved, counts as private: only a public name is vouched for."""
+    host = (host or "").lower().strip("[]")
+    try:
+        return not ipaddress.ip_address(host.split("%")[0]).is_global
+    except ValueError:
+        pass
+    if "." not in host or host.endswith((".local", ".lan", ".home", ".internal", ".localdomain", ".localhost")):
+        return True
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except OSError:
+        return True
+    try:
+        return any(not ipaddress.ip_address(i[4][0].split("%")[0]).is_global for i in infos) or not infos
+    except ValueError:
+        return True
+
+
+def address_problem(base: str, user: User) -> str | None:
+    """Why this account may not use this "My own server" address, else None. With AMIDE_AI_LOCAL_ALLOWED_HOSTS set, only those hosts;
+    without it, a private-network address only for an administrator (a public host is open to every account)."""
+    host = urllib.parse.urlsplit(base).hostname or ""
+    if _allowed_list_set():
+        return None if _local_hosts_allowed(host) else ASK_ADMIN
+    if not getattr(user, "is_admin", False) and private_host(host):
+        return ASK_ADMIN
+    return None
+
+
 def _loopback_ok() -> bool:
     return os.environ.get("AMIDE_AI_ALLOW_LOOPBACK", "") == "1"
 
@@ -178,8 +221,9 @@ def post_json(url: str, headers: dict, body: dict) -> dict:
         if hosted and not url.startswith("https://"):
             raise netguard.UnsafeURL("hosted agents use https")
         # Claude and OpenAI: public addresses only. My own server: a private network is fine (a LAN Ollama), this computer only on request.
-        with netguard.safe_open(request, TIMEOUT_SECONDS, allow_private=not hosted, allow_loopback=not hosted and _loopback_ok(),
-                                max_bytes=MAX_ANSWER_BYTES) as response:
+        deny = _deny_private.get()
+        with netguard.safe_open(request, TIMEOUT_SECONDS, allow_private=not hosted and not deny, allow_loopback=not hosted and not deny and _loopback_ok(),
+                                max_bytes=MAX_ANSWER_BYTES, deadline=TIMEOUT_SECONDS) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as err:
         if err.code in (401, 403):
@@ -189,22 +233,30 @@ def post_json(url: str, headers: dict, body: dict) -> dict:
         if err.code == 429:
             raise AiError("The agent says you are out of quota or sending too fast. Try again later.") from None
         raise AiError(f"The agent answered with an error ({err.code}).") from None
-    except netguard.UnsafeURL:
-        raise AiError("Amide will not contact that address. Check the server address in Settings (and the administrator's allowed list).") from None
-    except (urllib.error.URLError, TimeoutError, OSError):
-        raise AiError("The agent could not be reached. Check the server address in Settings and that it is running.") from None
+    except (netguard.UnsafeURL, urllib.error.URLError, TimeoutError, OSError):
+        raise AiError(UNREACHABLE) from None      # one answer for a blocked address, a closed port and a timeout, so the message cannot be used to scan a network
     except ValueError:
         raise AiError("The agent's answer could not be read.") from None
 
 
 def ask(user: User, prompt: str) -> str:
     """Send the facts to the person's chosen agent and return its text."""
+    token = _deny_private.set(user.ai_provider == "local" and not getattr(user, "is_admin", False) and not _allowed_list_set())
+    try:
+        return _ask(user, prompt)
+    finally:
+        _deny_private.reset(token)
+
+
+def _ask(user: User, prompt: str) -> str:
     if not configured(user):
         raise AiError("Choose an AI agent in Settings first.")
     base, model = _base(user), _model(user)
     if user.ai_provider == "local":
-        if base_url_error(base) or not _local_hosts_allowed(urllib.parse.urlsplit(base).hostname or ""):
-            raise AiError("The server address in Settings is not allowed. Check it and the administrator's allowed list.")
+        if base_url_error(base):
+            raise AiError("The server address in Settings is not valid. Check it.")
+        if address_problem(base, user):
+            raise AiError(ASK_ADMIN)
     if user.ai_provider == "anthropic":
         data = post_json(f"{base}/v1/messages", {"x-api-key": user.ai_api_key, "anthropic-version": "2023-06-01"},
                          {"model": model, "max_tokens": 2500, "system": SYSTEM, "messages": [{"role": "user", "content": prompt}]})

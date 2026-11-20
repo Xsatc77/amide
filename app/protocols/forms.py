@@ -20,6 +20,7 @@ from app import clock
 from app.goals import GOALS_BY_SLUG, SHORT_COURSE_GOAL
 from app.protocols.repeat import MAX_SHORT_DAYS, REPEAT_CHOICES, first_run_span
 from app.models import WEEKDAY_LETTERS, DoseUnit, Frequency, Protocol, Route, TimeOfDay
+from app.routers._ints import parse_int
 
 ITEM_FIELDS = ("peptide_id", "new_name", "dose", "dose_unit", "frequency", "every_n_days",
                "time_of_day", "route", "inventory_item_id", "notes", "start_day", "run_days", "repeat_months", "first_run")
@@ -400,7 +401,7 @@ def parse_protocol_form(form: Mapping[str, list[str]], *, peptide_ids: set[int],
         if short_course:
             first_run = _parse_int(raw["first_run"], f"{key}-first_run", errors, minimum=1, label="First run") or 1                               # how often this item joins in; a blank one takes the protocol-wide default (annually)
             asked = raw["repeat_months"] or state["repeat_months"]
-            item_months = int(asked) if asked.isdigit() and int(asked) in dict(REPEAT_CHOICES) else None
+            item_months = int(asked) if (parse_int(asked) is not None) and int(asked) in dict(REPEAT_CHOICES) else None
             if item_months is None:
                 errors[f"{key}-repeat_months"] = "Pick how often this one repeats."
         items.append(ParsedItem(

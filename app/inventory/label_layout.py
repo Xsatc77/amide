@@ -6,6 +6,7 @@ print CSS. Pitch is the distance from the left (or top) edge of one label to the
 Pure functions: no database, no web."""
 
 from dataclasses import asdict, dataclass
+from app.routers._ints import parse_int
 
 PAGES = {"letter": (8.5, 11.0, "letter"), "a4": (8.27, 11.69, "A4")}
 SHAPES = ("rect", "round")
@@ -44,7 +45,7 @@ def per_page(layout: Layout) -> int:
 
 def _whole(raw, key: str, label: str, high: int) -> int:
     text = str(raw.get(key) or "").strip()
-    if not text.isdigit() or not 1 <= int(text) <= high:
+    if not (parse_int(text) is not None) or not 1 <= int(text) <= high:
         raise LayoutError(f"Enter the number of {label} as a whole number from 1 to {high}.")
     return int(text)
 

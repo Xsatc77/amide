@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import (ActivityLevel, BiologicalSex, BodyMeasurement, DietPreset, MacroGoal,
                          Share, ShareCategory, User)
 
@@ -119,7 +120,7 @@ def test_measurements_page_respects_personal_data_sharing(client, db, me):
         assert "222.2" not in t_before
 
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
             s.commit()
 
         # Now visible, tagged with the owner's name (matching this app's established shared-item
@@ -458,7 +459,7 @@ def test_charts_do_not_mix_a_sharing_partners_data_points_into_own_chart(client,
         client.post("/measurements", data={"measured_at": "2026-09-20", "weight_lbs": "180"})
         other.post("/measurements", data={"measured_at": "2026-09-21", "weight_lbs": "999.9"})
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
             s.commit()
 
         r = client.get("/measurements?range=lifetime")

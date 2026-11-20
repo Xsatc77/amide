@@ -163,11 +163,25 @@ def test_private_files_are_served_sandboxed_inline_and_not_cached(client):
     try:
         r = client.get(f"/vendors/{vid}/price-list")
         assert r.status_code == 200, r.text
-        assert r.headers["content-security-policy"] == "sandbox; default-src 'none'"
+        assert r.headers["content-security-policy"] == "frame-ancestors 'none'"          # a PDF: no sandbox, Chrome's viewer refuses one
         assert r.headers["x-content-type-options"] == "nosniff"
         assert r.headers["cache-control"] == "private, no-store"
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_the_import_forms_that_join_whole_files_get_the_large_cap():
+    from app.security_headers import request_cap
+    assert request_cap("/measurements/import-pacer", "application/x-www-form-urlencoded") > 8 * 1024 * 1024
+    assert request_cap("/measurements/import-scale", "application/x-www-form-urlencoded") > 8 * 1024 * 1024
+    assert request_cap("/settings/username", "application/x-www-form-urlencoded") == 2 * 1024 * 1024
+
+
+def test_file_headers_sandbox_everything_except_pdfs():
+    from app.security_headers import FILE_HEADERS, PDF_HEADERS, file_headers
+    assert file_headers("application/pdf") is PDF_HEADERS and "sandbox" not in PDF_HEADERS["Content-Security-Policy"]
+    for kind in ("image/jpeg", "image/png", "application/msword", "application/octet-stream", ""):
+        assert file_headers(kind) is FILE_HEADERS and FILE_HEADERS["Content-Security-Policy"].startswith("sandbox")
 
 
 def test_body_photo_and_journal_photo_headers_are_sandboxed():

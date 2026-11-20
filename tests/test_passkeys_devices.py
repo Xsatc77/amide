@@ -79,7 +79,7 @@ def test_adding_a_passkey_stores_only_the_public_key_and_lists_it(fresh):
     r = add_passkey(fresh, Phone())
     assert r.status_code == 200 and r.json()["next"] == "/account/passkeys"
     with SessionLocal() as s:
-        key = s.query(Passkey).one()
+        key = s.query(Passkey).filter(Passkey.user_id == user("keyed1").id).one()      # earlier test files may leave other people's keys
         assert key.name == "My iPhone" and key.user_id == user("keyed1").id and key.public_key
     assert "My iPhone" in text(fresh.get("/account/passkeys"))
 

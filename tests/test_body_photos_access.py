@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app import config
 from app.auth import sessions
+from app.models import naive_utcnow as _accepted_now
 from app.models import LoginSession, Share, ShareCategory, User
 from app.photo_access import is_unlocked, seconds_left
 from photo_helpers import code_now, enable_2fa, make_photo, other_client, spread
@@ -66,7 +67,7 @@ def test_a_person_the_owner_shares_with_still_cannot_fetch_photos(client, db, me
     with other_client() as other:
         other_id = db.query(User).filter_by(username_key="photoother").one().id
         for category in ShareCategory:
-            db.add(Share(owner_id=me, grantee_id=other_id, category=category))
+            db.add(Share(owner_id=me, grantee_id=other_id, category=category, accepted_at=_accepted_now()))
         db.commit()
         assert other.get(f"/measurements/photos/{photo.id}/full").status_code == 404
         assert other.get(f"/measurements/photos/{photo.id}/preview").status_code == 404

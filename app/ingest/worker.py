@@ -1,6 +1,7 @@
 """The background loop that processes settled items every 20 seconds."""
 
 import asyncio
+import logging
 
 from app import config
 from app.db import SessionLocal
@@ -8,6 +9,7 @@ from app.ingest import process
 from app.models import naive_utcnow
 
 INTERVAL = 20
+log = logging.getLogger(__name__)
 
 
 async def _loop():
@@ -15,7 +17,7 @@ async def _loop():
         try:
             await asyncio.to_thread(process.process_due, SessionLocal, naive_utcnow())
         except Exception:
-            pass                                    # the next round tries again; an item that crashed is already marked failed
+            log.exception("ingest worker round failed")      # logged, then the next round tries again; an item that crashed is already marked failed
         await asyncio.sleep(INTERVAL)
 
 

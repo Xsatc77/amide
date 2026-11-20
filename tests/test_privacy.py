@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import InventoryItem, Peptide, Protocol, User
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -100,7 +101,7 @@ from app.models import Share, ShareCategory
 
 def _grant(owner_id: int, grantee_id: int, category: ShareCategory) -> None:
     with SessionLocal() as s:
-        s.add(Share(owner_id=owner_id, grantee_id=grantee_id, category=category))
+        s.add(Share(owner_id=owner_id, grantee_id=grantee_id, category=category, accepted_at=_accepted_now()))
         s.commit()
 
 

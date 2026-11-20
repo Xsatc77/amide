@@ -418,7 +418,7 @@
 
     <section id="sharing" class="builder-step">
       <h2 class="section-title">Sharing</h2>
-      <p class="small muted">Choose who can see your inventory or your personal data (protocols). Nothing is shared until you turn it on here — and it's one-directional: sharing with someone doesn't let you see theirs.</p>
+      <p class="small muted">Choose who can see your inventory or your personal data (protocols). Nothing is shared until you offer it here and the other person accepts it — and it's one-directional: sharing with someone doesn't let you see theirs. An offer shows as Pending until they accept.</p>
       {% if other_users %}
       <div class="table-wrap">
         <table class="inv-table">
@@ -430,16 +430,16 @@
               <td>
                 <form method="post" action="/settings/sharing/{{ u.id }}/inventory" class="inline-form">
                   <input type="hidden" name="on" value="{{ '0' if (u.id, 'inventory') in my_shares else '1' }}">
-                  <button type="submit" class="btn {{ 'btn-primary' if (u.id, 'inventory') in my_shares else 'btn-ghost' }}">
-                    {{ 'Sharing ✓' if (u.id, 'inventory') in my_shares else 'Not shared' }}
+                  <button type="submit" class="btn {{ 'btn-primary' if my_shares.get((u.id, 'inventory')) else 'btn-ghost' }}">
+                    {{ ('Shared ✓' if my_shares[(u.id, 'inventory')] else 'Pending (Withdraw)') if (u.id, 'inventory') in my_shares else 'Not shared' }}
                   </button>
                 </form>
               </td>
               <td>
                 <form method="post" action="/settings/sharing/{{ u.id }}/personal_data" class="inline-form">
                   <input type="hidden" name="on" value="{{ '0' if (u.id, 'personal_data') in my_shares else '1' }}">
-                  <button type="submit" class="btn {{ 'btn-primary' if (u.id, 'personal_data') in my_shares else 'btn-ghost' }}">
-                    {{ 'Sharing ✓' if (u.id, 'personal_data') in my_shares else 'Not shared' }}
+                  <button type="submit" class="btn {{ 'btn-primary' if my_shares.get((u.id, 'personal_data')) else 'btn-ghost' }}">
+                    {{ ('Shared ✓' if my_shares[(u.id, 'personal_data')] else 'Pending (Withdraw)') if (u.id, 'personal_data') in my_shares else 'Not shared' }}
                   </button>
                 </form>
               </td>
@@ -453,6 +453,20 @@
       {% endif %}
 
       <h3 class="small muted" id="shared-with-me">Shared With Me</h3>
+      {% if pending_for_me %}
+      <p class="small muted">These people want to share their data with you. You see nothing of it until you accept.</p>
+      <ul class="plain-list">
+        {% for p in pending_for_me %}
+        <li>{{ p.username }} offers to share their {{ p.category.label.lower() }} with you.
+          <form method="post" action="/settings/shared-with-me/{{ p.owner_id }}/{{ p.category.value }}/accept" class="inline-form">
+            <button type="submit" class="btn btn-primary">Accept</button>
+          </form>
+          <form method="post" action="/settings/shared-with-me/{{ p.owner_id }}/{{ p.category.value }}/decline" class="inline-form">
+            <button type="submit" class="btn btn-ghost btn-danger">Decline</button>
+          </form></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
       {% if shared_with_me %}
       <p class="small muted">These people currently share their data with you. You can stop receiving any of it; they can share it again later.</p>
       <ul class="plain-list">

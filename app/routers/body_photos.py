@@ -135,7 +135,7 @@ def delete(photo_id: int, session: Session = Depends(get_session), uid: int = De
 
 @router.post("/settings/photo-2fa")
 async def photo_2fa(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    from app.routers.auth import check_code
+    from app.auth.twofa import check_code
     user = session.get(User, uid)
     form = await request.form()
     now = sessions.now_utc()

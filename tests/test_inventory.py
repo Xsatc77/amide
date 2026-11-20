@@ -13,6 +13,7 @@ from app import config
 from app.db import SessionLocal
 from datetime import date
 
+from app.models import naive_utcnow as _accepted_now
 from app.models import InventoryItem, Medium, User, Vendor
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -871,6 +872,7 @@ def test_shared_item_order_history_is_visible_but_not_editable(client, db, me):
         grantee_id = s.scalar(select(User.id).where(User.username_key == "sharedgrantee"))
     try:
         client.post(f"/settings/sharing/{grantee_id}/inventory")  # matches this app's existing Share-grant route
+        other.post(f"/settings/shared-with-me/{me}/inventory/accept")  # the grantee must accept before anything is visible
 
         t = text(other.get(f"/inventory/{item_id}"))
         assert "Shared Retatrutide" in t  # item visible to the grantee
@@ -1088,6 +1090,7 @@ def test_shared_viewer_does_not_see_sold_button_or_dialog(client, db, me):
         grantee_id = s.scalar(select(User.id).where(User.username_key == "soldviewer"))
     try:
         client.post(f"/settings/sharing/{grantee_id}/inventory")
+        other.post(f"/settings/shared-with-me/{me}/inventory/accept")  # the grantee must accept before anything is visible
         t = html.unescape(other.get(f"/inventory/{item_id}").text)
         assert 'data-action="sold"' not in t
         assert 'id="sale-dialog"' not in t
@@ -1791,7 +1794,7 @@ def test_order_history_sorted_newest_first(client, db):
     assert t.index("NEWEST1") < t.index("OLDEST1")
 
 
-def test_new_order_existing_item_dropdown_excludes_other_owners_shared_items(client, db):
+def test_new_order_existing_item_dropdown_excludes_other_owners_shared_items(client, db, me):
     # Fix 6: the New Order "restock existing item" dropdown offered items shared by other owners
     # even though picking one always 422s server-side (_own_item rejects it).
     client.post("/inventory", data={
@@ -1808,6 +1811,7 @@ def test_new_order_existing_item_dropdown_excludes_other_owners_shared_items(cli
         grantee_id = s.scalar(select(User.id).where(User.username_key == "dropdowngrantee"))
     try:
         client.post(f"/settings/sharing/{grantee_id}/inventory")
+        other.post(f"/settings/shared-with-me/{me}/inventory/accept")  # the grantee must accept before anything is visible
         t = html.unescape(other.get("/inventory").text)
         assert "Owner Only Item" in t  # shared item still visible in the list itself
         assert f'<option value="{item_id}">Owner Only Item (Medicine)</option>' not in t
@@ -2024,7 +2028,7 @@ def test_new_order_price_recall_respects_inventory_sharing(client, db, me):
 
     try:
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
             s.commit()
         blob_after = _price_recall_blob(client)
         assert blob_after[str(vendor_id)]["shared history item"] == 99.0

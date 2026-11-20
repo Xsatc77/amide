@@ -1,5 +1,5 @@
 # The packages Amide needs, pinned exactly. Edit this file by hand, then regenerate the hashed lock the image installs:
-#   python tools/make_lock.py requirements.txt requirements.lock --exclude opencv-python
+#   python tools/make_lock.py requirements.txt requirements.lock --exclude opencv-python --extra antlr4-python3-runtime==4.9.3
 # (see docs/SUPPLY_CHAIN.md). Dependabot opens pull requests for new versions.
 fastapi==0.141.1
 uvicorn[standard]==0.53.0

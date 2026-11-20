@@ -1,13 +1,18 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 import os
 
 from app import config
+from starlette.formparsers import MultiPartException
+try:
+    from python_multipart.exceptions import FormParserError
+except ImportError:                      # older releases ship the module as `multipart`
+    from multipart.exceptions import FormParserError
 from app.security_headers import SecurityMiddleware
 from app.auth import gate
 from app.db import SessionLocal
@@ -48,7 +53,16 @@ app = FastAPI(title="Amide", lifespan=lifespan,
               docs_url="/docs" if _DOCS_ON else None, redoc_url="/redoc" if _DOCS_ON else None, openapi_url="/openapi.json" if _DOCS_ON else None)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 gate.install(app)
-app.add_middleware(SecurityMiddleware)       # added last = outermost: headers and size caps cover the front door's answers too
+app.add_middleware(SecurityMiddleware)       # added last = the outermost of our own middleware (the front door's answers get the headers and size caps); Starlette's error middleware is outside it, so SecurityMiddleware answers unhandled errors itself
+
+
+@app.exception_handler(FormParserError)
+@app.exception_handler(MultiPartException)
+def _unreadable_form(request: Request, exc: Exception):
+    """A garbage multipart or form body is the sender's mistake: 400, never a 500."""
+    return PlainTextResponse("The form could not be read.", status_code=400)
+
+
 app.include_router(progress.router)
 app.include_router(auth.router)
 app.include_router(dashboard.router)

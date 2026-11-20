@@ -15,6 +15,7 @@ from app.db import get_session
 from app.models import Protocol, ProtocolItem, User
 from app.shopping.build import parse_fee, saved_shipping, shop_for_protocol
 from app.shopping.text import shop_text
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ def _shop_data(protocol_id: int, request: Request, session: Session, uid: int) -
             pid = key[len("vial_ml_"):]
             try:
                 ml, per_box = float(raw), int(request.query_params.get(f"box_vials_{pid}", "1"))
-                if not (pid.isdigit() and 0 < ml <= 1000 and 1 <= per_box <= 100):
+                if not ((parse_int(pid) is not None) and 0 < ml <= 1000 and 1 <= per_box <= 100):
                     raise ValueError
             except ValueError:
                 raise HTTPException(422, "Vial size must be 0 to 1000 mL and 1 to 100 vials per box")
@@ -50,7 +51,7 @@ def _shop_data(protocol_id: int, request: Request, session: Session, uid: int) -
             pid = key[len("strength_"):]
             try:
                 strength = float(raw)
-                if not (pid.isdigit() and 0 < strength <= 1000 and math.isfinite(strength)):
+                if not ((parse_int(pid) is not None) and 0 < strength <= 1000 and math.isfinite(strength)):
                     raise ValueError
             except ValueError:
                 raise HTTPException(422, "Strength must be a number from 0 to 1000 mg per mL")

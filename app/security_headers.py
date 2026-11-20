@@ -10,6 +10,7 @@ Environment (read per request, so a change needs only a restart):
   AMIDE_PUBLIC_URL        when it starts with https, Strict-Transport-Security is sent even if a proxy hides the https scheme
 """
 
+import logging
 import os
 import re
 from urllib.parse import unquote, urlsplit
@@ -47,6 +48,16 @@ FILE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "private, no-store",
 }
+# A PDF opens in the browser's own viewer, and Chrome's viewer refuses a document served with a Content-Security-Policy `sandbox` (and can
+# trip over `object-src`), so a PDF gets only a no-framing rule here; the viewer runs the file in its own isolated context anyway.
+PDF_HEADERS = {**FILE_HEADERS, "Content-Security-Policy": "frame-ancestors 'none'"}
+
+
+def file_headers(media_type: str) -> dict:
+    """The headers for serving a stored private file: PDFs get PDF_HEADERS, everything else (photos, QR codes, documents) the sandboxing FILE_HEADERS."""
+    return PDF_HEADERS if (media_type or "").lower().startswith("application/pdf") else FILE_HEADERS
+
+
 # The same without the cache rule, for files that are not private (the shipped peptide card images).
 FILE_HEADERS_SHARED = {k: v for k, v in FILE_HEADERS.items() if k != "Cache-Control"}
 
@@ -81,6 +92,11 @@ def _security_headers(scope) -> list[tuple[bytes, bytes]]:
 # ---------------------------------------------------------------- request size caps
 
 _MB = 1024 * 1024
+_errors = logging.getLogger("amide.errors")
+
+
+# Forms that carry whole exported files as pasted or joined text (the Pacer and scale imports join several CSVs into one field), so 2 MB is too small.
+_BIG_FORM_PATHS = {"/measurements/import-pacer", "/measurements/import-scale"}
 
 
 def request_cap(path: str, content_type: str = "") -> int:
@@ -94,7 +110,7 @@ def request_cap(path: str, content_type: str = "") -> int:
         return config.MAX_BACKUP_BYTES + _MB
     if path == "/api/ingest/health":
         return config.HEALTH_MAX_BYTES + _MB
-    if path.startswith("/api/ingest/") or content_type.lower().startswith("multipart/"):
+    if path.startswith("/api/ingest/") or content_type.lower().startswith("multipart/") or path in _BIG_FORM_PATHS:
         return default
     return 2 * _MB
 
@@ -147,10 +163,24 @@ class SecurityMiddleware:
         except BaseException as error:                       # a body read can fail inside a task group (an ExceptionGroup), so look at the flag
             if state["over"] and not state["started"]:
                 await self._too_large(send_with_headers)
-            elif not state["over"]:
+            elif state["over"]:
+                return
+            elif isinstance(error, Exception) and not state["started"]:
+                # Starlette's own error middleware sits OUTSIDE this one, so an unhandled error would reach the browser with no security
+                # headers. Answer it here instead: a plain generic body, and one log line with the class and path only.
+                _errors.error("unhandled %s on %s", type(error).__name__, scope.get("path", ""))
+                await self._server_error(send_with_headers)
+            else:
                 raise error
         else:
             return
+
+    @staticmethod
+    async def _server_error(send):
+        body = b"Internal Server Error"
+        await send({"type": "http.response.start", "status": 500,
+                    "headers": [(b"content-type", b"text/plain; charset=utf-8"), (b"content-length", str(len(body)).encode()), (b"cache-control", b"no-store")]})
+        await send({"type": "http.response.body", "body": body})
 
     @staticmethod
     async def _too_large(send):

@@ -1,3 +1,4 @@
+from app.auth import sessions
 from app.ingest import tokens
 from app.models import IngestToken
 from app.routers import apple_health
@@ -5,7 +6,7 @@ from photo_helpers import other_client
 
 
 def _session_id(c):
-    return c.cookies.get("amide_session")
+    return sessions.hash_token(c.cookies.get("amide_session"))      # the server keys things by the hash of the cookie token
 
 
 def test_health_token_works_for_a_non_admin_and_is_shown_once(client, db):

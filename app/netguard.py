@@ -9,18 +9,25 @@ import http.client
 import ipaddress
 import socket
 import ssl
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import NamedTuple
 
 MAX_RESPONSE_BYTES = 4_194_304
+DEFAULT_DEADLINE = 15.0       # seconds for the whole request (connect, headers, body) unless the caller says otherwise
 _METADATA = tuple(ipaddress.ip_network(n) for n in ("169.254.0.0/16", "100.100.100.200/32", "fd00:ec2::254/128", "0.0.0.0/8"))
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
 
 class UnsafeURL(OSError):
     """The address is not one Amide will contact. The message names the problem, never the address's query string or key."""
+
+
+class TooSlow(UnsafeURL):
+    """The whole request (connect, headers and body) took longer than its deadline, however slowly the server kept sending."""
 
 
 class Target(NamedTuple):
@@ -96,9 +103,14 @@ def check_url(url: str, *, allow_private: bool = False, allow_loopback: bool = F
     return Target(parts.scheme, host, port, path, str(first), first.is_global)
 
 
-def _pinned(conn, ip: str, port: int):
+def _pinned(conn, ip: str, port: int, clock=None):
     def create(address, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None):
-        return socket.create_connection((ip, port), timeout, source_address)
+        if clock is not None and timeout is not socket._GLOBAL_DEFAULT_TIMEOUT and timeout is not None:
+            timeout = clock.remaining(timeout)
+        sock = socket.create_connection((ip, port), timeout, source_address)
+        if clock is not None:
+            clock.sock = sock
+        return sock
     conn._create_connection = create
     return conn
 
@@ -114,19 +126,27 @@ class PinnedHTTPSConnection(http.client.HTTPSConnection):
 class Response:
     """What a request returned: .status, .headers, and read() that never returns more than the size cap."""
 
-    def __init__(self, raw, conn, max_bytes: int):
+    def __init__(self, raw, conn, max_bytes: int, clock=None):
         self._raw, self._conn, self._left = raw, conn, max_bytes
+        self._clock = clock or _Clock(None)
         self.status, self.headers = raw.status, raw.msg
 
     def read(self, amt: int | None = None) -> bytes:
         want = self._left + 1 if amt is None else min(amt, self._left + 1)
-        data = self._raw.read(want)
+        self._clock.check()
+        try:
+            data = self._raw.read(want)
+        except Exception:
+            self._clock.check()
+            raise
+        self._clock.check()
         if len(data) > self._left:
             raise UnsafeURL("the answer was larger than allowed")
         self._left -= len(data)
         return data
 
     def close(self):
+        self._clock.stop()
         self._conn.close()
 
     def __enter__(self):
@@ -136,10 +156,57 @@ class Response:
         self.close()
 
 
+class _Clock:
+    """The total deadline of one request. A watchdog thread cuts the connection when it passes, so a server that sends one byte at a
+    time (which keeps resetting the per-read socket timeout) cannot hold a thread for longer than the deadline."""
+
+    def __init__(self, seconds: float | None):
+        self.end = None if seconds is None else time.monotonic() + seconds
+        self.conn = None
+        self.sock = None
+        self._timer = None
+        if seconds is not None:
+            self._timer = threading.Timer(seconds, self._cut)
+            self._timer.daemon = True
+            self._timer.start()
+
+    def remaining(self, cap: float) -> float:
+        return cap if self.end is None else max(0.05, min(cap, self.end - time.monotonic()))
+
+    def expired(self) -> bool:
+        return self.end is not None and time.monotonic() >= self.end
+
+    def check(self):
+        if self.expired():
+            self.stop()
+            raise TooSlow("the server took too long to answer")
+
+    def _cut(self):
+        conn = self.conn
+        sock = self.sock or getattr(conn, "sock", None)
+        try:
+            if sock is not None:
+                sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            if sock is not None:
+                sock.close()
+            if conn is not None:
+                conn.close()
+        except OSError:
+            pass
+
+    def stop(self):
+        if self._timer is not None:
+            self._timer.cancel()
+
+
 def safe_open(request, timeout: float, allow_private: bool = False, *, allow_loopback: bool = False,
-              max_bytes: int = MAX_RESPONSE_BYTES, https_for_public: bool = False) -> Response:
+              max_bytes: int = MAX_RESPONSE_BYTES, https_for_public: bool = False, deadline: float | None = None) -> Response:
     """Send a urllib Request through the guard. A 3xx or 4xx/5xx answer raises urllib.error.HTTPError (redirects are never followed here).
-    With https_for_public, plain http is accepted only for a host on a private network."""
+    With https_for_public, plain http is accepted only for a host on a private network. `deadline` is the most seconds the whole request
+    (connect, headers and body) may take; without it, the smaller of `timeout` and 15 seconds. A request past it raises TooSlow."""
     if isinstance(request, str):
         request = urllib.request.Request(request)
     target = check_url(request.full_url, allow_private=allow_private, allow_loopback=allow_loopback)
@@ -149,18 +216,25 @@ def safe_open(request, timeout: float, allow_private: bool = False, *, allow_loo
         conn = PinnedHTTPSConnection(target.host, target.port, timeout=timeout, context=ssl.create_default_context())
     else:
         conn = PinnedHTTPConnection(target.host, target.port, timeout=timeout)
-    _pinned(conn, target.ip, target.port)
+    clock = _Clock(min(timeout, DEFAULT_DEADLINE) if deadline is None else deadline)
+    clock.conn = conn
+    _pinned(conn, target.ip, target.port, clock)
     headers = {k: v for k, v in request.header_items()}
     headers.setdefault("Accept-Encoding", "identity")
     headers["Connection"] = "close"
     try:
         conn.request(request.get_method(), target.path, request.data, headers)
         raw = conn.getresponse()
-    except Exception:
+        clock.check()
+    except Exception as error:
         conn.close()
+        clock.stop()
+        if clock.expired() and not isinstance(error, TooSlow):
+            raise TooSlow("the server took too long to answer") from None
         raise
-    response = Response(raw, conn, max_bytes)
+    response = Response(raw, conn, max_bytes, clock)
     if raw.status >= 300:
+        clock.stop()
         shown = urllib.parse.urlsplit(request.full_url)
         err = urllib.error.HTTPError(f"{shown.scheme}://{shown.netloc}{shown.path}", raw.status, raw.reason, raw.msg, None)
         conn.close()

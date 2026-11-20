@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 from app.db import SessionLocal
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import (
     Category, ContactMethodType, InventoryItem, Medium, Order, OrderItem, PaymentMethodType, Share,
     ShareCategory, User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod,
@@ -222,7 +223,7 @@ def test_purchase_history_hidden_without_share_visible_with_inventory_share(clie
         # Grant the share the same way test_inventory.py's shared-item test does, from the actual
         # signed-in user's id (the `me` fixture), never a hardcoded id.
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
             s.commit()
 
         t_after = _text(client.get(f"/vendors/{vendor_id}"))

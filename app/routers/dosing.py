@@ -21,6 +21,7 @@ from app.protocols.status import current_step, current_week
 from app.routers.protocols import get_today
 from app.auth.deps import current_user_id
 from app.templating import templates
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -335,7 +336,7 @@ def today_page(request: Request, session: Session = Depends(get_session), today:
     # notice reached only via that redirect's query param, not a recurring popup.
     empty_vial = None
     raw_empty_vial_id = request.query_params.get("empty_vial", "")
-    if raw_empty_vial_id.isdigit():
+    if (parse_int(raw_empty_vial_id) is not None):
         v = session.get(ActiveVial, int(raw_empty_vial_id))
         if v is not None and v.owner_id == uid:
             empty_vial = {"id": v.id, "item_name": v.inventory_item.name if v.inventory_item else "This vial"}

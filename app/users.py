@@ -11,7 +11,7 @@ import sys
 
 from sqlalchemy import select
 
-from app.auth import devices, passwords, sessions
+from app.auth import audit, passwords, sessions
 from app.db import SessionLocal
 from app.migrate import upgrade_db
 from app.models import User
@@ -75,12 +75,14 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             user.password_hash = passwords.hash_password(new)
             sessions.clear_failures(user)
-            devices.forget_all(db, user.id)
+            sessions.end_all_sessions(db, user.id)      # as in Settings: sessions, remembered devices and passkeys all end
+            audit.record(db, "cli_password_reset", None, user, "from the command line; sessions, passkeys and remembered devices ended")
             print(f"Password reset for {user.username}.")
         else:
             user.totp_enabled, user.totp_secret, user.totp_last_step = False, None, None
             user.photo_2fa_required = False
-            devices.forget_all(db, user.id)
+            sessions.end_all_sessions(db, user.id)
+            audit.record(db, "cli_2fa_removed", None, user, "from the command line; sessions, passkeys and remembered devices ended")
             print(f"Two-factor authentication turned off for {user.username}.")
         db.commit()
     return 0

@@ -28,7 +28,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import sort_tables
 
-from app import config
+from app import config, secretbox
 from app.backup import sections as reg
 from app.backup.archive import Archive, valid_stored_name
 from app.backup.container import BackupError, check_passphrase, seal
@@ -188,6 +188,8 @@ def restore_installation(session: Session, archive: Archive, *, uid: int, creato
                 if table.name in file_columns and not (valid_stored_name(values.get(file_columns[table.name][0]))
                                                       and reg.name_ok(file_columns[table.name][1], values.get(file_columns[table.name][0]))):
                     values[file_columns[table.name][0]] = None      # a stored file name is one plain name or nothing
+                if table.name == "users":
+                    values = secretbox.seal_columns(values)      # 2FA seeds and AI keys are sealed with THIS installation's secret key
                 cols = list(values)
                 session.execute(text(f'INSERT INTO "{table.name}" ({", ".join(chr(34) + c + chr(34) for c in cols)}) '
                                      f'VALUES ({", ".join(":" + c for c in cols)})'), values)

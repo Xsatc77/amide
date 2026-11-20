@@ -28,6 +28,7 @@ from app.models import (
     ActiveVial, Category, DispensingMethod, DoseUnit, InventoryItem, Medium, Peptide, PeptideDosingTier, Protocol, ProtocolItem, WEEKDAY_NAMES,
 )
 from app.templating import templates
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -176,7 +177,7 @@ def calculator_page(request: Request, session: Session = Depends(get_session), u
     }
     return templates.TemplateResponse(request, "calculator/calculator.html", {
         "state": state, "result": result, "data": data, "capacities": SYRINGE_CAPACITIES_UNITS,
-        "selected_item_id": int(selected_item_id) if selected_item_id and selected_item_id.isdigit() else None,
+        "selected_item_id": int(selected_item_id) if selected_item_id and (parse_int(selected_item_id) is not None) else None,
         "reconstitute_error": q.get("reconstitute_error"),
     })
 
@@ -205,7 +206,7 @@ async def reconstitute(request: Request, session: Session = Depends(get_session)
         errors.append("This item has none left in stock to reconstitute.")
     if dose_unit not in unit_math.UNITS:
         errors.append("Choose mg, mcg or IU for the dose.")
-    if bac_raw and not bac_raw.isdigit():
+    if bac_raw and not (parse_int(bac_raw) is not None):
         errors.append("That is not one of your BAC Water items.")
     if water_ml is None or water_ml <= 0:
         errors.append("Enter the water added.")

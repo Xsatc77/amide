@@ -22,6 +22,7 @@ from app.backup.export import build_archive
 from app.db import SessionLocal
 from app.ingest import detect, readers, tokens
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import HealthRaw, Share, ShareCategory, User, Vendor
 from backup_helpers import clean_files, seed_world, wipe_person
 
@@ -405,6 +406,8 @@ def test_the_sharing_table_shows_usernames_only(client, pat_id):
 
 def test_shared_with_me_lists_who_shares_and_lets_me_remove_it(client, pat, db, me, pat_id):
     assert client.post(f"/settings/sharing/{pat_id}/inventory", data={"on": "1"}, follow_redirects=False).status_code == 303
+    assert "Tester offers to share their inventory with you." in pat.get("/settings").text      # pending: nothing is shared yet
+    assert pat.post(f"/settings/shared-with-me/{me}/inventory/accept").status_code == 303
     page = pat.get("/settings").text
     assert "Shared With Me" in page and "Tester shares their inventory with you." in page
     assert pat.post(f"/settings/shared-with-me/{me}/inventory/remove").status_code == 303
@@ -414,7 +417,7 @@ def test_shared_with_me_lists_who_shares_and_lets_me_remove_it(client, pat, db, 
 
 
 def test_a_person_can_only_remove_shares_granted_to_them(client, pat, db, me, pat_id):
-    db.add(Share(owner_id=pat_id, grantee_id=me, category=ShareCategory.INVENTORY))
+    db.add(Share(owner_id=pat_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
     db.commit()
     try:
         # Pat granted this to the admin; Pat cannot use the "received" route to remove it, and an unknown pair is a plain 404

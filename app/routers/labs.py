@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 
-from app.security_headers import FILE_HEADERS
+from app.security_headers import file_headers
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from starlette.concurrency import run_in_threadpool
@@ -16,6 +16,7 @@ from app import clock, config, uploads
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.labs import marker_info, monitoring, reports
+from app.sharing import accepted_owner_ids
 from app.models import LabMarker, LabPanel, LabResult, Peptide, Protocol, ProtocolItem, Share, ShareCategory, User
 from app.protocols.status import Status, protocol_status
 from app.routers.journal import doses_for
@@ -49,8 +50,7 @@ def _lab_query(uid: int):
 
 def _shared_lab_query(uid: int):
     """Lab panels owned by anyone who granted this user Personal Data sharing."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.PERSONAL_DATA)
     return select(LabPanel).where(LabPanel.owner_id.in_(shared_owner_ids)).options(
         selectinload(LabPanel.results))
 
@@ -436,7 +436,7 @@ def get_lab_report(panel_id: int, session: Session = Depends(get_session),
     if not path.exists():
         raise HTTPException(404, "Lab report file is missing from disk")
     return FileResponse(path, media_type=uploads.media_type(panel.report_filename),
-                        headers=FILE_HEADERS,
+                        headers=file_headers(uploads.media_type(panel.report_filename)),
                         content_disposition_type="inline")
 
 

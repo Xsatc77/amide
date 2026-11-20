@@ -33,6 +33,7 @@ from app.backup import sections as reg
 from app.backup.archive import Archive
 from app.backup.container import BackupError
 from app.backup.export import _columns, _revision, table_rows
+from app.routers._ints import parse_int
 
 ADD, REPLACE = "add", "replace"
 _CHUNK = 500
@@ -58,7 +59,7 @@ def _source(archive: Archive, key: str, username_key: str) -> str | None:
 def check_revision(session: Session, manifest: dict) -> None:
     """Refuse a backup made by a newer schema than this installation's."""
     current, theirs = _revision(session), manifest.get("revision")
-    if theirs and current and theirs.isdigit() and current.isdigit() and int(theirs) > int(current):
+    if theirs and current and (parse_int(theirs) is not None) and (parse_int(current) is not None) and int(theirs) > int(current):
         raise BackupError("This backup was made by a newer version of Amide than this one. Update Amide first.")
 
 

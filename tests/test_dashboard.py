@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import (
     ActiveVial, Category, DoseLog, DoseStatus, DoseUnit, Frequency, InventoryItem, Medium, Order,
     OrderItem, Peptide, Protocol, ProtocolItem, Route, Share, ShareCategory, User,
@@ -207,7 +208,7 @@ def test_log_water_button_hidden_on_a_shared_dashboard(client, db, me):
     from app.models import BodyMeasurement
     other_id = _register_other("DashWaterA")
     with SessionLocal() as s:
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
         s.add(BodyMeasurement(owner_id=other_id, measured_at=date.today(), weight_lbs=150))
         s.commit()
     try:
@@ -263,7 +264,7 @@ def test_home_redirects_to_dashboard(client, db):
 def test_viewer_dropdown_lists_users_who_shared_with_me(client, db, me):
     other_id = _register_other("DashViewerA")
     with SessionLocal() as s:
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.commit()
     try:
         t = html.unescape(client.get("/dashboard").text)
@@ -278,7 +279,7 @@ def test_viewer_dropdown_lists_users_who_shared_with_me(client, db, me):
 def test_switching_viewer_shows_only_that_users_data_not_blended(client, db, me):
     other_id = _register_other("DashViewerB")
     with SessionLocal() as s:
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.add(InventoryItem(owner_id=other_id, name="OtherLowStock", category=Category.MEDICINE,
                             medium=Medium.LYOPHILIZED, vial_size_mg=10, count=0, low_stock_threshold=0))
         s.commit()
@@ -300,7 +301,7 @@ def test_viewer_without_personal_data_share_hides_schedule_widget(client, db, me
     other_id = _register_other("DashViewerC")
     with SessionLocal() as s:
         # Inventory-only share -- no PERSONAL_DATA.
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.commit()
     try:
         t = html.unescape(client.get(f"/dashboard?viewer_id={other_id}").text)
@@ -316,7 +317,7 @@ def test_viewer_without_personal_data_share_hides_schedule_widget(client, db, me
 def test_revoked_share_removes_viewer_option(client, db, me):
     other_id = _register_other("DashViewerD")
     with SessionLocal() as s:
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.add(InventoryItem(owner_id=other_id, name="RevokedLowStock", category=Category.MEDICINE,
                             medium=Medium.LYOPHILIZED, vial_size_mg=10, count=0, low_stock_threshold=0))
         s.commit()
@@ -424,7 +425,7 @@ def test_adherence_pct_counts_unlogged_missed_doses_in_denominator(client, db):
 def test_cost_snapshot_hidden_for_inventory_only_share(client, db, me):
     other_id = _register_other("DashCostA")
     with SessionLocal() as s:
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.commit()
     try:
         t = html.unescape(client.get(f"/dashboard?viewer_id={other_id}").text)
@@ -440,8 +441,8 @@ def test_cost_snapshot_hidden_for_inventory_only_share(client, db, me):
 def test_cost_snapshot_shown_for_inventory_and_personal_data_share(client, db, me):
     other_id = _register_other("DashCostB")
     with SessionLocal() as s:
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY))
-        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
+        s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
         s.commit()
     try:
         t = html.unescape(client.get(f"/dashboard?viewer_id={other_id}").text)
@@ -457,7 +458,7 @@ def test_cost_snapshot_shown_for_own_dashboard_regardless_of_shares(client, db, 
     # must still show my own cost snapshot section (empty or not) via the self-view carve-out.
     other_id = _register_other("DashCostC")
     with SessionLocal() as s:
-        s.add(Share(owner_id=me, grantee_id=other_id, category=ShareCategory.INVENTORY))
+        s.add(Share(owner_id=me, grantee_id=other_id, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
         s.commit()
     try:
         t = html.unescape(client.get("/dashboard").text)

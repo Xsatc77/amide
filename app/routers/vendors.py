@@ -5,15 +5,18 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse
 
-from app.security_headers import FILE_HEADERS, safe_redirect
+from app.routers._ints import parse_int
+from app.security_headers import FILE_HEADERS, file_headers, safe_redirect
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
 from app import clock
 from app import config, uploads
+from app.auth import audit
 from app.auth.deps import current_user_id
 from app.db import get_session
+from app.sharing import accepted_owner_ids
 from app.models import (
     ContactMethodType, InventoryItem, Order, OrderItem, PaymentMethodType, PriceList, Share, ShareCategory,
     WALLET_COINS, User, Vendor, VendorContact, VendorFavorite, VendorPaymentMethod, VendorWallet,
@@ -48,8 +51,7 @@ def _vendor_recent_order_dates(session: Session, uid: int) -> dict[int, date]:
     aggregate over another user's private order history, and a vendor visibly jumping to the top of
     this sort is itself a signal about who ordered from it. Same shared_owner_ids/InventoryItem.owner_id
     join shape as _visible_order_lines_for_vendor -- never a global cross-user aggregate."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.INVENTORY)
     rows = session.execute(
         select(Order.vendor_id, func.max(Order.order_date))
         .join(OrderItem, OrderItem.order_id == Order.id)
@@ -157,7 +159,7 @@ def clear_recommendation(vendor_id: int, next: str = Form("/vendors"), session: 
                          uid: int = Depends(current_user_id)):
     """Take a vendor's Recommended (or Don't recommend) tag off, back to No opinion, without opening the edit form."""
     vendor = session.get(Vendor, vendor_id)
-    if vendor is None:
+    if vendor is None or not may_edit_vendor(session, vendor, uid):      # the flag is shared by every account, so only the creator or an admin clears it
         raise HTTPException(404, "Vendor not found")
     vendor.recommended = None
     session.commit()
@@ -165,7 +167,7 @@ def clear_recommendation(vendor_id: int, next: str = Form("/vendors"), session: 
 
 
 @router.post("/vendors/{vendor_id}/delete")
-def delete_vendor(vendor_id: int, next: str = "/vendors", session: Session = Depends(get_session),
+def delete_vendor(vendor_id: int, request: Request, next: str = "/vendors", session: Session = Depends(get_session),
                   uid: int = Depends(current_user_id)):
     # Vendors are shared by every user, so only the person who added one, or an admin, may remove it (404, not 403,
     # matching settings' _require_admin: don't reveal the action exists).
@@ -174,6 +176,7 @@ def delete_vendor(vendor_id: int, next: str = "/vendors", session: Session = Dep
         raise HTTPException(404, "Vendor not found")
     qr_files = [w.qr_filename for w in vendor.wallets]
     session.delete(vendor)
+    audit.record(session, "vendor_deleted", request, session.get(User, uid), f"vendor {vendor_id}")
     session.commit()
     for name in qr_files:
         uploads.delete_wallet_qr(name)
@@ -187,8 +190,7 @@ def _visible_order_lines_for_vendor(session: Session, vendor_id: int, uid: int):
     who granted them Inventory sharing -- the exact blend-and-tag-by-owner-name shape as
     inventory._visible_items/_visible_active_vials (Review Focus item 2 in the design spec): never
     a global cross-user view, never blended without attribution."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.INVENTORY)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.INVENTORY)
     lines = session.scalars(
         select(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
@@ -251,7 +253,7 @@ def _price_import_view(session: Session, vendor: Vendor, token: str | None) -> d
         return None
     if token in _IMPORT_NOTES:
         return {"note": _IMPORT_NOTES[token]}
-    plist = session.get(PriceList, int(token)) if token.isdigit() else None
+    plist = session.get(PriceList, parse_int(token)) if parse_int(token) is not None else None
     if plist is None or plist.vendor_id != vendor.id:
         return None
     return summarize_list(plist)
@@ -296,8 +298,8 @@ def vendor_detail(vendor_id: int, request: Request, session: Session = Depends(g
 def get_vendor_price_list(vendor_id: int, session: Session = Depends(get_session),
                           uid: int = Depends(current_user_id)):
     """Serves an uploaded vendor price-list file. Vendor is a global/shared row (unlike a
-    per-owner InventoryItem/Order), so this only needs an existence check -- no ownership check,
-    mirroring get_order_coa in app/routers/inventory.py exactly otherwise."""
+    per-owner InventoryItem/Order), so any signed-in user may read it: only an existence check, no ownership check.
+    (Editing or replacing the file is limited to the vendor's creator or an admin, see update_vendor.)"""
     vendor = session.get(Vendor, vendor_id)
     if vendor is None or not vendor.price_list_filename:
         raise HTTPException(404, "No price list on file")
@@ -305,7 +307,7 @@ def get_vendor_price_list(vendor_id: int, session: Session = Depends(get_session
     if not path.exists():
         raise HTTPException(404, "Price list file is missing from disk")
     return FileResponse(path, media_type=uploads.price_list_media_type(vendor.price_list_filename),
-                        headers=FILE_HEADERS,
+                        headers=file_headers(uploads.price_list_media_type(vendor.price_list_filename)),
                         content_disposition_type="inline")
 
 
@@ -333,8 +335,8 @@ async def _read_wallet_rows(request: Request) -> list[dict]:
         if not key.startswith("wallets-"):
             continue
         idx_str, _, field = key[len("wallets-"):].partition("-")
-        if idx_str.isdigit() and field:
-            rows.setdefault(int(idx_str), {})[field] = form.get(key)
+        if parse_int(idx_str) is not None and field:
+            rows.setdefault(parse_int(idx_str), {})[field] = form.get(key)
     out = []
     for _, row in sorted(rows.items()):
         upload = row.get("qr")
@@ -384,9 +386,9 @@ async def _read_edit_form(
             continue
         rest = key[len("contacts-"):]
         idx_str, _, field = rest.partition("-")
-        if not idx_str.isdigit() or not field:
+        if parse_int(idx_str) is None or not field:
             continue
-        contact_rows.setdefault(int(idx_str), {})[field] = str(form.get(key) or "").strip()
+        contact_rows.setdefault(parse_int(idx_str), {})[field] = str(form.get(key) or "").strip()
     payment_type_ids = [v.strip() for v in form.getlist("payment_type_ids")]
     price_list_file_raw = form.get("price_list_file")
     price_list_file = price_list_file_raw if (
@@ -506,8 +508,8 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
         method_type = None
         if method_type_id == "__new__" or (not method_type_id and new_name):
             method_type = resolve_contact_method_type(session, new_name)
-        elif method_type_id.isdigit():
-            method_type = session.get(ContactMethodType, int(method_type_id))
+        elif parse_int(method_type_id) is not None:
+            method_type = session.get(ContactMethodType, parse_int(method_type_id))
         if method_type is None:
             continue
         vendor.contacts.append(VendorContact(method_type_id=method_type.id, value=value))
@@ -516,8 +518,8 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
     session.flush()
     type_ids: set[int] = set()
     for v in payment_type_ids:
-        if v.isdigit() and session.get(PaymentMethodType, int(v)) is not None:
-            type_ids.add(int(v))
+        if parse_int(v) is not None and session.get(PaymentMethodType, parse_int(v)) is not None:
+            type_ids.add(parse_int(v))
     if raw["new_payment_type"]:
         new_type = resolve_payment_method_type(session, raw["new_payment_type"])
         if new_type is not None:
@@ -548,6 +550,7 @@ async def update_vendor(vendor_id: int, request: Request, session: Session = Dep
                 stale_qr.append(wallet.qr_filename)
             vendor.wallets.remove(wallet)
 
+    audit.record(session, "vendor_edited", request, session.get(User, uid), f"vendor {vendor.id}")
     session.commit()
     for name in stale_qr:
         uploads.delete_wallet_qr(name)

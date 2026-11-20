@@ -2,11 +2,14 @@
 
 Order of the steps a browser goes through:
   legal notice (/notice)  ->  welcome (/welcome: New User or Login)  ->  [2FA code, unless a passkey or a remembered device]  ->  the app
-A session that has seen no request for config.SESSION_IDLE_MINUTES is gone, so the browser starts again
-at the notice. Pages redirect to the right step; the JSON API answers 401 instead.
+A session that has seen no request for config.SESSION_IDLE_MINUTES, or is older than config.SESSION_MAX_HOURS
+even while in use, is gone, so the browser starts again at the notice. Pages redirect to the right step; /api/ paths and
+/session/ping answer 401 instead. The token routes (TOKEN_PREFIXES) skip the session and check their own token.
 """
 
+import ipaddress
 import logging
+import os
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
@@ -60,10 +63,36 @@ def _too_many(request: Request, wait: int) -> Response:
                                       status_code=429, headers=headers)
 
 
+_proxy_checked = False
+
+
+def _warn_if_behind_untrusted_proxy(request: Request) -> None:
+    """Once per process, on the first POST: with an https public address, a private or loopback peer and no FORWARDED_ALLOW_IPS,
+    every visitor probably reaches Amide through a proxy uvicorn does not trust, so they all share one throttle key."""
+    global _proxy_checked
+    if _proxy_checked:
+        return
+    _proxy_checked = True
+    if not config.PUBLIC_URL.lower().startswith("https://") or os.environ.get("FORWARDED_ALLOW_IPS"):
+        return
+    try:
+        peer = ipaddress.ip_address(request.client.host) if request.client else None
+    except ValueError:
+        return
+    if peer is not None and (peer.is_private or peer.is_loopback):
+        log.warning("The first request came from %s, a private address, while AMIDE_PUBLIC_URL is https and FORWARDED_ALLOW_IPS is not set: "
+                    "behind a reverse proxy every visitor then shares one address, so the sign-in throttle counts them together. "
+                    "Set FORWARDED_ALLOW_IPS to the proxy's address (see docs/DEPLOYING.md).", peer)
+
+
 def install(app: FastAPI) -> None:
     if not config.PUBLIC_URL:
         log.warning("AMIDE_PUBLIC_URL is not set: passkeys trust the Host / X-Forwarded-Host header of each request. "
                     "Set AMIDE_PUBLIC_URL to the https address people use (see docs/DEPLOYING.md).")
+    elif config.PUBLIC_URL.lower().startswith("https://"):
+        log.warning("AMIDE_PUBLIC_URL is https, so the session cookie is always Secure: opening Amide over plain http (for example "
+                    "a LAN address) will not stay signed in. Use https for every address, or leave AMIDE_PUBLIC_URL unset "
+                    "(see docs/DEPLOYING.md).")
 
     @app.middleware("http")
     async def gate(request: Request, call_next):
@@ -71,6 +100,8 @@ def install(app: FastAPI) -> None:
         request.state.user = None
         request.state.session_id = None
         clock.set_zone(None)
+        if request.method == "POST":
+            _warn_if_behind_untrusted_proxy(request)
 
         if request.method in UNSAFE_METHODS and not _same_origin(request):
             return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)

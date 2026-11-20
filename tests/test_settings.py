@@ -9,6 +9,7 @@ from app import config
 from app.auth import passwords
 from app.db import SessionLocal
 from app.main import app
+from app.models import naive_utcnow as _accepted_now
 from app.models import InventoryItem, LoginSession, Protocol, User, Vendor
 
 PW = "Test1!"
@@ -384,8 +385,8 @@ def test_delete_user_cleans_up_shares_both_directions(client, db):
     with SessionLocal() as s:
         me_id = s.scalar(select(User.id).where(User.username_key == "tester"))
         a_id = s.scalar(select(User.id).where(User.username_key == "sharea"))
-        s.add(Share(owner_id=a_id, grantee_id=me_id, category=ShareCategory.INVENTORY))
-        s.add(Share(owner_id=me_id, grantee_id=a_id, category=ShareCategory.PERSONAL_DATA))
+        s.add(Share(owner_id=a_id, grantee_id=me_id, category=ShareCategory.INVENTORY, accepted_at=_accepted_now()))
+        s.add(Share(owner_id=me_id, grantee_id=a_id, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
         s.commit()
         assert s.query(Share).filter(
             (Share.owner_id == a_id) | (Share.grantee_id == a_id)).count() == 2
@@ -418,14 +419,17 @@ def test_sharing_toggle_grants_and_revokes(client, db):
         assert s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
                                         category=ShareCategory.INVENTORY).count() == 1
     t = text(client.get("/settings"))
-    assert "Sharing ✓" in t  # the button itself reflects the granted state, not just page chrome
+    assert "Pending (Withdraw)" in t and "Shared ✓" not in t  # a new offer is pending until the grantee accepts it
+    assert other.post(f"/settings/shared-with-me/{me_id}/inventory/accept").status_code == 303
+    t = text(client.get("/settings"))
+    assert "Shared ✓" in t  # the button itself reflects the accepted state, not just page chrome
 
     client.post(f"/settings/sharing/{partner_id}/inventory", data={"on": "0"})  # revoke
     with SessionLocal() as s:
         assert s.query(Share).filter_by(owner_id=me_id, grantee_id=partner_id,
                                         category=ShareCategory.INVENTORY).count() == 0
     t = text(client.get("/settings"))
-    assert "Sharing ✓" not in t  # button reverted to "Not shared"
+    assert "Shared ✓" not in t and "Pending (Withdraw)" not in t  # button reverted to "Not shared"
 
 
 def test_sharing_toggle_is_idempotent_against_stale_or_duplicate_submits(client, db):

@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import select
 
 from app.db import SessionLocal
+from app.models import naive_utcnow as _accepted_now
 from app.models import (
     DoseLog, DoseStatus, DoseUnit, Frequency, JournalEntry, JournalQuickNote, JournalSideEffect, Peptide, Protocol,
     ProtocolItem, Route, Share, ShareCategory, TimeOfDay, User,
@@ -146,7 +147,7 @@ def test_journal_tab_shows_entries_and_respects_personal_data_sharing(client, db
         assert "partner's private note" not in t_before
 
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
             s.commit()
 
         # Now visible, tagged with the owner's name.

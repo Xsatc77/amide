@@ -36,6 +36,7 @@ from app.workouts.exercise_match import match_exercise
 from app.workouts import logging as workout_logging
 from app.workouts.pdf_parser import extract_links, extract_text, parse_workout_pdf
 from app.workouts.video import safe_url
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -218,7 +219,7 @@ def _at(values: list[str], i: int) -> str:
 def _form_id(values: list[str], i: int) -> int | None:
     """A posted row id, or None for a blank/missing/non-numeric one (a new row)."""
     raw = _at(values, i).strip()
-    return int(raw) if raw.isdigit() else None
+    return int(raw) if (parse_int(raw) is not None) else None
 
 
 @router.get("/workouts")

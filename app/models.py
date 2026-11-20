@@ -9,6 +9,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.secretbox import EncryptedString
 
 
 def utcnow() -> datetime:
@@ -648,8 +649,8 @@ class Sale(Base):
 
 class ActiveVial(Base):
     """A reconstituted, opened vial -- created from an InventoryItem, decrementing its count by 1.
-    Doses remaining is a static snapshot computed once at creation (see app.calculator.reconstitution);
-    it never depletes in this pass, since there is no dose-logging feature yet to draw it down."""
+    The mix (concentration, water) is computed once at creation (see app.calculator.reconstitution). Logging a dose
+    draws the vial down: volume_remaining_ml falls (see app/routers/dosing.py) and an empty or discarded vial closes."""
 
     __tablename__ = "active_vials"
 
@@ -1054,7 +1055,7 @@ class User(Base):
     username_key: Mapped[str] = mapped_column(String(32), unique=True)  # lower-case, for matching
     password_hash: Mapped[str] = mapped_column(String(200))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_secret: Mapped[str | None] = mapped_column(EncryptedString(128))      # sealed with the secret key (app/secretbox.py)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     # Last 30-second step a code was accepted for: a code can't be used twice.
     totp_last_step: Mapped[int | None] = mapped_column(Integer)
@@ -1084,6 +1085,8 @@ class User(Base):
     avery_align: Mapped[dict | None] = mapped_column(JSON)      # how far the printer lands off the Avery 94500 circles at #1 and #48, in inches (app.inventory.avery94500.Align)
     label_layout: Mapped[dict | None] = mapped_column(JSON)      # the custom sheet's measurements (app.inventory.label_layout), used when label_size is "custom"
     units: Mapped[str] = mapped_column(String(6), default="us", server_default="us")      # display units: "us" or "metric" (data is always stored in US units)
+    # Stays plaintext on purpose: Settings shows the feed address again and the feed is found by equality on this value, so it cannot be hashed
+    # or sealed. It only opens the read-only calendar feed, and it can be regenerated at any time.
     calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)      # secret address of the private iCal feed; none = feed off
     ntfy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # push the dose reminders to ntfy
     ntfy_topic: Mapped[str | None] = mapped_column(String(100))
@@ -1092,7 +1095,7 @@ class User(Base):
     ai_model: Mapped[str | None] = mapped_column(String(80))
     ai_base_url: Mapped[str | None] = mapped_column(String(200))      # the server address, for "local" (or a proxy); the provider's own address when empty
     ai_notes: Mapped[str | None] = mapped_column(Text)      # what the person wants the AI summary to take into account; kept on the Progress Review page
-    ai_api_key: Mapped[str | None] = mapped_column(String(300))      # own key for that agent; never shown again, never in a profile export
+    ai_api_key: Mapped[str | None] = mapped_column(EncryptedString(512))      # sealed with the secret key (app/secretbox.py); own key for that agent; never shown again, never in a profile export
     low_stock_default: Mapped[int | None] = mapped_column(Integer)  # None -> 5 at render time
     shipment_delay_days: Mapped[int | None] = mapped_column(Integer)  # None -> 21 at render time
     photo_2fa_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
@@ -1117,7 +1120,8 @@ class User(Base):
 
 class Share(Base):
     """A one-directional grant: owner_id lets grantee_id view one category of their data.
-    Revocation is just deleting the row. No accept/pending flow -- the owner's grant is final."""
+    Revocation is just deleting the row. A new share is pending (accepted_at is NULL) and grants nothing until the grantee
+    accepts it; see app/sharing.py, which every visibility check goes through."""
 
     __tablename__ = "shares"
     __table_args__ = (UniqueConstraint("owner_id", "grantee_id", "category", name="uq_share_owner_grantee_category"),)
@@ -1127,6 +1131,7 @@ class Share(Base):
     grantee_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     category: Mapped[ShareCategory] = mapped_column(_enum_column(ShareCategory))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))   # NULL = pending: the grantee has not accepted
 
 
 class LoginSession(Base):
@@ -1135,7 +1140,7 @@ class LoginSession(Base):
 
     __tablename__ = "sessions"
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # random token, also the cookie value
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # SHA-256 (hex) of the random cookie token; the token itself is never stored
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     notice_accepted_at: Mapped[datetime | None] = mapped_column(DateTime)
     twofa_pending: Mapped[bool] = mapped_column(Boolean, default=False)

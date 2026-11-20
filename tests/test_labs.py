@@ -4,6 +4,7 @@ from datetime import date
 from sqlalchemy import select
 
 from app.db import SessionLocal
+from app.models import naive_utcnow as _accepted_now
 from app.models import LabMarker, LabPanel, LabResult, Share, ShareCategory, User
 
 from tests.test_journal import _seed_dose_log
@@ -313,7 +314,7 @@ def test_labs_tab_respects_personal_data_sharing(client, db):
         assert "3.1" not in t_before
 
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
             s.commit()
 
         # Now visible, tagged with the owner's name.
@@ -382,7 +383,7 @@ def test_marker_chart_does_not_mix_a_sharing_partners_results(client, db):
             "range_low[]": [""], "range_high[]": [""], "marker_other[]": [""],
         })
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
             s.commit()
 
         r = client.get("/measurements?tab=labs&range=lifetime")
@@ -498,7 +499,7 @@ def test_shared_panel_active_protocols_use_the_owners_doses_not_the_viewers(clie
         assert r.status_code == 303
 
         with SessionLocal() as s:
-            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA))
+            s.add(Share(owner_id=other_id, grantee_id=me, category=ShareCategory.PERSONAL_DATA, accepted_at=_accepted_now()))
             s.commit()
 
         from app.routers.labs import labs_tab_context

@@ -16,9 +16,11 @@ from app import water as water_mod
 from app.measurements import scale_view
 from app.measurements.calculations import bmi, body_fat_pct, water_goal_oz, water_pace
 from app.food import usda
+from app.sharing import accepted_owner_ids
 from app.models import FoodLog, WaterLog, BodyMeasurement, DietPreset, Food, LoginSession, MacroGoal, Share, ShareCategory, User
 from app.routers import journal, labs
 from app.templating import templates
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -148,8 +150,7 @@ def _measurement_query(uid: int):
 
 def _shared_measurement_query(uid: int):
     """Measurements owned by anyone who granted this user Personal Data sharing."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.PERSONAL_DATA)
     return select(BodyMeasurement).where(BodyMeasurement.owner_id.in_(shared_owner_ids))
 
 
@@ -654,16 +655,16 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
         context["nutrition_range"] = _nutrition_range(session, uid, window_start, as_of)
         context["scale_latest"] = scale_view.latest_card(own_entries, display_entries(own_entries, u), u, me_user)
         q = request.query_params
-        context["scale_import"] = {k: int(q[k]) for k in ("imported", "merged", "skipped", "unread") if q.get(k, "").isdigit()} or None
+        context["scale_import"] = {k: int(q[k]) for k in ("imported", "merged", "skipped", "unread") if (parse_int(q.get(k, "")) is not None)} or None
         if context["scale_import"] is not None:
             context["scale_import"]["source"] = "Pacer" if q.get("source") == "pacer" else "Smart Scale"
         if q.get("deduped") == "1":                    # the Merge Duplicate Entries button, not an import
             context["scale_import"] = None
-            context["deduped"] = int(q["merged"]) if q.get("merged", "").isdigit() else 0
-        if q.get("kept", "").isdigit():                # a new entry was within 12 hours of this one, so this one was kept
+            context["deduped"] = int(q["merged"]) if (parse_int(q.get("merged", "")) is not None) else 0
+        if (parse_int(q.get("kept", "")) is not None):                # a new entry was within 12 hours of this one, so this one was kept
             kept = next((e for e in own_entries if e.id == int(q["kept"])), None)
             if kept is not None:
-                context["kept_original"] = {"date": kept.measured_at, "filled": int(q["filled"]) if q.get("filled", "").isdigit() else 0}
+                context["kept_original"] = {"date": kept.measured_at, "filled": int(q["filled"]) if (parse_int(q.get("filled", "")) is not None) else 0}
     if tab == "journal":
         edit_raw = (extra or {}).get("journal_edit") or request.query_params.get("edit")
         try:
@@ -675,8 +676,8 @@ def _render(request: Request, session: Session, uid: int, *, tab: str = "measure
     elif tab == "labs":
         q = request.query_params
         context.update(labs.labs_tab_context(session, uid, range_key, window_start,
-                                             int(q["peptide"]) if q.get("peptide", "").isdigit() else None))
-        context["lab_imported"] = int(q["imported"]) if q.get("imported", "").isdigit() else None
+                                             int(q["peptide"]) if (parse_int(q.get("peptide", "")) is not None) else None))
+        context["lab_imported"] = int(q["imported"]) if (parse_int(q.get("imported", "")) is not None) else None
     if tab == "measurements" and me_user:
         login_row = session.get(LoginSession, request.state.session_id) if request.state.session_id else None
         context.update(photo_access.page_context(session, me_user, login_row, sessions.now_utc()))

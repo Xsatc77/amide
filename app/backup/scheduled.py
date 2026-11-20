@@ -3,6 +3,7 @@ The passphrase lives in the environment (AMIDE_BACKUP_PASSPHRASE), never in the 
 Copy data/backups off the computer (a NAS, a cloud drive) for protection against a lost disk."""
 
 import asyncio
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from app.backup.restore import backups_dir
 from app.models import User
 
 INTERVAL = 3600
+log = logging.getLogger(__name__)
 
 
 def _latest(folder: Path) -> float | None:
@@ -55,7 +57,7 @@ async def _loop():
         try:
             await asyncio.to_thread(run_if_due, SessionLocal, datetime.now(timezone.utc))
         except Exception:
-            pass                                    # the next hour tries again
+            log.exception("scheduled backup failed")      # logged, then the next hour tries again
         await asyncio.sleep(INTERVAL)
 
 

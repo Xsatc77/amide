@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.sessions import now_utc
 from app.calculator import units as unit_math
 from app.models import ActiveVial, Category, InventoryItem
+from app.routers._ints import parse_int
 
 MAX_WATER_ML = 200.0
 MAX_DOSES = 1000
@@ -56,12 +57,12 @@ def pending(session: Session, uid: int) -> list[ActiveVial]:
 def dialog_vials(session: Session, uid: int, target_raw=None, extra_ids=()) -> list[dict]:
     """The vials the prompt asks about, each as {vial, item, bac}: the ones never asked about, plus the one a card's Update link names."""
     vials = pending(session, uid)
-    if target_raw and str(target_raw).isdigit() and int(target_raw) not in {v.id for v in vials}:
+    if target_raw and (parse_int(str(target_raw)) is not None) and int(target_raw) not in {v.id for v in vials}:
         target = session.get(ActiveVial, int(target_raw))
         if target is not None and target.owner_id == uid and target.discarded_at is None:
             vials.append(target)
     for raw in extra_ids:                                  # vials whose answers were just refused stay in the prompt, with their messages
-        if str(raw).isdigit() and int(raw) not in {v.id for v in vials}:
+        if (parse_int(str(raw)) is not None) and int(raw) not in {v.id for v in vials}:
             more = session.get(ActiveVial, int(raw))
             if more is not None and more.owner_id == uid and more.discarded_at is None:
                 vials.append(more)
@@ -102,7 +103,7 @@ def apply(session: Session, uid: int, form) -> dict[str, str]:
     errors: dict[str, str] = {}
     changes = []
     for raw_id in form.getlist("vial_ids"):
-        vial = session.get(ActiveVial, int(raw_id)) if str(raw_id).isdigit() else None
+        vial = session.get(ActiveVial, int(raw_id)) if (parse_int(str(raw_id)) is not None) else None
         if vial is None or vial.owner_id != uid or vial.discarded_at is not None:
             continue
         item = session.get(InventoryItem, vial.inventory_item_id)

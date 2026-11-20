@@ -10,11 +10,13 @@ from sqlalchemy.orm import Session
 
 from app import clock
 from app import config
+from app.auth import audit
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.ingest import process, skip, tokens
 from app.models import INGEST_STATUSES, IngestItem, IngestSource, IngestToken, IngestTopic, User, Vendor
 from app.templating import templates
+from app.routers._ints import parse_int
 
 router = APIRouter()
 BACK = "/settings/ingest"
@@ -65,15 +67,19 @@ async def create_token(request: Request, session: Session = Depends(get_session)
     me = _admin(session, uid)
     form = await request.form()
     token, secret = tokens.create_token(session, me.id, str(form.get("label") or ""))
+    audit.record(session, "token_created", request, me, f"watcher token {token.prefix}")      # the prefix is public; the secret is never logged
+    session.commit()
     return _page(request, session, me, new_secret=secret, new_label=token.label)
 
 
 @router.post("/settings/ingest/tokens/{token_id}/revoke")
-def revoke_token(token_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
-    _admin(session, uid)
+def revoke_token(token_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    me = _admin(session, uid)
     token = session.get(IngestToken, token_id)
     if token is not None and token.scope == "watcher":     # an Apple Health token is revoked only by its owner, on their own card
-        tokens.revoke_token(session, token_id)
+        if tokens.revoke_token(session, token_id):
+            audit.record(session, "token_revoked", request, me, f"watcher token {token.prefix}")
+            session.commit()
     return _done()
 
 
@@ -91,7 +97,7 @@ async def update_source(source_id: int, request: Request, session: Session = Dep
         source.vendor_id = vendor.id
     else:
         raw = str(form.get("vendor_id") or "").strip()
-        if raw and (not raw.isdigit() or session.get(Vendor, int(raw)) is None):
+        if raw and (not (parse_int(raw) is not None) or session.get(Vendor, int(raw)) is None):
             raise HTTPException(status_code=422, detail="Unknown vendor.")
         source.vendor_id = int(raw) if raw else None
     warehouse = str(form.get("default_warehouse") or "").strip()
@@ -107,7 +113,7 @@ async def update_source(source_id: int, request: Request, session: Session = Dep
     source.skip_words = ", ".join(skips) or None
     source.follow_words = ", ".join(follows) or None
     source.topics_only = bool(form.get("topics_only"))
-    ticked = {int(v) for v in form.getlist("topics") if str(v).isdigit()}
+    ticked = {int(v) for v in form.getlist("topics") if (parse_int(str(v)) is not None)}
     for topic in session.scalars(select(IngestTopic).where(IngestTopic.source_id == source.id)):
         topic.enabled = topic.id in ticked           # only this group's own topics can be ticked; the switch decides whether ticks are used
     session.commit()
@@ -116,7 +122,7 @@ async def update_source(source_id: int, request: Request, session: Session = Dep
 
 def _int(raw) -> int:
     raw = str(raw or "").strip()
-    if not raw.isdigit():
+    if not (parse_int(raw) is not None):
         raise HTTPException(status_code=422, detail="Choose a vendor.")
     return int(raw)
 

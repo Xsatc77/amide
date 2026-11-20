@@ -82,7 +82,7 @@ def s(tmp_path):
 
 def test_session_expires_after_idle_limit(s):
     row = sessions.create(s, now=T0)
-    token = row.id
+    token = row.token
     assert len(token) >= 40
     assert sessions.get_live(s, token, now=T0 + timedelta(minutes=29, seconds=59)) is not None
     sessions.touch(s, row, now=T0 + timedelta(minutes=29, seconds=59))

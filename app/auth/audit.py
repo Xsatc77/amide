@@ -1,8 +1,10 @@
 """The security log: who signed in, who failed, who changed a password. Never raises, never stores a password, code or token."""
 
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import Request
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import SecurityEvent, User, naive_utcnow
@@ -31,6 +33,21 @@ def record(db: Session, event: str, request: Request | None = None, user: User |
         log.info("%s user=%s client=%s %s", row.event, row.username or "-", row.client or "-", row.detail)
     except Exception:  # noqa: BLE001 -- the log must never break a sign-in
         log.warning("could not record security event %s", event, exc_info=True)
+
+
+RETENTION_DAYS = 90
+MAX_ROWS = 50_000
+
+
+def purge(db: Session, now: datetime | None = None) -> int:
+    """Delete log lines older than RETENTION_DAYS, then the oldest lines beyond MAX_ROWS. Returns how many went. Commits."""
+    now = now or naive_utcnow()
+    removed = db.execute(delete(SecurityEvent).where(SecurityEvent.created_at < now - timedelta(days=RETENTION_DAYS))).rowcount or 0
+    cutoff = db.scalar(select(SecurityEvent.id).order_by(SecurityEvent.id.desc()).offset(MAX_ROWS - 1).limit(1))     # primary key only
+    if cutoff is not None:
+        removed += db.execute(delete(SecurityEvent).where(SecurityEvent.id < cutoff)).rowcount or 0
+    db.commit()
+    return removed
 
 
 def recent(db: Session, limit: int = 50) -> list[SecurityEvent]:

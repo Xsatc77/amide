@@ -9,11 +9,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import config
+from app.auth import audit
 from app.auth.deps import current_user_id
 from app.db import get_session
 from app.health import choices
 from app.ingest import tokens
-from app.models import HealthEvent, HealthRaw, HealthReading, IngestToken, naive_utcnow
+from app.models import HealthEvent, HealthRaw, HealthReading, IngestToken, User, naive_utcnow
 
 router = APIRouter()
 BACK = "/settings#integrations"
@@ -92,16 +93,20 @@ async def create_token(request: Request, session: Session = Depends(get_session)
     if live >= config.HEALTH_MAX_TOKENS:            # the card says so and offers no form; this refuses a post sent anyway
         return RedirectResponse(BACK, status_code=303)
     token, secret = tokens.create_token(session, uid, str(form.get("label") or ""), scope="health")
+    audit.record(session, "token_created", request, session.get(User, uid), f"health token {token.prefix}")      # the prefix is public; the secret is never logged
+    session.commit()
     if request.state.session_id:
         _remember(request.state.session_id, secret, token.label)
     return RedirectResponse(BACK, status_code=303)
 
 
 @router.post("/settings/apple-health/token/{token_id}/revoke")
-def revoke_token(token_id: int, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+def revoke_token(token_id: int, request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
     token = session.scalar(select(IngestToken).where(IngestToken.id == token_id, IngestToken.owner_id == uid, IngestToken.scope == "health"))
     if token is not None:
-        tokens.revoke_token(session, token.id)      # someone else's token is left alone, and the answer is the same
+        if tokens.revoke_token(session, token.id):      # someone else's token is left alone, and the answer is the same
+            audit.record(session, "token_revoked", request, session.get(User, uid), f"health token {token.prefix}")
+            session.commit()
     return RedirectResponse(BACK, status_code=303)
 
 

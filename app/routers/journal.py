@@ -12,6 +12,7 @@ from app.auth.deps import current_user_id
 from app.security_headers import FILE_HEADERS
 from app.db import get_session
 from app.templating import templates
+from app.sharing import accepted_owner_ids
 from app.models import (
     DoseLog, JournalCustomEffect, JournalEntry, JournalEntryCustomEffect, JournalEntrySideEffect, JournalPhoto, JournalQuickNote, JournalSideEffect, Share, ShareCategory,
     User,
@@ -69,8 +70,7 @@ def _journal_query(uid: int):
 
 def _shared_journal_query(uid: int):
     """Journal entries owned by anyone who granted this user Personal Data sharing."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.PERSONAL_DATA)
     return select(JournalEntry).where(JournalEntry.owner_id.in_(shared_owner_ids)).options(
         selectinload(JournalEntry.side_effects), selectinload(JournalEntry.custom_effects), selectinload(JournalEntry.quick_notes), selectinload(JournalEntry.photos))
 

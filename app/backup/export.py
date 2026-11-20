@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app import config
+from app import config, secretbox
 from app.backup import sections as reg
 from app.backup.archive import write_archive
 from app.backup.container import BackupError
@@ -38,8 +38,11 @@ def table_rows(session: Session, tbl: reg.Tbl, uid: int | None) -> list[dict]:
     """Raw rows of one table: a person's (filtered by the registry's SQL) or, with uid None, every row."""
     cols = ", ".join(f'"{c}"' for c in _columns(tbl))
     where = f" WHERE {tbl.where}" if tbl.where and uid is not None else ""
-    return [dict(r) for r in session.execute(text(f'SELECT {cols} FROM "{tbl.name}"{where}'), {"uid": uid}
+    rows = [dict(r) for r in session.execute(text(f'SELECT {cols} FROM "{tbl.name}"{where}'), {"uid": uid}
                                              if tbl.where and uid is not None else {}).mappings()]
+    if tbl.name == "users":          # sealed with this installation's key in the database; the (passphrase-sealed) backup carries plaintext so a restore can seal it with its own key
+        rows = [secretbox.open_columns(r) for r in rows]
+    return rows
 
 
 def _attach_refs(session: Session, section: reg.Section, rows_by_table: dict[str, list[dict]]) -> None:

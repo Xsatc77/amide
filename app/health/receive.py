@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app import config
 from app.health import parse
 from app.models import HealthRaw, naive_utcnow
+from app.routers._ints import parse_int
 
 KEPT_HEADERS = ("automation-name", "automation-id", "automation-aggregation", "automation-period", "session-id")
 
@@ -73,7 +74,7 @@ async def store_body(request: Request, owner_id: int, session: Session) -> tuple
     the owner's raw-storage quota cannot take is a 507. A body that does not look like JSON gets a flagged row but no stored file."""
     limit = config.HEALTH_MAX_BYTES
     declared = request.headers.get("content-length", "")
-    if declared.isdigit() and int(declared) > limit:            # a declared size over the cap is refused before reading anything
+    if (parse_int(declared) is not None) and int(declared) > limit:            # a declared size over the cap is refused before reading anything
         raise HTTPException(413, "Too large")
     directory = config.HEALTH_RAW_DIR
     directory.mkdir(parents=True, exist_ok=True)

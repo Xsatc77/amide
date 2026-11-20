@@ -2,6 +2,7 @@
 on its own: it posts a short message to the topic the user chose when a scheduled dose's time of day has come and the dose is not logged."""
 
 import asyncio
+import logging
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -25,6 +26,9 @@ def send_ntfy(server: str, topic: str, title: str, message: str) -> None:
     # unsafe raises here and the caller (the reminder loop) treats it as a failed send.
     with netguard.safe_open(request, 10, allow_private=True, allow_loopback=True, max_bytes=65_536, https_for_public=True):
         pass
+
+
+log = logging.getLogger(__name__)
 
 
 def _zone(user: User):
@@ -58,7 +62,8 @@ def run_once(session_factory, now_utc: datetime, send=None) -> int:
                     dose = f"{item.dose:g} {item.unit}" if item.dose is not None else "dose not set"
                     try:
                         send(config.NTFY_SERVER, user.ntfy_topic, f"Time for {item.peptide}", f"{dose} ({item.time_of_day.label}) - {occ.protocol_name}")
-                    except Exception:
+                    except Exception as exc:
+                        log.warning("dose reminder not sent (%s)", type(exc).__name__)      # no topic, no address in the line
                         continue
                     session.add(DoseReminder(user_id=user.id, protocol_item_id=item.protocol_item_id, for_date=today))
                     session.commit()
@@ -83,7 +88,8 @@ def _photo_pushes(session, user: User, local: datetime, today, send) -> int:
             continue
         try:
             send(config.NTFY_SERVER, user.ntfy_topic, "Time for body photos", reminder.text)
-        except Exception:
+        except Exception as exc:
+            log.warning("photo reminder not sent (%s)", type(exc).__name__)
             continue
         session.add(PhotoReminderSent(user_id=user.id, reminder_key=reminder.key, for_date=today))
         session.commit()
@@ -97,7 +103,7 @@ async def _loop():
             from app.db import SessionLocal
             await asyncio.to_thread(run_once, SessionLocal, datetime.now(timezone.utc))
         except Exception:
-            pass
+            log.exception("reminder round failed")
         await asyncio.sleep(INTERVAL)
 
 

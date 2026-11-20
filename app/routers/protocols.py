@@ -12,6 +12,7 @@ from app.calendar.schedule import missed_items, occurrences
 from app.db import get_session
 from app.goals import GOALS, GOALS_BY_SLUG
 from app.library.price_lists.analysis import rematch_items
+from app.sharing import accepted_owner_ids
 from app.models import (
     WEEKDAY_LETTERS, WEEKDAY_NAMES, UserMedicine, Category, DoseLog, DoseUnit, Frequency, GoalPeptide, InventoryItem, Medium, Peptide, PeptideSource,
     Protocol, ProtocolGoal, ProtocolItem, ProtocolItemCycleOff, Route, Share, ShareCategory, TimeOfDay, TitrationStep,
@@ -31,6 +32,7 @@ from app.protocols.tiers import builder_tiers
 from app.protocols.titration import ramp
 from app.protocols.status import Status, current_step, current_week, day_number, protocol_status
 from app.templating import templates
+from app.routers._ints import parse_int
 
 router = APIRouter()
 
@@ -56,8 +58,7 @@ def _protocol_query(uid: int):
 
 def _shared_protocol_query(uid: int):
     """Protocols owned by anyone who granted this user Personal Data sharing."""
-    shared_owner_ids = select(Share.owner_id).where(
-        Share.grantee_id == uid, Share.category == ShareCategory.PERSONAL_DATA)
+    shared_owner_ids = accepted_owner_ids(uid, ShareCategory.PERSONAL_DATA)
     return select(Protocol).where(Protocol.owner_id.in_(shared_owner_ids)).options(
         selectinload(Protocol.goals),
         selectinload(Protocol.items).selectinload(ProtocolItem.peptide),
@@ -307,18 +308,18 @@ def _error_summary(session: Session, state: dict, errors: dict) -> list[str]:
     lines = []
     for key, message in errors.items():
         parts = key.split("-")
-        if parts[0] != "items" or len(parts) < 3 or not parts[1].isdigit():
+        if parts[0] != "items" or len(parts) < 3 or not (parse_int(parts[1]) is not None):
             lines.append(f"{_FIELD_LABELS.get(key, key.replace('_', ' ').capitalize())}: {message}")
             continue
         n = int(parts[1])
         raw = (state.get("items") or [])[n] if n < len(state.get("items") or []) else {}
         name = raw.get("new_name") or ""
-        if raw.get("peptide_id", "").isdigit():
+        if (parse_int(raw.get("peptide_id", "")) is not None):
             pep = session.get(Peptide, int(raw["peptide_id"]))
             name = pep.name if pep else name
         who = f"Peptide {n + 1}" + (f" ({name})" if name else "")
-        where = f", step {int(parts[3]) + 1}" if len(parts) > 4 and parts[2] == "steps" and parts[3].isdigit() else (
-            f", cycle-off {int(parts[3]) + 1}" if len(parts) > 4 and parts[2] == "cycle_offs" and parts[3].isdigit() else "")
+        where = f", step {int(parts[3]) + 1}" if len(parts) > 4 and parts[2] == "steps" and (parse_int(parts[3]) is not None) else (
+            f", cycle-off {int(parts[3]) + 1}" if len(parts) > 4 and parts[2] == "cycle_offs" and (parse_int(parts[3]) is not None) else "")
         field = parts[-1]
         lines.append(f"{who}{where}, {_FIELD_LABELS.get(field, field.replace('_', ' '))}: {message}")
     return lines

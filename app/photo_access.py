@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app import config
 from app.auth import sessions
 from app.models import BodyPhoto, LoginSession, User
-from app.routers.auth import check_code
+from app.auth.twofa import check_code
 
 
 ANGLE_LABELS = {"front": "Front", "side": "Side", "back": "Back", "other": "Other"}

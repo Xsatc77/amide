@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, timedelta
 
+from app.auth import sessions
 from app.models import HealthEvent, HealthRaw, HealthReading, naive_utcnow
 from app.routers import apple_health
 
@@ -43,7 +44,7 @@ def test_new_token_secret_is_shown_once_and_the_address_uses_the_request_host(cl
     again = client.get("/settings").text
     assert secret not in again
     assert "Phone" in again and "Revoke" in again       # later only the label and prefix remain
-    assert apple_health.take_new_token(client.cookies.get("amide_session")) is None
+    assert apple_health.take_new_token(sessions.hash_token(client.cookies.get("amide_session"))) is None
 
 
 def test_event_counts_listed_for_stored_only_kinds(client, db, me):

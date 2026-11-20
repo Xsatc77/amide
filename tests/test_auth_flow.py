@@ -156,7 +156,10 @@ def test_lockout(fresh, clock):
     for _ in range(5):
         fresh.post("/login", data={"username": "lockme", "password": "nope"})
     r = fresh.post("/login", data={"username": "lockme", "password": PW})
-    assert r.status_code == 422 and "Too many attempts" in text(r)
+    # This browser never signed in as that name, so the lock is not shown: after five misses this address is in backoff (429),
+    # exactly as for an unknown name.
+    assert r.status_code == 429 and "Too many attempts" not in text(r)
+    assert user("lockme").locked_until is not None
     clock["now"] += timedelta(minutes=16)
     fresh.post("/notice", data={"understand": "1"})  # session idled out meanwhile
     assert fresh.post("/login", data={"username": "lockme", "password": PW}).status_code == 303

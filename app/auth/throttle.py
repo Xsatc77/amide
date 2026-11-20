@@ -24,22 +24,31 @@ class Throttle:
     def __init__(self):
         self._hits: dict = defaultdict(deque)
         self._lock = threading.Lock()
+        self._calls = 0
 
     def check(self, group: str, client: str, now: float | None = None) -> int:
         """0 when the call is allowed (and counted); otherwise the whole seconds to wait."""
         limit, window = LIMITS[group]
         now = time.monotonic() if now is None else now
         with self._lock:
+            self._calls += 1
+            if self._calls % _SWEEP_EVERY == 0 or len(self._hits) > MAX_KEYS:
+                self._sweep(now)
             hits = self._hits[(group, client)]
             while hits and now - hits[0] >= window:
                 hits.popleft()
             if len(hits) >= limit:
                 return max(1, int(window - (now - hits[0])) + 1)
             hits.append(now)
-            if len(self._hits) > 5000:          # forget addresses that have gone quiet
-                for key in [k for k, v in self._hits.items() if not v or now - v[-1] >= LIMITS[k[0]][1]]:
-                    del self._hits[key]
             return 0
+
+    def _sweep(self, now: float) -> None:
+        """Caller holds the lock. Forget addresses that have gone quiet, then the oldest beyond MAX_KEYS."""
+        for key in [k for k, v in self._hits.items() if not v or now - v[-1] >= LIMITS[k[0]][1]]:
+            del self._hits[key]
+        if len(self._hits) > MAX_KEYS:
+            for key in sorted(self._hits, key=lambda k: self._hits[k][-1])[:len(self._hits) - MAX_KEYS]:
+                del self._hits[key]
 
     def reset(self) -> None:
         with self._lock:
@@ -77,47 +86,66 @@ WAIT_MESSAGE = "Too many attempts from this address. Please wait a little while 
 # (one household router) can still lock them out, and a restart forgets both lists. Both live in memory only.
 BACKOFF_FREE = 5
 KNOWN_DAYS = 30
+MAX_KEYS = 5000                 # hard cap on each table below: the oldest entries go first, so memory cannot grow with addresses
+_SWEEP_EVERY = 256              # every this many writes, entries past their window are dropped
 _failures: dict[tuple[str, str], tuple[int, datetime]] = {}
 _known: dict[tuple[str, str], datetime] = {}
+_lock = threading.Lock()        # the threadpool (sync routes) and the event loop both reach these dicts
+_writes = 0
+
+
+def _evict(table: dict, newest, max_age: timedelta, now: datetime) -> None:
+    """Caller holds _lock. Drop entries whose newest time is older than `max_age` (every _SWEEP_EVERY writes, or when over the cap),
+    then the oldest entries beyond MAX_KEYS."""
+    global _writes
+    _writes += 1
+    if _writes % _SWEEP_EVERY and len(table) <= MAX_KEYS:
+        return
+    for key in [k for k, v in list(table.items()) if now - newest(v) > max_age]:
+        table.pop(key, None)
+    if len(table) > MAX_KEYS:
+        for key in sorted(table, key=lambda k: newest(table[k]))[:len(table) - MAX_KEYS]:
+            table.pop(key, None)
 
 
 def backoff_wait(client: str, name_key: str, now: datetime) -> int:
     """Seconds this address must still wait before trying this name again (0 = go ahead)."""
-    entry = _failures.get((client, name_key))
-    if entry is None:
-        return 0
-    count, last = entry
-    if now - last > timedelta(hours=1):
-        _failures.pop((client, name_key), None)
-        return 0
+    with _lock:
+        entry = _failures.get((client, name_key))
+        if entry is None:
+            return 0
+        count, last = entry
+        if now - last > timedelta(hours=1):
+            _failures.pop((client, name_key), None)
+            return 0
     if count < BACKOFF_FREE:
         return 0
-    delay = min(900, 30 * 2 ** (count - BACKOFF_FREE))
+    delay = min(900, 30 * 2 ** min(count - BACKOFF_FREE, 10))
     return max(0, int(delay - (now - last).total_seconds()) + 1)
 
 
 def note_failure(client: str, name_key: str, now: datetime) -> None:
-    count, _ = _failures.get((client, name_key), (0, now))
-    _failures[(client, name_key)] = (count + 1, now)
-    if len(_failures) > 5000:
-        for key in [k for k, (_, t) in _failures.items() if now - t > timedelta(hours=1)]:
-            del _failures[key]
+    with _lock:
+        count, _ = _failures.get((client, name_key), (0, now))
+        _failures[(client, name_key)] = (count + 1, now)
+        _evict(_failures, lambda v: v[1], timedelta(hours=1), now)
 
 
 def note_success(client: str, name_key: str, now: datetime) -> None:
-    _failures.pop((client, name_key), None)
-    _known[(client, name_key)] = now
-    if len(_known) > 5000:
-        for key in [k for k, t in _known.items() if now - t > timedelta(days=KNOWN_DAYS)]:
-            del _known[key]
+    with _lock:
+        _failures.pop((client, name_key), None)
+        _known[(client, name_key)] = now
+        _evict(_known, lambda v: v, timedelta(days=KNOWN_DAYS), now)
 
 
 def is_known(client: str, name_key: str, now: datetime) -> bool:
-    seen = _known.get((client, name_key))
+    with _lock:
+        seen = _known.get((client, name_key))
     return seen is not None and now - seen <= timedelta(days=KNOWN_DAYS)
 
 
 def reset_all() -> None:
     throttle.reset()
-    _failures.clear()
-    _known.clear()
+    with _lock:
+        _failures.clear()
+        _known.clear()
