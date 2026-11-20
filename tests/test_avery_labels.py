@@ -6,10 +6,11 @@ from datetime import date
 
 import pytest
 from docx import Document
+from docx.oxml.ns import qn
 
 from app.db import SessionLocal
 from app.inventory import avery94500, symbols
-from app.models import Category, ElementSymbol, InventoryItem, Medium, Order, OrderItem, Peptide
+from app.models import Category, ElementSymbol, InventoryItem, Medium, Order, OrderItem, Peptide, User
 
 
 @pytest.fixture(autouse=True)
@@ -109,3 +110,50 @@ def test_a_checked_in_order_prints_one_label_per_received_vial_with_its_own_lot_
 def test_the_label_drawing_runs_for_a_long_symbol_and_blank_lot_and_exp():
     assert avery94500.label_png(avery94500.Spec("Abc", "500 MCG", "", "")).startswith(b"\x89PNG")
     assert avery94500.exp_text(date(2027, 12, 5)) == "12/27" and avery94500.strength_text(10.0, "mg") == "10 MG"
+
+
+# ---- alignment: a printer that lands the circles off the label sheet ----------------------------------------------------------------------------
+
+def sheet_geometry(docx_bytes):
+    doc = Document(io.BytesIO(docx_bytes))
+    sec = doc.sections[0]
+    table = doc.tables[0]
+    cols = [int(g.get(qn("w:w"))) for g in table._tbl.tblGrid.findall(qn("w:gridCol"))]
+    rows = [int(r._tr.trPr.find(qn("w:trHeight")).get(qn("w:val"))) for r in table.rows]
+    return sec.left_margin.twips, sec.top_margin.twips, sec.bottom_margin.twips, cols, rows, len(doc.tables)
+
+
+def test_with_no_alignment_the_sheet_is_the_avery_grid():
+    left, top, bottom, cols, rows, sheets = sheet_geometry(avery94500.word_file([avery94500.Spec("Rt", "10 MG", "1", "12/27", 1)])[0])
+    assert (left, top) == (900, 900) and cols == [1440, 360] * 5 + [1440] and rows == [1440, 360] * 7 + [1440] and bottom == 820
+
+
+def test_a_shift_moves_the_sheet_and_a_stretch_changes_the_gaps_between_circles():
+    one = [avery94500.Spec("Rt", "10 MG", "1", "12/27", 1)]
+    left, top, bottom, cols, rows, _ = sheet_geometry(avery94500.word_file(one, 1, avery94500.Align(0.05, -0.04, 0.05, -0.04))[0])
+    assert (left, top) == (972, 842) and cols[1] == 360 and rows[1] == 360          # the same shift at both corners: only the sheet moves
+    left, top, bottom, cols, rows, _ = sheet_geometry(avery94500.word_file(one, 1, avery94500.Align(0.0, 0.0, 0.10, 0.14))[0])
+    assert (left, top) == (900, 900) and cols[1] == 360 + round(0.02 * 1440) and rows[1] == 360 + round(0.02 * 1440)       # 0.10 over 5 gaps, 0.14 over 7
+    assert 15840 - top - (8 * 1440 + 7 * rows[1]) - bottom >= 60                     # the table and its tiny paragraph still fit on one page
+
+
+def test_alignment_is_kept_within_half_an_inch_and_ignores_junk():
+    a = avery94500.Align.from_dict({"tl_x": "9", "tl_y": "x", "br_x": -9, "br_y": None})
+    assert (a.tl_x, a.tl_y, a.br_x, a.br_y) == (0.5, 0.0, -0.5, 0.0)
+
+
+def test_the_alignment_is_saved_in_settings_and_used_for_the_downloads(client, db, me):
+    page = client.get("/settings").text
+    assert "Avery 94500 Alignment" in page and 'action="/settings/avery-alignment"' in page and "alignment-test.docx" in page
+    assert client.post("/settings/avery-alignment", data={"tl_x": "0.05", "tl_y": "-0.03", "br_x": "0.05", "br_y": "-0.03"}, follow_redirects=False).status_code == 303
+    db.expire_all()
+    assert db.get(User, me).avery_align == {"tl_x": 0.05, "tl_y": -0.03, "br_x": 0.05, "br_y": -0.03}
+    test = client.get("/inventory/labels/alignment-test.docx")
+    assert test.status_code == 200 and len(pictures(test.content)) == 48 and sheet_geometry(test.content)[:2] == (972, 857)
+    pid = item(me)
+    assert sheet_geometry(client.get(f"/inventory/{pid}/labels.docx?count=1").content)[:2] == (972, 857)
+    for bad in ({"tl_x": "abc"}, {"tl_x": "0.9"}):
+        assert client.post("/settings/avery-alignment", data=bad).status_code == 422
+    client.post("/settings/avery-alignment", data={})                                              # all blank: back to no alignment
+    db.expire_all()
+    assert db.get(User, me).avery_align is None

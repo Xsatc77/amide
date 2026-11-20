@@ -19,6 +19,7 @@ from app.auth.deps import current_user_id
 from app.db import get_session
 from app.measurements.tdee import LIFE_STAGES
 from app.measurements.calculations import macros_for_preset
+from app.inventory import avery94500
 from app.inventory.labels import LABEL_SIZES
 from app.inventory.label_layout import LayoutError, parse_layout
 from app.shopping.build import parse_fee, saved_shipping
@@ -316,6 +317,25 @@ async def change_label_settings(request: Request, session: Session = Depends(get
     me.auto_print_labels, me.label_size, me.label_layout = bool(form.get("auto_print_labels")), size, layout
     session.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/avery-alignment")
+async def change_avery_alignment(request: Request, session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """How far the printer lands off the Avery 94500 circles at #1 and #48 (inches; blank is 0). Saved as typed, kept within half an inch."""
+    form = await request.form()
+    values = {}
+    for key in ("tl_x", "tl_y", "br_x", "br_y"):
+        raw = str(form.get(key) or "").strip()
+        try:
+            v = float(raw) if raw else 0.0
+        except ValueError:
+            return _render(request, session, errors={"avery_align": "Each alignment number must be a number of inches, like 0.05 or -0.03."}, status_code=422)
+        if abs(v) > avery94500.MAX_SHIFT:
+            return _render(request, session, errors={"avery_align": f"Each alignment number must be within {avery94500.MAX_SHIFT:g} inch either way."}, status_code=422)
+        values[key] = v
+    _me(session, uid).avery_align = values if any(values.values()) else None
+    session.commit()
+    return RedirectResponse("/settings#avery-alignment", status_code=303)
 
 
 MAX_MEDICINES = 60

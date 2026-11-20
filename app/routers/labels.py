@@ -78,8 +78,8 @@ DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 MAX_LABELS = 480                     # ten sheets
 
 
-def _word(specs: list[avery94500.Spec], start: int, name: str) -> Response:
-    data, _, _ = avery94500.word_file(specs, start)
+def _word(session: Session, uid: int, specs: list[avery94500.Spec], start: int, name: str, draw=None) -> Response:
+    data, _, _ = avery94500.word_file(specs, start, avery94500.Align.from_dict(session.get(User, uid).avery_align), draw)
     return Response(data, media_type=DOCX, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
@@ -116,7 +116,13 @@ def item_word_labels(item_id: int, count: int = 1, start: str = "1", lot: str = 
                            lot.strip().upper()[:20], _exp(exp), count)
     first = _start(start)
     session.commit()
-    return _word([spec], first, f"Amide_Labels_{spec.symbol}.docx")
+    return _word(session, uid, [spec], first, f"Amide_Labels_{spec.symbol}.docx")
+
+
+@router.get("/inventory/labels/alignment-test.docx")
+def alignment_test_sheet(session: Session = Depends(get_session), uid: int = Depends(current_user_id)):
+    """All 48 circles as plain rings with a cross, printed with your saved alignment, to hold against a label sheet and see where they land."""
+    return _word(session, uid, [avery94500.Spec("", "", "", "", avery94500.PER_SHEET)], 1, "Amide_Alignment_Test.docx", avery94500.test_png)
 
 
 @router.get("/inventory/orders/{order_id}/labels.docx")
@@ -130,7 +136,7 @@ def order_word_labels(order_id: int, start: str = "1", session: Session = Depend
         raise HTTPException(422, f"That is more than {MAX_LABELS} labels")
     first = _start(start)
     session.commit()
-    return _word(specs, first, "Amide_Labels.docx")
+    return _word(session, uid, specs, first, "Amide_Labels.docx")
 
 
 def avery94500_specs_for_order(session: Session, order: Order, uid: int) -> list[avery94500.Spec]:

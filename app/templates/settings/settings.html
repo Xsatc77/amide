@@ -264,6 +264,27 @@
         {% if me.label_size == 'custom' and me.label_layout %}<a class="btn btn-ghost" href="/inventory/labels/test" target="_blank" rel="noopener">Print a test sheet</a>{% endif %}
       </form>
 
+      <form method="post" action="/settings/avery-alignment" class="settings-form" id="avery-alignment" novalidate>
+        <h3 class="small muted">Avery 94500 Alignment</h3>
+        <p class="small muted">If the printed circles do not land on the label circles, tell Amide how far off they are and it moves them in the Word file, so you do not need a scaling setting on the printer.
+          Download the test sheet, print it on plain paper at 100% scale, and hold it against a label sheet in front of a light. For circle #1 (top left) and circle #48 (bottom right), measure how far the printed ring would have to move to sit on the label's circle,
+          in inches (1/16 inch is 0.06, 1 mm is 0.04). Right and down are plus; left and up are minus, like -0.05. Leave a box empty if it is already right.</p>
+        {% set AL = me.avery_align or {} %}
+        {% if errors.avery_align %}<p class="error small" role="alert">{{ errors.avery_align }}</p>{% endif %}
+        <fieldset class="inline-fields">
+          <legend>Circle #1, Top Left</legend>
+          <label class="field"><span>Move right (in)</span><input type="number" step="any" name="tl_x" value="{{ AL.get('tl_x') or '' }}" min="-0.5" max="0.5"></label>
+          <label class="field"><span>Move down (in)</span><input type="number" step="any" name="tl_y" value="{{ AL.get('tl_y') or '' }}" min="-0.5" max="0.5"></label>
+        </fieldset>
+        <fieldset class="inline-fields">
+          <legend>Circle #48, Bottom Right</legend>
+          <label class="field"><span>Move right (in)</span><input type="number" step="any" name="br_x" value="{{ AL.get('br_x') or '' }}" min="-0.5" max="0.5"></label>
+          <label class="field"><span>Move down (in)</span><input type="number" step="any" name="br_y" value="{{ AL.get('br_y') or '' }}" min="-0.5" max="0.5"></label>
+        </fieldset>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a class="btn btn-ghost" href="/inventory/labels/alignment-test.docx">Download Test Sheet</a>
+      </form>
+
       <form method="post" action="/settings/shopping" class="settings-form" novalidate>
         <h3 class="small muted">Shopping</h3>
         <p class="small muted">What the &ldquo;Shop this protocol&rdquo; plan assumes each vendor order costs to ship. You can also change these
