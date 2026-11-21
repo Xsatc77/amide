@@ -1,22 +1,22 @@
 # The packages Amide needs, pinned exactly. Edit this file by hand, then regenerate the hashed lock the image installs:
 #   python tools/make_lock.py requirements.txt requirements.lock --exclude opencv-python --extra antlr4-python3-runtime==4.9.3
 # (see docs/SUPPLY_CHAIN.md). Dependabot opens pull requests for new versions.
-fastapi==0.141.1
+fastapi==0.163.1
 uvicorn[standard]==0.53.0
-SQLAlchemy==2.0.54
+SQLAlchemy==2.1.9
 alembic==1.20.0
 Jinja2==3.1.6
-python-multipart==0.0.32
+python-multipart==0.0.34
 argon2-cffi==25.1.0
 pyotp==2.10.0
 segno==1.6.6
 tzdata==2025.2
 pypdf==7.1.1
-reportlab==4.4.4
+reportlab==5.1.0
 pdfplumber==0.11.10
 cryptography==50.0.2
 rapidocr==3.9.2
-onnxruntime==1.30.0
+onnxruntime==1.32.0
 # The headless OpenCV build has no GUI code and needs no libGL in the image. rapidocr lists plain opencv-python as a
 # dependency, so the lock leaves that one out (--exclude) and installs with --no-deps.
 opencv-python-headless==5.1.0.95
