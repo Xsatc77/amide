@@ -83,6 +83,7 @@ def _security_headers(scope) -> list[tuple[bytes, bytes]]:
         (b"referrer-policy", b"same-origin"),
         (b"permissions-policy", PERMISSIONS_POLICY.encode()),
         (b"cross-origin-opener-policy", b"same-origin"),
+        (b"cross-origin-resource-policy", b"same-origin"),          # no other site may embed Amide's pages, files or photos as resources (Cross-Origin-Embedder-Policy is left off: it would gain nothing here and risks the browsers' PDF viewers)
     ]
     if _is_https(scope):
         headers.append((b"strict-transport-security", b"max-age=31536000"))

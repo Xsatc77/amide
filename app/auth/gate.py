@@ -36,7 +36,13 @@ UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 def _same_origin(request: Request) -> bool:
-    """Reject form posts made by other websites (the browser names the sending site in Origin/Referer)."""
+    """Reject form posts made by other websites. A modern browser says who is posting in Sec-Fetch-Site (it cannot be set by a web page):
+    anything but same-origin (or none, a person typing or bookmarking) is refused, including `same-site`, which is ANOTHER app on a sibling
+    sub-domain of the same site. Older clients fall back to Origin/Referer, and a request with none of these (a script, not a browser) is
+    allowed because the SameSite cookie still protects browsers."""
+    fetch_site = (request.headers.get("sec-fetch-site") or "").strip().lower()
+    if fetch_site and fetch_site not in ("same-origin", "none"):
+        return False
     source = request.headers.get("origin") or request.headers.get("referer")
     if not source or source == "null":
         return True  # non-browser clients; the SameSite cookie still protects browsers
@@ -90,10 +96,6 @@ def install(app: FastAPI) -> None:
     if not config.PUBLIC_URL:
         log.warning("AMIDE_PUBLIC_URL is not set: passkeys trust the Host / X-Forwarded-Host header of each request. "
                     "Set AMIDE_PUBLIC_URL to the https address people use (see docs/DEPLOYING.md).")
-    elif config.PUBLIC_URL.lower().startswith("https://"):
-        log.warning("AMIDE_PUBLIC_URL is https, so the session cookie is always Secure: opening Amide over plain http (for example "
-                    "a LAN address) will not stay signed in. Use https for every address, or leave AMIDE_PUBLIC_URL unset "
-                    "(see docs/DEPLOYING.md).")
 
     @app.middleware("http")
     async def gate(request: Request, call_next):

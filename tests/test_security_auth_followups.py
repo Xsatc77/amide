@@ -198,15 +198,12 @@ def test_old_failure_and_known_entries_are_evicted(monkeypatch):
 
 # ---------------------------------------------------------------- 7 and 8. start-up warnings
 
-def test_an_https_public_address_warns_about_plain_http_at_start(monkeypatch, caplog):
+def test_an_https_public_address_no_longer_warns_about_plain_http_at_start(monkeypatch, caplog):
+    """The public address no longer forces the Secure cookie, so there is nothing to warn about for the LAN address."""
     caplog.set_level(logging.WARNING, logger="amide")
     monkeypatch.setattr(config, "PUBLIC_URL", "https://amide.example.test")
     gate.install(FastAPI())
-    assert "plain http" in caplog.text and "Secure" in caplog.text
-    caplog.clear()
-    monkeypatch.setattr(config, "PUBLIC_URL", "http://amide.example.test")
-    gate.install(FastAPI())
-    assert "plain http" not in caplog.text
+    assert "plain http" not in caplog.text and "always Secure" not in caplog.text
 
 
 def _request(host):

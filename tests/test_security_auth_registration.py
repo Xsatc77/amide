@@ -92,10 +92,13 @@ def test_the_environment_overrides_the_switch(fresh, monkeypatch, closed_default
 
 # ---------------------------------------------------------------- S-08 secure cookie
 
-def test_the_cookie_is_secure_when_the_public_url_is_https_even_over_http(fresh, monkeypatch):
+def test_the_public_url_does_not_stop_the_plain_http_lan_address_from_working(fresh, monkeypatch):
+    """AMIDE_PUBLIC_URL pins the passkey site name; it must not force the Secure flag, or a browser on http://<lan address> drops the cookie."""
     monkeypatch.setattr(config, "PUBLIC_URL", "https://amide.example.test")
     r = fresh.post("/notice", data={"understand": "1"})
-    assert "secure" in r.headers["set-cookie"].lower()
+    assert "secure" not in r.headers["set-cookie"].lower()
+    r = fresh.post("/notice", data={"understand": "1"}, headers={"X-Forwarded-Proto": "https"})
+    assert "secure" in r.headers["set-cookie"].lower()          # the same server, reached through the https proxy
 
 
 def test_the_cookie_follows_the_request_scheme_without_a_public_url(monkeypatch):
@@ -113,9 +116,9 @@ def test_cookie_secure_helper(monkeypatch):
         class url:
             scheme = "http"
     monkeypatch.setattr(config, "PUBLIC_URL", "https://x.example.test")
+    assert not config.cookie_secure(Req)                         # the public address alone no longer forces it
+    Req.headers = {"x-forwarded-proto": "https"}
     assert config.cookie_secure(Req)
-    monkeypatch.setattr(config, "PUBLIC_URL", "http://x.example.test")
-    assert not config.cookie_secure(Req)
 
 
 # ---------------------------------------------------------------- N-12 host pattern

@@ -90,12 +90,11 @@ def registration_override() -> str | None:
 
 
 def cookie_secure(request) -> bool:
-    """The `secure` flag for the session and device cookies: on when AMIDE_PUBLIC_URL is https, when the request itself is https, or when the
-    proxy in front says (X-Forwarded-Proto) it received https. The header is only ever believed in the SAFER direction: a client that fakes
-    "https" gets a Secure flag on its own cookie, nothing more, so it needs no trusted-proxy setting; plain-http LAN visits carry no such
-    header and keep a cookie that works."""
-    if PUBLIC_URL.lower().startswith("https://"):
-        return True
+    """The `secure` flag for the session and device cookies: on when the request itself is https, or when the proxy in front says
+    (X-Forwarded-Proto) it received https. The header is only ever believed in the SAFER direction: a client that fakes "https" gets a Secure
+    flag on its own cookie, nothing more, so it needs no trusted-proxy setting. AMIDE_PUBLIC_URL deliberately does NOT force the flag: a browser
+    on the plain-http LAN address would drop a Secure cookie and could never stay signed in, so a person may use the home address at home and the
+    https address away from home. (AMIDE_PUBLIC_URL still pins the passkey site name and the calendar feed address.)"""
     if request.url.scheme == "https":
         return True
     forwarded = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
