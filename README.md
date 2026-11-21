@@ -161,6 +161,7 @@ Card text and images are saved in `data/library/` (private, never committed). To
 - **Backups:** keep a copy of `data/` and of your backup files somewhere other than the server.
 - **Images and packages:** images are built from hash-pinned dependencies and a digest-pinned base, with a software bill of materials and provenance attached ([docs/SUPPLY_CHAIN.md](docs/SUPPLY_CHAIN.md)).
 - **How it fits together:** a one-page map of the request flow, ownership rules and a checklist for new routes is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Checking it yourself:** [docs/SECURITY_CHECK.md](docs/SECURITY_CHECK.md) is the all-in-one security check (automated checks, review prompts, hostile probes, manual checks and the release gate); `python tools/security_check.py` runs the automated part. Who maintains it: [MAINTAINERS.md](MAINTAINERS.md).
 - **Found a problem?** Please report it privately: see [SECURITY.md](SECURITY.md).
 
 ## Tech stack

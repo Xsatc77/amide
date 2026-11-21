@@ -118,3 +118,43 @@ Amide seals the values it has to read back: each person's two-factor (2FA) seed 
 - **Backups.** A whole-installation backup is sealed by its own passphrase and carries 2FA seeds and AI keys as plain values inside it; a restore seals them again with the key of the installation it is restored into, so a backup restores correctly even under a different key. Profile exports never contain either.
 
 - **AI agent on your own network.** The AI "My own server" address (Ollama, LM Studio) may point at a private-network address only for an administrator, unless `AMIDE_AI_LOCAL_ALLOWED_HOSTS` lists the allowed hosts or networks (comma separated). When that list is set, only those hosts work, for every account. Public hosts are open to everyone. Any failure to reach the agent is reported as the same message, so an account cannot probe your network. A request to the agent also stops after at most three minutes in total.
+
+## Rolling Back
+
+An update can change the database's shape. A newer Amide migrates the database when it starts, and an **older Amide cannot start on a database a newer one has migrated**: it stops with an error that it cannot find the newer revision. So going back means putting the old database back, not only the old image.
+
+Before every update:
+
+1. Copy the whole data volume (or the `data/` folder): the database `amide.db` and everything beside it, especially `secret.key` if you did not set `AMIDE_SECRET_KEY`. A copy made while Amide is stopped is the cleanest; a copy of a running install can miss the newest writes.
+2. Note the image tag you are running now (for example `1.3.21`), so you can pull it again. Pin the tag in your stack instead of `latest` if you want updates to be a deliberate act.
+
+Amide also keeps its own safety net: when an update would migrate an existing database, it first copies the database to `data/backups/pre-upgrade-<from>-to-<to>-<time>.db` (the newest three are kept). That file is a plain SQLite copy of the database as it was just before the update; protect it like the database itself.
+
+To go back:
+
+1. Stop the Amide container.
+2. Put the old database back: either restore your copy of the data volume, or replace `data/amide.db` with the matching `pre-upgrade-...db` file (delete any `amide.db-wal` and `amide.db-shm` beside it first). Uploaded files are not changed by an update, so they do not need restoring.
+3. Start the previous image tag (`ghcr.io/xsatc77/amide:<old tag>`), then check `/healthz` and sign in.
+
+Anything entered after the update is lost by going back. If you only need the data and not the old version, use Settings, Backup And Restore instead: it loads a backup into the current version. Keep the same `secret.key` (or the same `AMIDE_SECRET_KEY`) throughout; a different key makes stored 2FA seeds and AI keys unreadable (see Secrets At Rest).
+
+## Logs And Monitoring
+
+- **Where the logs are.** Amide writes to the container's standard output: `docker logs <container>` or the log view of Portainer or Dockhand. Nothing is written to log files inside `data/` except the Telegram watcher's own log in its data folder.
+- **What to watch.**
+  - `amide.security`: unreadable secrets, startup warnings (public address not set, proxy trust), and one line per security event.
+  - `amide.errors`: one line (exception class and path only) for every unhandled error, which also returns a plain 500 to the browser.
+  - `app.migrate`: the pre-update database copy and its name.
+  - Background jobs (reminders, the ingest worker, scheduled backups) log their failures and keep running.
+- **Security Log.** Administrators see the last 50 security events in Settings (sign-ins, failures, lockouts, password and 2FA changes, tokens, shares, backups, vendor edits). It keeps 90 days and at most 50,000 lines.
+- **Health.** `GET /healthz` answers `{"ok": true}` without signing in; the image uses it for its container health check, and an uptime monitor can poll it. It confirms the web process is up, not that the data is healthy: also watch free disk space and that the newest file in `data/backups` is recent.
+- **Alerts worth setting.** The container restarting repeatedly, `/healthz` failing, a burst of failed sign-ins in the Security Log, and disk space under 20 percent.
+
+## Other Environment Variables
+
+These are read by Amide but only needed in special cases.
+
+- `AMIDE_BASE_LIBRARY`: `0` stops Amide filling the shipped peptide cards at start (default `1`).
+- `AMIDE_INGEST_WORKER`: `0` stops the background loop that processes received price lists (default `1`).
+- `AMIDE_VERSION`: set by the image build to its release tag; shown in the footer and in Settings. Leave it alone.
+- `AMIDE_WATCHER_HOME` (watcher container only): the folder holding the watcher's session, state and queue (default `/watcher-data` in the image).
