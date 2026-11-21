@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app import clock
+from app import clock, secretbox
 from app.auth.deps import current_user_id
 from app.calendar.ical import build_calendar
 from app.calendar.layout import initials, month_rows, month_weeks
@@ -130,7 +130,7 @@ def calendar_feed(token: str, request: Request, session: Session = Depends(get_s
     so it is rate limited per client address (a wrong guess counts too) and never cached or leaked through a Referer header."""
     if not feed_limiter.allow(request.client.host if request.client else "-", time.monotonic()):
         raise HTTPException(429, "Too many requests", headers={"Retry-After": "60"})
-    user = session.scalar(select(User).where(User.calendar_token == token)) if token else None
+    user = session.scalar(select(User).where(User.calendar_token_hash == secretbox.token_hash(token))) if token else None
     if user is None:
         raise HTTPException(404)
     today = clock.today()

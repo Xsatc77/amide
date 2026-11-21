@@ -6,10 +6,10 @@ from sqlalchemy import (
     JSON, Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, LargeBinary, String, Text,
     UniqueConstraint, text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db import Base
-from app.secretbox import EncryptedString
+from app.secretbox import EncryptedString, token_hash
 
 
 def utcnow() -> datetime:
@@ -1085,9 +1085,16 @@ class User(Base):
     avery_align: Mapped[dict | None] = mapped_column(JSON)      # how far the printer lands off the Avery 94500 circles at #1 and #48, in inches (app.inventory.avery94500.Align)
     label_layout: Mapped[dict | None] = mapped_column(JSON)      # the custom sheet's measurements (app.inventory.label_layout), used when label_size is "custom"
     units: Mapped[str] = mapped_column(String(6), default="us", server_default="us")      # display units: "us" or "metric" (data is always stored in US units)
-    # Stays plaintext on purpose: Settings shows the feed address again and the feed is found by equality on this value, so it cannot be hashed
-    # or sealed. It only opens the read-only calendar feed, and it can be regenerated at any time.
-    calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)      # secret address of the private iCal feed; none = feed off
+    # The feed address is found by its SHA-256 (calendar_token_hash, kept in step by the validator below), and a sealed copy (calendar_token) lets
+    # Settings show the address again. A copy of the database alone holds neither a readable nor a guessable address (with AMIDE_SECRET_KEY kept
+    # outside data/, the sealed copy is unreadable too). Regenerating the address replaces both.
+    calendar_token: Mapped[str | None] = mapped_column(EncryptedString(256), unique=True, index=True)      # sealed copy of the secret address of the private iCal feed; none = feed off
+    calendar_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)      # SHA-256 of that address: what the feed lookup uses
+
+    @validates("calendar_token")
+    def _keep_the_calendar_hash_in_step(self, _key, value):
+        self.calendar_token_hash = token_hash(value) if value else None
+        return value
     ntfy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")      # push the dose reminders to ntfy
     ntfy_topic: Mapped[str | None] = mapped_column(String(100))
     usda_api_key: Mapped[str | None] = mapped_column(String(64))      # own FoodData Central key for live food search; never shown again, never in a profile export

@@ -102,7 +102,7 @@ def test_a_legacy_plaintext_value_is_still_readable(client, me):
 def test_unreadable_values_read_as_not_set_and_are_logged_once(client, me, monkeypatch, caplog):
     with SessionLocal() as s:
         user = s.get(User, me)
-        user.totp_secret, user.ai_api_key = SEED, AI_KEY
+        user.totp_secret, user.ai_api_key, user.calendar_token = SEED, AI_KEY, None
         s.commit()
     monkeypatch.setenv(secretbox.ENV_KEY, "a different key")
     secretbox._unreadable_seen.clear()

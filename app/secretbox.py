@@ -154,7 +154,12 @@ class EncryptedString(TypeDecorator):
 
 # ---- backups: raw SQL bypasses the column type, so the backup code opens secrets for export and seals them again for the restoring installation
 
-USER_SECRET_COLUMNS = ("totp_secret", "ai_api_key")
+USER_SECRET_COLUMNS = ("totp_secret", "ai_api_key", "calendar_token")
+
+
+def token_hash(token: str) -> str:
+    """SHA-256 (hex) of a secret address token: what is stored and looked up, so a copy of the database holds no working calendar address."""
+    return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
 
 
 def open_columns(row: dict, columns=USER_SECRET_COLUMNS) -> dict:
@@ -171,5 +176,7 @@ def seal_columns(values: dict, columns=USER_SECRET_COLUMNS) -> dict:
     out = dict(values)
     for name in columns:
         if out.get(name) and not is_encrypted(out[name]):
+            if name == "calendar_token":
+                out["calendar_token_hash"] = token_hash(out[name])          # a raw insert skips the model, so the lookup hash is written here
             out[name] = encrypt(out[name])
     return out
