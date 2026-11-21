@@ -61,13 +61,14 @@
   {% if dose_history %}
   <div class="table-wrap">
   <table class="inv-table">
-    <thead><tr><th>Date</th><th>Peptide</th><th>Dose</th><th>Status</th><th>Site</th></tr></thead>
+    <thead><tr><th>Date</th><th>Peptide</th><th>Dose</th><th>Syringe</th><th>Status</th><th>Site</th></tr></thead>
     <tbody>
       {% for log in dose_history %}
       <tr>
         <td>{{ log.scheduled_date | shortdate }}</td>
         <td>{{ log.peptide_name }}</td>
         <td>{{ log.dose_value }} {{ log.dose_unit.value if log.dose_value is not none else '' }}</td>
+        <td>{% set units = syringe_units.get(log.id) %}{{ ('%g units' % units) if units else '—' }}</td>
         <td><span class="tag status-{{ log.status.value }}">{{ log.status.label }}</span></td>
         <td>{{ log.injection_site.label if log.injection_site else '—' }}</td>
       </tr>

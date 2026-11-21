@@ -24,6 +24,7 @@ from app.protocols.repeat import REPEAT_CHOICES
 from app.protocols.forms import (
     ParsedProtocol, blank_state, parse_protocol_form, state_from_form, state_from_protocol,
 )
+from app.dosing import syringe
 from app.library.conflicts import DISCLAIMER
 from app.library.interactions import cautions_for
 from app.protocols import alerts as alerts_mod
@@ -328,7 +329,7 @@ def _error_summary(session: Session, state: dict, errors: dict) -> list[str]:
 def _render_builder(request: Request, session: Session, state: dict, *, errors: dict | None = None,
                     protocol: Protocol | None = None, repeat_of: Protocol | None = None,
                     today: date, status_code: int = 200,
-                    dose_history: list | None = None, missed: list | None = None):
+                    dose_history: list | None = None, missed: list | None = None, syringe_units: dict | None = None):
     is_new = protocol is None
     return templates.TemplateResponse(
         request,
@@ -344,6 +345,7 @@ def _render_builder(request: Request, session: Session, state: dict, *, errors: 
             "builder_data": _builder_data(session, state, errors or {}, is_new=is_new, uid=request.state.user.id),
             "dose_history": dose_history or [],
             "missed": missed or [],
+            "syringe_units": syringe_units or {},
         },
         status_code=status_code,
     )
@@ -541,7 +543,8 @@ def edit_protocol(protocol_id: int, request: Request, session: Session = Depends
     logged = {(dl.protocol_item_id, dl.scheduled_date) for dl in dose_history if dl.protocol_item_id is not None}
     missed = missed_items(occs, logged, today)
     return _render_builder(request, session, state_from_protocol(p), protocol=p, today=today,
-                           dose_history=dose_history, missed=missed)
+                           dose_history=dose_history, missed=missed,
+                           syringe_units={log.id: syringe.units_drawn(session, log) for log in dose_history})
 
 
 @router.post("/protocols/{protocol_id}")

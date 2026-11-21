@@ -69,3 +69,22 @@ def chosen(session: Session, uid: int, raw) -> InventoryItem | None:
         return None
     ok = (item is not None and item.owner_id == uid and item.category == Category.SUPPLY and item.supply_type == SupplyType.DOSING_SYRINGE and item.count > 0)
     return item if ok else None
+
+
+def units_drawn(session: Session, log) -> float | None:
+    """The units this logged shot was drawn to on its syringe: the mL it took times the units to the mL of the syringe it used (a U-100 when
+    that one is not recorded or has since been deleted). None when no volume was worked out for it, or it came from a pen, which has no units."""
+    if not log.volume_ml:
+        return None
+    if log.active_vial is not None and log.active_vial.dispensing_method.value != "syringe":
+        return None
+    per_ml = DEFAULT_UNITS_PER_ML
+    for key in (log.supplies_used or {}):
+        try:
+            item = session.get(InventoryItem, int(key))
+        except (TypeError, ValueError):
+            continue
+        if item is not None and item.supply_type == SupplyType.DOSING_SYRINGE:
+            per_ml = units_per_ml(item)
+            break
+    return round(log.volume_ml * per_ml, 1)

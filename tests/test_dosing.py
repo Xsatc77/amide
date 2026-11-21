@@ -897,3 +897,38 @@ def test_logging_an_inner_site_leaves_the_outer_site_free_and_the_next_shot_goes
     info = _site_blob(client)[str(pitem_id)]
     assert info["last"] == "abdomen_l_inner" and info["recommended"] == "abdomen_r_inner"          # the same ring, the other side
     assert "abdomen_l_outer" in [s["value"] for s in info["sites"]]                                # the outer sites stay on offer
+
+
+# ---------------------------------------------------------------- Protocol page: the units drawn on the syringe
+
+def test_protocol_history_shows_the_units_drawn_on_the_syringe(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)         # 2 mg at 5 mg/mL is 0.4 mL
+    client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+                                    "scheduled_date": date.today().isoformat()}, follow_redirects=False)
+    t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
+    assert "<th>Syringe</th>" in t
+    assert "40 units" in t                                                                    # a U-100 when no syringe was recorded
+
+
+def test_protocol_history_uses_the_recorded_syringes_units_per_ml(client, db):
+    from app.models import DoseLog, InventoryItem, SupplyType
+    from tests.supply_helpers import make_supply
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db, dose=2.0)
+    with SessionLocal() as s:
+        uid = s.scalar(select(User.id).where(User.username_key == "tester"))
+    u40 = make_supply(uid, "U-40 syringes", SupplyType.DOSING_SYRINGE, 5)
+    with SessionLocal() as s:
+        s.get(InventoryItem, u40).syringe_units_per_ml = 40
+        s.commit()
+    client.post("/today/log", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+                                    "scheduled_date": date.today().isoformat(), "syringe_item_id": str(u40)}, follow_redirects=False)
+    t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
+    assert "16 units" in t and "40 units" not in t                                            # 0.4 mL on a U-40 is 16 units
+
+
+def test_protocol_history_shows_no_units_for_a_skipped_dose(client, db):
+    protocol_id, pitem_id, vial_id = _setup_protocol_with_vial(client, db)
+    client.post("/today/skip", data={"protocol_id": str(protocol_id), "protocol_item_id": str(pitem_id),
+                                     "scheduled_date": date.today().isoformat()}, follow_redirects=False)
+    t = html.unescape(client.get(f"/protocols/{protocol_id}/edit").text)
+    assert "Skipped" in t and " units" not in t
