@@ -27,6 +27,7 @@ MAX_IMPLEMENTS = 9
 MAX_WATTS = 2000.0
 MAX_BODY_WEIGHT_LB = 1500.0
 MAX_MINUTES = 600.0
+MAX_SKIP_REASON = 200
 MAX_SPEED_MPH = 30.0
 MAX_GRADE_PCT = 40.0
 _FIELDS = ("weight_value", "weight_unit", "reps_value", "sets_value", "minutes_value", "speed_value",
@@ -53,6 +54,8 @@ class ParsedRow:
     set_loads: list[float] | None = None     # one weight per set, when each set had its own; `load` is then the heaviest
     set_reps: list[int] | None = None        # and its reps, set by set; `reps` is then the reps of the heaviest set
     to_failure: bool = False
+    skipped: bool = False                    # left out on purpose; `completed` is then always False
+    skip_reason: str | None = None
 
     @property
     def load_lb(self) -> float | None:
@@ -151,6 +154,7 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
                 load = max(set_loads)
                 sets = len(set_loads)
                 top_reps = max(r for w, r in zip(set_loads, set_reps) if w == load)
+    skipped = get("skipped") == "on"
     category = get("category_value") or None
     if category and exercise_db.category(category) is None:
         raise HTTPException(422, f"Unknown Compendium category for {name}.")
@@ -159,7 +163,8 @@ def _row(raw, suffix: str, *, exercise_id: int | None, name: str, db: Exercise |
     if effort and (table is None or table.basis != "effort" or effort not in {r.code for r in table.rows}):
         raise HTTPException(422, f"Unknown effort for {name}.")
     return ParsedRow(
-        exercise_id=exercise_id, name=name, db=db, completed=completed, load=load,
+        exercise_id=exercise_id, name=name, db=db, completed=completed and not skipped, load=load,
+        skipped=skipped, skip_reason=(get("skip_reason")[:MAX_SKIP_REASON] or None) if skipped else None,
         unit=(unit or WeightUnit.LB) if load is not None else unit,
         sets=sets, set_loads=set_loads, set_reps=set_reps, to_failure=to_failure,
         reps=top_reps if set_reps else _whole(raw, key("reps_value"), f"Reps for {name}", MAX_REPS),
@@ -235,6 +240,9 @@ def parse_log_form(raw, day: WorkoutPlanDay, orphans: dict[int, WorkoutExerciseL
 def build_exercise_log(row: ParsedRow, body_weight_lb: float | None) -> WorkoutExerciseLog:
     """The stored row, with its estimate and everything the estimate used."""
     ex = row.db
+    if row.skipped:                                  # nothing was done: keep who it was and why, not the typed load, sets or reps
+        return WorkoutExerciseLog(exercise_id=row.exercise_id, name=row.name, completed=False, skipped=True, skip_reason=row.skip_reason,
+                                  db_exercise=ex.name if ex else None, area=ex.area if ex else None, equipment=ex.equipment if ex else None)
     log = WorkoutExerciseLog(
         exercise_id=row.exercise_id, name=row.name, completed=row.completed, weight_value=row.load,
         weight_unit=row.unit, reps_value=row.reps, sets=row.sets, duration_min=row.minutes, speed_mph=row.speed,
@@ -323,8 +331,9 @@ def form_row(session: Session, uid: int, ex: WorkoutExercise, prior: WorkoutExer
     """What the log form needs to draw one plan exercise: its database match, this date's saved log (if any), the
     last time the exercise was logged anywhere, and the values to show in the inputs."""
     db = resolve_db(ex)
-    last = None if prior is not None else last_performance(session, uid, db.name if db else None, ex.name)
-    source = prior or last
+    kept = prior if prior is not None and not prior.skipped else None          # a skipped one holds no numbers: show the last time instead
+    last = None if kept is not None else last_performance(session, uid, db.name if db else None, ex.name)
+    source = kept or last
     stalled = stalled_weeks(session, uid, db.name if db else None, ex.name, as_of or date_type.today()) if last is not None else None
     table =exercise_db.speed_tables().get(db.speed_table) if db and db.speed_table else None
     return {

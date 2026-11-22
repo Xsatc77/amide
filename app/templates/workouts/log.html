@@ -86,6 +86,10 @@
             <button type="button" class="btn btn-small" data-commit="{{ ex.id }}" data-commit-url="/workouts/day/{{ day.id }}/commit">Commit</button>
             <span class="small muted" data-commit-status data-draft-at="{{ r.draft_at or '' }}"></span>
           </div>
+          <div class="log-skip">
+            <label class="log-check"><input type="checkbox" name="skipped[{{ ex.id }}]" data-skip{% if p and p.skipped %} checked{% endif %}> Skip this exercise</label>
+            <input type="text" name="skip_reason[{{ ex.id }}]" maxlength="200" value="{{ p.skip_reason if p and p.skip_reason else '' }}" placeholder="Reason for Skip?" aria-label="Reason for skip">
+          </div>
           {% if r.last %}<div class="muted small">Last time{% if r.last.last_date %} ({{ r.last.last_date | shortdate }}){% endif %}: {{ last_text(r.last) }}</div>
           {% if r.stalled_weeks %}<div class="muted small" data-stalled>No increase in {{ r.stalled_weeks }} week{{ '' if r.stalled_weeks == 1 else 's' }} (weight or reps)</div>{% endif %}{% endif %}
           {% if db and not db.is_duration %}

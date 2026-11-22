@@ -104,13 +104,21 @@ document.querySelectorAll("[data-per-set]").forEach((box) => wireSetWeights(box.
 })();
 
 
+// Skip this exercise: ticking it clears Done, and ticking Done clears it (an exercise is done or skipped, not both).
+document.querySelectorAll("[data-skip]").forEach((skip) => {
+  const done = skip.closest("tr")?.querySelector('input[type="checkbox"][name^="completed["]');
+  if (!done) return;
+  skip.addEventListener("change", () => { if (skip.checked) done.checked = false; });
+  done.addEventListener("change", () => { if (done.checked) skip.checked = false; });
+});
+
 // Submitting a workout with exercises not ticked Done asks first (the form carries data-confirm-incomplete). Free workouts have no Done boxes, so they never ask.
 (() => {
   const form = document.querySelector("form[data-confirm-incomplete]");
   if (!form) return;
   form.addEventListener("submit", (event) => {
     const boxes = [...form.querySelectorAll('input[type="checkbox"][name^="completed["]')];
-    const open = boxes.filter((box) => !box.checked);
+    const open = boxes.filter((box) => !box.checked && !box.closest("tr")?.querySelector("[data-skip]:checked"));        // a skipped exercise is not left open
     if (!open.length) return;
     const names = open.map((box) => (box.closest("tr")?.querySelector("strong")?.textContent || "").trim()).filter(Boolean);
     const message = `${open.length} of ${boxes.length} exercise${boxes.length === 1 ? " is" : "s are"} not marked done` + (names.length ? `: ${names.join(", ")}` : "") + ".\n\nSubmit the workout anyway?";

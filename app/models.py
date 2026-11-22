@@ -1611,6 +1611,8 @@ class WorkoutExerciseLog(Base):
     set_weights: Mapped[str | None] = mapped_column(String(600))   # JSON list, one weight per set, when each set had its own; weight_value is then the heaviest
     set_reps: Mapped[str | None] = mapped_column(String(600))      # JSON list, the reps of each set, alongside set_weights; reps_value is the reps of the heaviest set
     to_failure: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")   # every set went to failure; reps_value is what was reached
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")       # left out on purpose: no load, sets or reps are kept for it
+    skip_reason: Mapped[str | None] = mapped_column(String(200))                            # the person's own words for why, when skipped
 
     @staticmethod
     def _numbers(text: str | None) -> list[float]:
