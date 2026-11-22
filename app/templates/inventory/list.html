@@ -76,7 +76,7 @@
           {% if g %}<span class="vial-left"><b>{{ g.left_text }}</b>{% if g.estimated %} <span class="muted small">(estimated{% if is_mine %}, <a href="/inventory?calibrate={{ v.id }}#calibrate-dialog">update</a>{% endif %})</span>{% elif is_mine %} <span class="muted small">(<a href="/inventory?calibrate={{ v.id }}#calibrate-dialog">update</a>)</span>{% endif %}</span>
           {% if g.projection %}
           {% if g.projection.count %}<span class="vial-plan">{{ g.projection.count }} more scheduled dose{{ '' if g.projection.count == 1 else 's' }}, through {{ g.projection.through | shortdate }}</span>{% endif %}
-          {% if g.projection.short_on %}<span class="vial-plan vial-plan-warn">The {{ g.projection.short_on | shortdate }} dose ({{ g.next_dose if g.projection.count == 0 else 'next' }}) needs a new vial</span>{% endif %}
+          {% if g.projection.short_on %}<span class="vial-plan vial-plan-warn">New Vial Needed for {{ g.projection.short_on | shortdate }} Dose</span>{% endif %}
           {% elif g.protocol_note %}<span class="muted small">{{ g.protocol_note }}</span>{% endif %}
           {% endif %}
           {% if is_bac %}

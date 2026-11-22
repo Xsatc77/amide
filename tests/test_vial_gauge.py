@@ -97,7 +97,7 @@ def test_the_card_says_when_the_next_dose_needs_a_new_vial(client, me):
     make_protocol(me, item, dose=1.0, frequency=Frequency.DAILY)
     vid = open_vial(me, item, water=2.0, left=0.5)                                 # 2.5 mg left: two full doses, the third is short
     c = card(page(client), vid)
-    assert "2 more scheduled doses" in c and "needs a new vial" in c
+    assert "2 more scheduled doses" in c and "New Vial Needed for" in c and "needs a new vial" not in c
 
 
 def test_a_vial_no_protocol_uses_just_shows_the_gauge(client, me):
