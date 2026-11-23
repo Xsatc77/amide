@@ -3,7 +3,7 @@
 reportlab's built-in fonts cover Western European text, so anything else is written out in plain letters (a Greek beta becomes "beta")
 rather than drawn as an empty box."""
 
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -12,7 +12,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import HRFlowable, KeepTogether, ListFlowable, ListItem, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Flowable, HRFlowable, KeepTogether, ListFlowable, ListItem, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.inventory.consumption import BAC_BOTTLE_DAYS
 
@@ -118,6 +118,73 @@ def _protocol_pages(protocol, st, width) -> list:
     return out
 
 
+class YearChart(Flowable):
+    """A twelve-month calendar chart: a row per peptide, a bar across the months it is taken in."""
+    LABEL, ROW, HEAD = 1.55 * inch, 17, 16
+
+    def __init__(self, chart: dict, width: float, today: date | None = None):
+        super().__init__()
+        self.chart, self.width, self.today = chart, width, today
+        self.height = self.HEAD + self.ROW * max(1, len(chart["rows"])) + 4
+
+    def wrap(self, avail_w, avail_h):
+        return self.width, self.height
+
+    def _x(self, day: date) -> float:
+        months = self.chart["months"]
+        first = months[0]
+        index = (day.year - first.year) * 12 + day.month - first.month
+        index = max(0, min(12, index))
+        if index >= 12:
+            return self.width
+        length = _after(months[index]) - months[index]
+        return self.LABEL + (self.width - self.LABEL) * (index + (day.day - 1) / length.days) / 12
+
+    def draw(self):
+        c, months, rows = self.canv, self.chart["months"], self.chart["rows"]
+        grid = (self.width - self.LABEL) / 12
+        top = self.height
+        c.setFont("Helvetica-Bold", 7.5)
+        for i, m in enumerate(months):
+            c.setFillColor(_SOFT if i % 2 == 0 else colors.white)
+            c.rect(self.LABEL + i * grid, 0, grid, top, stroke=0, fill=1)
+            c.setFillColor(_MUTED)
+            c.drawCentredString(self.LABEL + (i + 0.5) * grid, top - 11, m.strftime("%b") + (m.strftime(" '%y") if i == 0 or m.month == 1 else ""))
+        c.setStrokeColor(_RULE)
+        c.setLineWidth(0.4)
+        c.line(0, top - self.HEAD, self.width, top - self.HEAD)
+        for r, row in enumerate(rows):
+            y = top - self.HEAD - (r + 1) * self.ROW
+            c.setFillColor(_INK)
+            c.setFont("Helvetica", 8)
+            label = clean(row["name"])
+            while len(label) > 1 and c.stringWidth(label, "Helvetica", 8) > self.LABEL - 6:
+                label = label[:-1]
+            c.drawString(2, y + 5, label)
+            c.line(0, y, self.width, y)
+            for begin, end in row["spans"]:
+                x1 = self._x(begin)
+                x2 = self.width if end is None else max(self._x(end + timedelta(days=1)), x1 + 2)
+                c.setFillColor(_ACCENT)
+                c.roundRect(x1, y + 3, x2 - x1, self.ROW - 6, 2, stroke=0, fill=1)
+        if self.today is not None and months[0] <= self.today < _after(months[-1]):
+            c.setStrokeColor(_CAUTION)
+            c.setLineWidth(0.8)
+            x = self._x(self.today)
+            c.line(x, 0, x, top - self.HEAD)
+
+
+def _after(day: date) -> date:
+    return date(day.year + (day.month == 12), day.month % 12 + 1, 1)
+
+
+def _year_pages(chart, today, st, width) -> list:
+    if not chart or not chart["rows"]:
+        return []
+    return [Spacer(1, 12), _p("Year Calendar", st["h2"]), _p("The months each peptide is taken in, twelve months from the start of the protocol's current run. The red line is today.", st["small"]),
+            Spacer(1, 5), YearChart(chart, width, today)]
+
+
 def _library_pages(page, st, width) -> list:
     out = [PageBreak(), _p(page["name"], st["title"])]
     if page.get("subtitle"):
@@ -185,14 +252,14 @@ def _cost_pages(prices, protocol, today, st, width) -> list:
     return out
 
 
-def build_portfolio(protocol: dict, pages: list[dict], prices: dict, today: date) -> bytes:
+def build_portfolio(protocol: dict, pages: list[dict], prices: dict, today: date, chart: dict | None = None) -> bytes:
     """`protocol`: {"name", "status", "start", "end", "goals", "notes", "items": [{"name", "desc", "notes", "steps", "off"}]}."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=0.8 * inch, rightMargin=0.8 * inch, topMargin=0.7 * inch, bottomMargin=0.8 * inch,
                             title=clean(f"Protocol Portfolio - {protocol['name']}"), author="Amide")
     width = letter[0] - 1.6 * inch
     st = _styles()
-    story = _protocol_pages(protocol, st, width)
+    story = _protocol_pages(protocol, st, width) + _year_pages(chart, today, st, width)
     for page in pages:
         story += _library_pages(page, st, width)
     story += _cost_pages(prices, protocol, today, st, width)

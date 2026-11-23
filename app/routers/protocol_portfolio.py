@@ -17,6 +17,7 @@ from app.models import GoalPeptide, Peptide, Protocol, ProtocolItem, User, UserM
 from app.portfolio.library_pages import library_page
 from app.portfolio.pdf import build_portfolio
 from app.portfolio.prices import portfolio_prices
+from app.portfolio.timeline import year_chart
 from app.protocols.status import protocol_status
 from app.routers.protocols import print_items
 from app.shopping.build import saved_shipping
@@ -55,7 +56,7 @@ def protocol_portfolio(protocol_id: int, session: Session = Depends(get_session)
     except Exception:                                                 # a price the maths cannot work out must not cost the person the whole PDF
         log.exception("Protocol Portfolio: pricing failed for protocol %s", protocol_id)
         prices = {"status": "error", "shipping": shipping, "peptides": [], "unpriced": [], "bac": None}
-    pdf = build_portfolio(summary, pages, prices, today)
+    pdf = build_portfolio(summary, pages, prices, today, year_chart(protocol, today))
     slug = re.sub(r"[^a-z0-9]+", "-", protocol.name.lower()).strip("-") or "protocol"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="protocol-portfolio-{slug}.pdf"',
                                                                 "Cache-Control": "no-store"})
