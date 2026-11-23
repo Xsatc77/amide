@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **Last week on the workout card.** The Workouts This Week card on the dashboard now shows the weight lifted last week (Monday to Sunday) under this week's total, with the number of workout days.
 - **Clearer vial warning.** The Inventory card for an open vial that will run short now reads New Vial Needed for <date> Dose, instead of calling the dose the next one when it is not.
 - **Skip an exercise, with a reason.** Each plan exercise on the workout log has a Skip This Exercise box and a Reason For Skip? note beside it. A skipped exercise keeps only its name and your reason (no load, sets or reps, so it never counts as the last time you did it), unticks Done, and does not trigger the not-marked-done prompt on Save; the Excel export gains Skipped and Skip reason columns. Database migration 0109 adds the two columns.
 - **Units drawn on the syringe in Dose History.** Each logged dose on the protocol edit page now shows how many units the syringe was drawn to (the mL it took times the units to the mL of the syringe used, a U-100 when none was recorded); skipped doses and pens show a dash.

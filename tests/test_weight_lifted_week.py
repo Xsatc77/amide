@@ -59,3 +59,21 @@ def test_a_huge_total_has_its_own_wrapping_rules_so_it_stays_in_the_card():
     css = open("app/static/css/app.css", encoding="utf-8").read()
     block = css[css.index(".workout-lifted-total {"):]
     assert "flex-wrap: wrap" in block.split("}")[0] and "overflow-wrap: anywhere" in css[css.index(".workout-lifted p"):].split("}")[0]
+
+
+def test_last_weeks_total_is_shown_under_this_weeks(client, db, me):
+    lift(db, me, MONDAY - timedelta(days=7), 3000, 1000)
+    lift(db, me, MONDAY - timedelta(days=1), 2000)                # last Sunday is last week
+    lift(db, me, MONDAY - timedelta(days=8), 99999)               # the Sunday before is not
+    lift(db, me, MONDAY, 500)
+    text = card(client.get("/dashboard").text)
+    assert "Last week: 6,000 lb (2 days)" in text
+    assert text.startswith("500 lb lifted this week")
+
+
+def test_last_week_with_nothing_lifted_says_zero_and_metric_uses_kg(client, db, me):
+    assert "Last week: 0 lb" in card(client.get("/dashboard").text)
+    db.get(User, me).units = "metric"
+    db.commit()
+    lift(db, me, MONDAY - timedelta(days=3), 2204.6)
+    assert "Last week: 1,000 kg (1 day)" in card(client.get("/dashboard").text)

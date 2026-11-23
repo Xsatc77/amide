@@ -33,10 +33,10 @@ from app.routers._ints import parse_int
 router = APIRouter()
 
 
-def week_lifted(session: Session, user, today: date) -> dict:
+def week_lifted(session: Session, user, today: date, weeks_ago: int = 0) -> dict:
     """Weight lifted this calendar week (Mon-Sun): the total volume (load x implements x reps x sets) of the exercises logged, in the user's own
-    units, and the average per logged workout day. `total` is None when nothing with a load was logged."""
-    monday = today - timedelta(days=today.weekday())
+    units, and the average per logged workout day. `total` is None when nothing with a load was logged. `weeks_ago` 1 is last week."""
+    monday = today - timedelta(days=today.weekday() + 7 * weeks_ago)
     rows = session.execute(
         select(WorkoutLog.log_date, func.sum(WorkoutExerciseLog.volume_lb)).join(WorkoutExerciseLog, WorkoutExerciseLog.workout_log_id == WorkoutLog.id)
         .where(WorkoutLog.owner_id == user.id, WorkoutLog.log_date >= monday, WorkoutLog.log_date <= monday + timedelta(days=6),
@@ -200,6 +200,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
     body_panel = None
     workout_week = None
     lifted = None
+    lifted_last = None
     if ShareCategory.PERSONAL_DATA in categories:
         schedule = _todays_schedule(session, effective_uid, today)
         window = compliance.parse_window(request.query_params.get("compliance"))
@@ -214,6 +215,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         from app.routers.workouts import week_status
         workout_week = week_status(session, effective_uid, today)
         lifted = week_lifted(session, session.get(User, effective_uid), today)
+        lifted_last = week_lifted(session, session.get(User, effective_uid), today, weeks_ago=1)
 
         # Same computation as the Macros tab's own Water goal, plus the same Weight chart/Body
         # Silhouette the Measurements page's Overview row shows -- reused via deferred import
@@ -334,6 +336,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), today: 
         "body_panel": body_panel,
         "workout_week": workout_week,
         "lifted": lifted,
+        "lifted_last": lifted_last,
         "today": today,
         "viewer_id": effective_uid,
         "in_transit_groups": in_transit_groups,

@@ -192,6 +192,9 @@
     <p class="workout-lifted-total workout-lifted-none"><strong>0</strong> <span>{{ lifted.unit if lifted else 'lb' }}</span></p>
     <p class="small muted">lifted this week, Monday to Sunday</p>
     {% endif %}
+    {% if lifted_last %}
+    <p class="small muted workout-lifted-last">Last week: <strong>{{ '{:,}'.format(lifted_last.total or 0) }}</strong> {{ lifted_last.unit }}{% if lifted_last.total %} ({{ lifted_last.days }} {{ 'day' if lifted_last.days == 1 else 'days' }}){% endif %}</p>
+    {% endif %}
   </div>
 </section>
 {% endif %}
