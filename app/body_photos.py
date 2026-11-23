@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover
     pass
 
 _NAME = re.compile(r"^[0-9a-f]{32}[.]jpg$")
-_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF"}
+_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "MPO"}              # MPO: an iPhone Portrait or depth photo, a JPEG with a second picture attached
 _UNREADABLE = "That file is not a photo this app can read. Use a JPG, PNG, WEBP or iPhone HEIC picture."
 _PREVIEW_SIDE = 480
 

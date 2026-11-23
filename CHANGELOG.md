@@ -3,6 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
+- **iPhone Portrait photos upload.** A body photo taken in Portrait mode (or with depth) is an MPO file, a JPEG with a second picture attached, and was refused as "not a photo this app can read". It is now accepted and saved as a plain JPEG with the extra picture and all metadata removed.
 - **Year Calendar in the Protocol Portfolio.** The PDF now has a twelve-month chart (M1 to M12) under the protocol page: a row per peptide in its own colour with its dose, how many times it comes round and for how many days, and a bar across when it is taken with its days of the run above it (D1-10, D1-90 (Mon-Fri)). Every run of a repeating short course is drawn, each peptide only in the runs it joins, and a red line marks today.
 - **Last week on the workout card.** The Workouts This Week card on the dashboard now shows the weight lifted last week (Monday to Sunday) under this week's total, with the number of workout days.
 - **Clearer vial warning.** The Inventory card for an open vial that will run short now reads New Vial Needed for <date> Dose, instead of calling the dose the next one when it is not.
