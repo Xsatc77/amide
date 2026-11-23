@@ -118,9 +118,12 @@ def _protocol_pages(protocol, st, width) -> list:
     return out
 
 
+_BAR_COLORS = [colors.HexColor(h) for h in ("#2563eb", "#ea580c", "#16a34a", "#ca8a04", "#db2777", "#0f766e", "#7c3aed", "#dc2626", "#0891b2", "#65a30d")]
+
+
 class YearChart(Flowable):
-    """A twelve-month calendar chart: a row per peptide, a bar across the months it is taken in."""
-    LABEL, ROW, HEAD = 1.55 * inch, 17, 16
+    """A twelve-month calendar chart: a row per peptide in its own colour, a bar across the days it is taken, the days of the run (D1-10) above it."""
+    LABEL, ROW, HEAD = 1.9 * inch, 30, 24
 
     def __init__(self, chart: dict, width: float, today: date | None = None):
         super().__init__()
@@ -140,33 +143,48 @@ class YearChart(Flowable):
         length = _after(months[index]) - months[index]
         return self.LABEL + (self.width - self.LABEL) * (index + (day.day - 1) / length.days) / 12
 
+    def _fit(self, text: str, font: str, size: float, room: float) -> str:
+        text = clean(text)
+        while len(text) > 1 and self.canv.stringWidth(text, font, size) > room:
+            text = text[:-1]
+        return text
+
     def draw(self):
         c, months, rows = self.canv, self.chart["months"], self.chart["rows"]
         grid = (self.width - self.LABEL) / 12
         top = self.height
-        c.setFont("Helvetica-Bold", 7.5)
         for i, m in enumerate(months):
             c.setFillColor(_SOFT if i % 2 == 0 else colors.white)
             c.rect(self.LABEL + i * grid, 0, grid, top, stroke=0, fill=1)
+            c.setFillColor(_INK)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawCentredString(self.LABEL + (i + 0.5) * grid, top - 10, f"M{i + 1}")
             c.setFillColor(_MUTED)
-            c.drawCentredString(self.LABEL + (i + 0.5) * grid, top - 11, m.strftime("%b") + (m.strftime(" '%y") if i == 0 or m.month == 1 else ""))
+            c.setFont("Helvetica", 6.5)
+            c.drawCentredString(self.LABEL + (i + 0.5) * grid, top - 19, m.strftime("%b") + (m.strftime(" '%y") if i == 0 or m.month == 1 else ""))
         c.setStrokeColor(_RULE)
         c.setLineWidth(0.4)
         c.line(0, top - self.HEAD, self.width, top - self.HEAD)
         for r, row in enumerate(rows):
             y = top - self.HEAD - (r + 1) * self.ROW
+            color = _BAR_COLORS[r % len(_BAR_COLORS)]
             c.setFillColor(_INK)
-            c.setFont("Helvetica", 8)
-            label = clean(row["name"])
-            while len(label) > 1 and c.stringWidth(label, "Helvetica", 8) > self.LABEL - 6:
-                label = label[:-1]
-            c.drawString(2, y + 5, label)
+            c.setFont("Helvetica-Bold", 8.5)
+            c.drawString(2, y + self.ROW - 12, self._fit(row["name"], "Helvetica-Bold", 8.5, self.LABEL - 8))
+            c.setFillColor(_MUTED)
+            c.setFont("Helvetica", 6.8)
+            c.drawString(2, y + self.ROW - 22, self._fit(row.get("sub") or "", "Helvetica", 6.8, self.LABEL - 8))
+            c.setStrokeColor(_RULE)
             c.line(0, y, self.width, y)
             for begin, end in row["spans"]:
                 x1 = self._x(begin)
-                x2 = self.width if end is None else max(self._x(end + timedelta(days=1)), x1 + 2)
-                c.setFillColor(_ACCENT)
-                c.roundRect(x1, y + 3, x2 - x1, self.ROW - 6, 2, stroke=0, fill=1)
+                x2 = self.width if end is None else max(self._x(end + timedelta(days=1)), x1 + 8)
+                c.setFillColor(color)
+                c.roundRect(x1, y + 5, x2 - x1, 4, 2, stroke=0, fill=1)
+                if row.get("tag"):
+                    c.setFillColor(_INK)
+                    c.setFont("Helvetica", 6.8)
+                    c.drawCentredString(min(max((x1 + x2) / 2, self.LABEL + 22), self.width - 22), y + 12, clean(row["tag"]))
         if self.today is not None and months[0] <= self.today < _after(months[-1]):
             c.setStrokeColor(_CAUTION)
             c.setLineWidth(0.8)
@@ -181,7 +199,7 @@ def _after(day: date) -> date:
 def _year_pages(chart, today, st, width) -> list:
     if not chart or not chart["rows"]:
         return []
-    return [Spacer(1, 12), _p("Year Calendar", st["h2"]), _p("The months each peptide is taken in, twelve months from the start of the protocol's current run. The red line is today.", st["small"]),
+    return [Spacer(1, 12), _p("Year Calendar", st["h2"]), _p("M1 is the month the protocol's current run starts. Each bar is where a peptide is taken, with its days of the run above it. The red line is today.", st["small"]),
             Spacer(1, 5), YearChart(chart, width, today)]
 
 

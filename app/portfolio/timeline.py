@@ -7,6 +7,7 @@ protocol's end, or off the right edge when nothing ends them)."""
 from datetime import date, timedelta
 
 from app.calendar.schedule import item_edges
+from app.models import WEEKDAY_NAMES, Frequency
 from app.protocols.repeat import add_months, is_repeating, item_offset, run_dates
 
 
@@ -30,6 +31,44 @@ def _spans_repeating(p, item, first: date, stop: date) -> list[tuple[date, date 
     return spans
 
 
+def _weekdays(item) -> str | None:
+    """"Mon-Fri" for a weekday schedule that is one run of days, else the names joined; None when the item is not on weekdays."""
+    if item.frequency is not Frequency.WEEKDAYS or not item.weekdays:
+        return None
+    letters = item.weekdays
+    if letters == "MTWRF":
+        return "Mon-Fri"
+    return "/".join(WEEKDAY_NAMES[d] for d in letters)
+
+
+def _tag(p, item, spans) -> str:
+    """The days of the run an item is taken on: D1-10 (the day numbers count from the start of the run or protocol)."""
+    if p.short_days or item.run_days:
+        first = item.start_day or 1
+        last = first + item.run_days - 1 if item.run_days else (p.short_days or first)
+    elif spans:
+        begin, end = spans[0]
+        first = (begin - p.start_date).days + 1
+        last = (end - p.start_date).days + 1 if end else None
+    else:
+        return ""
+    tag = f"D{first}-{last}" if last else f"D{first}-"
+    days = _weekdays(item)
+    return f"{tag} ({days})" if days else tag
+
+
+def _sub(item, spans) -> str:
+    """The small line under a peptide's name: dose and rhythm, how many times it comes round, and for how long."""
+    dose = f"{item.dose:g} {item.dose_unit.value}" if item.dose is not None else "Dose not set"
+    days = _weekdays(item)
+    rhythm = f"{dose}/day" if item.frequency is Frequency.DAILY else (f"{dose} {days}" if days else f"{dose} {item.frequency.label.lower()}")
+    parts = [rhythm, f"{len(spans)}x"] if spans else [rhythm]
+    length = item.run_days or (spans and spans[0][1] and (spans[0][1] - spans[0][0]).days + 1)
+    if length:
+        parts.append(f"{length} days")
+    return ", ".join(parts)
+
+
 def year_chart(p, today: date) -> dict | None:
     """{"months": [first day of each of 12 months], "rows": [{"name", "spans": [(first, last or None)]}]}, or None when the protocol has no items."""
     if not p.items:
@@ -51,6 +90,6 @@ def year_chart(p, today: date) -> dict | None:
         if name in seen:                                              # one peptide on two lines of the protocol: one row, all its spans
             seen[name]["spans"] += spans
             continue
-        seen[name] = {"name": name, "spans": spans}
+        seen[name] = {"name": name, "spans": spans, "tag": _tag(p, it, spans), "sub": _sub(it, spans)}
         rows.append(seen[name])
     return {"months": [add_months(first, i) for i in range(12)], "rows": rows}

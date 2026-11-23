@@ -13,7 +13,7 @@ from app.portfolio.timeline import year_chart
 
 def item(name, **kw):
     base = dict(id=id(name), peptide=NS(name=name), run_days=None, start_day=None, repeat_months=None, first_run=1, frequency=Frequency.DAILY,
-                every_n_days=None, weekdays=None, cycle_offs=[], steps=[])
+                every_n_days=None, weekdays=None, cycle_offs=[], steps=[], dose=2.0, dose_unit=DoseUnit.MG)
     return NS(**{**base, **kw})
 
 
@@ -78,4 +78,14 @@ def test_the_portfolio_pdf_carries_the_year_calendar(client, db, me):
     r = client.get(f"/protocols/{pid}/portfolio.pdf")
     assert r.status_code == 200
     text = "\n".join(pg.extract_text() for pg in PdfReader(BytesIO(r.content)).pages)
-    assert "Year Calendar" in text and "Jan '27" in text and "Dec" in text
+    assert "Year Calendar" in text and "Jan '27" in text and "M12" in text
+
+
+def test_each_row_says_its_days_of_the_run_and_its_dose_how_often_and_how_long():
+    chart = year_chart(course([item("Quarterly", run_days=10, repeat_months=3), item("Late", start_day=20, run_days=5, repeat_months=6, dose=3.0),
+                               item("Weekdays", run_days=30, frequency=Frequency.WEEKDAYS, weekdays="MTWRF", repeat_months=6, dose=500, dose_unit=DoseUnit.MCG)],
+                              short_days=60), date(2027, 1, 5))
+    by = {r["name"]: r for r in chart["rows"]}
+    assert by["Quarterly"]["tag"] == "D1-10" and by["Quarterly"]["sub"] == "2 mg/day, 4x, 10 days"
+    assert by["Late"]["tag"] == "D20-24" and by["Late"]["sub"] == "3 mg/day, 2x, 5 days"
+    assert by["Weekdays"]["tag"] == "D1-30 (Mon-Fri)" and by["Weekdays"]["sub"] == "500 mcg Mon-Fri, 2x, 30 days"

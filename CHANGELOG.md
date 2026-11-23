@@ -3,7 +3,7 @@
 Newest first. Dates are when the work was done.
 
 ## v1.0.4 (2026-10)
-- **Year Calendar in the Protocol Portfolio.** The PDF now has a twelve-month chart under the protocol page: a row per peptide with a bar across the months it is taken in (every run of a repeating short course, each peptide only in the runs it joins), and a red line for today.
+- **Year Calendar in the Protocol Portfolio.** The PDF now has a twelve-month chart (M1 to M12) under the protocol page: a row per peptide in its own colour with its dose, how many times it comes round and for how many days, and a bar across when it is taken with its days of the run above it (D1-10, D1-90 (Mon-Fri)). Every run of a repeating short course is drawn, each peptide only in the runs it joins, and a red line marks today.
 - **Last week on the workout card.** The Workouts This Week card on the dashboard now shows the weight lifted last week (Monday to Sunday) under this week's total, with the number of workout days.
 - **Clearer vial warning.** The Inventory card for an open vial that will run short now reads New Vial Needed for <date> Dose, instead of calling the dose the next one when it is not.
 - **Skip an exercise, with a reason.** Each plan exercise on the workout log has a Skip This Exercise box and a Reason For Skip? note beside it. A skipped exercise keeps only its name and your reason (no load, sets or reps, so it never counts as the last time you did it), unticks Done, and does not trigger the not-marked-done prompt on Save; the Excel export gains Skipped and Skip reason columns. Database migration 0109 adds the two columns.
