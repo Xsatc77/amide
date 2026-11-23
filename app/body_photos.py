@@ -1,6 +1,7 @@
 """Body photos: check, clean and store an upload; make the blurred preview. Pure file work, no web or database."""
 
 import io
+import logging
 import re
 import secrets
 from pathlib import Path
@@ -20,6 +21,7 @@ _NAME = re.compile(r"^[0-9a-f]{32}[.]jpg$")
 _FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "MPO"}              # MPO: an iPhone Portrait or depth photo, a JPEG with a second picture attached
 _UNREADABLE = "That file is not a photo this app can read. Use a JPG, PNG, WEBP or iPhone HEIC picture."
 _PREVIEW_SIDE = 480
+log = logging.getLogger(__name__)
 
 
 class PhotoError(ValueError):
@@ -34,6 +36,7 @@ def process_upload(data: bytes) -> bytes:
     try:
         image = Image.open(io.BytesIO(data))
         if image.format not in _FORMATS:
+            log.warning("photo refused: format %s, %d bytes", image.format, len(data))   # no name, no pixels: only what is needed to see why
             raise PhotoError(_UNREADABLE)
         if image.width * image.height > config.PHOTO_MAX_PIXELS:
             raise PhotoError("That photo's dimensions are too large.")
@@ -41,7 +44,8 @@ def process_upload(data: bytes) -> bytes:
         image.load()
     except PhotoError:
         raise
-    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError):
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError) as exc:
+        log.warning("photo refused: %s (%s), %d bytes, starts %s", type(exc).__name__, str(exc)[:120], len(data), data[:12].hex())
         raise PhotoError(_UNREADABLE) from None
     if image.mode in ("RGBA", "LA", "P"):
         flat = Image.new("RGB", image.size, "white")
