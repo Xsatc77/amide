@@ -1,5 +1,5 @@
 -r requirements.txt
-pytest==9.1.1
+pytest==9.2.0
 httpx==0.28.1
 # Starlette's TestClient (which the tests use) needs httpx2 from the current Starlette on.
 httpx2==2.16.2
