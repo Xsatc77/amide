@@ -15,7 +15,7 @@ pypdf==7.1.1
 reportlab==5.1.0
 pdfplumber==0.11.10
 cryptography==50.0.2
-rapidocr==3.9.2
+rapidocr==3.10.0
 onnxruntime==1.32.0
 # The headless OpenCV build has no GUI code and needs no libGL in the image. rapidocr lists plain opencv-python as a
 # dependency, so the lock leaves that one out (--exclude) and installs with --no-deps.
