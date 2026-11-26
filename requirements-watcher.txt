@@ -4,4 +4,4 @@ telethon==1.45.0
 httpx==0.28.1
 # Transitive packages held at a release that fixes published advisories.
 pyasn1==0.6.5
-certifi==2026.10.23
+certifi==2026.11.20
